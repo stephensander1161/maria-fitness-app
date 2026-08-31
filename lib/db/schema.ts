@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, integer, real, boolean, date, timestamp, jsonb,
+  pgTable, uuid, text, integer, bigint, real, boolean, date, timestamp, jsonb,
   uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 
@@ -270,6 +270,38 @@ export const messages = pgTable(
   },
   (t) => [index("messages_profile_created").on(t.profileId, t.createdAt)],
 );
+
+/**
+ * Generic rate-limit ledger: one row per attempt, keyed by an opaque bucket
+ * ("login:1.2.3.4", "chat"). Counting rows in a window is enough for a
+ * single-user app and needs no external store — in-memory counters would be
+ * useless on serverless, where every request may hit a fresh instance.
+ */
+export const rateEvents = pgTable(
+  "rate_events",
+  {
+    id: id(),
+    bucket: text("bucket").notNull(),
+    at: timestamp("at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("rate_events_bucket_at").on(t.bucket, t.at)],
+);
+
+/**
+ * Real token spend, per day, recorded from each response's usage block. This is
+ * the hard stop that makes a runaway loop or a stolen session cost pennies
+ * instead of a month's rent.
+ */
+export const usageDaily = pgTable("usage_daily", {
+  date: date("date").primaryKey(),
+  requests: integer("requests").default(0).notNull(),
+  inputTokens: integer("input_tokens").default(0).notNull(),
+  outputTokens: integer("output_tokens").default(0).notNull(),
+  cacheReadTokens: integer("cache_read_tokens").default(0).notNull(),
+  cacheWriteTokens: integer("cache_write_tokens").default(0).notNull(),
+  /** Millionths of a dollar — integer arithmetic, no float drift. */
+  costMicros: bigint("cost_micros", { mode: "number" }).default(0).notNull(),
+});
 
 export type Profile = typeof profiles.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;

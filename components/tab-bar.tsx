@@ -13,6 +13,8 @@ const TABS = [
 
 export function TabBar() {
   const path = usePathname();
+  if (path === "/login") return null;
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl">
       <div

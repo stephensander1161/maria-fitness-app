@@ -18,7 +18,45 @@ export async function loadHistory(profileId: string, limit = 40): Promise<Anthro
     content: r.content as Anthropic.ContentBlockParam[],
   })) satisfies Anthropic.MessageParam[];
 
-  return trimToValidStart(ordered);
+  return trimToValidStart(elideOldPayloads(ordered));
+}
+
+/** Most recent messages are replayed untouched; older ones get their bulky
+ *  tool payloads stripped. */
+const KEEP_VERBATIM = 6;
+const MAX_BLOCK_CHARS = 800;
+
+/**
+ * A single create_weekly_plan call can be 15,000 characters of JSON, and it
+ * would otherwise be resent on every turn for the rest of the conversation —
+ * input tokens (and cost) growing without bound.
+ *
+ * The blocks stay in place so tool_use/tool_result pairing still validates;
+ * only their payloads are replaced. The coach loses nothing it can't recover by
+ * calling get_plan or get_meal_plan, which read the live data anyway.
+ */
+function elideOldPayloads(list: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const cutoff = list.length - KEEP_VERBATIM;
+
+  return list.map((message, i) => {
+    if (i >= cutoff || typeof message.content === "string") return message;
+
+    return {
+      ...message,
+      content: message.content.map((block) => {
+        if (typeof block !== "object") return block;
+
+        if (block.type === "tool_result" && typeof block.content === "string"
+            && block.content.length > MAX_BLOCK_CHARS) {
+          return { ...block, content: "[earlier result omitted — call the tool again for current data]" };
+        }
+        if (block.type === "tool_use" && JSON.stringify(block.input ?? {}).length > MAX_BLOCK_CHARS) {
+          return { ...block, input: { _omitted: "large payload elided from history" } };
+        }
+        return block;
+      }),
+    };
+  });
 }
 
 /**

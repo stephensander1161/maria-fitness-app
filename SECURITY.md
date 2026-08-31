@@ -1,0 +1,83 @@
+# Security model
+
+Private, single-user app. The threat that matters is not data theft — it's an
+open door in front of a metered API. Anyone who can reach `/api/chat` can spend
+your Anthropic credits.
+
+## Perimeter
+
+`middleware.ts` runs on the edge and **denies by default**. Only `/login`,
+`/api/login`, `/robots.txt` and the PWA manifest are public; every other path —
+including any route added in future — is gated without anyone remembering to
+list it. An unauthenticated request never reaches the database or the model.
+
+A missing `AUTH_SECRET` returns 503 rather than falling open.
+
+## Authentication
+
+One passphrase, verified server-side by comparing HMACs (fixed length, so the
+comparison is constant time and leaks no information about the passphrase).
+Success sets a stateless signed cookie: `<expiry>.<HMAC-SHA256>`, `httpOnly`
+(unreachable from JavaScript, so XSS cannot lift it), `secure` in production,
+`sameSite=lax` (which is what makes cross-site POSTs fail, so no CSRF token is
+needed).
+
+Rotating `AUTH_SECRET` invalidates every session immediately.
+
+Brute force is capped twice: 10 attempts/hour per IP, and **40/hour globally**.
+The global ceiling is the one that matters — `x-forwarded-for` is ultimately
+client-supplied, so a per-IP limit alone can be rotated around.
+
+## Spend
+
+`lib/limits.ts` holds a hard daily ceiling checked *before* any model call, and
+records real token usage from every response's `usage` block — including each
+iteration of a tool loop, which is where a runaway would actually spend money.
+
+| Guard | Default | Env override |
+|---|---|---|
+| Daily cost | $0.50 | `DAILY_COST_LIMIT_MICROS` |
+| Messages/day | 250 | `MAX_CHAT_PER_DAY` |
+| Messages/minute | 8 | `MAX_CHAT_PER_MINUTE` |
+| Message length | 4000 chars | `MAX_MESSAGE_CHARS` |
+| Tool loop iterations | 12 | `lib/agent/model.ts` |
+
+Counters live in Postgres, not memory — on serverless every request can land on
+a fresh instance, so an in-memory counter would enforce nothing.
+
+When the ceiling trips, chat pauses until tomorrow. Logging, plans, progress and
+every other screen keep working.
+
+> **If you change `COACH_MODEL`, update `PRICING` in `lib/agent/model.ts`.**
+> Pricing the wrong model silently disarms the cap.
+
+## Cost shape
+
+Steady-state is roughly **$0.0013 per turn** with a warm prompt cache, rising to
+about $0.013 on the first message after a gap (the cache has a 5-minute TTL, and
+a cold write bills at 1.25× input). History is bounded: tool payloads older than
+the last six messages are elided on replay, so a 15,000-character plan-generation
+call isn't resent forever.
+
+## Application surface
+
+- The API key is read only in server code (`lib/env.ts`) and never reaches the browser.
+- Coach output renders through `components/rich-text.tsx`, which builds React
+  nodes. Nothing in the app uses `dangerouslySetInnerHTML`.
+- Every tool input is parsed with Zod before the handler runs; bad arguments
+  return a correctable message rather than throwing.
+- Tool handlers are scoped to a `profileId` supplied by the server, never the client.
+- `/api/action` logs errors server-side and returns a generic message — stack
+  traces and database errors are reconnaissance.
+- CSP allows no external origins at all. `connect-src 'self'` means that even if
+  something coaxed a malicious URL out of the model, the browser has nowhere to
+  send anything.
+- `robots.txt` disallows everything and `X-Robots-Tag: noindex` is set on every
+  response, so the deployment URL should not turn up in search.
+
+## What this does not protect against
+
+- Someone who knows the passphrase. Change it if it leaks; sessions survive a
+  passphrase change, so rotate `AUTH_SECRET` too if you need to force logouts.
+- A compromised Anthropic key used *outside* this app. The in-app ceiling can't
+  see that — set a spend limit on the Console workspace as well.

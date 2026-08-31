@@ -17,9 +17,9 @@ export async function POST(req: Request) {
     const result = await runTool(tool, input ?? {}, { profileId: profile.id });
     return Response.json({ ok: true, result });
   } catch (err) {
-    return Response.json(
-      { ok: false, error: err instanceof Error ? err.message : "Action failed" },
-      { status: 500 },
-    );
+    // Log server-side; return nothing specific. Database errors and stack
+    // traces are reconnaissance, not user-facing information.
+    console.error("[action]", tool, err);
+    return Response.json({ ok: false, error: "That didn't work." }, { status: 500 });
   }
 }

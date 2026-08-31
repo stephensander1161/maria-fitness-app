@@ -40,3 +40,20 @@ a timestamp in the persona silently kills the cache.
 `lib/agent/model.ts`. On Haiku 4.5 (current default) do not send
 `thinking: {type: "adaptive"}` or `output_config.effort` — that model predates
 both. They're available and worth enabling after switching to Opus 5.
+
+## Security invariants — do not regress these
+
+- `middleware.ts` denies by default. Never convert it to an allow-list of
+  protected paths; new routes must be protected automatically. Adding to
+  `PUBLIC_PATHS` exposes something publicly — treat it as a deliberate decision.
+- A missing `AUTH_SECRET` must fail closed (503), never fall open.
+- Every model call goes through `checkChatAllowed()` first, and every response's
+  usage through `recordUsage()` — including inside the tool loop.
+- If `COACH_MODEL` changes, `PRICING` in `lib/agent/model.ts` must change with
+  it, or the spend cap computes against the wrong prices.
+- Rate-limit and usage state belongs in Postgres. In-memory counters do not work
+  on serverless and would silently enforce nothing.
+- Never render model output as HTML. `components/rich-text.tsx` builds React
+  nodes on purpose.
+
+See SECURITY.md for the full model.

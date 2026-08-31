@@ -51,11 +51,18 @@ Keeping that seam clean is what stops the agent and the UI from drifting apart.
 - Chat history stores raw Anthropic content blocks, so `tool_use`/`tool_result`
   pairs replay verbatim across sessions.
 
+## Security
+
+The app is gated by edge middleware that denies every path by default, behind a
+passphrase and a signed httpOnly cookie. A hard daily spend ceiling ($0.50 by
+default) is enforced before any model call, with real token usage recorded from
+every response. Full details in [SECURITY.md](./SECURITY.md).
+
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env        # add ANTHROPIC_API_KEY and DATABASE_URL
+cp .env.example .env        # ANTHROPIC_API_KEY, DATABASE_URL, AUTH_SECRET, APP_PASSPHRASE
 npm run setup               # push schema + seed exercises and facts
 npm run dev
 ```

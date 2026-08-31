@@ -1,5 +1,6 @@
 import { runCoach, type CoachEvent } from "@/lib/agent/loop";
 import { getProfile } from "@/lib/profile";
+import { checkChatAllowed, LIMITS } from "@/lib/limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -9,9 +10,21 @@ export const maxDuration = 120;
  * ever sees text deltas and tool-progress labels.
  */
 export async function POST(req: Request) {
-  const { message, silent } = (await req.json()) as { message?: string; silent?: boolean };
-  if (!message?.trim()) {
+  const { message, silent } = (await req.json().catch(() => ({}))) as {
+    message?: string;
+    silent?: boolean;
+  };
+  if (typeof message !== "string" || !message.trim()) {
     return Response.json({ error: "Message required" }, { status: 400 });
+  }
+  if (message.length > LIMITS.maxMessageChars) {
+    return Response.json({ error: "That message is too long." }, { status: 413 });
+  }
+
+  // Rate and spend ceiling, checked before a single token is bought.
+  const gate = await checkChatAllowed();
+  if (!gate.allowed) {
+    return Response.json({ error: gate.reason }, { status: 429 });
   }
 
   const profile = await getProfile();

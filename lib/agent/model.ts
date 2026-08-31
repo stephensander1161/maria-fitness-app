@@ -12,3 +12,18 @@ export const MAX_TOKENS = 16_000;
 
 /** Safety rail on the tool loop — a coaching turn should never need this many. */
 export const MAX_TOOL_ITERATIONS = 12;
+
+/**
+ * USD per million tokens, for the spend ceiling. These MUST be updated
+ * alongside MODEL: pricing the wrong model would silently disarm the cap that
+ * keeps a runaway loop from costing real money.
+ *
+ * Haiku 4.5: $1.00 in / $5.00 out. Cache writes bill at 1.25x input, cache
+ * reads at 0.1x. (Opus 5 / Sonnet 5 are $5/$25 and $2/$10 respectively.)
+ */
+export const PRICING = {
+  input: 1.0,
+  output: 5.0,
+  cacheWrite: 1.25,
+  cacheRead: 0.1,
+} as const;

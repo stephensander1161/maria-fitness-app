@@ -5,6 +5,7 @@ import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
 import { todaySnapshot } from "@/lib/progress";
+import { recordUsage } from "@/lib/limits";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
@@ -46,6 +47,26 @@ const TOOL_LABELS: Record<string, string> = {
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");
 
 /**
+ * A second cache breakpoint at the end of the replayed history. The persona
+ * breakpoint only covers tools + system; the conversation is the larger and
+ * faster-growing half, and without this it is re-read at full price every turn.
+ *
+ * Each turn appends after the breakpoint, so the cached prefix stays a valid
+ * prefix and keeps hitting.
+ */
+function markCachePoint(history: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const last = history.at(-1);
+  if (!last || typeof last.content === "string" || last.content.length === 0) return history;
+
+  const blocks = [...last.content];
+  const final = blocks.at(-1);
+  if (!final || typeof final !== "object") return history;
+
+  blocks[blocks.length - 1] = { ...final, cache_control: { type: "ephemeral" } } as Anthropic.ContentBlockParam;
+  return [...history.slice(0, -1), { ...last, content: blocks }];
+}
+
+/**
  * Manual streaming tool loop. Manual rather than the SDK tool runner because
  * every turn is persisted block-by-block and surfaced to the browser as it
  * happens — we need the seam between iterations.
@@ -60,7 +81,10 @@ export async function* runCoach(
 
   const history = await loadHistory(profile.id);
   const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];
-  const conversation: Anthropic.MessageParam[] = [...history, { role: "user", content: userContent }];
+  const conversation: Anthropic.MessageParam[] = [
+    ...markCachePoint(history),
+    { role: "user", content: userContent },
+  ];
 
   // A silent turn is a system nudge (e.g. the daily check-in), not something
   // she typed — keep it out of the visible transcript but in the model's context.
@@ -93,6 +117,11 @@ export async function* runCoach(
       }
 
       const message = await stream.finalMessage();
+
+      // Bill every iteration, not just the last — a tool loop is where a
+      // runaway would actually spend the money.
+      await recordUsage(message.usage);
+
       const assistantContent = message.content as Anthropic.ContentBlockParam[];
       await saveMessage(profile.id, "assistant", assistantContent);
       conversation.push({ role: "assistant", content: assistantContent });
