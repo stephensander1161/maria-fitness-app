@@ -20,13 +20,13 @@ export type CoachEvent =
 
 /** Consume the coach's SSE stream as an async iterable of events. */
 export async function* streamCoach(
-  message: string,
-  opts: { silent?: boolean; signal?: AbortSignal } = {},
+  body: { message: string } | { kickoff: true },
+  opts: { signal?: AbortSignal } = {},
 ): AsyncGenerator<CoachEvent> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, silent: opts.silent }),
+    body: JSON.stringify(body),
     signal: opts.signal,
   });
   if (!res.body) throw new Error("No response stream");

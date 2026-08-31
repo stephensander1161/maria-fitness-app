@@ -27,15 +27,11 @@ export function Coach({ initialName }: { initialName: string | null }) {
   const scroll = () => bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   useEffect(scroll, [messages, streaming, activity]);
 
-  const send = useCallback(async (text: string, silent = false) => {
-    setBusy(true);
-    setError(null);
-    setInput("");
-    if (!silent) setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
-
+  /** Shared streaming path for both a typed message and the opening turn. */
+  const stream = useCallback(async (body: { message: string } | { kickoff: true }) => {
     let acc = "";
     try {
-      for await (const event of streamCoach(text, { silent })) {
+      for await (const event of streamCoach(body)) {
         if (event.type === "text") { acc += event.text; setStreaming(acc); setActivity(null); }
         else if (event.type === "tool") setActivity(event.status === "running" ? LABELS[event.name] ?? "working" : null);
         else if (event.type === "error") setError(event.message);
@@ -50,6 +46,17 @@ export function Coach({ initialName }: { initialName: string | null }) {
     setBusy(false);
   }, []);
 
+  const send = useCallback(
+    async (text: string) => {
+      setBusy(true);
+      setError(null);
+      setInput("");
+      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
+      await stream({ message: text });
+    },
+    [stream],
+  );
+
   // Load the transcript, and if there isn't one, let the coach open the
   // conversation itself — this app greets her, it doesn't wait to be prompted.
   useEffect(() => {
@@ -60,13 +67,11 @@ export function Coach({ initialName }: { initialName: string | null }) {
       setLoaded(true);
       if (data.messages.length === 0 && !kicked.current) {
         kicked.current = true;
-        void send(
-          "[System: she just opened the app for the first time. Introduce yourself briefly and warmly, then start onboarding by asking what she's hoping to change and why it matters to her. Do not ask for numbers yet.]",
-          true,
-        );
+        setBusy(true);
+        void stream({ kickoff: true });
       }
     })();
-  }, [send]);
+  }, [stream]);
 
   return (
     <div className="flex min-h-[calc(100dvh-7rem)] flex-col">

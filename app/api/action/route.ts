@@ -9,8 +9,13 @@ export const runtime = "nodejs";
  * end up in exactly the same code path.
  */
 export async function POST(req: Request) {
-  const { tool, input } = (await req.json()) as { tool?: string; input?: unknown };
-  if (!tool) return Response.json({ error: "tool required" }, { status: 400 });
+  const { tool, input } = (await req.json().catch(() => ({}))) as {
+    tool?: string;
+    input?: unknown;
+  };
+  if (typeof tool !== "string") {
+    return Response.json({ error: "tool required" }, { status: 400 });
+  }
 
   const profile = await getProfile();
   try {

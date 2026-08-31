@@ -15,6 +15,11 @@ const PUBLIC_PATHS = new Set([
   // and iOS fetches the manifest when adding to the home screen.
   "/robots.txt",
   "/manifest.webmanifest",
+  // Icons are exact paths, never prefixes — a lookahead like `icon` in the
+  // matcher would also have let /iconoclast through.
+  "/icon",
+  "/apple-icon",
+  "/favicon.ico",
 ]);
 
 export function middleware(req: NextRequest) {
@@ -44,5 +49,8 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Everything except Next's own static output and the icon.
-  matcher: ["/((?!_next/static|_next/image|icon|apple-icon|favicon.ico).*)"],
+  // Only Next's own immutable build output is skipped, and only with the
+  // trailing slash so /_next/staticfoo is still gated. Everything else runs
+  // through middleware and is matched against PUBLIC_PATHS exactly.
+  matcher: ["/((?!_next/static/|_next/image/).*)"],
 };

@@ -104,3 +104,13 @@ export async function recentForDisplay(profileId: string, limit = 40) {
     })
     .filter((m) => m.text.length > 0);
 }
+
+/** Guards the one-time opening turn so it can't be replayed to spend tokens. */
+export async function hasHistory(profileId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(eq(messages.profileId, profileId))
+    .limit(1);
+  return row !== undefined;
+}
