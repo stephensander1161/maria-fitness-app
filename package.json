@@ -14,7 +14,10 @@
     "db:seed": "tsx --env-file=.env lib/seed/run.ts",
     "setup": "npm run db:push && npm run db:seed",
     "db:reset": "tsx --env-file=.env lib/seed/reset.ts",
-    "feedback": "tsx --env-file=.env scripts/feedback.ts"
+    "feedback": "tsx --env-file=.env scripts/feedback.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "tsx --env-file=.env evals/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
@@ -30,11 +33,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }
