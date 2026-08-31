@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { streamCoach } from "@/lib/client";
 import { RichText } from "./rich-text";
+import { Boost } from "./boost";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 
@@ -21,11 +22,15 @@ export function Coach({ initialName }: { initialName: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [boosting, setBoosting] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
 
-  const scroll = () => bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  useEffect(scroll, [messages, streaming, activity]);
+  // Block body on purpose: an expression-bodied arrow hands its value back to
+  // React as the effect's cleanup, and React then tries to call it.
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, streaming, activity]);
 
   /** Shared streaming path for both a typed message and the opening turn. */
   const stream = useCallback(async (body: { message: string } | { kickoff: true }) => {
@@ -79,10 +84,24 @@ export function Coach({ initialName }: { initialName: string | null }) {
         <h1 className="text-2xl font-bold tracking-tight">
           {initialName ? `Hey, ${initialName}` : "Coach"}
         </h1>
-        <span className="text-xs text-faint">
-          {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-faint">
+            {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+          </span>
+          <button
+            onClick={() => setBoosting(true)}
+            aria-label="Give me a boost"
+            className="grid size-9 place-items-center rounded-full border border-line bg-surface text-accent active:bg-raised"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5Z" />
+            </svg>
+          </button>
+        </div>
       </header>
+
+      {boosting && <Boost onClose={() => setBoosting(false)} />}
 
       <div className="flex-1 space-y-3">
         {messages.map((m) =>

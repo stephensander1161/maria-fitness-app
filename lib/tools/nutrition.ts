@@ -1,9 +1,10 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { facts, factViews, mealLogs, mealPlans, meals, profiles } from "@/lib/db/schema";
+import { mealLogs, mealPlans, meals, profiles } from "@/lib/db/schema";
 import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
+import { pickUnseenFact } from "@/lib/facts";
 import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -203,23 +204,8 @@ export const getFact = defineTool({
       .optional().describe("Omit to let it pick"),
   }),
   handler: async (input, ctx) => {
-    const seen = db.select({ id: factViews.factId }).from(factViews)
-      .where(eq(factViews.profileId, ctx.profileId));
-
-    const filters = [notInArray(facts.id, seen)];
-    if (input.category) filters.push(eq(facts.category, input.category));
-
-    let [row] = await db.select().from(facts).where(and(...filters))
-      .orderBy(sql`random()`).limit(1);
-
-    // Every fact seen at least once — start recycling the oldest-shown.
-    if (!row) {
-      [row] = await db.select().from(facts)
-        .where(input.category ? eq(facts.category, input.category) : undefined)
-        .orderBy(sql`random()`).limit(1);
-      if (!row) return { error: "No facts seeded yet." };
-    }
-    await db.insert(factViews).values({ profileId: ctx.profileId, factId: row.id, shownOn: today() });
-    return { category: row.category, fact: row.text, source: row.source };
+    const fact = await pickUnseenFact(ctx.profileId, input.category);
+    if (!fact) return { error: "No facts seeded yet." };
+    return { category: fact.category, fact: fact.text, source: fact.source };
   },
 });

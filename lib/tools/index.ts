@@ -6,6 +6,7 @@ import * as nutrition from "./nutrition";
 import * as body from "./measurements";
 import * as feedback from "./feedback";
 import * as budget from "./budget";
+import * as boost from "./boost";
 import * as photos from "./photos";
 
 /**
@@ -30,6 +31,7 @@ const all: Tool[] = [
   nutrition.getDayNutrition,
   training.getExerciseGuide,
   training.getExerciseHistory,
+  boost.getBoost,
   budget.getCoachUsage,
   nutrition.getFact,
   feedback.listFeedback,
