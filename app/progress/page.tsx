@@ -6,9 +6,11 @@ import { currentStreak, measurementProgress, weekReview } from "@/lib/progress";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
-import { prettyDate } from "@/lib/date";
+import { prettyDate, today } from "@/lib/date";
 import { SignOut } from "@/components/sign-out";
 import { Measurements } from "@/components/measurements";
+import { ProgressPhotos } from "@/components/photos";
+import { photoLibrary } from "@/lib/photos";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +19,14 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const [history, milestones, review, streak, sites] = await Promise.all([
+  const [history, milestones, review, streak, sites, library] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
-    weekReview(profile.id),
+    weekReview(profile.id, u),
     currentStreak(profile.id),
     measurementProgress(profile.id, u),
+    photoLibrary(profile.id),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -37,9 +40,15 @@ export default async function ProgressPage() {
       ? Math.max(0, Math.min(100, ((start - current) / (start - goal)) * 100))
       : null;
 
+  // Logging a weigh-in is the reason she opens this screen, so it sits above
+  // everything — reachable without scrolling.
+  const weighedInToday = history[0]?.date === today();
+
   return (
     <>
-      <h1 className="mb-5 text-2xl font-bold tracking-tight">Progress</h1>
+      <h1 className="mb-4 text-2xl font-bold tracking-tight">Progress</h1>
+
+      <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
       <section className="card mb-3 p-5">
         <div className="flex items-end justify-between">
@@ -70,13 +79,11 @@ export default async function ProgressPage() {
         <div className="mt-4">
           <Sparkline points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)} goal={goal} />
         </div>
-
-        <div className="mt-3">
-          <WeighIn current={current} unit={unit} />
-        </div>
       </section>
 
       <Measurements sites={sites} unit={lengthLabel(u)} />
+
+      <ProgressPhotos photos={library.photos} total={library.total} />
 
       <section className="card mb-3 p-5">
         <h2 className="mb-3 text-[15px] font-semibold">This week</h2>

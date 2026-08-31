@@ -81,6 +81,35 @@ export const measurements = pgTable(
   ],
 );
 
+/**
+ * Progress photos. The image itself lives in this row as base64 JPEG — no blob
+ * store, no second service, no bill. Resized client-side to 800px on the long
+ * edge at ~0.75 quality, so a photo is roughly 60–120KB of base64 text and a
+ * year of weekly photos costs a few megabytes of the database.
+ *
+ * The client-side canvas re-encode also strips EXIF, which matters more than it
+ * sounds: phone photos carry GPS coordinates of the room she took them in.
+ *
+ * Base64 image data must never be handed to the model — see lib/tools/photos.ts.
+ */
+export const photos = pgTable(
+  "photos",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    /** Front/side/back, so like is compared with like. Optional — an unlabelled
+     *  photo is better than no photo. */
+    pose: text("pose", { enum: ["front", "side", "back"] }),
+    /** Base64 JPEG payload, without the `data:image/jpeg;base64,` prefix. */
+    data: text("data").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("photos_profile_date").on(t.profileId, t.date)],
+);
+
 /** Long-term goals and the milestones that ladder up to them. */
 export const goals = pgTable("goals", {
   id: id(),
@@ -365,4 +394,5 @@ export type Goal = typeof goals.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type Fact = typeof facts.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;
+export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;

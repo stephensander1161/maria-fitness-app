@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { action } from "@/lib/client";
+import {
+  logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
+} from "@/lib/offline";
+import { RestTimerBar, unlockAudio, type Rest } from "@/components/rest-timer";
 import type { TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
@@ -15,17 +19,63 @@ const TONE = {
   first: "border-line bg-raised text-muted",
 } as const;
 
+const NO_PENDING: PendingSet[] = [];
+
 export function TrainClient({ view }: { view: TodayView }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
-  const totalLogged = view.exercises.reduce((n, e) => n + e.loggedToday.length, 0);
+  const [error, setError] = useState<string | null>(null);
+  const [rest, setRest] = useState<Rest | null>(null);
+
+  // Sets that failed to reach the server. They count as logged on screen —
+  // she did the work, and the queue will deliver them.
+  const pending = usePendingSets();
+  const onFlushed = useCallback(() => router.refresh(), [router]);
+  const flush = useFlushPendingSets(onFlushed);
+
+  const pendingFor = useMemo(() => {
+    const map = new Map<string, PendingSet[]>();
+    for (const p of pending) {
+      const list = map.get(p.input.exerciseSlug);
+      if (list) list.push(p);
+      else map.set(p.input.exerciseSlug, [p]);
+    }
+    return map;
+  }, [pending]);
+
+  const totalLogged =
+    view.exercises.reduce((n, e) => n + e.loggedToday.length, 0) + pending.length;
+
+  const startRest = useCallback((exercise: TodayExercise) => {
+    if (exercise.restSeconds <= 0) return;
+    setRest({
+      slug: exercise.slug,
+      name: exercise.name,
+      // An absolute end time, so a throttled or sleeping tab cannot drift it.
+      endsAt: Date.now() + exercise.restSeconds * 1000,
+      seconds: exercise.restSeconds,
+    });
+  }, []);
+
+  const extendRest = useCallback((seconds: number) => {
+    setRest((r) =>
+      r ? { ...r, endsAt: Math.max(r.endsAt, Date.now()) + seconds * 1000, seconds: r.seconds + seconds } : r,
+    );
+  }, []);
+  const dismissRest = useCallback(() => setRest(null), []);
 
   async function finish(feeling: number) {
     setFinishing(true);
+    setError(null);
     try {
+      // Anything still queued belongs in this session's summary.
+      await flush();
       await action("finish_workout", { feeling });
+      setRest(null);
       router.refresh();
+    } catch {
+      setError("Couldn't close out the session — check your signal and try again.");
     } finally {
       setFinishing(false);
     }
@@ -48,13 +98,25 @@ export function TrainClient({ view }: { view: TodayView }) {
 
   return (
     <div className="space-y-4">
+      {rest && <RestTimerBar rest={rest} onExtend={extendRest} onDismiss={dismissRest} />}
+
+      {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
+
       {view.exercises.map((ex) => (
         <ExerciseCard
           key={ex.slug}
           exercise={ex}
           unit={view.unit}
           result={feedback[ex.slug]}
-          onLogged={(r) => { setFeedback((f) => ({ ...f, [ex.slug]: r })); router.refresh(); }}
+          pending={pendingFor.get(ex.slug) ?? NO_PENDING}
+          onLogged={(r) => {
+            if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
+            startRest(ex);
+            // Nothing new to fetch while the set is sitting in the outbox, and
+            // a refresh with no signal just hangs.
+            if (r) router.refresh();
+          }}
+          onRetryPending={flush}
         />
       ))}
 
@@ -80,37 +142,85 @@ export function TrainClient({ view }: { view: TodayView }) {
             </div>
           </>
         )}
+        {error && <p className="mt-3 text-center text-[13px] text-miss">{error}</p>}
       </div>
     </div>
   );
 }
 
+/** "N sets pending" — the whole point is that she can see nothing was lost. */
+function PendingBanner({ count, onRetry }: { count: number; onRetry: () => void }) {
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+
+  return (
+    <button
+      onClick={() => onRetry()}
+      className="flex w-full items-center gap-3 rounded-xl border border-hold/30 bg-hold-soft px-3 py-2.5 text-left"
+    >
+      <span className="size-2 shrink-0 animate-pulse rounded-full bg-hold" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium text-hold tabular">
+          {count} set{count === 1 ? "" : "s"} pending
+        </span>
+        <span className="block text-[12px] text-hold/70">
+          {online ? "Saving…" : "Saved on your phone — they'll go up when you have signal."}
+        </span>
+      </span>
+      <span className="shrink-0 text-[12px] font-semibold text-hold">Retry</span>
+    </button>
+  );
+}
+
 function ExerciseCard({
-  exercise, unit, result, onLogged,
+  exercise, unit, result, pending, onLogged, onRetryPending,
 }: {
   exercise: TodayExercise; unit: string;
-  result?: LogResult; onLogged: (r: LogResult) => void;
+  result?: LogResult; pending: PendingSet[];
+  onLogged: (r: LogResult | null) => void;
+  onRetryPending: () => void;
 }) {
   const done = exercise.loggedToday;
-  // Prefill from what she did on the last set today, else last session, else target.
+  const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
+  // Prefill from what she did on the last set today — including one still in
+  // the outbox — else last session, else target.
   const seedWeight =
-    done.at(-1)?.weight ?? exercise.lastTime?.sets.at(-1)?.weight ?? exercise.targetWeight ?? 0;
-  const seedReps = done.at(-1)?.reps ?? exercise.targetReps;
+    queued.at(-1)?.weight ?? done.at(-1)?.weight ??
+    exercise.lastTime?.sets.at(-1)?.weight ?? exercise.targetWeight ?? 0;
+  const seedReps = queued.at(-1)?.reps ?? done.at(-1)?.reps ?? exercise.targetReps;
 
   const [weight, setWeight] = useState(seedWeight);
   const [reps, setReps] = useState(seedReps);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const setCount = done.length + queued.length;
 
   async function logSet() {
     setSaving(true);
+    setError(null);
+    // Her tap is the gesture iOS requires before the rest beep can ever sound.
+    unlockAudio();
     try {
-      const r = await action<LogResult>("log_set", {
-        exerciseSlug: exercise.slug,
-        reps,
-        weight: exercise.bodyweight ? null : weight,
-      });
-      onLogged(r);
+      const outcome = await logSetOrQueue<LogResult>(
+        setInput(exercise.slug, reps, exercise.bodyweight ? null : weight),
+      );
+      onLogged(outcome.result);
+      // A good call is also the moment to drain anything stuck from earlier.
+      if (!outcome.queued) onRetryPending();
+    } catch {
+      setError("That didn't save — tap to try again.");
     } finally {
       setSaving(false);
     }
@@ -147,15 +257,21 @@ function ExerciseCard({
 
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
 
-      {/* Set dots — a glance tells her how much is left. */}
+      {/* Set dots — a glance tells her how much is left. A dot for a queued set
+          looks logged, because it is; the outline says it hasn't gone up yet. */}
       <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-        {Array.from({ length: Math.max(exercise.targetSets, done.length) }).map((_, i) => {
-          const s = done[i];
+        {Array.from({ length: Math.max(exercise.targetSets, setCount) }).map((_, i) => {
+          const s = done[i] ?? queued[i - done.length];
+          const isQueued = i >= done.length && i < setCount;
           return (
             <div
               key={i}
               className={`flex h-9 min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
-                s ? "bg-accent text-ink" : "border border-dashed border-line text-faint"
+                isQueued
+                  ? "border border-dashed border-accent bg-accent-soft text-accent"
+                  : s
+                    ? "bg-accent text-ink"
+                    : "border border-dashed border-line text-faint"
               }`}
             >
               {s ? `${s.reps}${s.weight !== null ? `×${s.weight}` : ""}` : "—"}
@@ -194,8 +310,9 @@ function ExerciseCard({
               disabled={saving}
               className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink active:opacity-80 disabled:opacity-50"
             >
-              {saving ? "Saving…" : `Log set ${done.length + 1}`}
+              {saving ? "Saving…" : `Log set ${setCount + 1}`}
             </button>
+            {error && <p className="text-center text-[13px] text-miss">{error}</p>}
           </div>
         )}
       </div>

@@ -1,14 +1,52 @@
 "use client";
 
+/**
+ * Why an action failed. `status` is null when the request never reached the
+ * server at all — offline, DNS, a dropped connection in a gym basement. That
+ * case and a 5xx are the only ones worth retrying later; a 4xx is a real
+ * rejection and replaying it would just fail again.
+ */
+export class ActionError extends Error {
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null) {
+    super(message);
+    this.name = "ActionError";
+    this.status = status;
+  }
+
+  get isNetworkFailure() {
+    return this.status === null;
+  }
+
+  /** Safe to queue and send again once the signal is back. */
+  get retriable() {
+    return this.status === null || this.status >= 500;
+  }
+}
+
 /** Thin wrapper over /api/action — the browser's door into the tool registry. */
 export async function action<T = unknown>(tool: string, input: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch("/api/action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tool, input }),
-  });
-  const json = await res.json();
-  if (!res.ok || !json.ok) throw new Error(json.error ?? "Action failed");
+  let res: Response;
+  try {
+    res = await fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tool, input }),
+    });
+  } catch {
+    // fetch only rejects when the request never completed — that is the
+    // signal-dropped case, and the one the offline queue exists for.
+    throw new ActionError("No connection", null);
+  }
+
+  // A gateway or a login redirect can answer with something that isn't JSON;
+  // treat that as a failure carrying the real status rather than throwing raw.
+  const json = (await res.json().catch(() => null)) as
+    | { ok?: boolean; error?: string; result?: unknown }
+    | null;
+
+  if (!res.ok || !json?.ok) throw new ActionError(json?.error ?? "Action failed", res.status);
   return json.result as T;
 }
 

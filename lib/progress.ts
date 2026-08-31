@@ -2,7 +2,7 @@ import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
 import { addDays, type ISODate, today, weekStart } from "@/lib/date";
-import { lengthLabel, lengthOut, type Units } from "@/lib/units";
+import { kgToLb, lengthLabel, lengthOut, weightLabel, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
@@ -23,7 +23,8 @@ export type Performance = {
   bestSet: SetSummary | null;
 };
 
-function summarise(date: ISODate, rows: SetSummary[]): Performance {
+/** Aggregate one day's sets into the numbers every comparison is built on. */
+export function summarise(date: ISODate, rows: SetSummary[]): Performance {
   const totalReps = rows.reduce((n, s) => n + s.reps, 0);
   const volumeKg = rows.reduce((n, s) => n + (s.weightKg ?? 0) * s.reps, 0);
   let bestSet: SetSummary | null = null;
@@ -81,14 +82,113 @@ function pct(now: number, before: number): number | null {
   return ((now - before) / before) * 100;
 }
 
-function describe(sets: SetSummary[]): string {
+/** The short human rendering of one session's sets: `3×10 @ 88lb`, or a
+ *  per-set list when the sets weren't uniform. */
+export function describe(sets: SetSummary[], units: Units): string {
   if (sets.length === 0) return "nothing logged";
+  const unit = weightLabel(units);
+  // Round once, from the raw conversion: weightOut rounds to 0.1 first, and
+  // rounding that again turns 220.46 lb into 221.
+  const show = (kg: number) => Math.round(units === "imperial" ? kgToLb(kg) : kg);
+
   const w = sets[0].weightKg;
   const sameWeight = sets.every((s) => s.weightKg === w);
   const sameReps = sets.every((s) => s.reps === sets[0].reps);
-  const load = w === null ? "" : ` @ ${Math.round(w * 2.20462)}lb`;
-  if (sameWeight && sameReps) return `${sets.length}×${sets[0].reps}${load}`;
-  return sets.map((s) => `${s.reps}${s.weightKg === null ? "" : `@${Math.round(s.weightKg * 2.20462)}`}`).join(", ");
+  if (sameWeight && sameReps) {
+    return `${sets.length}×${sets[0].reps}${w === null ? "" : ` @ ${show(w)}${unit}`}`;
+  }
+  return sets
+    .map((s) => `${s.reps}${s.weightKg === null ? "" : `@${show(s.weightKg)}`}`)
+    .join(", ");
+}
+
+/**
+ * The verdict, with no database in the way: did this session beat, match, or
+ * fall short of the one before it? Pure so it can be tested exhaustively — the
+ * classification is the app's core promise, so it must not depend on I/O.
+ *
+ * A 2% band absorbs rounding on plate jumps so a genuine repeat reads as
+ * "matched"; more total reps also counts as beating it.
+ */
+/** Rounding on plate jumps shouldn't read as a real change. */
+const BAND = 0.02;
+/** A double-digit drop in top-end strength is real, not noise. */
+const INTENSITY_COLLAPSE = 0.10;
+/**
+ * Volume needs a far looser threshold than intensity. Moving from 3×10 to 3×8
+ * at a heavier weight is a normal rep-scheme change that drops volume ~16%, and
+ * calling that a failure would be a lie in the other direction. A third of the
+ * work vanishing is a different thing entirely.
+ */
+const VOLUME_COLLAPSE = 0.35;
+
+const rose = (now: number, before: number) => before > 0 && now > before * (1 + BAND);
+const fell = (now: number, before: number) => before > 0 && now < before * (1 - BAND);
+const droppedBy = (now: number, before: number, threshold: number) =>
+  before > 0 && now < before * (1 - threshold);
+
+/**
+ * Compare two sessions on BOTH axes — intensity (best-set estimated 1RM) and
+ * work done (volume, or total reps when there's no load).
+ *
+ * Judging on one axis alone lies in both directions: rating by reps calls a
+ * 100kg×5 session that became 10×3 at 20kg a win, and rating by top-set weight
+ * calls dropping four of five sets "held level" while volume falls 80%. For an
+ * app whose promise is saying plainly when she came up short, either is a
+ * defect. So a collapse on either axis is a shortfall regardless of the other,
+ * and nothing counts as beating last time while something fell off a cliff.
+ */
+export function classify(
+  previous: Performance,
+  current: Performance,
+): {
+  status: Exclude<Comparison["status"], "first">;
+  e1rmDeltaPct: number | null;
+  volumeDeltaPct: number | null;
+} {
+  const deltas = {
+    e1rmDeltaPct: pct(current.bestE1rm, previous.bestE1rm),
+    volumeDeltaPct: pct(current.volumeKg, previous.volumeKg),
+  };
+
+  // With no load on either side there is only one axis. Estimated 1RM
+  // degenerates to the best set's rep count, which would call 1×50 → 2×25 a 50%
+  // collapse despite identical work, so judge bodyweight on total reps alone.
+  const bodyweight = previous.volumeKg === 0 && current.volumeKg === 0;
+  if (bodyweight) {
+    const status = previous.totalReps === 0 && current.totalReps > 0
+      ? "beat"
+      : rose(current.totalReps, previous.totalReps)
+        ? "beat"
+        : fell(current.totalReps, previous.totalReps)
+          ? "missed"
+          : "matched";
+    return { status, ...deltas };
+  }
+
+  const intensityFell = fell(current.bestE1rm, previous.bestE1rm);
+  const intensityRose = rose(current.bestE1rm, previous.bestE1rm);
+
+  const wentBackwards =
+    droppedBy(current.bestE1rm, previous.bestE1rm, INTENSITY_COLLAPSE) ||
+    droppedBy(current.volumeKg, previous.volumeKg, VOLUME_COLLAPSE) ||
+    // Neither drop alone is dramatic, but down on both axes is still down.
+    (intensityFell && fell(current.volumeKg, previous.volumeKg));
+
+  // Her first recorded work on a movement beats having done none of it.
+  const fromNothing = previous.volumeKg === 0 && current.volumeKg > 0;
+
+  const status = wentBackwards
+    ? "missed"
+    // Top set down but volume up — an extra light set does not make it a better
+    // session, and "up from last time" would be the wrong thing to tell her.
+    : intensityFell
+      ? "matched"
+      : fromNothing || intensityRose || rose(current.volumeKg, previous.volumeKg)
+        ? "beat"
+        : "matched";
+
+  return { status, ...deltas };
 }
 
 /**
@@ -100,6 +200,7 @@ function describe(sets: SetSummary[]): string {
 export async function compareToPrevious(
   profileId: string,
   exerciseId: string,
+  units: Units,
 ): Promise<Comparison> {
   const [ex] = await db.select().from(exercises).where(eq(exercises.id, exerciseId)).limit(1);
   const history = await exerciseHistory(profileId, exerciseId, 2);
@@ -114,25 +215,17 @@ export async function compareToPrevious(
   if (!previous) {
     return { exerciseId, exerciseName: name, previous: null, current, status: "first",
       e1rmDeltaPct: null, volumeDeltaPct: null,
-      headline: `First time logging ${name}: ${describe(current.sets)}. That's the baseline to beat.` };
+      headline: `First time logging ${name}: ${describe(current.sets, units)}. That's the baseline to beat.` };
   }
 
-  const e1rmDeltaPct = pct(current.bestE1rm, previous.bestE1rm);
-  const volumeDeltaPct = pct(current.volumeKg, previous.volumeKg);
-  // A 2% band absorbs rounding on plate jumps so a genuine repeat reads as "matched".
-  const status: Comparison["status"] =
-    current.bestE1rm > previous.bestE1rm * 1.02 || current.totalReps > previous.totalReps
-      ? "beat"
-      : current.bestE1rm >= previous.bestE1rm * 0.98
-        ? "matched"
-        : "missed";
+  const { status, e1rmDeltaPct, volumeDeltaPct } = classify(previous, current);
 
   const headline =
     status === "beat"
-      ? `${name}: ${describe(current.sets)} — up from ${describe(previous.sets)} last time.`
+      ? `${name}: ${describe(current.sets, units)} — up from ${describe(previous.sets, units)} last time.`
       : status === "matched"
-        ? `${name}: ${describe(current.sets)} — held level with last time.`
-        : `${name}: ${describe(current.sets)} — down from ${describe(previous.sets)} last time.`;
+        ? `${name}: ${describe(current.sets, units)} — held level with last time.`
+        : `${name}: ${describe(current.sets, units)} — down from ${describe(previous.sets, units)} last time.`;
 
   return { exerciseId, exerciseName: name, previous, current, status, e1rmDeltaPct, volumeDeltaPct, headline };
 }
@@ -203,7 +296,11 @@ export type WeekReview = {
  * The weekly honesty report. Feeds both the Progress screen and the coach's
  * Monday check-in — one computation, two surfaces.
  */
-export async function weekReview(profileId: string, week: ISODate = weekStart()): Promise<WeekReview> {
+export async function weekReview(
+  profileId: string,
+  units: Units,
+  week: ISODate = weekStart(),
+): Promise<WeekReview> {
   const weekEnd = addDays(week, 6);
   const prevWeek = addDays(week, -7);
 
@@ -246,7 +343,7 @@ export async function weekReview(profileId: string, week: ISODate = weekStart())
     .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd)));
 
   const comparisons = await Promise.all(
-    trained.map((t) => compareToPrevious(profileId, t.exerciseId)),
+    trained.map((t) => compareToPrevious(profileId, t.exerciseId, units)),
   );
 
   const weights = await db

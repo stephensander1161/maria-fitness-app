@@ -317,7 +317,7 @@ export const logSet = defineTool({
       rpe: input.rpe ?? null,
     });
 
-    const comparison = await compareToPrevious(ctx.profileId, ex.id);
+    const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
     return {
       ok: true, exercise: ex.name, setNumber: n + 1,
       reps: input.reps, weight: input.weight ?? null, unit: weightLabel(units),
@@ -356,7 +356,7 @@ export const finishWorkout = defineTool({
       .where(eq(setLogs.workoutId, w.id)).orderBy(setLogs.setNumber);
 
     const ids = [...new Set(logged.map((l) => l.exerciseId))];
-    const comparisons = await Promise.all(ids.map((id) => compareToPrevious(ctx.profileId, id)));
+    const comparisons = await Promise.all(ids.map((id) => compareToPrevious(ctx.profileId, id, units)));
 
     return {
       ok: true, date, title: w.title,
@@ -380,7 +380,7 @@ export const getExerciseHistory = defineTool({
     const [ex] = await db.select().from(exercises).where(eq(exercises.slug, input.slug)).limit(1);
     if (!ex) return { error: `Unknown slug '${input.slug}'.` };
     const history = await exerciseHistory(ctx.profileId, ex.id, input.limit ?? 8);
-    const cmp = await compareToPrevious(ctx.profileId, ex.id);
+    const cmp = await compareToPrevious(ctx.profileId, ex.id, units);
     return {
       exercise: ex.name, slug: ex.slug, unit: weightLabel(units),
       trend: cmp.status, summary: cmp.headline,
@@ -400,7 +400,7 @@ export const getWeekReview = defineTool({
   input: z.object({ weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week") }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const r = await weekReview(ctx.profileId, input.weekStart ?? weekStart());
+    const r = await weekReview(ctx.profileId, units, input.weekStart ?? weekStart());
     return {
       ...r,
       totalVolume: Math.round(r.totalVolumeKg * (units === "imperial" ? 2.20462 : 1)),

@@ -13,8 +13,12 @@ import { PRICING } from "@/lib/agent/model";
  */
 
 const num = (name: string, fallback: number) => {
-  const raw = process.env[name];
-  const parsed = raw === undefined ? NaN : Number(raw);
+  // An empty or whitespace-only value means "not set", not zero. Number("") is
+  // 0 — finite and >= 0 — so without this the fallback never runs, and a blank
+  // DAILY_COST_LIMIT_MICROS in a hosting dashboard would pin the ceiling at
+  // zero and refuse every message.
+  const raw = process.env[name]?.trim();
+  const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 

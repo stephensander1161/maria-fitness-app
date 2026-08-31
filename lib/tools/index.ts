@@ -5,6 +5,7 @@ import * as training from "./training";
 import * as nutrition from "./nutrition";
 import * as body from "./measurements";
 import * as feedback from "./feedback";
+import * as photos from "./photos";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -16,9 +17,11 @@ import * as feedback from "./feedback";
  */
 const all: Tool[] = [
   profile.achieveGoal,
+  photos.addProgressPhoto,
   training.adjustPlanDay,
   nutrition.createMealPlan,
   training.createWeeklyPlan,
+  photos.deleteProgressPhoto,
   training.finishWorkout,
   nutrition.getDayNutrition,
   training.getExerciseGuide,
@@ -33,6 +36,7 @@ const all: Tool[] = [
   training.getWeekReview,
   profile.getWeightHistory,
   profile.listGoals,
+  photos.listProgressPhotos,
   body.logMeasurement,
   feedback.submitFeedback,
   nutrition.logMeal,
