@@ -54,6 +54,33 @@ export const weighIns = pgTable(
   (t) => [uniqueIndex("weigh_ins_profile_date").on(t.profileId, t.date)],
 );
 
+/**
+ * Tape measurements, one row per site per day. Stored in centimetres like every
+ * other length; the UI and tool boundary convert.
+ *
+ * This matters because the scale stalls during recomposition — she can be
+ * losing fat and holding weight for weeks. Waist is usually the first place
+ * that shows up.
+ */
+export const measurements = pgTable(
+  "measurements",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    /** One of lib/measurements.ts SITES — kept as text so adding a site is a
+     *  code change, not a migration. */
+    site: text("site").notNull(),
+    valueCm: real("value_cm").notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("measurements_profile_date_site").on(t.profileId, t.date, t.site),
+    index("measurements_profile_site").on(t.profileId, t.site),
+  ],
+);
+
 /** Long-term goals and the milestones that ladder up to them. */
 export const goals = pgTable("goals", {
   id: id(),
@@ -310,3 +337,4 @@ export type Workout = typeof workouts.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type Fact = typeof facts.$inferSelect;
+export type Measurement = typeof measurements.$inferSelect;

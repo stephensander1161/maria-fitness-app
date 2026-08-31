@@ -1,7 +1,9 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exercises, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
+import { exercises, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
 import { addDays, type ISODate, today, weekStart } from "@/lib/date";
+import { lengthLabel, lengthOut, type Units } from "@/lib/units";
+import { SITES } from "@/lib/measurements";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
  *  3×10@40 against 4×6@50. Bodyweight sets fall back to total reps. */
@@ -330,4 +332,99 @@ export async function todaySnapshot(profileId: string, date: ISODate = today()):
     .join("; ");
 
   return `Today she has ALREADY LOGGED: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
+}
+
+/* ── Body measurements ─────────────────────────────────────────────────── */
+
+export type SiteProgress = {
+  site: string;
+  label: string;
+  /** All values already converted to her display units. */
+  current: number | null;
+  currentDate: ISODate | null;
+  first: number | null;
+  firstDate: ISODate | null;
+  previous: number | null;
+  previousDate: ISODate | null;
+  /** Negative means she lost inches — the direction she's after. */
+  changeTotal: number | null;
+  changeSinceLast: number | null;
+  history: { date: ISODate; value: number }[];
+};
+
+/**
+ * Per-site progress, newest first. Returns every site she has ever logged;
+ * sites she's never measured are simply absent, so the UI can offer them
+ * separately rather than showing a wall of empty rows.
+ */
+export async function measurementProgress(
+  profileId: string,
+  units: Units,
+): Promise<SiteProgress[]> {
+  const rows = await db
+    .select({ site: measurements.site, date: measurements.date, valueCm: measurements.valueCm })
+    .from(measurements)
+    .where(eq(measurements.profileId, profileId))
+    .orderBy(measurements.site, measurements.date);
+
+  const bySite = new Map<string, { date: ISODate; value: number }[]>();
+  for (const r of rows) {
+    if (!bySite.has(r.site)) bySite.set(r.site, []);
+    bySite.get(r.site)!.push({ date: r.date, value: lengthOut(r.valueCm, units)! });
+  }
+
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
+  // Preserve the canonical site order rather than whatever the query returned.
+  return SITES.filter((s) => bySite.has(s.key)).map((s) => {
+    const history = bySite.get(s.key)!; // ascending by date
+    const first = history[0];
+    const current = history[history.length - 1];
+    const previous = history.length > 1 ? history[history.length - 2] : null;
+
+    return {
+      site: s.key,
+      label: s.label,
+      current: current.value,
+      currentDate: current.date,
+      first: first.value,
+      firstDate: first.date,
+      previous: previous?.value ?? null,
+      previousDate: previous?.date ?? null,
+      changeTotal: history.length > 1 ? round1(current.value - first.value) : null,
+      changeSinceLast: previous ? round1(current.value - previous.value) : null,
+      history: [...history].reverse(),
+    };
+  });
+}
+
+/**
+ * The recomposition check: weight flat (or up) while the waist is going down.
+ * This is the single most useful thing measurements buy her, and the moment a
+ * coach is most needed — it's exactly when people quit.
+ */
+export async function recompositionSignal(
+  profileId: string,
+  units: Units,
+): Promise<string | null> {
+  const sites = await measurementProgress(profileId, units);
+  const waist = sites.find((s) => s.site === "waist");
+  if (!waist || waist.changeTotal === null || waist.changeTotal >= -0.5) return null;
+
+  const weights = await db
+    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, profileId))
+    .orderBy(weighIns.date);
+  if (weights.length < 2) return null;
+
+  // Only compare weight over the same span the waist change covers.
+  const inWindow = weights.filter((w) => waist.firstDate !== null && w.date >= waist.firstDate);
+  if (inWindow.length < 2) return null;
+
+  const weightChangeKg = inWindow[inWindow.length - 1].weightKg - inWindow[0].weightKg;
+  const stalled = Math.abs(weightChangeKg) < 0.7; // under ~1.5 lb either way
+
+  if (!stalled) return null;
+  return `Her weight has been flat since ${waist.firstDate} but her waist is down ${Math.abs(waist.changeTotal)}${lengthLabel(units)}. That is fat loss the scale cannot see — tell her plainly, because this is exactly when people conclude it isn't working and stop.`;
 }

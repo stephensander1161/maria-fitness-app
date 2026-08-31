@@ -34,3 +34,15 @@ export function heightLabel(cm: number | null, units: Units): string {
   const totalIn = Math.round(cmToIn(cm));
   return `${Math.floor(totalIn / 12)}'${totalIn % 12}"`;
 }
+
+/* Body measurements: stored in centimetres, shown in inches for imperial. */
+
+export function lengthOut(cm: number | null, units: Units): number | null {
+  if (cm === null) return null;
+  return r1(units === "imperial" ? cmToIn(cm) : cm);
+}
+
+export const lengthIn = (value: number, units: Units): number =>
+  units === "imperial" ? inToCm(value) : value;
+
+export const lengthLabel = (units: Units) => (units === "imperial" ? "in" : "cm");

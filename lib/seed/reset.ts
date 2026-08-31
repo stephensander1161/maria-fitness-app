@@ -5,8 +5,8 @@
  */
 import { db } from "@/lib/db";
 import {
-  factViews, goals, mealLogs, mealPlans, messages, plans, profiles, setLogs,
-  weighIns, workouts,
+  factViews, goals, mealLogs, mealPlans, measurements, messages, plans, profiles,
+  setLogs, weighIns, workouts,
 } from "@/lib/db/schema";
 
 async function main() {
@@ -17,6 +17,7 @@ async function main() {
   await db.delete(mealLogs);
   await db.delete(mealPlans);
   await db.delete(weighIns);
+  await db.delete(measurements);
   await db.delete(goals);
   await db.delete(factViews);
   await db.delete(messages);

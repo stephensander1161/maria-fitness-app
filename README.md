@@ -25,7 +25,7 @@ app/
   page.tsx              Coach — the home screen, chat + onboarding
   train/                Fast-log workout surface (steppers, set dots)
   plan/                 The week: training days and meals
-  progress/             Weight trend, week review, milestones
+  progress/             Weight trend, tape measurements, week review, milestones
   learn/                Movement library (form + posture) and factoids
   api/chat              SSE streaming agent loop
   api/action            Direct tool invocation for the UI
@@ -33,7 +33,8 @@ lib/
   agent/                model config, system prompt, streaming tool loop, history
   tools/                the capability registry — the app's real API
   db/                   Drizzle schema + lazy pooled client
-  progress.ts           week-over-week comparison engine
+  progress.ts           week-over-week comparison + measurement/recomposition logic
+  measurements.ts       tape sites and how to take each one consistently
   views.ts              read models for the screens
   seed/                 exercise library and fact library
 ```
@@ -43,9 +44,12 @@ Keeping that seam clean is what stops the agent and the UI from drifting apart.
 
 ## Data model notes
 
-- Weights are stored in kilograms, heights in centimetres, always. The UI and
-  the tool boundary convert using the profile's `units` preference, so switching
-  between pounds and kilos is a display change, never a migration.
+- Weights are stored in kilograms, all lengths (height and tape measurements)
+  in centimetres, always. The UI and the tool boundary convert using the
+  profile's `units` preference, so switching between pounds and kilos is a
+  display change, never a migration.
+- Measurement sites are stored as text against a list in `lib/measurements.ts`,
+  so adding a new site is a code change rather than a migration.
 - Day-level dates are `date` columns holding `YYYY-MM-DD` in local time — never
   timestamps, which is how workouts end up logged on the wrong day.
 - Chat history stores raw Anthropic content blocks, so `tool_use`/`tool_result`

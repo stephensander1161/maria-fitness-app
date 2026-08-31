@@ -2,12 +2,13 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
 import { getProfile } from "@/lib/profile";
-import { currentStreak, weekReview } from "@/lib/progress";
-import { weightLabel, weightOut } from "@/lib/units";
+import { currentStreak, measurementProgress, weekReview } from "@/lib/progress";
+import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate } from "@/lib/date";
 import { SignOut } from "@/components/sign-out";
+import { Measurements } from "@/components/measurements";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,13 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const [history, milestones, review, streak] = await Promise.all([
+  const [history, milestones, review, streak, sites] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
     weekReview(profile.id),
     currentStreak(profile.id),
+    measurementProgress(profile.id, u),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -73,6 +75,8 @@ export default async function ProgressPage() {
           <WeighIn current={current} unit={unit} />
         </div>
       </section>
+
+      <Measurements sites={sites} unit={lengthLabel(u)} />
 
       <section className="card mb-3 p-5">
         <h2 className="mb-3 text-[15px] font-semibold">This week</h2>

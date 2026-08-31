@@ -4,7 +4,7 @@ import { anthropicTools, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
-import { todaySnapshot } from "@/lib/progress";
+import { recompositionSignal, todaySnapshot } from "@/lib/progress";
 import { recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
 import type { Profile } from "@/lib/db/schema";
@@ -78,11 +78,15 @@ export async function* runCoach(
   opts: { silent?: boolean } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
-  const [snapshot, plan] = await Promise.all([
+  const [snapshot, plan, recomp] = await Promise.all([
     todaySnapshot(profile.id),
     planSummary(profile.id, profile.units),
+    recompositionSignal(profile.id, profile.units),
   ]);
-  const system = buildSystem(profile, `${snapshot}\n\n${plan}`);
+  const system = buildSystem(
+    profile,
+    [snapshot, plan, recomp && `IMPORTANT: ${recomp}`].filter(Boolean).join("\n\n"),
+  );
 
   const history = await loadHistory(profile.id);
   const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];

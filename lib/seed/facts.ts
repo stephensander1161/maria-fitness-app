@@ -122,6 +122,19 @@ export const FACTS: FactSeed[] = [
     text: "Head-to-head trials of low-carb, low-fat, and everything between keep finding the same thing: the diet people stick to is the one that works. There's no metabolic trick that beats adherence.",
     source: "Gardner et al., JAMA, 2018" },
 
+  { slug: "waist-vs-bmi", category: "nutrition",
+    text: "Waist circumference predicts cardiovascular and diabetes risk better than BMI does, because it reflects visceral fat around the organs rather than total mass. A tape measure tells you something the scale genuinely cannot.",
+    source: "Ross et al., Nature Reviews Endocrinology, 2020" },
+  { slug: "waist-target-women", category: "womens_health",
+    text: "For women, a waist under about 35 inches (88cm) is the usual threshold for meaningfully lower metabolic risk. It's a better weekly target than a scale number, and it moves for reasons you control.",
+    source: "World Health Organization / NIH guidance" },
+  { slug: "recomposition", category: "strength",
+    text: "Beginners returning to lifting often build muscle and lose fat at the same time. The scale barely moves for weeks while clothes fit differently and the waist drops — that's body recomposition, not a stall, and it's one of the best things that can happen early on.",
+    source: "Barakat et al., Strength & Conditioning Journal, 2020" },
+  { slug: "measure-consistently", category: "motivation",
+    text: "Measure at the same time of day, ideally first thing before eating, and the same day each week. Most week-to-week measurement noise is tape placement and hydration rather than any real change.",
+    source: "Body composition measurement practice" },
+
   // ── Recovery ──────────────────────────────────────────────────────────────
   { slug: "sleep-fat-loss", category: "recovery",
     text: "Dieters sleeping 5.5 hours instead of 8.5 lost the same total weight — but 55% less of it was fat, and more of it was muscle. Sleep decides what kind of weight comes off.",
