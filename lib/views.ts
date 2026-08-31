@@ -219,5 +219,7 @@ export async function planSummary(profileId: string, units: Units): Promise<stri
         : `  ${d.dayName} (${d.title}): ${d.exercises.map((e) => `${e.name} ${e.target}`).join(", ") || "nothing set"}`,
     )
     .join("\n");
-  return `This week's training plan — "${week.title}":\n${days}`;
+  return (
+    `This week's PLANNED targets — "${week.title}". These are what she is scheduled to do, NOT what she has done; read her actual logged sets with get_exercise_history or get_week_review:\n${days}`
+  );
 }

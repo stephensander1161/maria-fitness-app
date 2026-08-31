@@ -1,8 +1,8 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exercises, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
+import { exercises, goals, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
 import { addDays, type ISODate, today, weekStart } from "@/lib/date";
-import { kgToLb, lengthLabel, lengthOut, weightLabel, type Units } from "@/lib/units";
+import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
@@ -84,7 +84,10 @@ function pct(now: number, before: number): number | null {
 
 /** The short human rendering of one session's sets: `3×10 @ 88lb`, or a
  *  per-set list when the sets weren't uniform. */
-export function describe(sets: SetSummary[], units: Units): string {
+export function describe(
+  sets: Pick<SetSummary, "reps" | "weightKg">[],
+  units: Units,
+): string {
   if (sets.length === 0) return "nothing logged";
   const unit = weightLabel(units);
   // Round once, from the raw conversion: weightOut rounds to 0.1 first, and
@@ -394,7 +397,11 @@ export async function currentStreak(profileId: string): Promise<number> {
  * prompt. Without it the coach assumes nothing has been logged and asks her to
  * retype sets she already tapped in on the Train screen.
  */
-export async function todaySnapshot(profileId: string, date: ISODate = today()): Promise<string> {
+export async function todaySnapshot(
+  profileId: string,
+  units: Units,
+  date: ISODate = today(),
+): Promise<string> {
   const [workout] = await db
     .select()
     .from(workouts)
@@ -424,8 +431,12 @@ export async function todaySnapshot(profileId: string, date: ISODate = today()):
     if (!byExercise.has(r.name)) byExercise.set(r.name, []);
     byExercise.get(r.name)!.push(r);
   }
+  // Must render every set, not just the first. Collapsing six sets onto set
+  // one's weight once reported "6×8 @ 60lb" for a session whose last three sets
+  // were at 95 — the model then told her she was still at 60, because that is
+  // what this line said. It hid a PR.
   const summary = [...byExercise.entries()]
-    .map(([name, sets]) => `${name} ${sets.length}×${sets[0].reps}${sets[0].weightKg !== null ? ` @ ${Math.round(sets[0].weightKg * 2.20462)}lb` : ""}`)
+    .map(([name, sets]) => `${name} ${describe(sets, units)}`)
     .join("; ");
 
   return `Today she has ALREADY LOGGED: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
@@ -524,4 +535,63 @@ export async function recompositionSignal(
 
   if (!stalled) return null;
   return `Her weight has been flat since ${waist.firstDate} but her waist is down ${Math.abs(waist.changeTotal)}${lengthLabel(units)}. That is fat loss the scale cannot see — tell her plainly, because this is exactly when people conclude it isn't working and stop.`;
+}
+
+/**
+ * Where each open milestone actually stands, computed from logged data.
+ *
+ * Without this the coach answers "did I hit my squat goal?" from whatever it
+ * said earlier in the conversation, which anchors hard: it told her she was at
+ * 60lb twice, then kept repeating it after she had logged 95. Stating the
+ * measured position outright is the only thing that has reliably beaten that.
+ */
+export async function goalProgress(profileId: string, units: Units): Promise<string> {
+  const open = await db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.profileId, profileId), sql`${goals.achievedAt} is null`))
+    .orderBy(goals.sortOrder, goals.createdAt);
+  if (open.length === 0) return "No open milestones.";
+
+  const [latestWeight] = await db
+    .select({ weightKg: weighIns.weightKg })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, profileId))
+    .orderBy(desc(weighIns.date))
+    .limit(1);
+
+  const lines = await Promise.all(
+    open.map(async (g) => {
+      const label = `"${g.title}" (id ${g.id})`;
+
+      if (g.kind === "weight" && g.targetValue !== null) {
+        const now = latestWeight?.weightKg;
+        if (now === undefined) return `- ${label}: no weigh-ins yet.`;
+        const reached = now <= g.targetValue;
+        return `- ${label}: currently ${weightOut(now, units)}${weightLabel(units)}, target ${weightOut(g.targetValue, units)}${weightLabel(units)}. ${reached ? "REACHED — call achieve_goal." : "Not yet."}`;
+      }
+
+      if (g.exerciseId) {
+        const history = await exerciseHistory(profileId, g.exerciseId, 12);
+        if (history.length === 0) return `- ${label}: nothing logged for that movement yet.`;
+        const best = history.reduce((a, b) => (b.bestE1rm > a.bestE1rm ? b : a));
+        const heaviest = Math.max(...best.sets.map((s) => s.weightKg ?? 0));
+        const target = g.targetValue;
+        const hit = target !== null && heaviest >= target;
+        return (
+          `- ${label}: best session ${describe(best.sets, units)} on ${best.date}` +
+          (target === null
+            ? "."
+            : `, target ${weightOut(target, units)}${weightLabel(units)}. ` +
+              (hit
+                ? "Target WEIGHT reached — check the sets and reps in the title before calling achieve_goal."
+                : "Not yet."))
+        );
+      }
+
+      return `- ${label}: ${g.targetValue ?? "?"} ${g.unit ?? ""} — no logged data links to this one; ask her.`.trim();
+    }),
+  );
+
+  return `Open milestones, measured from her logged data:\n${lines.join("\n")}`;
 }

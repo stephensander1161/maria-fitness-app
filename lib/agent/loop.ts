@@ -4,7 +4,7 @@ import { anthropicTools, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
-import { recompositionSignal, todaySnapshot } from "@/lib/progress";
+import { goalProgress, recompositionSignal, todaySnapshot } from "@/lib/progress";
 import { recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
 import type { Profile } from "@/lib/db/schema";
@@ -78,14 +78,15 @@ export async function* runCoach(
   opts: { silent?: boolean; source?: "app" | "eval" } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
-  const [snapshot, plan, recomp] = await Promise.all([
-    todaySnapshot(profile.id),
+  const [snapshot, plan, milestones, recomp] = await Promise.all([
+    todaySnapshot(profile.id, profile.units),
     planSummary(profile.id, profile.units),
+    goalProgress(profile.id, profile.units),
     recompositionSignal(profile.id, profile.units),
   ]);
   const system = buildSystem(
     profile,
-    [snapshot, plan, recomp && `IMPORTANT: ${recomp}`].filter(Boolean).join("\n\n"),
+    [snapshot, plan, milestones, recomp && `IMPORTANT: ${recomp}`].filter(Boolean).join("\n\n"),
   );
 
   const history = await loadHistory(profile.id);

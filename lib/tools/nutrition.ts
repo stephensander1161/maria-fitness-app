@@ -97,7 +97,7 @@ export const getMealPlan = defineTool({
 export const swapMeal = defineTool({
   name: "swap_meal",
   description:
-    "Replace a single planned meal she doesn't want, keeping the calorie and protein numbers close so the week's targets still hold.",
+    "Replace a planned meal she doesn't want. Choose the replacement yourself — you already know her restrictions, her disliked foods, her cooking confidence, and the calories and protein the slot needs — then call this and tell her what you swapped it to. Only ask her first if she named a specific craving or you have no idea what she'd eat. Keep calories and protein close so the week's targets still hold.",
   input: z.object({
     mealId: z.string(),
     title: z.string(),
