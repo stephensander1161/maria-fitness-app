@@ -82,7 +82,24 @@ onboarding — there is no setup form.
 | `npm run db:push` | Sync schema to the database (fast, dev) |
 | `npm run db:generate` / `db:migrate` | Versioned migrations (production) |
 | `npm run db:seed` | Upsert the exercise and fact libraries |
+| `npm run feedback` | Read what she's asked for; set status and reply |
 | `npm run db:studio` | Drizzle Studio |
+
+## Feedback loop
+
+She can report a bug or ask for a feature from any screen — the button records
+which screen she was on — or just complain to the coach, which captures it with
+`submit_feedback` and carries on. Pull them with:
+
+```bash
+npm run feedback                          # open items
+npm run feedback -- --md                  # markdown, for pasting into a plan
+npm run feedback -- --status a1b2 planned
+npm run feedback -- --reply  a1b2 "shipped this morning"
+```
+
+Status and replies show up in the app next to her request, so she can see
+something happened. That's what keeps the reports coming.
 
 ## The model
 

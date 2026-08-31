@@ -284,6 +284,33 @@ export const factViews = pgTable("fact_views", {
   shownOn: date("shown_on").notNull(),
 });
 
+/**
+ * Things she wants changed. Captured either from the button on every screen or
+ * by the coach when she just complains mid-conversation — the second path is
+ * the one that will actually get used.
+ *
+ * `path` records which screen she was on, because "this is confusing" is worth
+ * far more when you know where she was standing.
+ */
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["idea", "bug", "confusing"] }).notNull(),
+    body: text("body").notNull(),
+    /** Route she was on, or null when it came through the coach. */
+    path: text("path"),
+    status: text("status", { enum: ["new", "planned", "shipped", "declined"] })
+      .default("new").notNull(),
+    /** A note back to her, shown in the app — closes the loop so she keeps reporting. */
+    reply: text("reply"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("feedback_profile_status").on(t.profileId, t.status)],
+);
+
 /** Full conversation history — this is the agent's memory across sessions. */
 export const messages = pgTable(
   "messages",
@@ -338,3 +365,4 @@ export type Goal = typeof goals.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type Fact = typeof facts.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;
+export type Feedback = typeof feedback.$inferSelect;

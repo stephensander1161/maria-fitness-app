@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
+import { Feedback } from "@/components/feedback";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-dvh bg-base text-text">
         <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4">{children}</main>
+        <Feedback />
         <TabBar />
       </body>
     </html>

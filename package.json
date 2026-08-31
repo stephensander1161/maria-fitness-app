@@ -13,7 +13,8 @@
     "db:studio": "node --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
     "db:seed": "tsx --env-file=.env lib/seed/run.ts",
     "setup": "npm run db:push && npm run db:seed",
-    "db:reset": "tsx --env-file=.env lib/seed/reset.ts"
+    "db:reset": "tsx --env-file=.env lib/seed/reset.ts",
+    "feedback": "tsx --env-file=.env scripts/feedback.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
