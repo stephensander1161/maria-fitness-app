@@ -44,5 +44,5 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Everything except Next's own static output and the icon.
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|icon|apple-icon|favicon.ico).*)"],
 };

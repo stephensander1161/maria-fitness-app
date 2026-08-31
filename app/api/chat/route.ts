@@ -3,7 +3,9 @@ import { getProfile } from "@/lib/profile";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Hobby tier caps function duration at 60s. A coaching turn with tool calls
+// lands well inside that; the stream keeps the connection alive meanwhile.
+export const maxDuration = 60;
 
 /**
  * Server-sent events. The API key never leaves this process — the browser only

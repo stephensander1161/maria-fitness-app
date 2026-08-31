@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   description: "Your strength and nutrition coach",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Coach" },
   robots: { index: false, follow: false, nocache: true },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

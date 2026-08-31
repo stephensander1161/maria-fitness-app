@@ -7,6 +7,7 @@ import { weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate } from "@/lib/date";
+import { SignOut } from "@/components/sign-out";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,8 @@ export default async function ProgressPage() {
           </ul>
         )}
       </section>
+
+      <SignOut />
     </>
   );
 }

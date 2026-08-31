@@ -107,3 +107,27 @@ npx vercel
 Set `ANTHROPIC_API_KEY` and `DATABASE_URL` in the Vercel project's environment
 variables. The API key is only ever read in server code (`lib/env.ts`) and never
 reaches the browser.
+
+## Deploying
+
+```bash
+npx vercel login        # interactive, once
+./scripts/deploy.sh     # links, pushes env vars, deploys to production
+```
+
+The script pushes only what the app needs — the Neon claim URL and the direct
+(non-pooled) connection string stay on your machine. Subsequent deploys are just
+`npx vercel deploy --prod`.
+
+Functions run in `cle1` (Cleveland) to sit next to the Neon database in
+`us-east-2` (Ohio); moving the database means changing `regions` in
+`vercel.json` to match.
+
+### Staying on free tiers
+
+- **Vercel Hobby** — no card required. If limits are hit the project pauses
+  rather than billing.
+- **Neon Free** — the database auto-suspends when idle and wakes on demand.
+- **Anthropic** — the app's own daily ceiling is the first line of defence, but
+  it can only see its own usage. Set a spend limit on the Console workspace too,
+  and **turn auto-reload off** — that's the only path to a surprise bill.
