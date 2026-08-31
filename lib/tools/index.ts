@@ -19,6 +19,7 @@ import * as photos from "./photos";
 const all: Tool[] = [
   profile.achieveGoal,
   photos.addProgressPhoto,
+  training.addExerciseToDay,
   training.adjustPlanDay,
   nutrition.createMealPlan,
   training.createWeeklyPlan,
@@ -41,6 +42,7 @@ const all: Tool[] = [
   photos.listProgressPhotos,
   body.logMeasurement,
   feedback.submitFeedback,
+  training.removeExerciseFromDay,
   nutrition.logMeal,
   training.logSet,
   profile.logWeight,

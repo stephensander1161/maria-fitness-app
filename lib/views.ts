@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, mealPlans, meals, planDays, planExercises, plans, setLogs, workouts,
@@ -13,6 +13,9 @@ import { lastTimeTargets } from "@/lib/progress";
  */
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
+  /** Logged today but not on the plan — an extra she added, or one she removed
+   *  from the schedule after already training it. Never hide logged work. */
+  extra: boolean;
   targetSets: number; targetReps: number; targetWeight: number | null;
   restSeconds: number; notes: string | null;
   lastTime: { date: ISODate; sets: { reps: number; weight: number | null }[] } | null;
@@ -65,17 +68,38 @@ export async function todayView(profileId: string, units: Units, date = today())
     : [];
 
   // Exclude today so an in-progress session never masks last week's numbers.
-  const lastTime = await lastTimeTargets(profileId, items.map((i) => i.exerciseId), date);
+  // Anything she logged today that is not on the plan still gets a card. Without
+  // this, removing an exercise from the schedule would hide sets she had already
+  // done — the work would look like it never happened.
+  const plannedIds = new Set(items.map((i) => i.exerciseId));
+  const extraIds = [...new Set(logged.map((l) => l.exerciseId))].filter((id) => !plannedIds.has(id));
+  const extras = extraIds.length
+    ? await db.select({
+        exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
+        bodyweight: exercises.bodyweight,
+      }).from(exercises).where(inArray(exercises.id, extraIds))
+    : [];
+
+  const all = [
+    ...items.map((i) => ({ ...i, extra: false })),
+    ...extras.map((e) => ({
+      ...e, extra: true,
+      targetSets: 0, targetReps: 0, targetWeightKg: null as number | null,
+      restSeconds: 90, notes: null as string | null,
+    })),
+  ];
+
+  const lastTime = await lastTimeTargets(profileId, all.map((i) => i.exerciseId), date);
 
   return {
     ...base,
     hasPlan: true,
     title: day.title, focus: day.focus, isRest: day.isRest, notes: day.notes,
     completed: workout?.completedAt != null,
-    exercises: items.map((i) => {
+    exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
       return {
-        slug: i.slug, name: i.name, bodyweight: i.bodyweight,
+        slug: i.slug, name: i.name, bodyweight: i.bodyweight, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
         targetWeight: weightOut(i.targetWeightKg, units),
         restSeconds: i.restSeconds, notes: i.notes,

@@ -47,3 +47,14 @@ export function prettyDate(date: ISODate): string {
     weekday: "short", month: "short", day: "numeric",
   });
 }
+
+/**
+ * Dates arriving from a tool call are model-supplied and have been wrong: asked
+ * to log "this morning", the coach once wrote a date a week in the future, and
+ * the row was accepted silently. Anything that records something that already
+ * happened should refuse a future date rather than store it.
+ */
+export const isFuture = (date: ISODate): boolean => date > today();
+
+export const FUTURE_DATE_ERROR =
+  "That date is in the future. Log what has already happened, or omit the date to use today.";

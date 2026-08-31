@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { measurements, profiles } from "@/lib/db/schema";
-import { today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
 import { lengthIn, lengthLabel } from "@/lib/units";
 import { MEASURING_ADVICE, SITE_KEYS, SITES, siteHow, siteLabel } from "@/lib/measurements";
 import { measurementProgress } from "@/lib/progress";
@@ -29,6 +29,7 @@ export const logMeasurement = defineTool({
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
     const date = input.date ?? today();
+    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
 
     for (const m of input.measurements) {
       const valueCm = lengthIn(m.value, units);

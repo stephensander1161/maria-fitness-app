@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns } from "@/lib/db/schema";
-import { today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
@@ -136,6 +136,7 @@ export const logWeight = defineTool({
     const p = await profileOf(ctx);
     const kg = weightIn(input.weight, p.units);
     const date = input.date ?? today();
+    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const [prev] = await db
       .select()

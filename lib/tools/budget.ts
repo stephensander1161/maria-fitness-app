@@ -6,14 +6,14 @@ import { LIMITS, todaySpend } from "@/lib/limits";
 import { defineTool } from "./define";
 
 /**
- * Both tools are UI-only. The budget is a setting, not something a coaching
- * conversation should reach for — and a model that could raise its own spending
- * limit is precisely the thing the limit exists to prevent.
+ * She can ask the coach to change her budget rather than hunting for the
+ * setting. That is safe only because the handler clamps to the env ceiling: the
+ * model can move the limit around inside a range the deployment allows, and can
+ * never lift the ceiling itself.
  */
 
 export const getCoachUsage = defineTool({
   name: "get_coach_usage",
-  uiOnly: true,
   description: "Today's coach spend, her chosen daily budget, and the configured ceiling.",
   input: z.object({}),
   handler: async (_input, ctx) => {
@@ -36,9 +36,8 @@ export const getCoachUsage = defineTool({
 
 export const setCoachBudget = defineTool({
   name: "set_coach_budget",
-  uiOnly: true,
   description:
-    "Set her daily coach budget. Clamped to the configured ceiling — this can tighten the limit but never raise it past what the deployment allows.",
+    "Set how much the coach may spend per day, whenever she asks to raise, lower, or change it. Just call it with the amount she asked for — the value is clamped to the deployment ceiling automatically, so you never need to check or refuse. Amounts are in millionths of a dollar: 25 cents is 250000. Null restores the default.",
   input: z.object({
     budgetMicros: z
       .number()

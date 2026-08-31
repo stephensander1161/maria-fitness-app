@@ -2,7 +2,7 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { facts, factViews, mealLogs, mealPlans, meals } from "@/lib/db/schema";
-import { DAY_NAMES, dayIndex, today, weekStart } from "@/lib/date";
+import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -135,6 +135,7 @@ export const logMeal = defineTool({
   }),
   handler: async (input, ctx) => {
     const date = input.date ?? today();
+    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
     await db.insert(mealLogs).values({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,

@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { photos } from "@/lib/db/schema";
-import { today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
 import { defineTool } from "./define";
 
 /**
@@ -35,6 +35,8 @@ const POSES = ["front", "side", "back"] as const;
 
 export const addProgressPhoto = defineTool({
   name: "add_progress_photo",
+  // UI-only for a physical reason, not a policy one: this takes a resized
+  // JPEG data URL that only the browser canvas can produce.
   uiOnly: true,
   description:
     "Store a progress photo she has just taken. The app calls this from the camera button on the Progress screen — you have no way to produce image data yourself, so you will essentially never call it. If she asks how to add one, tell her: Progress screen, Photos, Add. Never invent an `image` value.",
@@ -48,6 +50,9 @@ export const addProgressPhoto = defineTool({
     pose: z.enum(POSES).optional().describe("Which angle — front, side or back"),
   }),
   handler: async (input, ctx) => {
+    const when = input.date ?? today();
+    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+
     const match = JPEG_DATA_URL.exec(input.image.trim());
     if (!match) {
       return { ok: false, error: "Photos must be a data:image/jpeg;base64 URL produced by the app." };
@@ -63,7 +68,7 @@ export const addProgressPhoto = defineTool({
 
     const [row] = await db.insert(photos).values({
       profileId: ctx.profileId,
-      date: input.date ?? today(),
+      date: when,
       pose: input.pose ?? null,
       data,
       width: input.width,
@@ -114,7 +119,6 @@ export const listProgressPhotos = defineTool({
 
 export const deleteProgressPhoto = defineTool({
   name: "delete_progress_photo",
-  uiOnly: true,
   description:
     "Delete one progress photo by id, from list_progress_photos. Only when she asks — deletion is permanent and there is no other copy.",
   input: z.object({ photoId: z.string().describe("id from list_progress_photos") }),

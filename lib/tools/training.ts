@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import {
   exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
-import { DAY_NAMES, dayIndex, today, weekStart } from "@/lib/date";
+import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { weightIn, weightLabel, weightOut } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
 import { defineTool, type ToolContext } from "./define";
@@ -283,7 +283,9 @@ export const startWorkout = defineTool({
     "Open today's workout session so sets can be logged against it. Safe to call repeatedly — it returns the existing session if one is already open.",
   input: z.object({ date: z.string().optional(), title: z.string().optional() }),
   handler: async (input, ctx) => {
-    const w = await ensureWorkout(ctx, input.date ?? today());
+    const when = input.date ?? today();
+    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+    const w = await ensureWorkout(ctx, when);
     if (input.title && input.title !== w.title) {
       await db.update(workouts).set({ title: input.title }).where(eq(workouts.id, w.id));
     }
@@ -307,7 +309,10 @@ export const logSet = defineTool({
     const [ex] = await db.select().from(exercises).where(eq(exercises.slug, input.exerciseSlug)).limit(1);
     if (!ex) return { ok: false, error: `Unknown slug '${input.exerciseSlug}'. Use search_exercises.` };
 
-    const w = await ensureWorkout(ctx, input.date ?? today());
+    const when = input.date ?? today();
+    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+
+    const w = await ensureWorkout(ctx, when);
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(setLogs)
       .where(and(eq(setLogs.workoutId, w.id), eq(setLogs.exerciseId, ex.id)));
 
@@ -339,6 +344,7 @@ export const finishWorkout = defineTool({
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
     const date = input.date ?? today();
+    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
     const [w] = await db.select().from(workouts)
       .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
       .orderBy(desc(workouts.startedAt)).limit(1);
@@ -408,5 +414,100 @@ export const getWeekReview = defineTool({
       latestWeight: weightOut(r.latestWeightKg, units),
       unit: weightLabel(units),
     };
+  },
+});
+
+/** Resolve the plan day for a date (or an explicit weekday) in one place. */
+async function planDayFor(
+  profileId: string,
+  opts: { dayOfWeek?: number; weekStart?: string },
+) {
+  const week = opts.weekStart ?? weekStart();
+  const dow = opts.dayOfWeek ?? dayIndex();
+  const [plan] = await db.select({ id: plans.id }).from(plans)
+    .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
+  if (!plan) return { error: "No plan for that week yet. Call create_weekly_plan first." } as const;
+
+  const [day] = await db.select().from(planDays)
+    .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dow))).limit(1);
+  if (!day) return { error: `That plan has no ${DAY_NAMES[dow] ?? "day"}.` } as const;
+  return { day, week, dow } as const;
+}
+
+export const addExerciseToDay = defineTool({
+  name: "add_exercise_to_day",
+  description:
+    "Append one exercise to a day of the current plan, leaving everything else in place. Use this when she wants to add something to today rather than rebuild the week — 'throw in some curls', 'can I add core work'. Defaults to today.",
+  input: z.object({
+    slug: z.string().describe("From search_exercises"),
+    sets: z.number(),
+    reps: z.number(),
+    weight: z.number().nullable().optional().describe("Her units; omit for bodyweight or unknown"),
+    restSeconds: z.number().optional(),
+    notes: z.string().optional(),
+    dayOfWeek: z.number().optional().describe(
+      "OMIT for today — that is almost always what she means. Only pass this when she names a different day. 0=Monday … 6=Sunday.",
+    ),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const units = await unitsOf(ctx);
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+
+    const [ex] = await db.select({ id: exercises.id, name: exercises.name })
+      .from(exercises).where(eq(exercises.slug, input.slug)).limit(1);
+    if (!ex) return { ok: false, error: `Unknown slug '${input.slug}'. Use search_exercises.` };
+
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(planExercises).where(eq(planExercises.planDayId, found.day.id));
+
+    await db.insert(planExercises).values({
+      planDayId: found.day.id,
+      exerciseId: ex.id,
+      sortOrder: n,
+      targetSets: input.sets,
+      targetReps: input.reps,
+      targetWeightKg:
+        input.weight === null || input.weight === undefined ? null : weightIn(input.weight, units),
+      restSeconds: input.restSeconds ?? 90,
+      notes: input.notes ?? null,
+    });
+
+    // A day that was rest is no longer rest once it has work in it.
+    if (found.day.isRest) {
+      await db.update(planDays).set({ isRest: false }).where(eq(planDays.id, found.day.id));
+    }
+    return { ok: true, added: ex.name, day: DAY_NAMES[found.dow] };
+  },
+});
+
+export const removeExerciseFromDay = defineTool({
+  name: "remove_exercise_from_day",
+  description:
+    "Drop one exercise from a day of the current plan. Sets she has already logged for it are kept — this only changes what is scheduled. Defaults to today.",
+  input: z.object({
+    slug: z.string(),
+    dayOfWeek: z.number().optional().describe(
+      "OMIT for today — that is almost always what she means. Only pass this when she names a different day. 0=Monday … 6=Sunday.",
+    ),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+
+    const [ex] = await db.select({ id: exercises.id, name: exercises.name })
+      .from(exercises).where(eq(exercises.slug, input.slug)).limit(1);
+    if (!ex) return { ok: false, error: `Unknown slug '${input.slug}'.` };
+
+    const removed = await db.delete(planExercises)
+      .where(and(eq(planExercises.planDayId, found.day.id), eq(planExercises.exerciseId, ex.id)))
+      .returning({ id: planExercises.id });
+
+    if (removed.length === 0) {
+      return { ok: false, error: `${ex.name} isn't scheduled on ${DAY_NAMES[found.dow]}.` };
+    }
+    return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow] };
   },
 });

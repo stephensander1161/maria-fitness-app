@@ -15,7 +15,7 @@ export default async function TrainPage() {
         <h1 className="text-2xl font-bold tracking-tight">{view.title}</h1>
         {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
       </header>
-      <TrainClient view={view} />
+      <TrainClient view={view} equipment={profile.equipment} />
     </>
   );
 }

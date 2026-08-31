@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { action } from "@/lib/client";
+import { AddExercise } from "./add-exercise";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
@@ -21,7 +22,7 @@ const TONE = {
 
 const NO_PENDING: PendingSet[] = [];
 
-export function TrainClient({ view }: { view: TodayView }) {
+export function TrainClient({ view, equipment }: { view: TodayView; equipment: string[] }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
@@ -81,18 +82,24 @@ export function TrainClient({ view }: { view: TodayView }) {
     }
   }
 
-  if (view.isRest) {
+  if (view.isRest && view.exercises.length === 0) {
     return (
-      <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
+      <div className="space-y-4">
+        <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
+        <AddExercise equipment={equipment} />
+      </div>
     );
   }
   if (!view.hasPlan || view.exercises.length === 0) {
     return (
-      <Empty
-        title="No workout planned"
-        body="Ask your coach to build your week — it takes about a minute."
-        cta
-      />
+      <div className="space-y-4">
+        <Empty
+          title="No workout planned"
+          body="Ask your coach to build your week — it takes about a minute."
+          cta
+        />
+        {view.hasPlan && <AddExercise equipment={equipment} />}
+      </div>
     );
   }
 
@@ -117,8 +124,11 @@ export function TrainClient({ view }: { view: TodayView }) {
             if (r) router.refresh();
           }}
           onRetryPending={flush}
+          onRemoved={() => router.refresh()}
         />
       ))}
+
+      <AddExercise equipment={equipment} />
 
       <div className="card p-4">
         {view.completed ? (
@@ -182,13 +192,28 @@ function PendingBanner({ count, onRetry }: { count: number; onRetry: () => void 
   );
 }
 
+/**
+ * Three identical sets read better as "3×8 @ 65lb" than as "8@65 8@65 8@65" —
+ * and it matches how the target directly above it is written.
+ */
+function summariseSets(sets: { reps: number; weight: number | null }[], unit: string): string {
+  if (sets.length === 0) return "—";
+  const [first] = sets;
+  const uniform = sets.every((s) => s.reps === first.reps && s.weight === first.weight);
+  if (uniform) {
+    return `${sets.length}×${first.reps}${first.weight !== null ? ` @ ${first.weight}${unit}` : ""}`;
+  }
+  return sets.map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`).join("  ");
+}
+
 function ExerciseCard({
-  exercise, unit, result, pending, onLogged, onRetryPending,
+  exercise, unit, result, pending, onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string;
   result?: LogResult; pending: PendingSet[];
   onLogged: (r: LogResult | null) => void;
   onRetryPending: () => void;
+  onRemoved: () => void;
 }) {
   const done = exercise.loggedToday;
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
@@ -204,8 +229,21 @@ function ExerciseCard({
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const setCount = done.length + queued.length;
+
+  async function removeFromToday() {
+    setRemoving(true);
+    try {
+      await action("remove_exercise_from_day", { slug: exercise.slug });
+      onRemoved();
+    } finally {
+      setRemoving(false);
+      setConfirmRemove(false);
+    }
+  }
 
   async function logSet() {
     setSaving(true);
@@ -238,20 +276,48 @@ function ExerciseCard({
             {exercise.targetWeight !== null && ` @ ${exercise.targetWeight}${unit}`}
           </p>
         </div>
-        <Link
-          href={`/learn/${exercise.slug}`}
-          className="shrink-0 rounded-full border border-line px-3 py-1.5 text-[12px] text-muted"
-        >
-          Form
-        </Link>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {exercise.extra && (
+            <span className="rounded-full bg-raised px-2.5 py-1 text-[11px] text-faint">Added</span>
+          )}
+          <Link
+            href={`/learn/${exercise.slug}`}
+            className="rounded-full border border-line px-3 py-1.5 text-[12px] text-muted"
+          >
+            Form
+          </Link>
+          {/* Extras aren't on the plan, so there is nothing to remove them from. */}
+          {!exercise.extra && (
+            <button
+              onClick={() => setConfirmRemove(!confirmRemove)}
+              aria-label={`Remove ${exercise.name} from today`}
+              className="grid size-8 place-items-center rounded-full border border-line text-muted"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M5 12h14" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
+
+      {confirmRemove && (
+        <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2">
+          <p className="flex-1 text-[12px] text-muted">
+            {setCount > 0 ? "Remove from today's plan? Your logged sets stay." : "Remove from today?"}
+          </p>
+          <button onClick={() => setConfirmRemove(false)} className="text-[12px] text-muted">Keep</button>
+          <button onClick={removeFromToday} disabled={removing}
+            className="text-[12px] font-medium text-miss disabled:opacity-50">
+            {removing ? "…" : "Remove"}
+          </button>
+        </div>
+      )}
 
       {exercise.lastTime && (
         <p className="px-4 pb-3 text-[13px] text-muted tabular">
           <span className="text-faint">Last time · </span>
-          {exercise.lastTime.sets
-            .map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`)
-            .join("  ")}
+          {summariseSets(exercise.lastTime.sets, unit)}
         </p>
       )}
 
@@ -274,7 +340,7 @@ function ExerciseCard({
                     : "border border-dashed border-line text-faint"
               }`}
             >
-              {s ? `${s.reps}${s.weight !== null ? `×${s.weight}` : ""}` : "—"}
+              {s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—"}
             </div>
           );
         })}
