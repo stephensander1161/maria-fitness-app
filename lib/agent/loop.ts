@@ -6,6 +6,7 @@ import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
 import { todaySnapshot } from "@/lib/progress";
 import { recordUsage } from "@/lib/limits";
+import { planSummary } from "@/lib/views";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
@@ -77,7 +78,11 @@ export async function* runCoach(
   opts: { silent?: boolean } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
-  const system = buildSystem(profile, await todaySnapshot(profile.id));
+  const [snapshot, plan] = await Promise.all([
+    todaySnapshot(profile.id),
+    planSummary(profile.id, profile.units),
+  ]);
+  const system = buildSystem(profile, `${snapshot}\n\n${plan}`);
 
   const history = await loadHistory(profile.id);
   const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];

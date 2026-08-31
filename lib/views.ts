@@ -178,3 +178,22 @@ export async function mealWeekView(profileId: string, week = weekStart()): Promi
     }),
   };
 }
+
+/**
+ * Compact plan summary for the volatile half of the system prompt. Without it
+ * the coach guesses at what a given day contains — and a guess it states as
+ * fact is worse than no answer.
+ */
+export async function planSummary(profileId: string, units: Units): Promise<string> {
+  const week = await weekView(profileId, units);
+  if (!week.exists) return "This week's training plan: none yet.";
+
+  const days = week.days
+    .map((d) =>
+      d.isRest
+        ? `  ${d.dayName}: rest`
+        : `  ${d.dayName} (${d.title}): ${d.exercises.map((e) => `${e.name} ${e.target}`).join(", ") || "nothing set"}`,
+    )
+    .join("\n");
+  return `This week's training plan — "${week.title}":\n${days}`;
+}
