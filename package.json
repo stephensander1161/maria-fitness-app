@@ -17,7 +17,9 @@
     "feedback": "tsx --env-file=.env scripts/feedback.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval": "tsx --env-file=.env evals/run.ts"
+    "eval": "tsx --env-file=.env evals/run.ts",
+    "backup": "tsx --env-file=.env scripts/backup.ts",
+    "restore": "tsx --env-file=.env scripts/restore.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

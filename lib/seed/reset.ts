@@ -10,6 +10,17 @@ import {
 } from "@/lib/db/schema";
 
 async function main() {
+  // Refuse to run blind. This wipes every workout, weigh-in and conversation.
+  if (!process.argv.includes("--yes")) {
+    console.error(
+      "This deletes ALL of her data: workouts, sets, weigh-ins, measurements,\n" +
+      "photos, plans, meals and the entire coach conversation.\n\n" +
+      "Take a backup first:  npm run backup\n" +
+      "Then, to confirm:     npm run db:reset -- --yes",
+    );
+    process.exit(1);
+  }
+
   // Order matters only where cascades don't cover it; profiles cascades the rest.
   await db.delete(setLogs);
   await db.delete(workouts);

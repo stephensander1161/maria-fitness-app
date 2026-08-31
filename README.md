@@ -83,7 +83,23 @@ onboarding — there is no setup form.
 | `npm run db:generate` / `db:migrate` | Versioned migrations (production) |
 | `npm run db:seed` | Upsert the exercise and fact libraries |
 | `npm run feedback` | Read what she's asked for; set status and reply |
+| `npm run backup` | Dump all her data to `backups/` as JSON |
+| `npm run restore -- <file>` | Restore a backup, ids preserved |
+| `npm run db:reset -- --yes` | Wipe her data (refuses without `--yes`) |
 | `npm run db:studio` | Drizzle Studio |
+
+## Backups
+
+Neon's free tier has no point-in-time recovery, so a bad migration or a wrong
+`DELETE` is unrecoverable. Take a backup before anything destructive:
+
+```bash
+npm run backup                                   # -> backups/coach-<stamp>.json
+npm run restore -- backups/coach-20260831T2245.json
+```
+
+`db:reset` refuses to run without `--yes` for the same reason. Backups contain
+her personal data and are gitignored — copy them somewhere durable.
 
 ## Feedback loop
 
