@@ -28,6 +28,8 @@ export type PendingSetInput = {
   /** Pinned when she performed the set — a set queued at 11pm must not flush
    *  onto tomorrow's workout. */
   date: ISODate;
+  /** Minted once, replayed on every retry, so a lost response cannot double-log. */
+  clientKey: string;
 };
 
 export type PendingSet = {
@@ -161,7 +163,13 @@ export const setInput = (
   exerciseSlug: string,
   reps: number,
   weight: number | null,
-): PendingSetInput => ({ exerciseSlug, reps, weight, date: today() });
+): PendingSetInput => ({
+  exerciseSlug,
+  reps,
+  weight,
+  date: today(),
+  clientKey: crypto.randomUUID(),
+});
 
 export type FlushResult = { flushed: number; dropped: number; remaining: number };
 

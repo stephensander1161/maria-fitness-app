@@ -303,6 +303,9 @@ export const logSet = defineTool({
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight movements"),
     rpe: z.number().nullable().optional().describe("1–10 perceived effort, if she mentions it"),
     date: z.string().optional(),
+    clientKey: z.string().optional().describe(
+      "Supplied by the app for retry safety. Leave this out.",
+    ),
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
@@ -316,11 +319,23 @@ export const logSet = defineTool({
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(setLogs)
       .where(and(eq(setLogs.workoutId, w.id), eq(setLogs.exerciseId, ex.id)));
 
-    await db.insert(setLogs).values({
+    // onConflictDoNothing on the client key: a retry of a request that actually
+    // landed returns nothing here, and we report success without logging twice.
+    const inserted = await db.insert(setLogs).values({
       workoutId: w.id, exerciseId: ex.id, setNumber: n + 1, reps: input.reps,
       weightKg: input.weight === null || input.weight === undefined ? null : weightIn(input.weight, units),
       rpe: input.rpe ?? null,
-    });
+      clientKey: input.clientKey ?? null,
+    }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
+
+    if (inserted.length === 0) {
+      const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
+      return {
+        ok: true, duplicate: true, exercise: ex.name,
+        reps: input.reps, weight: input.weight ?? null, unit: weightLabel(units),
+        vsLastTime: comparison.status, comparison: comparison.headline,
+      };
+    }
 
     const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
     return {

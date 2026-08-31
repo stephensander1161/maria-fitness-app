@@ -237,9 +237,20 @@ export const setLogs = pgTable(
     weightKg: real("weight_kg"),
     /** Rate of perceived exertion, 1–10. Optional but powers auto-progression. */
     rpe: real("rpe"),
+    /**
+     * Idempotency key minted by the browser when the set is performed. If a
+     * request succeeds but the response is lost — the normal shape of a dropped
+     * connection in a gym — the retry carries the same key and is ignored
+     * instead of logging the set twice.
+     */
+    clientKey: text("client_key"),
     loggedAt: createdAt(),
   },
-  (t) => [index("set_logs_exercise").on(t.exerciseId), index("set_logs_workout").on(t.workoutId)],
+  (t) => [
+    index("set_logs_exercise").on(t.exerciseId),
+    index("set_logs_workout").on(t.workoutId),
+    uniqueIndex("set_logs_client_key").on(t.clientKey),
+  ],
 );
 
 export const mealPlans = pgTable(
