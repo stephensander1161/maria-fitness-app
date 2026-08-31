@@ -1,36 +1,47 @@
 /**
- * All day-level dates are 'YYYY-MM-DD' strings in the user's local timezone.
- * Storing a plain date (not a timestamp) avoids the classic "workout logged on
- * the wrong day because UTC rolled over" bug.
+ * All day-level dates are 'YYYY-MM-DD' strings in HER timezone, not the
+ * server's. Vercel functions run in UTC, so without this a 7:30pm workout in
+ * Mountain time would be recorded against the following day — every evening,
+ * silently, from the first day of deployment.
+ *
+ * Only `today()` depends on a timezone. Every other function here is pure
+ * string/UTC arithmetic, so it cannot drift with the server's locale or with
+ * daylight saving.
  */
 export type ISODate = string;
 
-export function toISODate(d: Date): ISODate {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/** Her timezone. Set APP_TIMEZONE in the environment; UTC is the safe default. */
+export const APP_TIMEZONE = process.env.APP_TIMEZONE || "UTC";
+
+const ISO_IN_ZONE = (tz: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  });
+
+export function toISODate(d: Date, tz: string = APP_TIMEZONE): ISODate {
+  // en-CA formats as YYYY-MM-DD, which is exactly the shape we store.
+  return ISO_IN_ZONE(tz).format(d);
 }
 
-export const today = (): ISODate => toISODate(new Date());
+export const today = (tz: string = APP_TIMEZONE): ISODate => toISODate(new Date(), tz);
 
-export function addDays(date: ISODate, days: number): ISODate {
-  const d = new Date(`${date}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  return toISODate(d);
-}
+/** Parse 'YYYY-MM-DD' as a UTC instant — no local-time interpretation. */
+const parse = (date: ISODate): number => {
+  const [y, m, d] = date.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+const format = (ms: number): ISODate => new Date(ms).toISOString().slice(0, 10);
+
+export const addDays = (date: ISODate, days: number): ISODate =>
+  format(parse(date) + days * 86_400_000);
 
 export const daysBetween = (a: ISODate, b: ISODate): number =>
-  Math.round(
-    (new Date(`${b}T12:00:00`).getTime() - new Date(`${a}T12:00:00`).getTime()) /
-      86_400_000,
-  );
+  Math.round((parse(b) - parse(a)) / 86_400_000);
 
 /** Monday-anchored week start, matching how the weekly plan is generated. */
 export function weekStart(date: ISODate = today()): ISODate {
-  const d = new Date(`${date}T12:00:00`);
-  const dow = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
-  return addDays(date, -dow);
+  return addDays(date, -dayIndex(date));
 }
 
 export const DAY_NAMES = [
@@ -39,12 +50,14 @@ export const DAY_NAMES = [
 
 /** 0=Monday … 6=Sunday, matching `planDays.dayOfWeek`. */
 export function dayIndex(date: ISODate = today()): number {
-  return (new Date(`${date}T12:00:00`).getDay() + 6) % 7;
+  return (new Date(parse(date)).getUTCDay() + 6) % 7;
 }
 
 export function prettyDate(date: ISODate): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: "short", month: "short", day: "numeric",
+  // Formatted in UTC to match how the date was parsed; otherwise a date-only
+  // value can render as the previous day west of Greenwich.
+  return new Date(parse(date)).toLocaleDateString(undefined, {
+    timeZone: "UTC", weekday: "short", month: "short", day: "numeric",
   });
 }
 

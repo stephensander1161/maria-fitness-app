@@ -31,10 +31,17 @@ describe("toISODate", () => {
     expect(toISODate(new Date(2026, 11, 31))).toBe("2026-12-31");
   });
 
-  it("uses local calendar fields, not UTC", () => {
-    // 23:30 local on the 5th must stay the 5th, whatever the offset is.
-    expect(toISODate(new Date(2026, 5, 5, 23, 30))).toBe("2026-06-05");
-    expect(toISODate(new Date(2026, 5, 5, 0, 30))).toBe("2026-06-05");
+  it("formats in her timezone, not the server's", () => {
+    // The bug this replaces: Vercel runs UTC, so a 7:30pm Mountain workout was
+    // recorded against the following day, every evening.
+    const evening = new Date("2026-08-31T19:30:00-06:00");
+    expect(toISODate(evening, "America/Edmonton")).toBe("2026-08-31");
+    expect(toISODate(evening, "UTC")).toBe("2026-09-01");
+
+    // And the other direction, east of Greenwich.
+    const earlyMorning = new Date("2026-08-31T08:30:00+09:00");
+    expect(toISODate(earlyMorning, "Asia/Tokyo")).toBe("2026-08-31");
+    expect(toISODate(earlyMorning, "UTC")).toBe("2026-08-30");
   });
 });
 
@@ -75,7 +82,9 @@ describe("weekStart", () => {
 
   it("defaults to today", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 7, 30, 22, 45)); // Sunday evening
+    // An explicit UTC instant: Sunday evening. Constructing with local calendar
+    // fields would make this assertion depend on the machine running it.
+    vi.setSystemTime(new Date("2026-08-30T22:45:00Z"));
     expect(weekStart()).toBe("2026-08-24");
   });
 
