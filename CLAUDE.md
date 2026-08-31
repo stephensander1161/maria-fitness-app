@@ -41,6 +41,50 @@ a timestamp in the persona silently kills the cache.
 `thinking: {type: "adaptive"}` or `output_config.effort` — that model predates
 both. They're available and worth enabling after switching to Opus 5.
 
+## Every feature ships its tools
+
+This app's premise is that she can do anything by asking the coach instead of
+tapping. A feature that only exists as a screen breaks that premise quietly —
+she asks for it, the coach says it can't, and she stops asking.
+
+So: **a new feature is not done until its tools are registered.** Concretely,
+when you add a table or a screen that writes something:
+
+1. Write the tools first, in `lib/tools/<feature>.ts`. Read, write, and any
+   correction she might want to make by voice.
+2. Register them in `lib/tools/index.ts`. Order does not matter — the list is
+   sorted by name at construction, because hand-ordering had already drifted and
+   tool order is the first thing hashed for prompt caching.
+3. Build the screen on top of those tools via `action()`. Never add a second
+   write path.
+4. Write the tool description to lead with what it *does*. Leading with a
+   constraint gets read as a refusal — that is exactly how `set_coach_budget`
+   came to answer "I don't have control over that" while holding the tool.
+
+`tests/tool-coverage.test.ts` enforces all of this and fails the build if a
+table has no tools, if the UI calls something outside the registry, or if a tool
+is hidden from the model without justification. Those tests are verified to
+actually fail when violated — don't weaken them to get a feature through.
+
+`uiOnly` takes the *reason*, not a boolean, and its allowlist is hard-coded in
+the test. The only current entry is `add_progress_photo`, because the model
+cannot produce a resized JPEG. "The UI does it" is not a reason — that is true
+of nearly every tool here.
+
+## Context injected into the prompt
+
+`lib/agent/loop.ts` assembles a volatile state block (today's logged sets, the
+week's plan, milestone progress, the recomposition signal). This has been the
+single most effective way to fix wrong answers — four separate bugs were fixed
+by stating a fact rather than hoping the model would look it up.
+
+It is also the most dangerous, because **the model believes it completely.**
+`todaySnapshot` once collapsed a session onto the first set's weight and
+reported "6×8 @ 60lb" for a session ending in three sets at 95, and the coach
+correctly-but-wrongly told her she hadn't hit her milestone. If you add to that
+block, it must be exactly true, in her units, and labelled for what it is —
+planned targets read as achievements unless you say otherwise.
+
 ## Security invariants — do not regress these
 
 - `middleware.ts` denies by default. Never convert it to an allow-list of

@@ -8,16 +8,16 @@ export type Tool<S extends z.ZodType = z.ZodType> = {
   description: string;
   input: S;
   /**
-   * Callable through /api/action but hidden from the model. For actions only a
-   * screen can meaningfully perform — uploading an image, changing a setting.
-   * Keeping them out of the tool list saves prompt tokens on every request and
-   * removes a tool the model could only ever call wrongly.
+   * Set this ONLY when the model physically cannot perform the action, and set
+   * it to the reason why. Hiding a tool narrows what she can delegate to the
+   * coach, so it needs a justification stronger than "the UI does it" — that is
+   * true of nearly every tool here.
    *
-   * It does NOT weaken the one-write-path rule: the handler still runs through
+   * It does not weaken the one-write-path rule: the handler still runs through
    * the same registry, with the same validation and the same server-supplied
-   * profileId.
+   * profileId. It only removes the tool from the model's tool list.
    */
-  uiOnly?: boolean;
+  uiOnly?: string;
   /** Handlers are plain async functions — the UI calls them directly, and so
    *  does the agent loop. One implementation, two callers, no drift. */
   handler: (input: z.infer<S>, ctx: ToolContext) => Promise<unknown>;

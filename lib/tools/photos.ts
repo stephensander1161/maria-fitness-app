@@ -35,9 +35,8 @@ const POSES = ["front", "side", "back"] as const;
 
 export const addProgressPhoto = defineTool({
   name: "add_progress_photo",
-  // UI-only for a physical reason, not a policy one: this takes a resized
-  // JPEG data URL that only the browser canvas can produce.
-  uiOnly: true,
+  uiOnly:
+    "takes a resized JPEG data URL that only the browser canvas can produce; the model cannot generate an image",
   description:
     "Store a progress photo she has just taken. The app calls this from the camera button on the Progress screen — you have no way to produce image data yourself, so you will essentially never call it. If she asks how to add one, tell her: Progress screen, Photos, Add. Never invent an `image` value.",
   input: z.object({

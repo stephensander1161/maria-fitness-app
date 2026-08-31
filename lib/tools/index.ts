@@ -13,8 +13,10 @@ import * as photos from "./photos";
  * /api/action route calls `runTool` on it. Adding a capability means adding one
  * entry here and both surfaces gain it at once.
  *
- * Order is fixed and alphabetical: the tool block is the first thing hashed for
- * prompt caching, so a stable order keeps the cache warm across requests.
+ * The list is sorted by name at construction rather than by hand. Tool order is
+ * the first thing hashed for prompt caching (tools → system → messages), so a
+ * reshuffle silently invalidates the cache on every request — and hand-ordering
+ * had already drifted. Sorting here makes that impossible.
  */
 const all: Tool[] = [
   profile.achieveGoal,
@@ -54,9 +56,13 @@ const all: Tool[] = [
   profile.updateProfile,
 ];
 
-export const registry = new Map<string, Tool>(all.map((t) => [t.name, t]));
+// Plain comparison, not localeCompare: the ordering must not depend on the
+// server's locale, or the cache key changes with the environment.
+const ordered = [...all].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
-export const anthropicTools: Anthropic.Tool[] = all
+export const registry = new Map<string, Tool>(ordered.map((t) => [t.name, t]));
+
+export const anthropicTools: Anthropic.Tool[] = ordered
   .filter((t) => !t.uiOnly)
   .map(toAnthropicTool);
 
