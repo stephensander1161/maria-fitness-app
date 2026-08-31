@@ -1,6 +1,6 @@
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { rateEvents, usageDaily } from "@/lib/db/schema";
+import { profiles, rateEvents, usageDaily } from "@/lib/db/schema";
 import { today } from "@/lib/date";
 import { PRICING } from "@/lib/agent/model";
 
@@ -49,9 +49,15 @@ export function costMicros(usage: {
   );
 }
 
-export async function recordUsage(usage: Parameters<typeof costMicros>[0]) {
+export type UsageSource = "app" | "eval";
+
+export async function recordUsage(
+  usage: Parameters<typeof costMicros>[0],
+  source: UsageSource = "app",
+) {
   const row = {
     date: today(),
+    source,
     requests: 1,
     inputTokens: usage.input_tokens ?? 0,
     outputTokens: usage.output_tokens ?? 0,
@@ -60,7 +66,7 @@ export async function recordUsage(usage: Parameters<typeof costMicros>[0]) {
     costMicros: costMicros(usage),
   };
   await db.insert(usageDaily).values(row).onConflictDoUpdate({
-    target: usageDaily.date,
+    target: [usageDaily.date, usageDaily.source],
     set: {
       requests: sql`${usageDaily.requests} + 1`,
       inputTokens: sql`${usageDaily.inputTokens} + ${row.inputTokens}`,
@@ -72,12 +78,38 @@ export async function recordUsage(usage: Parameters<typeof costMicros>[0]) {
   });
 }
 
-export async function todaySpend() {
-  const [row] = await db.select().from(usageDaily).where(eq(usageDaily.date, today())).limit(1);
+/**
+ * Her budget: the configured ceiling, tightened by whatever she chose in the
+ * app. Deliberately one-directional — a setting that could RAISE the ceiling
+ * would mean a stolen session could lift the cap and spend freely, which is the
+ * exact failure the cap exists to prevent.
+ */
+export async function effectiveDailyLimit(profileId?: string): Promise<number> {
+  const ceiling = LIMITS.dailyCostMicros;
+  if (!profileId) return ceiling;
+
+  const [row] = await db
+    .select({ chosen: profiles.dailyBudgetMicros })
+    .from(profiles)
+    .where(eq(profiles.id, profileId))
+    .limit(1);
+
+  return row?.chosen == null ? ceiling : Math.min(row.chosen, ceiling);
+}
+
+/** Spend that counts against her budget — app traffic only, never eval runs. */
+export async function todaySpend(profileId?: string) {
+  const [row] = await db
+    .select()
+    .from(usageDaily)
+    .where(and(eq(usageDaily.date, today()), eq(usageDaily.source, "app")))
+    .limit(1);
+
   return {
     costMicros: row?.costMicros ?? 0,
     requests: row?.requests ?? 0,
-    limitMicros: LIMITS.dailyCostMicros,
+    limitMicros: await effectiveDailyLimit(profileId),
+    ceilingMicros: LIMITS.dailyCostMicros,
   };
 }
 
@@ -106,7 +138,7 @@ export type Allowance = { allowed: true };
  * The gate in front of every model call. Checks the cheap limits first so an
  * abusive burst is rejected without extra database work.
  */
-export async function checkChatAllowed(): Promise<Allowance | Denial> {
+export async function checkChatAllowed(profileId?: string): Promise<Allowance | Denial> {
   const perMinute = await countRecent("chat", 60);
   if (perMinute >= LIMITS.chatPerMinute) {
     return { allowed: false, reason: "Slow down a moment — too many messages at once. Try again shortly." };
@@ -117,7 +149,7 @@ export async function checkChatAllowed(): Promise<Allowance | Denial> {
     return { allowed: false, reason: "That's today's message limit. Your coach will be back tomorrow — everything else still works." };
   }
 
-  const spend = await todaySpend();
+  const spend = await todaySpend(profileId);
   if (spend.costMicros >= spend.limitMicros) {
     return { allowed: false, reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work." };
   }

@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, integer, bigint, real, boolean, date, timestamp, jsonb,
-  uniqueIndex, index,
+  uniqueIndex, index, primaryKey,
 } from "drizzle-orm/pg-core";
 
 /* ─────────────────────────── conventions ───────────────────────────
@@ -36,6 +36,10 @@ export const profiles = pgTable("profiles", {
   dislikedFoods: jsonb("disliked_foods").$type<string[]>().default([]).notNull(),
   cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] }),
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
+  /** Her chosen daily coach budget, in millionths of a dollar. Null means
+   *  "use the configured ceiling". It can only tighten the env limit, never
+   *  exceed it — see lib/limits.ts effectiveDailyLimit. */
+  dailyBudgetMicros: bigint("daily_budget_micros", { mode: "number" }),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   createdAt: createdAt(),
@@ -376,7 +380,13 @@ export const rateEvents = pgTable(
  * instead of a month's rent.
  */
 export const usageDaily = pgTable("usage_daily", {
-  date: date("date").primaryKey(),
+  date: date("date").notNull(),
+  /**
+   * Keeps developer eval runs out of her budget. Eval spend is real and worth
+   * tracking, but counting it against the ceiling that gates her coach means a
+   * couple of test runs can silently switch her app off for the day.
+   */
+  source: text("source", { enum: ["app", "eval"] }).default("app").notNull(),
   requests: integer("requests").default(0).notNull(),
   inputTokens: integer("input_tokens").default(0).notNull(),
   outputTokens: integer("output_tokens").default(0).notNull(),
@@ -384,7 +394,8 @@ export const usageDaily = pgTable("usage_daily", {
   cacheWriteTokens: integer("cache_write_tokens").default(0).notNull(),
   /** Millionths of a dollar — integer arithmetic, no float drift. */
   costMicros: bigint("cost_micros", { mode: "number" }).default(0).notNull(),
-});
+},
+(t) => [primaryKey({ columns: [t.date, t.source] })]);
 
 export type Profile = typeof profiles.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;

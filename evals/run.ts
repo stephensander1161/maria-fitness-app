@@ -1,5 +1,5 @@
 import { MODEL } from "@/lib/agent/model";
-import { LIMITS } from "@/lib/limits";
+import { todaySpend } from "@/lib/limits";
 import {
   addUsage, runEval, sweepOrphans, usageSnapshot,
   type EvalCase, type EvalResult, type UsageDelta,
@@ -120,19 +120,21 @@ async function main() {
   );
   console.log(bold(`  total this run: ${money(total)}`));
   console.log("");
-  console.log(
-    `  App spend recorded today: ${money(after.costMicros)} of ${money(LIMITS.dailyCostMicros)} ceiling.`,
-  );
-  if (after.costMicros >= LIMITS.dailyCostMicros) {
+    // Eval turns are booked under source "eval", so they are real spend but do
+    // not consume the budget that gates her coach. Report both, separately.
+    const app = await todaySpend();
     console.log(
-      red("  The daily ceiling is now spent — her coach is paused until tomorrow."),
+      dim(
+        `  Eval spend today: ${money(after.costMicros)}  ` +
+          `(this run: ${money(after.costMicros - before.costMicros)})`,
+      ),
     );
-  } else if (after.costMicros > LIMITS.dailyCostMicros * 0.5) {
     console.log(
-      yellow("  Over half the daily budget is gone. Another full run may pause her coach."),
+      dim(
+        `  Her coach budget is untouched: ${money(app.costMicros)} of ` +
+          `${money(app.limitMicros)} used.`,
+      ),
     );
-  }
-  console.log(dim(`  (before this run: ${money(before.costMicros)})`));
 
   const failed = results.filter((r) => !r.passed);
   console.log("");

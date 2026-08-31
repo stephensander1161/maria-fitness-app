@@ -5,6 +5,7 @@ import * as training from "./training";
 import * as nutrition from "./nutrition";
 import * as body from "./measurements";
 import * as feedback from "./feedback";
+import * as budget from "./budget";
 import * as photos from "./photos";
 
 /**
@@ -26,6 +27,7 @@ const all: Tool[] = [
   nutrition.getDayNutrition,
   training.getExerciseGuide,
   training.getExerciseHistory,
+  budget.getCoachUsage,
   nutrition.getFact,
   feedback.listFeedback,
   body.getMeasurements,
@@ -43,6 +45,7 @@ const all: Tool[] = [
   training.logSet,
   profile.logWeight,
   training.searchExercises,
+  budget.setCoachBudget,
   profile.setGoal,
   training.startWorkout,
   nutrition.swapMeal,
@@ -51,7 +54,9 @@ const all: Tool[] = [
 
 export const registry = new Map<string, Tool>(all.map((t) => [t.name, t]));
 
-export const anthropicTools: Anthropic.Tool[] = all.map(toAnthropicTool);
+export const anthropicTools: Anthropic.Tool[] = all
+  .filter((t) => !t.uiOnly)
+  .map(toAnthropicTool);
 
 export async function runTool(
   name: string,

@@ -8,6 +8,8 @@ import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate, today } from "@/lib/date";
 import { SignOut } from "@/components/sign-out";
+import { CoachBudget, type Usage } from "@/components/coach-budget";
+import { runTool } from "@/lib/tools";
 import { Measurements } from "@/components/measurements";
 import { ProgressPhotos } from "@/components/photos";
 import { photoLibrary } from "@/lib/photos";
@@ -19,7 +21,7 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const [history, milestones, review, streak, sites, library] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, usage] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -27,6 +29,7 @@ export default async function ProgressPage() {
     currentStreak(profile.id),
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
+    runTool("get_coach_usage", {}, { profileId: profile.id }),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -135,6 +138,8 @@ export default async function ProgressPage() {
           </ul>
         )}
       </section>
+
+      <CoachBudget usage={usage as Usage} />
 
       <SignOut />
     </>

@@ -35,6 +35,7 @@ const POSES = ["front", "side", "back"] as const;
 
 export const addProgressPhoto = defineTool({
   name: "add_progress_photo",
+  uiOnly: true,
   description:
     "Store a progress photo she has just taken. The app calls this from the camera button on the Progress screen — you have no way to produce image data yourself, so you will essentially never call it. If she asks how to add one, tell her: Progress screen, Photos, Add. Never invent an `image` value.",
   input: z.object({
@@ -113,6 +114,7 @@ export const listProgressPhotos = defineTool({
 
 export const deleteProgressPhoto = defineTool({
   name: "delete_progress_photo",
+  uiOnly: true,
   description:
     "Delete one progress photo by id, from list_progress_photos. Only when she asks — deletion is permanent and there is no other copy.",
   input: z.object({ photoId: z.string().describe("id from list_progress_photos") }),

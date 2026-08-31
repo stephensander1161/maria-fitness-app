@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, usageDaily, type Profile } from "@/lib/db/schema";
 import { runCoach } from "@/lib/agent/loop";
@@ -78,7 +78,9 @@ export class EvalContext {
     const tools: string[] = [];
     let error: string | undefined;
 
-    for await (const event of runCoach(profile, text)) {
+    // Tagged as eval spend so a paid regression run cannot silently consume
+    // her daily coach budget and switch the app off for the rest of the day.
+    for await (const event of runCoach(profile, text, { source: "eval" })) {
       if (event.type === "text") out += event.text;
       else if (event.type === "tool" && event.status === "done") tools.push(event.name);
       else if (event.type === "error") error = event.message;
@@ -162,11 +164,16 @@ export type UsageDelta = {
  * PRICING from lib/agent/model.ts — so when the owner swaps COACH_MODEL, these
  * numbers follow automatically instead of quietly reporting Haiku prices.
  *
- * The flip side, and it is deliberate that you can see it: an eval run spends
- * against the app's real daily ceiling. run.ts prints where that leaves it.
+ * Eval turns are recorded under source "eval", which is both what keeps them
+ * out of her daily budget and what this has to read — the "app" row does not
+ * move during a run. The spend is still real money; run.ts reports it.
  */
 export async function usageSnapshot(): Promise<UsageDelta> {
-  const [row] = await db.select().from(usageDaily).where(eq(usageDaily.date, today())).limit(1);
+  const [row] = await db
+    .select()
+    .from(usageDaily)
+    .where(and(eq(usageDaily.date, today()), eq(usageDaily.source, "eval")))
+    .limit(1);
   return {
     inputTokens: row?.inputTokens ?? 0,
     outputTokens: row?.outputTokens ?? 0,

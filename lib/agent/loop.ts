@@ -75,7 +75,7 @@ function markCachePoint(history: Anthropic.MessageParam[]): Anthropic.MessagePar
 export async function* runCoach(
   profile: Profile,
   userText: string,
-  opts: { silent?: boolean } = {},
+  opts: { silent?: boolean; source?: "app" | "eval" } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
   const [snapshot, plan, recomp] = await Promise.all([
@@ -129,7 +129,7 @@ export async function* runCoach(
 
       // Bill every iteration, not just the last — a tool loop is where a
       // runaway would actually spend the money.
-      await recordUsage(message.usage);
+      await recordUsage(message.usage, opts.source ?? "app");
 
       const assistantContent = message.content as Anthropic.ContentBlockParam[];
       await saveMessage(profile.id, "assistant", assistantContent);

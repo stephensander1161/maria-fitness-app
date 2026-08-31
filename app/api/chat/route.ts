@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   }
 
   // Rate and spend ceiling, checked before a single token is bought.
-  const gate = await checkChatAllowed();
+  const gate = await checkChatAllowed(profile.id);
   if (!gate.allowed) {
     return Response.json({ error: gate.reason }, { status: 429 });
   }
