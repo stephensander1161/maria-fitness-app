@@ -1,0 +1,220 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { inArray, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { exercises, type Profile } from "@/lib/db/schema";
+import { env } from "@/lib/env";
+import { DAY_NAMES } from "@/lib/date";
+import { heightLabel, weightLabel, weightOut } from "@/lib/units";
+import { recordUsage, type UsageSource } from "@/lib/limits";
+import { MAX_TOKENS, PLANNER_MODEL, PLANNER_PRICING } from "./model";
+
+/**
+ * Plan and meal generation, as a dedicated call on a stronger model.
+ *
+ * Previously the chat model emitted the whole week as tool input, which is
+ * where every observed failure lived: it invented exercise slugs and needed a
+ * retry, its meal plans landed ~200 kcal/day under target, and one turn spent
+ * 86 seconds building a plan nobody asked for. Splitting it out means the chat
+ * model only decides *when* to plan, and the planner gets the real exercise
+ * catalogue rather than guessing at names.
+ */
+
+/**
+ * Constructed on first use, not at module load. The tool registry imports this
+ * transitively, so an eager client would make merely *listing* the tools
+ * require an API key — which broke the structural tests, and would break any
+ * build step that touches the registry.
+ */
+let _client: Anthropic | undefined;
+const anthropic = (): Anthropic =>
+  (_client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
+
+const planExercise = z.object({
+  slug: z.string(),
+  sets: z.number(),
+  reps: z.number(),
+  weight: z.number().nullable().optional(),
+  restSeconds: z.number().optional(),
+  notes: z.string().optional(),
+});
+
+export const weekDraft = z.object({
+  title: z.string(),
+  rationale: z.string(),
+  days: z.array(z.object({
+    dayOfWeek: z.number(),
+    title: z.string(),
+    focus: z.string().optional(),
+    isRest: z.boolean().optional(),
+    notes: z.string().optional(),
+    exercises: z.array(planExercise).optional(),
+  })),
+});
+
+export const mealDraft = z.object({
+  calorieTarget: z.number(),
+  proteinTargetG: z.number(),
+  carbTargetG: z.number().optional(),
+  fatTargetG: z.number().optional(),
+  rationale: z.string(),
+  meals: z.array(z.object({
+    dayOfWeek: z.number(),
+    slot: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+    title: z.string(),
+    calories: z.number(),
+    proteinG: z.number(),
+    carbsG: z.number().optional(),
+    fatG: z.number().optional(),
+    ingredients: z.array(z.string()).optional(),
+    steps: z.array(z.string()).optional(),
+    prepMinutes: z.number().optional(),
+  })),
+});
+
+/** One forced tool call, so the response is always the structure we asked for. */
+async function draft<S extends z.ZodType>(
+  name: string,
+  description: string,
+  schema: S,
+  system: string,
+  prompt: string,
+  source: UsageSource,
+): Promise<z.infer<S>> {
+  const response = await anthropic().messages.create({
+    model: PLANNER_MODEL,
+    max_tokens: MAX_TOKENS,
+    system,
+    tools: [{
+      name,
+      description,
+      input_schema: z.toJSONSchema(schema, { target: "draft-7", io: "input" }) as Anthropic.Tool.InputSchema,
+    }],
+    tool_choice: { type: "tool", name },
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  // Planner spend is real and belongs on the same ledger as the chat turns.
+  await recordUsage(response.usage, source, PLANNER_PRICING);
+
+  const block = response.content.find(
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+  );
+  if (!block) throw new Error("Planner returned no plan.");
+
+  const parsed = schema.safeParse(block.input);
+  if (!parsed.success) {
+    throw new Error(`Planner returned an unusable plan: ${parsed.error.issues[0]?.message}`);
+  }
+  return parsed.data;
+}
+
+function profileBrief(p: Profile): string {
+  const u = p.units;
+  const age = p.birthYear ? new Date().getFullYear() - p.birthYear : null;
+  return [
+    `Name: ${p.name ?? "unknown"}`,
+    `Age ${age ?? "?"}, ${p.sex ?? "unspecified"}, ${heightLabel(p.heightCm, u)}`,
+    `Weight ${weightOut(p.startWeightKg, u) ?? "?"}${weightLabel(u)}, goal ${weightOut(p.goalWeightKg, u) ?? "?"}${weightLabel(u)}${p.goalDate ? ` by ${p.goalDate}` : ""}`,
+    `Why it matters to her: ${p.motivation ?? "not stated"}`,
+    `Experience: ${p.experience ?? "unknown"}. Available ${p.daysPerWeek ?? "?"} days/week, ${p.sessionMinutes ?? "?"} minutes.`,
+    `Equipment: ${p.equipment.join(", ") || "unknown"}`,
+    `Injuries and limitations: ${p.injuries.join(", ") || "none"}`,
+    `Dietary restrictions: ${p.dietaryRestrictions.join(", ") || "none"}. Dislikes: ${p.dislikedFoods.join(", ") || "none"}.`,
+    `Cooking confidence: ${p.cookingSkill ?? "unknown"}. Units: ${u}.`,
+  ].join("\n");
+}
+
+/** Only movements she can actually perform, so slugs cannot be invented. */
+async function catalogue(p: Profile): Promise<string> {
+  const owned = p.equipment.length ? p.equipment : ["bodyweight"];
+  const rows = await db
+    .select({
+      slug: exercises.slug, name: exercises.name, category: exercises.category,
+      muscles: exercises.primaryMuscles, equipment: exercises.equipment,
+    })
+    .from(exercises)
+    .where(
+      // Match any of her equipment, and always include bodyweight work.
+      sql`${exercises.equipment}::text ~* ${owned.concat("bodyweight").join("|")}`,
+    );
+
+  return rows
+    .map((r) => `${r.slug} — ${r.name} [${r.category}] ${r.muscles.join("/")}`)
+    .join("\n");
+}
+
+const PLANNER_SYSTEM = `You write training and nutrition plans for one person, to be executed by an app.
+
+Every exercise you use MUST come from the catalogue you are given, referenced by its exact slug. There is no other library; a slug that is not in the list will be rejected.
+
+Programme sensibly for who she actually is: progressive overload paced for her experience, compound movements before isolation, volume matched to the days and minutes she really has rather than an ideal. Respect every injury by choosing a different movement, never by telling her to push through. All seven days must be present, with non-training days marked as rest.`;
+
+const MEAL_SYSTEM = `You write weekly meal plans for one person, to be executed by an app.
+
+Hard requirements: every day's meals must sum to within 100 kcal of the calorie target and must reach the protein target. A plan that quietly lands under target every day is one she will be hungry on and abandon. Never use an ingredient she has said she dislikes or cannot eat. Match her cooking confidence — if it is minimal, that means assembly, one pans, and shortcuts like rotisserie chicken, not knife skills.
+
+Vary the week. Repeating the same four dinners is how people stop cooking.`;
+
+export async function planWeek(
+  profile: Profile,
+  intent: { focus?: string; notes?: string; weekStart: string; previous?: string },
+  source: UsageSource = "app",
+) {
+  return draft(
+    "emit_plan", "Emit the full week of training.", weekDraft, PLANNER_SYSTEM,
+    [
+      profileBrief(profile),
+      ``,
+      `Available exercises (slug — name [category] muscles):`,
+      await catalogue(profile),
+      ``,
+      intent.previous ? `Last week, for progression:\n${intent.previous}\n` : ``,
+      `Build the week starting ${intent.weekStart} (dayOfWeek 0 = ${DAY_NAMES[0]}).`,
+      intent.focus ? `Focus she asked for: ${intent.focus}` : ``,
+      intent.notes ? `Notes: ${intent.notes}` : ``,
+      ``,
+      `Write the rationale directly to her, in plain language, explaining why the week looks like this.`,
+    ].filter(Boolean).join("\n"),
+    source,
+  );
+}
+
+export async function planMeals(
+  profile: Profile,
+  intent: { calorieTarget: number; proteinTargetG: number; notes?: string; weekStart: string },
+  source: UsageSource = "app",
+) {
+  const result = await draft(
+    "emit_meals", "Emit the full week of meals.", mealDraft, MEAL_SYSTEM,
+    [
+      profileBrief(profile),
+      ``,
+      `Week starting ${intent.weekStart}. Target ${intent.calorieTarget} kcal and ${intent.proteinTargetG}g protein per day.`,
+      intent.notes ? `Notes: ${intent.notes}` : ``,
+      ``,
+      `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), with ingredients and short steps.`,
+    ].filter(Boolean).join("\n"),
+    source,
+  );
+
+  // The failure that motivated moving this off the chat model was days landing
+  // ~200 kcal under target, so verify rather than trust.
+  const shortfalls = DAY_NAMES.map((name, dow) => {
+    const kcal = result.meals.filter((m) => m.dayOfWeek === dow).reduce((n, m) => n + m.calories, 0);
+    return { name, kcal, off: kcal - intent.calorieTarget };
+  }).filter((d) => Math.abs(d.off) > 150);
+
+  return { ...result, shortfalls };
+}
+
+/** Resolve slugs, reporting any the planner invented despite the catalogue. */
+export async function resolveSlugs(slugs: string[]) {
+  if (slugs.length === 0) return { bySlug: new Map<string, string>(), unknown: [] as string[] };
+  const found = await db
+    .select({ id: exercises.id, slug: exercises.slug })
+    .from(exercises)
+    .where(inArray(exercises.slug, slugs));
+  const bySlug = new Map(found.map((e) => [e.slug, e.id]));
+  return { bySlug, unknown: slugs.filter((s) => !bySlug.has(s)) };
+}

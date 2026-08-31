@@ -15,7 +15,11 @@ export type CoachEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
-const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+// Lazy for the same reason as the planner: importing this module must not
+// require credentials.
+let _client: Anthropic | undefined;
+const anthropic = (): Anthropic =>
+  (_client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
 
 /** Friendly labels so the UI can say "checking your history" rather than
  *  leaking tool names at her. */
@@ -104,7 +108,7 @@ export async function* runCoach(
     let emittedText = false;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const stream = client.messages.stream({
+      const stream = anthropic().messages.stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system,

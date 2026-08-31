@@ -117,14 +117,25 @@ npm run feedback -- --reply  a1b2 "shipped this morning"
 Status and replies show up in the app next to her request, so she can see
 something happened. That's what keeps the reports coming.
 
-## The model
+## The models
 
-Set in one place: `lib/agent/model.ts`. Currently `claude-haiku-4-5` for cheap
-iteration. Swap to `claude-opus-5` there, or set `COACH_MODEL` in `.env`.
+Two, split by job, both in `lib/agent/model.ts`:
 
-Haiku 4.5 predates adaptive thinking and `output_config.effort`, so neither is
-sent. Both become available on an Opus 5 / Sonnet 5 swap and are worth turning on
-for plan generation.
+- **`claude-haiku-4-5` for conversation.** Frequent, short, mostly reading tool
+  results back to her. ~$0.0013 a turn with a warm cache.
+- **`claude-sonnet-5` for plan and meal generation.** Rare — weekly at most — and
+  where every observed quality failure lived.
+
+`lib/agent/planner.ts` is a separate call rather than tool input from the chat
+model. That matters: the planner is handed the real exercise catalogue filtered
+to her equipment, so it cannot invent a slug, and its meal output is checked
+against the calorie target before being written.
+
+Measured effect: meal days went from ~200 kcal under target to within 40, and
+plans now pick knee-friendly variants unprompted.
+
+> If you change either model, update `PRICING` / `PLANNER_PRICING` alongside it
+> or the spend cap computes against the wrong prices. There is a test for this.
 
 The system prompt is split into a frozen persona block (carrying the cache
 breakpoint) and a volatile state block, and the tool list is ordered

@@ -215,8 +215,11 @@ export async function planSummary(profileId: string, units: Units): Promise<stri
   const days = week.days
     .map((d) =>
       d.isRest
-        ? `  ${d.dayName}: rest`
-        : `  ${d.dayName} (${d.title}): ${d.exercises.map((e) => `${e.name} ${e.target}`).join(", ") || "nothing set"}`,
+        // The dayOfWeek index is stated outright: every tool that edits a day
+        // takes one, and making the model re-derive "Saturday = 5" is how it
+        // came to edit the wrong day and then report the change as done.
+        ? `  [dayOfWeek ${d.dayOfWeek}] ${d.dayName}: rest`
+        : `  [dayOfWeek ${d.dayOfWeek}] ${d.dayName} (${d.title}): ${d.exercises.map((e) => `${e.name} ${e.target}`).join(", ") || "nothing set"}`,
     )
     .join("\n");
   return (

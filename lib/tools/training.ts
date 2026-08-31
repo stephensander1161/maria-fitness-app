@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 import {
   exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
-import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
+import { addDays, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { weightIn, weightLabel, weightOut } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
+import { planWeek, resolveSlugs } from "@/lib/agent/planner";
+import { weekView } from "@/lib/views";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
@@ -80,48 +82,53 @@ const planExerciseInput = z.object({
 export const createWeeklyPlan = defineTool({
   name: "create_weekly_plan",
   description:
-    "Build or replace the workout plan for a week. Provide all seven days — mark the non-training ones as rest so the week renders completely. Match volume to her stated days per week, session length, equipment and injuries. Re-running for the same week replaces that week's plan.",
+    "Build or replace the training plan for a week. You describe the intent; a dedicated planner writes the actual week from her profile, equipment and injuries, and from the real exercise library — so you do not need to pick movements or look up slugs yourself. Takes a few seconds. Re-running for the same week replaces it.",
   input: z.object({
-    title: z.string().describe("e.g. 'Week 3 — Full Body Strength'"),
-    rationale: z.string().describe("Why this week looks the way it does, in plain language for her"),
+    focus: z.string().optional()
+      .describe("What this week should emphasise, if she asked for something specific"),
+    notes: z.string().optional()
+      .describe("Anything the planner should know — a sore shoulder, a busy week, a deload"),
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
-    days: z.array(z.object({
-      dayOfWeek: z.number().describe("0=Monday, 1=Tuesday … 6=Sunday"),
-      title: z.string().describe("e.g. 'Lower Body' or 'Rest'"),
-      focus: z.string().optional(),
-      isRest: z.boolean().optional(),
-      notes: z.string().optional(),
-      exercises: z.array(planExerciseInput).optional(),
-    })),
   }),
   handler: async (input, ctx) => {
-    const units = await unitsOf(ctx);
+    const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    if (!profile) return { ok: false, error: "Profile not found." };
+
     const week = input.weekStart ?? weekStart();
 
-    const slugs = [...new Set(input.days.flatMap((d) => d.exercises?.map((e) => e.slug) ?? []))];
-    const found = slugs.length
-      ? await db.select({ id: exercises.id, slug: exercises.slug }).from(exercises)
-          .where(inArray(exercises.slug, slugs))
-      : [];
-    const bySlug = new Map(found.map((e) => [e.slug, e.id]));
-    const unknown = slugs.filter((s) => !bySlug.has(s));
+    // Hand the planner last week so it can progress rather than restart.
+    const previousView = await weekView(ctx.profileId, profile.units, addDays(week, -7));
+    const previous = previousView.exists
+      ? previousView.days
+          .filter((d) => !d.isRest)
+          .map((d) => `${d.dayName}: ${d.exercises.map((e) => `${e.name} ${e.target}`).join(", ")}`)
+          .join("\n")
+      : undefined;
+
+    let drafted;
+    try {
+      drafted = await planWeek(profile, { ...input, weekStart: week, previous });
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "Planning failed." };
+    }
+
+    const slugs = [...new Set(drafted.days.flatMap((d) => d.exercises?.map((e) => e.slug) ?? []))];
+    const { bySlug, unknown } = await resolveSlugs(slugs);
     if (unknown.length) {
-      // Recoverable: tell the model exactly what to fix rather than failing the turn.
-      return { ok: false, error: "Unknown exercise slugs", unknownSlugs: unknown,
-        hint: "Call search_exercises to find the correct slugs, then retry." };
+      return { ok: false, error: "The planner used movements that aren't in the library", unknownSlugs: unknown };
     }
 
     const [plan] = await db.insert(plans)
-      .values({ profileId: ctx.profileId, weekStart: week, title: input.title, rationale: input.rationale })
+      .values({ profileId: ctx.profileId, weekStart: week, title: drafted.title, rationale: drafted.rationale })
       .onConflictDoUpdate({
         target: [plans.profileId, plans.weekStart],
-        set: { title: input.title, rationale: input.rationale },
+        set: { title: drafted.title, rationale: drafted.rationale },
       })
       .returning();
 
-    await db.delete(planDays).where(eq(planDays.planId, plan.id)); // cascades to planExercises
+    await db.delete(planDays).where(eq(planDays.planId, plan.id)); // cascades
 
-    for (const day of input.days) {
+    for (const day of drafted.days) {
       const [pd] = await db.insert(planDays).values({
         planId: plan.id, dayOfWeek: day.dayOfWeek, title: day.title,
         focus: day.focus ?? null, isRest: day.isRest ?? false, notes: day.notes ?? null,
@@ -135,13 +142,25 @@ export const createWeeklyPlan = defineTool({
           sortOrder: i,
           targetSets: e.sets,
           targetReps: e.reps,
-          targetWeightKg: e.weight === null || e.weight === undefined ? null : weightIn(e.weight, units),
+          targetWeightKg: e.weight === null || e.weight === undefined ? null : weightIn(e.weight, profile.units),
           restSeconds: e.restSeconds ?? 90,
           notes: e.notes ?? null,
         })));
       }
     }
-    return { ok: true, planId: plan.id, weekStart: week, days: input.days.length };
+
+    return {
+      ok: true,
+      weekStart: week,
+      title: drafted.title,
+      rationale: drafted.rationale,
+      days: drafted.days.map((d) => ({
+        day: DAY_NAMES[d.dayOfWeek],
+        title: d.title,
+        exercises: (d.exercises ?? []).length,
+      })),
+      hint: "Walk her through it in your own words — don't just repeat the rationale back.",
+    };
   },
 });
 

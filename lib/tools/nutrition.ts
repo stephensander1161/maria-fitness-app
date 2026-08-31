@@ -1,7 +1,8 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { facts, factViews, mealLogs, mealPlans, meals } from "@/lib/db/schema";
+import { facts, factViews, mealLogs, mealPlans, meals, profiles } from "@/lib/db/schema";
+import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { defineTool } from "./define";
 
@@ -10,46 +11,44 @@ const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 export const createMealPlan = defineTool({
   name: "create_meal_plan",
   description:
-    "Build the week's meal plan. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight lost per week; never below 1200 kcal/day) and a protein target high enough to protect muscle while losing fat (about 1.6 g per kg of body weight). Respect her dietary restrictions, disliked foods, and cooking skill. Each day's meals must sum to within about 100 kcal of calorieTarget and reach proteinTargetG — a plan that quietly lands 200 kcal under target every day is a plan she will be hungry on and abandon. Re-running for the same week replaces it.",
+    "Build the week's meal plan. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Re-running for the same week replaces it.",
   input: z.object({
-    weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
     calorieTarget: z.number(),
     proteinTargetG: z.number(),
-    carbTargetG: z.number().optional(),
-    fatTargetG: z.number().optional(),
-    rationale: z.string().describe("Explain the targets to her in plain language"),
-    meals: z.array(z.object({
-      dayOfWeek: z.number().describe("0=Monday … 6=Sunday"),
-      slot: slotEnum,
-      title: z.string(),
-      calories: z.number(),
-      proteinG: z.number(),
-      carbsG: z.number().optional(),
-      fatG: z.number().optional(),
-      ingredients: z.array(z.string()).optional(),
-      steps: z.array(z.string()).optional(),
-      prepMinutes: z.number().optional(),
-    })),
+    notes: z.string().optional()
+      .describe("Anything the planner should know — a busy week, batch cooking, something she fancies"),
+    weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
   }),
   handler: async (input, ctx) => {
+    const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    if (!profile) return { ok: false, error: "Profile not found." };
+
     const week = input.weekStart ?? weekStart();
+
+    let drafted;
+    try {
+      drafted = await planMeals(profile, { ...input, weekStart: week });
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "Meal planning failed." };
+    }
+
     const [plan] = await db.insert(mealPlans).values({
       profileId: ctx.profileId, weekStart: week,
-      calorieTarget: input.calorieTarget, proteinTargetG: input.proteinTargetG,
-      carbTargetG: input.carbTargetG ?? null, fatTargetG: input.fatTargetG ?? null,
-      rationale: input.rationale,
+      calorieTarget: drafted.calorieTarget, proteinTargetG: drafted.proteinTargetG,
+      carbTargetG: drafted.carbTargetG ?? null, fatTargetG: drafted.fatTargetG ?? null,
+      rationale: drafted.rationale,
     }).onConflictDoUpdate({
       target: [mealPlans.profileId, mealPlans.weekStart],
       set: {
-        calorieTarget: input.calorieTarget, proteinTargetG: input.proteinTargetG,
-        carbTargetG: input.carbTargetG ?? null, fatTargetG: input.fatTargetG ?? null,
-        rationale: input.rationale,
+        calorieTarget: drafted.calorieTarget, proteinTargetG: drafted.proteinTargetG,
+        carbTargetG: drafted.carbTargetG ?? null, fatTargetG: drafted.fatTargetG ?? null,
+        rationale: drafted.rationale,
       },
     }).returning();
 
     await db.delete(meals).where(eq(meals.mealPlanId, plan.id));
-    if (input.meals.length) {
-      await db.insert(meals).values(input.meals.map((m, i) => ({
+    if (drafted.meals.length) {
+      await db.insert(meals).values(drafted.meals.map((m, i) => ({
         mealPlanId: plan.id, dayOfWeek: m.dayOfWeek, slot: m.slot, title: m.title,
         calories: m.calories, proteinG: m.proteinG,
         carbsG: m.carbsG ?? null, fatG: m.fatG ?? null,
@@ -57,7 +56,18 @@ export const createMealPlan = defineTool({
         prepMinutes: m.prepMinutes ?? null, sortOrder: i,
       })));
     }
-    return { ok: true, mealPlanId: plan.id, weekStart: week, meals: input.meals.length };
+
+    return {
+      ok: true,
+      weekStart: week,
+      meals: drafted.meals.length,
+      calorieTarget: drafted.calorieTarget,
+      proteinTargetG: drafted.proteinTargetG,
+      rationale: drafted.rationale,
+      // Surfaced rather than hidden: if a day is off target she should hear it
+      // from you, not discover it by being hungry.
+      daysOffTarget: drafted.shortfalls,
+    };
   },
 });
 

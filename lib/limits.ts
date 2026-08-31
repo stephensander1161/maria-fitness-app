@@ -2,7 +2,7 @@ import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, rateEvents, usageDaily } from "@/lib/db/schema";
 import { today } from "@/lib/date";
-import { PRICING } from "@/lib/agent/model";
+import { PRICING, type Pricing } from "@/lib/agent/model";
 
 /**
  * Cost control and abuse limits.
@@ -35,17 +35,20 @@ export const LIMITS = {
 };
 
 /** cost(micros) = tokens × USD-per-million. The units cancel exactly. */
-export function costMicros(usage: {
-  input_tokens?: number | null;
-  output_tokens?: number | null;
-  cache_read_input_tokens?: number | null;
-  cache_creation_input_tokens?: number | null;
-}): number {
+export function costMicros(
+  usage: {
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+    cache_creation_input_tokens?: number | null;
+  },
+  pricing: Pricing = PRICING,
+): number {
   return Math.round(
-    (usage.input_tokens ?? 0) * PRICING.input +
-    (usage.output_tokens ?? 0) * PRICING.output +
-    (usage.cache_read_input_tokens ?? 0) * PRICING.cacheRead +
-    (usage.cache_creation_input_tokens ?? 0) * PRICING.cacheWrite,
+    (usage.input_tokens ?? 0) * pricing.input +
+    (usage.output_tokens ?? 0) * pricing.output +
+    (usage.cache_read_input_tokens ?? 0) * pricing.cacheRead +
+    (usage.cache_creation_input_tokens ?? 0) * pricing.cacheWrite,
   );
 }
 
@@ -54,6 +57,7 @@ export type UsageSource = "app" | "eval";
 export async function recordUsage(
   usage: Parameters<typeof costMicros>[0],
   source: UsageSource = "app",
+  pricing?: Pricing,
 ) {
   const row = {
     date: today(),
@@ -63,7 +67,7 @@ export async function recordUsage(
     outputTokens: usage.output_tokens ?? 0,
     cacheReadTokens: usage.cache_read_input_tokens ?? 0,
     cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
-    costMicros: costMicros(usage),
+    costMicros: costMicros(usage, pricing),
   };
   await db.insert(usageDaily).values(row).onConflictDoUpdate({
     target: [usageDaily.date, usageDaily.source],

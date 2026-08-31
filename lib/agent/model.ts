@@ -1,29 +1,50 @@
 /**
- * One place to change the model. Haiku 4.5 while we shape behaviour; swap to
- * `claude-opus-5` (or set COACH_MODEL) when it's time for the real thing.
- * Note: Haiku 4.5 predates adaptive thinking and `output_config.effort` —
- * neither is sent here. Both become available on an Opus/Sonnet 5 swap.
+ * Two models, chosen by job.
+ *
+ * Conversation is frequent, short, and well within Haiku's reach — it reads
+ * tool results and talks to her. Plan generation is the opposite: rare, long,
+ * highly structured, and the place every observed failure lived (invented
+ * exercise slugs, meal plans landing 200 kcal/day under target, a runaway tool
+ * loop that burned 86 seconds). So planning gets a stronger model, and because
+ * it happens roughly weekly it barely moves the daily average.
  */
 export const MODEL = process.env.COACH_MODEL ?? "claude-haiku-4-5";
+export const PLANNER_MODEL = process.env.PLANNER_MODEL ?? "claude-sonnet-5";
 
-/** Large enough for create_meal_plan to emit a full week of meals in one tool
- *  call; we stream, so a big ceiling costs nothing when replies are short. */
+/** Large enough for a full week of meals in one structured response. */
 export const MAX_TOKENS = 16_000;
 
 /** Safety rail on the tool loop — a coaching turn should never need this many. */
 export const MAX_TOOL_ITERATIONS = 12;
 
+export type Pricing = {
+  input: number;
+  output: number;
+  cacheWrite: number;
+  cacheRead: number;
+};
+
 /**
- * USD per million tokens, for the spend ceiling. These MUST be updated
- * alongside MODEL: pricing the wrong model would silently disarm the cap that
- * keeps a runaway loop from costing real money.
+ * USD per million tokens. These MUST be updated alongside the model ids above:
+ * pricing the wrong model silently disarms the spend cap that keeps a runaway
+ * loop from costing real money. tests/limits.test.ts asserts the pairing.
  *
- * Haiku 4.5: $1.00 in / $5.00 out. Cache writes bill at 1.25x input, cache
- * reads at 0.1x. (Opus 5 / Sonnet 5 are $5/$25 and $2/$10 respectively.)
+ * Haiku 4.5: $1 / $5.   Sonnet 5: $2 / $10.   (Opus 5 would be $5 / $25.)
+ * Cache writes bill at 1.25x input, cache reads at 0.1x.
  */
-export const PRICING = {
+export const PRICING: Pricing = {
   input: 1.0,
   output: 5.0,
   cacheWrite: 1.25,
   cacheRead: 0.1,
-} as const;
+};
+
+export const PLANNER_PRICING: Pricing = {
+  input: 2.0,
+  output: 10.0,
+  cacheWrite: 2.5,
+  cacheRead: 0.2,
+};
+
+export const pricingFor = (model: string): Pricing =>
+  model === PLANNER_MODEL ? PLANNER_PRICING : PRICING;
