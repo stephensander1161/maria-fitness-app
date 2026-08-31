@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* A committed dark theme: this is used one-handed, in a gym, often at 6am.
+   High contrast, big targets, no theme flash. */
+@theme {
+  --color-ink: #05070a;
+  --color-base: #0b0e13;
+  --color-surface: #141920;
+  --color-raised: #1c232c;
+  --color-line: #28313c;
+  --color-text: #e9eef4;
+  --color-muted: #8b98a8;
+  --color-faint: #5c6875;
+
+  --color-accent: #ff6a45;
+  --color-accent-soft: #3a1d16;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #f87171;
+  --color-miss-soft: #34191b;
+
+  --font-sans: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, sans-serif;
+
+  --radius-card: 1rem;
+}
+
+:root { color-scheme: dark; }
+
+html, body {
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Full-bleed on iOS when installed to the home screen. */
+body {
+  padding-top: env(safe-area-inset-top);
+  min-height: 100dvh;
+}
+
+@layer utilities {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+}
+
+/* Inputs should never zoom the viewport on iOS — 16px minimum. */
+input, textarea, select, button { font-size: 16px; font-family: inherit; }

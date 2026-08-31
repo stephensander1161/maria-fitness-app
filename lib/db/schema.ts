@@ -1,0 +1,280 @@
+import {
+  pgTable, uuid, text, integer, real, boolean, date, timestamp, jsonb,
+  uniqueIndex, index,
+} from "drizzle-orm/pg-core";
+
+/* ─────────────────────────── conventions ───────────────────────────
+ * • Body weight, lifted weight → kilograms (real). Height → centimetres.
+ *   The UI converts for display; see lib/units.ts.
+ * • Day-level dates → `date` ('YYYY-MM-DD'), never a timestamp.
+ * • Everything hangs off profileId so a second user is a row, not a rewrite.
+ * ─────────────────────────────────────────────────────────────────── */
+
+const id = () => uuid("id").defaultRandom().primaryKey();
+const createdAt = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
+
+export const profiles = pgTable("profiles", {
+  id: id(),
+  name: text("name"),
+  birthYear: integer("birth_year"),
+  sex: text("sex", { enum: ["female", "male", "other"] }),
+  heightCm: real("height_cm"),
+  startWeightKg: real("start_weight_kg"),
+  goalWeightKg: real("goal_weight_kg"),
+  goalDate: date("goal_date"),
+  /** Why she's doing this, in her own words. The coach leans on this. */
+  motivation: text("motivation"),
+  activityLevel: text("activity_level", {
+    enum: ["sedentary", "light", "moderate", "active", "very_active"],
+  }),
+  experience: text("experience", { enum: ["beginner", "returning", "intermediate", "advanced"] }),
+  daysPerWeek: integer("days_per_week"),
+  sessionMinutes: integer("session_minutes"),
+  equipment: jsonb("equipment").$type<string[]>().default([]).notNull(),
+  injuries: jsonb("injuries").$type<string[]>().default([]).notNull(),
+  dietaryRestrictions: jsonb("dietary_restrictions").$type<string[]>().default([]).notNull(),
+  dislikedFoods: jsonb("disliked_foods").$type<string[]>().default([]).notNull(),
+  cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] }),
+  units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
+  /** Set once onboarding has collected enough to generate a real plan. */
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+export const weighIns = pgTable(
+  "weigh_ins",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    weightKg: real("weight_kg").notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("weigh_ins_profile_date").on(t.profileId, t.date)],
+);
+
+/** Long-term goals and the milestones that ladder up to them. */
+export const goals = pgTable("goals", {
+  id: id(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  kind: text("kind", { enum: ["weight", "strength", "habit", "endurance", "body"] }).notNull(),
+  /** Target in canonical units (kg for weight/strength, reps/minutes/sessions otherwise). */
+  targetValue: real("target_value"),
+  unit: text("unit"),
+  targetDate: date("target_date"),
+  /** For strength goals: which lift this tracks. */
+  exerciseId: uuid("exercise_id").references(() => exercises.id, { onDelete: "set null" }),
+  achievedAt: timestamp("achieved_at", { withTimezone: true }),
+  celebrated: boolean("celebrated").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: createdAt(),
+});
+
+/** Exercise library — also the form/posture resource surface. Seeded, extensible. */
+export const exercises = pgTable(
+  "exercises",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    category: text("category", {
+      enum: ["compound", "isolation", "cardio", "mobility", "core"],
+    }).notNull(),
+    primaryMuscles: jsonb("primary_muscles").$type<string[]>().default([]).notNull(),
+    equipment: jsonb("equipment").$type<string[]>().default([]).notNull(),
+    /** Ordered setup + execution cues. Rendered as the form guide. */
+    formCues: jsonb("form_cues").$type<string[]>().default([]).notNull(),
+    commonMistakes: jsonb("common_mistakes").$type<string[]>().default([]).notNull(),
+    /** Postural/safety note — what to stop for. */
+    safetyNote: text("safety_note"),
+    /** Regressions and progressions, by slug, for the agent to swap in. */
+    easierAlternatives: jsonb("easier_alternatives").$type<string[]>().default([]).notNull(),
+    harderAlternatives: jsonb("harder_alternatives").$type<string[]>().default([]).notNull(),
+    unilateral: boolean("unilateral").default(false).notNull(),
+    /** Bodyweight moves are logged by reps only. */
+    bodyweight: boolean("bodyweight").default(false).notNull(),
+  },
+  (t) => [uniqueIndex("exercises_slug").on(t.slug)],
+);
+
+/** One workout plan per week. `rationale` is the coach explaining itself. */
+export const plans = pgTable(
+  "plans",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(),
+    title: text("title").notNull(),
+    rationale: text("rationale"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("plans_profile_week").on(t.profileId, t.weekStart)],
+);
+
+export const planDays = pgTable(
+  "plan_days",
+  {
+    id: id(),
+    planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
+    /** 0 = Monday … 6 = Sunday. */
+    dayOfWeek: integer("day_of_week").notNull(),
+    title: text("title").notNull(),
+    focus: text("focus"),
+    /** Rest days keep a row so the week always renders as seven days. */
+    isRest: boolean("is_rest").default(false).notNull(),
+    notes: text("notes"),
+  },
+  (t) => [uniqueIndex("plan_days_plan_dow").on(t.planId, t.dayOfWeek)],
+);
+
+export const planExercises = pgTable(
+  "plan_exercises",
+  {
+    id: id(),
+    planDayId: uuid("plan_day_id").notNull().references(() => planDays.id, { onDelete: "cascade" }),
+    exerciseId: uuid("exercise_id").notNull().references(() => exercises.id, { onDelete: "restrict" }),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    targetSets: integer("target_sets").notNull(),
+    targetReps: integer("target_reps").notNull(),
+    /** Null until she has a working weight; the coach fills it from history. */
+    targetWeightKg: real("target_weight_kg"),
+    restSeconds: integer("rest_seconds").default(90).notNull(),
+    notes: text("notes"),
+  },
+  (t) => [index("plan_exercises_day").on(t.planDayId)],
+);
+
+/** One row per workout she actually starts. */
+export const workouts = pgTable(
+  "workouts",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    planDayId: uuid("plan_day_id").references(() => planDays.id, { onDelete: "set null" }),
+    date: date("date").notNull(),
+    title: text("title").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** 1–5, how it felt. Drives how the coach adjusts next week. */
+    feeling: integer("feeling"),
+    notes: text("notes"),
+  },
+  (t) => [index("workouts_profile_date").on(t.profileId, t.date)],
+);
+
+/** The atom of progress tracking: one completed set. */
+export const setLogs = pgTable(
+  "set_logs",
+  {
+    id: id(),
+    workoutId: uuid("workout_id").notNull().references(() => workouts.id, { onDelete: "cascade" }),
+    exerciseId: uuid("exercise_id").notNull().references(() => exercises.id, { onDelete: "restrict" }),
+    setNumber: integer("set_number").notNull(),
+    reps: integer("reps").notNull(),
+    /** Null for bodyweight movements. */
+    weightKg: real("weight_kg"),
+    /** Rate of perceived exertion, 1–10. Optional but powers auto-progression. */
+    rpe: real("rpe"),
+    loggedAt: createdAt(),
+  },
+  (t) => [index("set_logs_exercise").on(t.exerciseId), index("set_logs_workout").on(t.workoutId)],
+);
+
+export const mealPlans = pgTable(
+  "meal_plans",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    weekStart: date("week_start").notNull(),
+    calorieTarget: integer("calorie_target").notNull(),
+    proteinTargetG: integer("protein_target_g").notNull(),
+    carbTargetG: integer("carb_target_g"),
+    fatTargetG: integer("fat_target_g"),
+    rationale: text("rationale"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("meal_plans_profile_week").on(t.profileId, t.weekStart)],
+);
+
+export const meals = pgTable(
+  "meals",
+  {
+    id: id(),
+    mealPlanId: uuid("meal_plan_id").notNull().references(() => mealPlans.id, { onDelete: "cascade" }),
+    dayOfWeek: integer("day_of_week").notNull(),
+    slot: text("slot", { enum: ["breakfast", "lunch", "dinner", "snack"] }).notNull(),
+    title: text("title").notNull(),
+    calories: integer("calories").notNull(),
+    proteinG: integer("protein_g").notNull(),
+    carbsG: integer("carbs_g"),
+    fatG: integer("fat_g"),
+    ingredients: jsonb("ingredients").$type<string[]>().default([]).notNull(),
+    steps: jsonb("steps").$type<string[]>().default([]).notNull(),
+    prepMinutes: integer("prep_minutes"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+  },
+  (t) => [index("meals_plan_day").on(t.mealPlanId, t.dayOfWeek)],
+);
+
+/** What she actually ate — planned meal or free text she describes to the coach. */
+export const mealLogs = pgTable(
+  "meal_logs",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    slot: text("slot", { enum: ["breakfast", "lunch", "dinner", "snack"] }).notNull(),
+    mealId: uuid("meal_id").references(() => meals.id, { onDelete: "set null" }),
+    description: text("description").notNull(),
+    calories: integer("calories"),
+    proteinG: integer("protein_g"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("meal_logs_profile_date").on(t.profileId, t.date)],
+);
+
+/** Fitness factoids and sedentary-risk facts. Surfaced daily, never twice running. */
+export const facts = pgTable(
+  "facts",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    category: text("category", {
+      enum: ["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health"],
+    }).notNull(),
+    text: text("text").notNull(),
+    source: text("source"),
+  },
+  (t) => [uniqueIndex("facts_slug").on(t.slug)],
+);
+
+export const factViews = pgTable("fact_views", {
+  id: id(),
+  profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  factId: uuid("fact_id").notNull().references(() => facts.id, { onDelete: "cascade" }),
+  shownOn: date("shown_on").notNull(),
+});
+
+/** Full conversation history — this is the agent's memory across sessions. */
+export const messages = pgTable(
+  "messages",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "assistant"] }).notNull(),
+    /** Anthropic content blocks, stored verbatim so tool_use/tool_result replay exactly. */
+    content: jsonb("content").$type<unknown>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("messages_profile_created").on(t.profileId, t.createdAt)],
+);
+
+export type Profile = typeof profiles.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type SetLog = typeof setLogs.$inferSelect;
+export type Workout = typeof workouts.$inferSelect;
+export type Goal = typeof goals.$inferSelect;
+export type Meal = typeof meals.$inferSelect;
+export type Fact = typeof facts.$inferSelect;

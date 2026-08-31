@@ -1,0 +1,43 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const TABS = [
+  { href: "/", label: "Coach", icon: "M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" },
+  { href: "/train", label: "Train", icon: "M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11" },
+  { href: "/plan", label: "Plan", icon: "M4 6h16M4 6v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6M8 3v4M16 3v4M8 12h8M8 16h5" },
+  { href: "/progress", label: "Progress", icon: "M4 19V5M4 19h16M7.5 15l3.5-4 3 2.5L19 8" },
+  { href: "/learn", label: "Learn", icon: "M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5V5.5ZM8 7.5h7M8 11h5" },
+];
+
+export function TabBar() {
+  const path = usePathname();
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl">
+      <div
+        className="mx-auto grid max-w-lg grid-cols-5"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
+      >
+        {TABS.map((tab) => {
+          const active = tab.href === "/" ? path === "/" : path.startsWith(tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`flex flex-col items-center gap-1 pt-2.5 pb-1 text-[11px] font-medium transition-colors ${
+                active ? "text-accent" : "text-faint"
+              }`}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d={tab.icon} />
+              </svg>
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
