@@ -23,6 +23,7 @@ export type AuditEventName =
   | "data.exported"
   | "data.restored"
   | "data.deleted"
+  | "onboarding.completed"
   | "spend.ceiling_reached";
 
 const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "data.deleted"];

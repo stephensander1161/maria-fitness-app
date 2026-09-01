@@ -37,3 +37,17 @@ export async function requireUser(): Promise<User> {
   if (!user) redirect("/login");
   return user;
 }
+
+/**
+ * A profile that is actually ready to be used. Anyone who has not been through
+ * the first-run flow is sent there instead of landing in an empty app with no
+ * plan, no targets and nothing to do — which is exactly what made the first
+ * version feel like work.
+ */
+export async function requireOnboarded() {
+  const user = await requireUser();
+  const { getProfile } = await import("@/lib/profile");
+  const profile = await getProfile(user.id);
+  if (!profile.onboardedAt) redirect("/welcome");
+  return profile;
+}

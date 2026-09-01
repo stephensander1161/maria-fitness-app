@@ -31,25 +31,28 @@ const anthropic = (): Anthropic =>
   (_client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
 
 const planExercise = z.object({
-  slug: z.string(),
+  slug: z.string().describe("Exact slug from the catalogue — anything else is rejected"),
   sets: z.number(),
-  reps: z.number(),
-  weight: z.number().nullable().optional(),
+  reps: z.number().describe("Reps per set, or seconds for a timed hold"),
+  weight: z.number().nullable().optional()
+    .describe("Working weight in her units; omit for bodyweight or when unknown"),
   restSeconds: z.number().optional(),
-  notes: z.string().optional(),
+  notes: z.string().optional().describe("A short form cue for this movement"),
 });
 
 export const weekDraft = z.object({
-  title: z.string(),
-  rationale: z.string(),
+  title: z.string().default("This week")
+    .describe('Short name for the week, e.g. "Week 1 — Full Body Foundation"'),
+  rationale: z.string().default("")
+    .describe("Two or three sentences addressed to her, explaining why the week looks like this"),
   days: z.array(z.object({
-    dayOfWeek: z.number(),
-    title: z.string(),
-    focus: z.string().optional(),
-    isRest: z.boolean().optional(),
-    notes: z.string().optional(),
+    dayOfWeek: z.number().describe("0=Monday … 6=Sunday. Include all seven."),
+    title: z.string().optional().describe('Name for the day, e.g. "Lower Body" or "Rest"'),
+    focus: z.string().optional().describe("What this day is for, in a few words"),
+    isRest: z.boolean().optional().describe("True for non-training days"),
+    notes: z.string().optional().describe("A cue or caution shown next to the day"),
     exercises: z.array(planExercise).optional(),
-  })),
+  })).describe("All seven days, in order"),
 });
 
 export const mealDraft = z.object({
@@ -57,9 +60,10 @@ export const mealDraft = z.object({
   proteinTargetG: z.number(),
   carbTargetG: z.number().optional(),
   fatTargetG: z.number().optional(),
-  rationale: z.string(),
+  rationale: z.string().default("")
+    .describe("Two or three sentences addressed to her about the targets and the week"),
   meals: z.array(z.object({
-    dayOfWeek: z.number(),
+    dayOfWeek: z.number().describe("0=Monday … 6=Sunday"),
     slot: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string(),
     calories: z.number(),
@@ -105,7 +109,13 @@ async function draft<S extends z.ZodType>(
 
   const parsed = schema.safeParse(block.input);
   if (!parsed.success) {
-    throw new Error(`Planner returned an unusable plan: ${parsed.error.issues[0]?.message}`);
+    // Name the field. "expected string, received undefined" with no path is
+    // undebuggable, and this failure is silent from the outside.
+    const where = parsed.error.issues
+      .slice(0, 3)
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("; ");
+    throw new Error(`Planner returned an unusable plan — ${where}`);
   }
   return parsed.data;
 }
@@ -176,7 +186,8 @@ export async function planWeek(
       intent.focus ? `Focus she asked for: ${intent.focus}` : ``,
       intent.notes ? `Notes: ${intent.notes}` : ``,
       ``,
-      `Write the rationale directly to her, in plain language, explaining why the week looks like this.`,
+      `Give the week a short title, and write the rationale directly to her in plain language, `
+        + `explaining why it looks like this.`,
     ].filter(Boolean).join("\n"),
     source,
     profileId,
@@ -197,7 +208,8 @@ export async function planMeals(
       `Week starting ${intent.weekStart}. Target ${intent.calorieTarget} kcal and ${intent.proteinTargetG}g protein per day.`,
       intent.notes ? `Notes: ${intent.notes}` : ``,
       ``,
-      `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), with ingredients and short steps.`,
+      `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), `
+        + `with ingredients and short steps, and write the rationale directly to her.`,
     ].filter(Boolean).join("\n"),
     source,
     profileId,

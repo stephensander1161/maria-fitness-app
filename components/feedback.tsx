@@ -41,7 +41,8 @@ export function Feedback() {
   const [sent, setSent] = useState(false);
   const [past, setPast] = useState<Item[] | null>(null);
 
-  if (path === "/login") return null;
+  // Same reason as the tab bar: nothing but the form should be reachable here.
+  if (path === "/login" || path === "/welcome") return null;
 
   async function show() {
     setOpen(true);

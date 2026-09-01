@@ -2,10 +2,12 @@ import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, facts } from "@/lib/db/schema";
 import { Library } from "@/components/library";
+import { requireOnboarded } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function LearnPage() {
+  await requireOnboarded();
   const [moves, allFacts] = await Promise.all([
     db.select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,

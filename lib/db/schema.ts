@@ -204,6 +204,106 @@ export const exercises = pgTable(
   (t) => [uniqueIndex("exercises_slug").on(t.slug)],
 );
 
+/* ── Templates ─────────────────────────────────────────────────────────────
+ * Ready-made weeks, seeded as reference data like the exercise library.
+ *
+ * Onboarding instantiates the closest match instantly instead of waiting ~45s
+ * on a model call — and it still works when the API is down or the key is out
+ * of credit. The coach personalises from there, which is a better job for it
+ * than producing a first draft from nothing.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+export const workoutTemplates = pgTable(
+  "workout_templates",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    /** How it is matched: sessions a week, kit needed, and who it suits. */
+    daysPerWeek: integer("days_per_week").notNull(),
+    equipment: jsonb("equipment").$type<string[]>().default([]).notNull(),
+    experience: jsonb("experience").$type<string[]>().default([]).notNull(),
+    /** Movements to avoid — matched against her logged injuries. */
+    avoids: jsonb("avoids").$type<string[]>().default([]).notNull(),
+    sessionMinutes: integer("session_minutes").notNull(),
+  },
+  (t) => [uniqueIndex("workout_templates_slug").on(t.slug)],
+);
+
+export const workoutTemplateDays = pgTable(
+  "workout_template_days",
+  {
+    id: id(),
+    templateId: uuid("template_id").notNull()
+      .references(() => workoutTemplates.id, { onDelete: "cascade" }),
+    dayOfWeek: integer("day_of_week").notNull(),
+    title: text("title").notNull(),
+    focus: text("focus"),
+    isRest: boolean("is_rest").default(false).notNull(),
+    notes: text("notes"),
+  },
+  (t) => [uniqueIndex("workout_template_days_dow").on(t.templateId, t.dayOfWeek)],
+);
+
+export const workoutTemplateExercises = pgTable(
+  "workout_template_exercises",
+  {
+    id: id(),
+    templateDayId: uuid("template_day_id").notNull()
+      .references(() => workoutTemplateDays.id, { onDelete: "cascade" }),
+    /** By slug, resolved against the exercise library when instantiated. */
+    exerciseSlug: text("exercise_slug").notNull(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    sets: integer("sets").notNull(),
+    reps: integer("reps").notNull(),
+    restSeconds: integer("rest_seconds").default(90).notNull(),
+    notes: text("notes"),
+  },
+  (t) => [index("workout_template_exercises_day").on(t.templateDayId)],
+);
+
+export const mealTemplates = pgTable(
+  "meal_templates",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    /** The calorie level the portions are written at; scaled to her target. */
+    baseCalories: integer("base_calories").notNull(),
+    baseProteinG: integer("base_protein_g").notNull(),
+    /** e.g. ["vegetarian"]. Empty means it suits anyone with no restrictions. */
+    dietaryTags: jsonb("dietary_tags").$type<string[]>().default([]).notNull(),
+    cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] })
+      .default("minimal").notNull(),
+    /** Every ingredient used, so a template with a disliked food can be skipped. */
+    contains: jsonb("contains").$type<string[]>().default([]).notNull(),
+  },
+  (t) => [uniqueIndex("meal_templates_slug").on(t.slug)],
+);
+
+export const mealTemplateItems = pgTable(
+  "meal_template_items",
+  {
+    id: id(),
+    templateId: uuid("template_id").notNull()
+      .references(() => mealTemplates.id, { onDelete: "cascade" }),
+    dayOfWeek: integer("day_of_week").notNull(),
+    slot: text("slot", { enum: ["breakfast", "lunch", "dinner", "snack"] }).notNull(),
+    title: text("title").notNull(),
+    calories: integer("calories").notNull(),
+    proteinG: integer("protein_g").notNull(),
+    carbsG: integer("carbs_g"),
+    fatG: integer("fat_g"),
+    ingredients: jsonb("ingredients").$type<string[]>().default([]).notNull(),
+    steps: jsonb("steps").$type<string[]>().default([]).notNull(),
+    prepMinutes: integer("prep_minutes"),
+    sortOrder: integer("sort_order").default(0).notNull(),
+  },
+  (t) => [index("meal_template_items_day").on(t.templateId, t.dayOfWeek)],
+);
+
 /** One workout plan per week. `rationale` is the coach explaining itself. */
 export const plans = pgTable(
   "plans",
@@ -501,6 +601,8 @@ export type Workout = typeof workouts.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type Fact = typeof facts.$inferSelect;
+export type WorkoutTemplate = typeof workoutTemplates.$inferSelect;
+export type MealTemplate = typeof mealTemplates.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;

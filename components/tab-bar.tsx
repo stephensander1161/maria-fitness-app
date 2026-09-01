@@ -11,9 +11,11 @@ const TABS = [
   { href: "/learn", label: "Learn", icon: "M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5V5.5ZM8 7.5h7M8 11h5" },
 ];
 
+const CHROMELESS = new Set(["/login", "/welcome"]);
+
 export function TabBar() {
   const path = usePathname();
-  if (path === "/login") return null;
+  if (CHROMELESS.has(path)) return null;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl">

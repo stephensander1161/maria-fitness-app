@@ -1,8 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
-import { getProfile } from "@/lib/profile";
-import { requireUser } from "@/lib/session";
+import { requireOnboarded } from "@/lib/session";
 import { currentStreak, measurementProgress, weekReview } from "@/lib/progress";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
@@ -18,8 +17,7 @@ import { photoLibrary } from "@/lib/photos";
 export const dynamic = "force-dynamic";
 
 export default async function ProgressPage() {
-  const user = await requireUser();
-  const profile = await getProfile(user.id);
+  const profile = await requireOnboarded();
   const u = profile.units;
   const unit = weightLabel(u);
 

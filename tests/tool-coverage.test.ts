@@ -71,7 +71,15 @@ suite("tool registry", () => {
 
   it("every table that holds her data is written by some tool", () => {
     // Reference data is seeded, not written through tools.
-    const REFERENCE_ONLY = new Set(["exercises", "facts"]);
+    const REFERENCE_ONLY = new Set([
+      "exercises", "facts",
+      // Ready-made weeks, seeded from source like the exercise library. They
+      // are content the app ships, never rows written on her behalf — what gets
+      // written for her is the plan instantiated from one, which the tools do
+      // reach (list_templates, suggest_template, apply_template).
+      "workoutTemplates", "workoutTemplateDays", "workoutTemplateExercises",
+      "mealTemplates", "mealTemplateItems",
+    ]);
     // Infrastructure the app maintains itself, never on her behalf.
     const INTERNAL = new Set([
       "messages", "rateEvents", "usageDaily", "factViews", "profiles",

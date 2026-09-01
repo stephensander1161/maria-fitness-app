@@ -137,9 +137,15 @@ export const createWeeklyPlan = defineTool({
     await db.delete(planDays).where(eq(planDays.planId, plan.id)); // cascades
 
     for (const day of drafted.days) {
+      const isRest = day.isRest ?? (day.exercises?.length ?? 0) === 0;
       const [pd] = await db.insert(planDays).values({
-        planId: plan.id, dayOfWeek: day.dayOfWeek, title: day.title,
-        focus: day.focus ?? null, isRest: day.isRest ?? false, notes: day.notes ?? null,
+        planId: plan.id,
+        dayOfWeek: day.dayOfWeek,
+        // Derived when the planner leaves it out, rather than failing the week.
+        title: day.title ?? day.focus ?? (isRest ? "Rest" : "Training"),
+        focus: day.focus ?? null,
+        isRest,
+        notes: day.notes ?? null,
       }).returning();
 
       const list = day.exercises ?? [];
@@ -164,7 +170,7 @@ export const createWeeklyPlan = defineTool({
       rationale: drafted.rationale,
       days: drafted.days.map((d) => ({
         day: DAY_NAMES[d.dayOfWeek],
-        title: d.title,
+        title: d.title ?? d.focus ?? "Training",
         exercises: (d.exercises ?? []).length,
       })),
       hint: "Walk her through it in your own words — don't just repeat the rationale back.",

@@ -1,14 +1,12 @@
 import { PlanClient } from "@/components/plan-client";
-import { getProfile } from "@/lib/profile";
-import { requireUser } from "@/lib/session";
+import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, weekView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanPage() {
-  const user = await requireUser();
-  const profile = await getProfile(user.id);
+  const profile = await requireOnboarded();
   const [week, mealWeek] = await Promise.all([
     weekView(profile.id, profile.units),
     mealWeekView(profile.id),
