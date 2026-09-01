@@ -386,6 +386,20 @@ export async function recentMeals(
     .where(and(eq(mealLogs.profileId, profileId), gte(mealLogs.date, since)))
     .orderBy(desc(mealLogs.date), desc(mealLogs.createdAt));
 
+  return groupRecentMeals(rows, limit);
+}
+
+/**
+ * The grouping half of recentMeals, kept pure so the ordering assumption is
+ * actually tested: rows must arrive newest first, because the first sighting of
+ * a meal is what supplies its macros — the version she most recently thought
+ * was right. Fed the other way round, it would quietly resurrect old numbers.
+ */
+export function groupRecentMeals(
+  rows: { slot: string; description: string; calories: number | null; proteinG: number | null;
+          fibreG: number | null; date: ISODate }[],
+  limit = 6,
+): RecentMeal[] {
   const grouped = new Map<string, RecentMeal>();
   for (const r of rows) {
     const key = `${r.slot}::${r.description.trim().toLowerCase()}`;
@@ -394,7 +408,6 @@ export async function recentMeals(
       seen.times += 1;
       continue;
     }
-    // Rows arrive newest first, so the first one seen carries the newest macros.
     grouped.set(key, {
       slot: r.slot, description: r.description,
       calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
