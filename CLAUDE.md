@@ -85,6 +85,21 @@ correctly-but-wrongly told her she hadn't hit her milestone. If you add to that
 block, it must be exactly true, in her units, and labelled for what it is —
 planned targets read as achievements unless you say otherwise.
 
+## Security controls
+
+COMPLIANCE.md is the inventory of what exists, what doesn't, and the standing
+rules. Two that bite most often:
+
+- **Anything touching auth, spend limits, or the movement or deletion of her
+  data calls `audit()`** (`lib/audit.ts`). Never log a credential, a passphrase
+  attempt — even hashed, since that is a wordlist — or her body data.
+- **CI is the only review this project has.** Typecheck, lint, tests, dependency
+  audit, a build that proves nothing needs a secret at module load, and a scan
+  of git history for credentials. It must pass before deploy.
+
+If you remove a control, remove it from COMPLIANCE.md too. A stale readiness
+document is worse than none, because it gets believed.
+
 ## Security invariants — do not regress these
 
 - `middleware.ts` denies by default. Never convert it to an allow-list of

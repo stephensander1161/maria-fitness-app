@@ -57,7 +57,9 @@ Keeping that seam clean is what stops the agent and the UI from drifting apart.
 
 ## Security
 
-The app is gated by edge middleware that denies every path by default, behind a
+[COMPLIANCE.md](./COMPLIANCE.md) inventories the security controls against the
+SOC 2 Common Criteria — including, honestly, the ones that don't exist. The app
+is gated by edge middleware that denies every path by default, behind a
 passphrase and a signed httpOnly cookie. A hard daily spend ceiling ($0.50 by
 default) is enforced before any model call, with real token usage recorded from
 every response. Full details in [SECURITY.md](./SECURITY.md).
