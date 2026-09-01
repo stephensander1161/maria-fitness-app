@@ -11,8 +11,14 @@ suite("reading a portion", () => {
   });
 
   it("treats a bare number as natural units", () => {
-    expect(parsePortion("2 eggs")).toMatchObject({ amount: 2, unit: "unit", query: "eggs" });
     expect(parsePortion("3 chicken thighs")).toMatchObject({ amount: 3, unit: "unit", query: "chicken thighs" });
+    expect(parsePortion("2 bananas")).toMatchObject({ amount: 2, unit: "unit", query: "bananas" });
+  });
+
+  it("recognises a named measure and keeps the food searchable", () => {
+    expect(parsePortion("2 eggs")).toMatchObject({ amount: 2, unit: "named", namedUnit: "egg", query: "eggs" });
+    expect(parsePortion("1 tin tuna")).toMatchObject({ amount: 1, unit: "named", namedUnit: "tin", query: "tuna" });
+    expect(parsePortion("2 slices bread")).toMatchObject({ amount: 2, unit: "named", namedUnit: "slice", query: "bread" });
   });
 
   it("assumes 100g when no amount is given, and says so", () => {
@@ -36,8 +42,8 @@ suite("reading a portion", () => {
   });
 
   suite("converting to grams", () => {
-    const g = (s: string, unitGrams: number | null = null) =>
-      toGrams(parsePortion(s)!, unitGrams);
+    const g = (s: string, unitGrams: number | null = null, unitLabel: string | null = null) =>
+      toGrams(parsePortion(s)!, unitGrams, unitLabel);
 
     it("converts weights correctly", () => {
       expect(g("100g rice")).toBe(100);
@@ -47,8 +53,9 @@ suite("reading a portion", () => {
     });
 
     it("uses the food's own natural unit", () => {
-      expect(g("2 eggs", 50)).toBe(100);
-      expect(g("3 slices", 40)).toBe(120);
+      expect(g("2 eggs", 50, "egg")).toBe(100);
+      expect(g("3 slices", 40, "slice")).toBe(120);
+      expect(g("1 tin tuna", 112, "tin (drained)")).toBe(112);
     });
 
     it("returns null rather than inventing a weight for an unknown unit", () => {
@@ -62,14 +69,15 @@ suite("reading a portion", () => {
 suite("spoon measures", () => {
   it("keeps the food searchable when a spoon is given", () => {
     const p = parsePortion("1 tbsp olive oil")!;
-    expect(p.unit).toBe("tbsp");
+    expect(p.unit).toBe("named");
+    expect(p.namedUnit).toBe("tbsp");
     expect(p.query).toBe("olive oil");
     expect(p.amount).toBe(1);
   });
 
   it("accepts the spelled-out forms", () => {
-    expect(parsePortion("2 tablespoons peanut butter")!.unit).toBe("tbsp");
-    expect(parsePortion("1 teaspoon honey")!.unit).toBe("tsp");
+    expect(parsePortion("2 tablespoons peanut butter")!.namedUnit).toBe("tbsp");
+    expect(parsePortion("1 teaspoon honey")!.namedUnit).toBe("tsp");
   });
 
   it("resolves a spoon against a food measured in that spoon", () => {
@@ -113,5 +121,57 @@ suite("ranking a food match", () => {
 
   it("scores a food that matches nothing worst", () => {
     expect(matchScore("rice", "Olive oil", ["evoo"])).toBe(3);
+  });
+});
+
+suite("named measures beyond spoons", () => {
+  const g = (s: string, unitGrams: number | null, unitLabel: string | null) =>
+    toGrams(parsePortion(s)!, unitGrams, unitLabel);
+
+  it("resolves a measure the food is actually sold in", () => {
+    expect(g("1 tin tuna", 112, "tin (drained)")).toBe(112);
+    expect(g("2 tins tuna", 112, "tin (drained)")).toBe(224);
+    expect(g("1 glass milk", 250, "glass (250ml)")).toBe(250);
+    expect(g("1 handful almonds", 25, "handful")).toBe(25);
+    expect(g("1 fillet salmon", 130, "fillet")).toBe(130);
+    expect(g("2 rashers bacon", 25, "rasher")).toBe(50);
+  });
+
+  it("treats a serving as a portion, because they are the same word", () => {
+    expect(g("1 serving rice", 180, "portion")).toBe(180);
+    expect(g("2 portions rice", 180, "portion")).toBe(360);
+  });
+
+  // The reason every one of these is guarded. A glass of rice is not a thing,
+  // and answering 180g for it would be a confident wrong calorie count.
+  it("refuses a measure the food is not sold in", () => {
+    expect(g("1 glass rice", 180, "portion")).toBeNull();
+    expect(g("1 tin banana", 118, "banana")).toBeNull();
+    expect(g("2 slices milk", 250, "glass (250ml)")).toBeNull();
+  });
+
+  it("still refuses when the food has no natural unit at all", () => {
+    expect(g("1 tin mystery", null, null)).toBeNull();
+  });
+});
+
+suite("the library's own spelling of a measure", () => {
+  const g = (s: string, unitGrams: number | null, unitLabel: string | null) =>
+    toGrams(parsePortion(s)!, unitGrams, unitLabel);
+
+  // The library says "can (330ml)" where she says tin, and "portion" where she
+  // says serving. Refusing on a spelling difference would send a measure that
+  // is genuinely the food's own unit off to a model estimate.
+  it("accepts the label's word for the same thing", () => {
+    expect(g("1 tin cola", 330, "can (330ml)")).toBe(330);
+    expect(g("1 can tuna", 112, "tin (drained)")).toBe(112);
+    expect(g("1 serving rice", 180, "portion")).toBe(180);
+    expect(g("1 portion yoghurt", 170, "serving")).toBe(170);
+    expect(g("1 pot yoghurt", 170, "tub")).toBe(170);
+  });
+
+  it("does not let a synonym open the door to an unrelated measure", () => {
+    expect(g("1 tin rice", 180, "portion")).toBeNull();
+    expect(g("1 square milk", 250, "glass (250ml)")).toBeNull();
   });
 });

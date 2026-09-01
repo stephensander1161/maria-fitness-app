@@ -14,11 +14,18 @@ export type Portion = {
   query: string;
   /** True when no amount was given and 100g was assumed. */
   assumed: boolean;
+  /** The measure she named, when unit is "named" — "tbsp", "tin", "glass". */
+  namedUnit: string | null;
 };
 
-export type PortionUnit = "g" | "kg" | "oz" | "lb" | "ml" | "unit" | "tbsp" | "tsp";
+export type PortionUnit =
+  | "g" | "kg" | "oz" | "lb" | "ml"
+  /** One of the food's own natural units — "2 eggs", "1 banana". */
+  | "unit"
+  /** A named measure: tbsp, tin, glass, handful. See namedUnit and toGrams. */
+  | "named";
 
-const GRAMS: Record<Exclude<PortionUnit, "unit" | "tbsp" | "tsp">, number> = {
+const GRAMS: Record<Exclude<PortionUnit, "unit" | "named">, number> = {
   g: 1,
   kg: 1000,
   oz: 28.3495,
@@ -34,14 +41,87 @@ const UNIT_WORDS: Record<string, PortionUnit> = {
   oz: "oz", ounce: "oz", ounces: "oz",
   lb: "lb", lbs: "lb", pound: "lb", pounds: "lb",
   ml: "ml", millilitre: "ml", milliliter: "ml",
-  // Spoons resolve against the food's own unitGrams, and only when the food
-  // says it is measured that way — see toGrams.
+  // Natural units resolve against the food's own unitGrams: these say "one of
+  // whatever this food comes as", so whatever that is, is the right answer.
+  x: "unit", piece: "unit", pieces: "unit", item: "unit", items: "unit",
+  medium: "unit", large: "unit", small: "unit", whole: "unit",
+};
+
+/**
+ * Measures that name a specific thing — a spoon, a tin, a glass, a slice.
+ *
+ * These only resolve when the food itself is measured that way, because they
+ * do not transfer: a tablespoon of oil and one of honey differ by half again
+ * in weight, and a glass of rice is not a thing. The value is the word to look
+ * for in the food's own unitLabel.
+ *
+ * When the label disagrees, toGrams returns null and the lookup falls through
+ * to an estimate — which is the honest outcome, not a failure.
+ */
+const NAMED_UNITS: Record<string, string> = {
   tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", tbsps: "tbsp",
   tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", tsps: "tsp",
-  // Natural units resolve against the food's own unitGrams.
-  x: "unit", piece: "unit", pieces: "unit", slice: "unit", slices: "unit",
-  egg: "unit", eggs: "unit", item: "unit", items: "unit",
-  medium: "unit", large: "unit", small: "unit", whole: "unit",
+  slice: "slice", slices: "slice",
+  egg: "egg", eggs: "egg",
+  tin: "tin", tins: "tin", can: "tin", cans: "tin",
+  glass: "glass", glasses: "glass",
+  handful: "handful", handfuls: "handful",
+  fillet: "fillet", fillets: "fillet",
+  steak: "steak", steaks: "steak",
+  pot: "pot", pots: "pot",
+  bag: "bag", bags: "bag",
+  bar: "bar", bars: "bar",
+  portion: "portion", portions: "portion", serving: "portion", servings: "portion",
+  scoop: "scoop", scoops: "scoop",
+  rasher: "rasher", rashers: "rasher",
+  bottle: "bottle", bottles: "bottle",
+  bowl: "bowl", bowls: "bowl",
+  mug: "mug", mugs: "mug",
+  pint: "pint", pints: "pint",
+  pack: "pack", packs: "pack", packet: "pack", packets: "pack",
+  tub: "tub", tubs: "tub",
+  carton: "carton", cartons: "carton",
+  pouch: "pouch", pouches: "pouch",
+  square: "square", squares: "square",
+  jar: "jar", jars: "jar",
+  breast: "breast", breasts: "breast",
+  thigh: "thigh", thighs: "thigh",
+  chop: "chop", chops: "chop",
+  sausage: "sausage", sausages: "sausage",
+  biscuit: "biscuit", biscuits: "biscuit",
+  muffin: "muffin", muffins: "muffin",
+  roll: "roll", rolls: "roll",
+  bun: "bun", buns: "bun",
+  stick: "stick", sticks: "stick",
+  ball: "ball", balls: "ball",
+  clove: "clove", cloves: "clove",
+  wing: "wing", wings: "wing",
+  drumstick: "drumstick", drumsticks: "drumstick",
+  burger: "burger", burgers: "burger",
+  pancake: "pancake", pancakes: "pancake",
+  scone: "scone", scones: "scone",
+  cracker: "cracker", crackers: "cracker",
+  cookie: "cookie", cookies: "cookie",
+  nugget: "nugget", nuggets: "nugget",
+  wrap: "wrap", wraps: "wrap",
+};
+
+/**
+ * Words a food's own label may use for the same measure.
+ *
+ * The library says "can (330ml)" where she says tin, and "portion" where she
+ * says serving. Without this, a measure that is genuinely the food's own unit
+ * gets refused on a spelling difference and falls through to a model estimate.
+ */
+const LABEL_SYNONYMS: Record<string, string[]> = {
+  tin: ["tin", "can"],
+  portion: ["portion", "serving"],
+  glass: ["glass", "tumbler"],
+  pack: ["pack", "packet"],
+  bag: ["bag", "packet"],
+  pot: ["pot", "tub"],
+  tub: ["tub", "pot"],
+  bottle: ["bottle"],
 };
 
 /** Words that carry no meaning for the lookup. */
@@ -55,29 +135,33 @@ export function parsePortion(input: string): Portion | null {
   const match = text.match(/^([\d.]+)\s*([a-z]+)?\s*(.*)$/);
 
   if (!match) {
-    return { amount: 100, unit: "g", query: clean(text), assumed: true };
+    return { amount: 100, unit: "g", query: clean(text), assumed: true, namedUnit: null };
   }
 
   const amount = parseFloat(match[1]);
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { amount: 100, unit: "g", query: clean(text), assumed: true };
+    return { amount: 100, unit: "g", query: clean(text), assumed: true, namedUnit: null };
   }
 
   const word = match[2] ?? "";
   const rest = match[3] ?? "";
 
-  // "2 eggs" — the unit word is also the food, so keep it in the query.
   const known = UNIT_WORDS[word];
-  if (known && rest.trim()) {
-    return { amount, unit: known, query: clean(rest), assumed: false };
+  if (known) {
+    // "2 eggs" — when the measure is also the food, it has to stay searchable.
+    const query = clean(rest.trim() ? rest : word);
+    return { amount, unit: known, query, assumed: false, namedUnit: null };
   }
-  if (known && !rest.trim()) {
-    return { amount, unit: known, query: clean(word), assumed: false };
+
+  const named = NAMED_UNITS[word];
+  if (named) {
+    const query = clean(rest.trim() ? rest : word);
+    return { amount, unit: "named", query, assumed: false, namedUnit: named };
   }
 
   // "2 chicken thighs" — a bare number means natural units.
   const query = clean(`${word} ${rest}`);
-  return query ? { amount, unit: "unit", query, assumed: false } : null;
+  return query ? { amount, unit: "unit", query, assumed: false, namedUnit: null } : null;
 }
 
 const clean = (s: string) =>
@@ -92,13 +176,14 @@ export function toGrams(
   unitGrams: number | null,
   unitLabel?: string | null,
 ): number | null {
-  if (portion.unit === "tbsp" || portion.unit === "tsp") {
-    // A tablespoon of oil and a tablespoon of honey differ by half again in
-    // weight, so there is no general spoon-to-gram conversion. Resolve it only
-    // when the food itself is measured in that spoon; otherwise say we cannot,
-    // and let the caller estimate rather than publish a confident wrong number.
-    if (unitGrams === null) return null;
-    return unitLabel?.toLowerCase().includes(portion.unit)
+  if (portion.unit === "named") {
+    // Resolve only when the food itself is measured that way. Otherwise say we
+    // cannot, and let the caller estimate rather than publish a confident wrong
+    // number for a glass of rice.
+    if (unitGrams === null || portion.namedUnit === null) return null;
+    const label = unitLabel?.toLowerCase() ?? "";
+    const accepted = LABEL_SYNONYMS[portion.namedUnit] ?? [portion.namedUnit];
+    return accepted.some((word) => label.includes(word))
       ? portion.amount * unitGrams
       : null;
   }
