@@ -51,3 +51,21 @@ export const zoneOf = (p: Pick<Profile, "timezone">): string =>
 
 /** Today, in her timezone. */
 export const profileToday = (p: Pick<Profile, "timezone">): ISODate => today(zoneOf(p));
+
+/**
+ * Today in the timezone of one profile, by id.
+ *
+ * The same lookup was written locally in two tool files and simply skipped in
+ * the rest, which left the app dating meals, photos and views by the server's
+ * zone while dating sets, weigh-ins and measurements by hers. Those agree only
+ * while APP_TIMEZONE happens to match the one profile — a second user anywhere
+ * else gets their dinner filed on the wrong day.
+ */
+export async function todayForProfile(profileId: string): Promise<ISODate> {
+  const { db } = await import("@/lib/db");
+  const { profiles } = await import("@/lib/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const [p] = await db.select({ timezone: profiles.timezone }).from(profiles)
+    .where(eq(profiles.id, profileId)).limit(1);
+  return profileToday(p ?? { timezone: null });
+}

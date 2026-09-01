@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { exerciseProgression } from "@/lib/progress";
+import { todayForProfile } from "@/lib/profile";
 import { defineTool } from "./define";
 
 export const getProgression = defineTool({
@@ -18,6 +19,7 @@ export const getProgression = defineTool({
       .where(eq(profiles.id, ctx.profileId)).limit(1);
 
     const all = await exerciseProgression(ctx.profileId, p?.units ?? "imperial", {
+      asOf: await todayForProfile(ctx.profileId),
       sinceDays: input.sinceDays,
     });
     const rows = input.slug ? all.filter((e) => e.slug === input.slug) : all;

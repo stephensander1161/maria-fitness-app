@@ -378,9 +378,10 @@ export type RecentMeal = {
  */
 export async function recentMeals(
   profileId: string,
-  { windowDays = 30, limit = 6 }: { windowDays?: number; limit?: number } = {},
+  { windowDays = 30, limit = 6, from = today() }:
+    { windowDays?: number; limit?: number; from?: ISODate } = {},
 ): Promise<RecentMeal[]> {
-  const since = addDays(today(), -windowDays);
+  const since = addDays(from, -windowDays);
   const rows = await db.select().from(mealLogs)
     .where(and(eq(mealLogs.profileId, profileId), gte(mealLogs.date, since)))
     .orderBy(desc(mealLogs.date), desc(mealLogs.createdAt));

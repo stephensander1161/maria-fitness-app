@@ -24,6 +24,14 @@ go through tools, so it gets the same numbers she sees.
   than throwing, so the model can call `search_exercises` and retry.
 - Day-level dates are `YYYY-MM-DD` strings via `lib/date.ts`. Week starts Monday;
   `dayOfWeek` is 0=Monday … 6=Sunday throughout.
+- **A day-level date is always computed in the profile's timezone**, never the
+  server's — `todayForProfile(profileId)` in a tool, `profileToday(profile)` on
+  a page. Bare `today()` reads `APP_TIMEZONE` and is only correct as a
+  parameter default that the caller then overrides. `profiles.timezone` is per
+  user; `APP_TIMEZONE` is one global. They agree today by coincidence, and a
+  second user anywhere else files their dinner on the wrong day.
+  `isFuture(date, asOf)` takes her today for the same reason: judged against
+  the server's, a user ahead of it cannot log anything at all.
 - Pages that read the database need `export const dynamic = "force-dynamic"`.
 - `lib/db` connects lazily — do not move the pool construction to module scope,
   the build's page-data collection will break.

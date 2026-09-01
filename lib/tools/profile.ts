@@ -136,7 +136,7 @@ export const logWeight = defineTool({
     const p = await profileOf(ctx);
     const kg = weightIn(input.weight, p.units);
     const date = input.date ?? profileToday(p);
-    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (isFuture(date, profileToday(p))) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const [prev] = await db
       .select()

@@ -317,7 +317,7 @@ export const startWorkout = defineTool({
   input: z.object({ date: z.string().optional(), title: z.string().optional() }),
   handler: async (input, ctx) => {
     const when = input.date ?? (await todayFor(ctx));
-    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (isFuture(when, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
     const w = await ensureWorkout(ctx, when);
     if (input.title && input.title !== w.title) {
       await db.update(workouts).set({ title: input.title }).where(eq(workouts.id, w.id));
@@ -346,7 +346,7 @@ export const logSet = defineTool({
     if (!ex) return { ok: false, error: `Unknown slug '${input.exerciseSlug}'. Use search_exercises.` };
 
     const when = input.date ?? (await todayFor(ctx));
-    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (isFuture(when, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const w = await ensureWorkout(ctx, when);
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(setLogs)
@@ -392,7 +392,7 @@ export const finishWorkout = defineTool({
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
     const date = input.date ?? (await todayFor(ctx));
-    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (isFuture(date, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
     const [w] = await db.select().from(workouts)
       .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
       .orderBy(desc(workouts.startedAt)).limit(1);

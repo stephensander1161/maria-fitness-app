@@ -8,7 +8,8 @@ import {
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
-import { prettyDate, today } from "@/lib/date";
+import { prettyDate } from "@/lib/date";
+import { profileToday } from "@/lib/profile";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { Progression } from "@/components/progression";
@@ -26,6 +27,8 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
+  const her = profileToday(profile);
+
   const [history, milestones, review, streak, sites, library, usage, progression, eating] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
@@ -35,8 +38,8 @@ export default async function ProgressPage() {
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
     runTool("get_coach_usage", {}, { profileId: profile.id }),
-    exerciseProgression(profile.id, u),
-    nutritionTrend(profile.id),
+    exerciseProgression(profile.id, u, { asOf: her }),
+    nutritionTrend(profile.id, 14, her),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -52,7 +55,7 @@ export default async function ProgressPage() {
 
   // Logging a weigh-in is the reason she opens this screen, so it sits above
   // everything — reachable without scrolling.
-  const weighedInToday = history[0]?.date === today();
+  const weighedInToday = history[0]?.date === her;
 
   return (
     <>

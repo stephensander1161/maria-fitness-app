@@ -4,6 +4,7 @@ import {
   addDays,
   dayIndex,
   daysBetween,
+  isFuture,
   prettyDate,
   today,
   toISODate,
@@ -231,5 +232,21 @@ describe("prettyDate", () => {
 
   it("does not slip to the previous day (the UTC-parsing trap)", () => {
     expect(prettyDate("2026-01-01")).not.toContain("31");
+  });
+});
+
+describe("the future-date guard", () => {
+  // It used to compare against the server's date. A user ahead of
+  // APP_TIMEZONE could not log anything on their own current day: their today
+  // read as the future, and every write was refused.
+  it("judges the future against the day she is actually in", () => {
+    expect(isFuture("2026-09-02", "2026-09-01")).toBe(true);
+    expect(isFuture("2026-09-01", "2026-09-01")).toBe(false);
+    expect(isFuture("2026-08-31", "2026-09-01")).toBe(false);
+  });
+
+  it("lets someone a day ahead of the server log their own today", () => {
+    // Server on the 1st, her on the 2nd in Kiritimati.
+    expect(isFuture("2026-09-02", "2026-09-02")).toBe(false);
   });
 });

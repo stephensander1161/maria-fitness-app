@@ -2,7 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { photos } from "@/lib/db/schema";
-import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
+import { todayForProfile } from "@/lib/profile";
 import { defineTool } from "./define";
 
 /**
@@ -49,8 +50,8 @@ export const addProgressPhoto = defineTool({
     pose: z.enum(POSES).optional().describe("Which angle — front, side or back"),
   }),
   handler: async (input, ctx) => {
-    const when = input.date ?? today();
-    if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
+    const when = input.date ?? (await todayForProfile(ctx.profileId));
+    if (isFuture(when, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const match = JPEG_DATA_URL.exec(input.image.trim());
     if (!match) {

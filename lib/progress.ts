@@ -653,9 +653,12 @@ export type ExerciseProgression = {
 export async function exerciseProgression(
   profileId: string,
   units: Units,
-  opts: { sinceDays?: number; minSessions?: number } = {},
+  opts: { sinceDays?: number; minSessions?: number; asOf?: ISODate } = {},
 ): Promise<ExerciseProgression[]> {
-  const since = addDays(today(), -(opts.sinceDays ?? 84)); // twelve weeks
+  // asOf is her today. "5 days since you last did it" is wrong by one whenever
+  // the server's date has rolled over and hers has not.
+  const asOf = opts.asOf ?? today();
+  const since = addDays(asOf, -(opts.sinceDays ?? 84)); // twelve weeks
   const minSessions = opts.minSessions ?? 1;
 
   const rows = await db
@@ -713,7 +716,7 @@ export async function exerciseProgression(
         ? ((metric(last) - metric(first)) / metric(first)) * 100
         : null;
 
-    const daysSince = daysBetween(last.date, today());
+    const daysSince = daysBetween(last.date, asOf);
     const unit = weightLabel(units);
     const describeLast = meta.bodyweight
       ? `${last.sets}×${Math.round(last.reps / last.sets)}`
@@ -787,8 +790,11 @@ export type NutritionTrend = {
  *
  * The same reasoning as fibreForDay, one level up.
  */
-export async function nutritionTrend(profileId: string, windowDays = 14): Promise<NutritionTrend> {
-  const end = today();
+export async function nutritionTrend(
+  profileId: string,
+  windowDays = 14,
+  end: ISODate = today(),
+): Promise<NutritionTrend> {
   const start = addDays(end, -(windowDays - 1));
 
   const rows = await db.select({

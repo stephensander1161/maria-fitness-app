@@ -67,7 +67,8 @@ export function prettyDate(date: ISODate): string {
  * the row was accepted silently. Anything that records something that already
  * happened should refuse a future date rather than store it.
  */
-export const isFuture = (date: ISODate): boolean => date > today();
+export const isFuture = (date: ISODate, asOf: ISODate = today()): boolean =>
+  date > asOf;
 
 export const FUTURE_DATE_ERROR =
   "That date is in the future. Log what has already happened, or omit the date to use today.";

@@ -37,7 +37,7 @@ export const logMeasurement = defineTool({
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
     const date = input.date ?? (await todayFor(ctx));
-    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (isFuture(date, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
 
     for (const m of input.measurements) {
       const valueCm = lengthIn(m.value, units);

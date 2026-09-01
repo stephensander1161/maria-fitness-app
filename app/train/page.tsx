@@ -1,6 +1,7 @@
 import { TrainClient } from "@/components/train-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
+import { profileToday } from "@/lib/profile";
 import { pickableExercises, todayView } from "@/lib/views";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function TrainPage() {
   const profile = await requireOnboarded();
   const [view, pickable] = await Promise.all([
-    todayView(profile.id, profile.units),
+    todayView(profile.id, profile.units, profileToday(profile)),
     pickableExercises(profile.equipment),
   ]);
 

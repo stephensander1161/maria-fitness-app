@@ -3,10 +3,11 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
 import { planMeals } from "@/lib/agent/planner";
-import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
+import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
 import { recentMeals } from "@/lib/views";
+import { todayForProfile } from "@/lib/profile";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
@@ -160,8 +161,8 @@ export const logMeal = defineTool({
     date: z.string().optional(),
   }),
   handler: async (input, ctx) => {
-    const date = input.date ?? today();
-    if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
+    const date = input.date ?? (await todayForProfile(ctx.profileId));
+    if (isFuture(date, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
     await db.insert(mealLogs).values({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,
@@ -207,7 +208,7 @@ export const getDayNutrition = defineTool({
   description: "Everything she logged eating on a date, with totals against the day's targets.",
   input: z.object({ date: z.string().optional() }),
   handler: async (input, ctx) => {
-    const date = input.date ?? today();
+    const date = input.date ?? (await todayForProfile(ctx.profileId));
     const rows = await db.select().from(mealLogs)
       .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)))
       .orderBy(mealLogs.createdAt);
@@ -333,7 +334,11 @@ export const getNutritionTrend = defineTool({
     days: z.number().optional().describe("Window length; defaults to 14"),
   }),
   handler: async (input, ctx) => {
-    const trend = await nutritionTrend(ctx.profileId, Math.min(60, Math.max(3, input.days ?? 14)));
+    const trend = await nutritionTrend(
+      ctx.profileId,
+      Math.min(60, Math.max(3, input.days ?? 14)),
+      await todayForProfile(ctx.profileId),
+    );
     return {
       headline: trend.headline,
       trend: trend.trend,
@@ -365,7 +370,10 @@ export const getRecentMeals = defineTool({
     limit: z.number().optional(),
   }),
   handler: async (input, ctx) => {
-    const all = await recentMeals(ctx.profileId, { limit: Math.min(20, input.limit ?? 6) });
+    const all = await recentMeals(ctx.profileId, {
+      limit: Math.min(20, input.limit ?? 6),
+      from: await todayForProfile(ctx.profileId),
+    });
     const meals = input.slot ? all.filter((m) => m.slot === input.slot) : all;
     return {
       meals: meals.map((m) => ({

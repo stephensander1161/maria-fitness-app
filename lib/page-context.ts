@@ -6,6 +6,7 @@ import {
 } from "@/lib/progress";
 import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
 import { weightLabel, weightOut } from "@/lib/units";
+import { profileToday } from "@/lib/profile";
 import { DAY_NAMES } from "@/lib/date";
 
 export type OpinionPage = "train" | "plan" | "progress";
@@ -27,7 +28,7 @@ export async function buildPageContext(
   const unit = weightLabel(u);
 
   if (page === "train") {
-    const view = await todayView(profileId, u);
+    const view = await todayView(profileId, u, profileToday(profile));
     if (!view.hasPlan) return "She is looking at today's workout. There is no plan for this week.";
 
     const lines = view.exercises.map((e) => {
@@ -99,8 +100,8 @@ export async function buildPageContext(
     weekReview(profileId, u),
     currentStreak(profileId),
     measurementProgress(profileId, u),
-    exerciseProgression(profileId, u),
-    nutritionTrend(profileId),
+    exerciseProgression(profileId, u, { asOf: profileToday(profile) }),
+    nutritionTrend(profileId, 14, profileToday(profile)),
   ]);
 
   // The direction is spelled out rather than left to be inferred from three
