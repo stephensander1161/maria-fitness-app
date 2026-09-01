@@ -123,7 +123,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "duck-egg", name: "Duck egg", category: "eggs", kcal: 185, proteinG: 13, carbsG: 1.4, fatG: 14, fibreG: null, unitGrams: 70, unitLabel: "egg", aliases: [] },
 
   // ── Dairy ─────────────────────────────────────────────────────────────────
-  { slug: "milk-whole", name: "Whole milk", category: "dairy", kcal: 64, proteinG: 3.4, carbsG: 4.7, fatG: 3.6, fibreG: null, unitGrams: 250, unitLabel: "glass (250ml)", aliases: ["milk", "full fat milk", "whole fat milk"] },
+  { slug: "milk-whole", name: "Whole milk", category: "dairy", kcal: 64, proteinG: 3.4, carbsG: 4.7, fatG: 3.6, fibreG: null, unitGrams: 250, unitLabel: "glass (250ml)", aliases: ["full fat milk", "whole fat milk"] },
   { slug: "milk-semi-skimmed", name: "Semi-skimmed milk", category: "dairy", kcal: 50, proteinG: 3.6, carbsG: 4.8, fatG: 1.8, fibreG: null, unitGrams: 250, unitLabel: "glass (250ml)", aliases: ["2% milk", "reduced fat milk", "milk"] },
   { slug: "milk-skimmed", name: "Skimmed milk", category: "dairy", kcal: 35, proteinG: 3.5, carbsG: 5, fatG: 0.2, fibreG: null, unitGrams: 250, unitLabel: "glass (250ml)", aliases: ["skim milk", "fat free milk", "nonfat milk"] },
   { slug: "oat-milk", name: "Oat milk", category: "dairy", kcal: 46, proteinG: 1, carbsG: 6.7, fatG: 1.5, fibreG: 0.8, unitGrams: 250, unitLabel: "glass (250ml)", aliases: ["oat drink", "oatly"] },
@@ -323,11 +323,11 @@ export const FOODS: FoodSeed[] = [
   { slug: "peanut-butter", name: "Peanut butter", category: "nut", kcal: 588, proteinG: 25, carbsG: 12, fatG: 50, fibreG: 6, unitGrams: 16, unitLabel: "tbsp", aliases: ["pb", "crunchy peanut butter", "smooth peanut butter"] },
   { slug: "almond-butter", name: "Almond butter", category: "nut", kcal: 614, proteinG: 21, carbsG: 11, fatG: 56, fibreG: 10, unitGrams: 16, unitLabel: "tbsp", aliases: [] },
   { slug: "tahini", name: "Tahini", category: "nut", kcal: 595, proteinG: 17, carbsG: 10, fatG: 53, fibreG: 9, unitGrams: 15, unitLabel: "tbsp", aliases: ["sesame paste"] },
-  { slug: "chia-seeds", name: "Chia seeds", category: "nut", kcal: 486, proteinG: 17, carbsG: 42, fatG: 31, fibreG: 34, unitGrams: 12, unitLabel: "tbsp", aliases: ["chia"] },
-  { slug: "flaxseed", name: "Flaxseed", category: "nut", kcal: 534, proteinG: 18, carbsG: 29, fatG: 42, fibreG: 27, unitGrams: 10, unitLabel: "tbsp", aliases: ["linseed", "ground flaxseed"] },
+  { slug: "chia-seeds", name: "Chia seeds", category: "nut", kcal: 486, proteinG: 17, carbsG: 7.7, fatG: 31, fibreG: 34, unitGrams: 12, unitLabel: "tbsp", aliases: ["chia"] },
+  { slug: "flaxseed", name: "Flaxseed", category: "nut", kcal: 534, proteinG: 18, carbsG: 1.7, fatG: 42, fibreG: 27, unitGrams: 10, unitLabel: "tbsp", aliases: ["linseed", "ground flaxseed"] },
   { slug: "pumpkin-seeds", name: "Pumpkin seeds", category: "nut", kcal: 559, proteinG: 30, carbsG: 11, fatG: 49, fibreG: 6, unitGrams: 15, unitLabel: "tbsp", aliases: ["pepitas"] },
-  { slug: "sunflower-seeds", name: "Sunflower seeds", category: "nut", kcal: 584, proteinG: 21, carbsG: 20, fatG: 51, fibreG: 8.6, unitGrams: 15, unitLabel: "tbsp", aliases: [] },
-  { slug: "sesame-seeds", name: "Sesame seeds", category: "nut", kcal: 573, proteinG: 17, carbsG: 23, fatG: 50, fibreG: 12, unitGrams: 9, unitLabel: "tbsp", aliases: [] },
+  { slug: "sunflower-seeds", name: "Sunflower seeds", category: "nut", kcal: 584, proteinG: 21, carbsG: 11.4, fatG: 51, fibreG: 8.6, unitGrams: 15, unitLabel: "tbsp", aliases: [] },
+  { slug: "sesame-seeds", name: "Sesame seeds", category: "nut", kcal: 573, proteinG: 17, carbsG: 11.6, fatG: 50, fibreG: 12, unitGrams: 9, unitLabel: "tbsp", aliases: [] },
   { slug: "mixed-seeds", name: "Mixed seeds", category: "nut", kcal: 570, proteinG: 22, carbsG: 15, fatG: 48, fibreG: 9, unitGrams: 15, unitLabel: "tbsp", aliases: ["seeds", "seed mix"] },
 
   // ── Oils, butters and spreads ─────────────────────────────────────────────
@@ -347,7 +347,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "chocolate-spread", name: "Chocolate hazelnut spread", category: "fat", kcal: 539, proteinG: 6, carbsG: 57, fatG: 31, fibreG: 3, unitGrams: 15, unitLabel: "tbsp", aliases: ["nutella", "chocolate spread"] },
 
   // ── Sauces, condiments, stock and baking ──────────────────────────────────
-  { slug: "ketchup", name: "Tomato ketchup", category: "sauce", kcal: 102, proteinG: 1.2, carbsG: 24, fatG: 0.1, fibreG: null, unitGrams: 17, unitLabel: "tbsp", aliases: ["tomato sauce", "catsup"] },
+  { slug: "ketchup", name: "Tomato ketchup", category: "sauce", kcal: 102, proteinG: 1.2, carbsG: 24, fatG: 0.1, fibreG: null, unitGrams: 17, unitLabel: "tbsp", aliases: ["catsup", "red sauce"] },
   { slug: "mustard", name: "Mustard", category: "sauce", kcal: 66, proteinG: 4, carbsG: 5, fatG: 3.5, fibreG: null, unitGrams: 5, unitLabel: "tsp", aliases: ["dijon mustard", "wholegrain mustard", "english mustard"] },
   { slug: "soy-sauce", name: "Soy sauce", category: "sauce", kcal: 53, proteinG: 8, carbsG: 5, fatG: 0.1, fibreG: null, unitGrams: 16, unitLabel: "tbsp", aliases: ["light soy sauce", "tamari", "shoyu"] },
   { slug: "sriracha", name: "Sriracha", category: "sauce", kcal: 93, proteinG: 1.9, carbsG: 19, fatG: 0.9, fibreG: null, unitGrams: 15, unitLabel: "tbsp", aliases: ["hot sauce", "chilli sauce"] },
@@ -403,7 +403,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "cereal-bar", name: "Cereal bar", category: "snack", kcal: 400, proteinG: 5, carbsG: 65, fatG: 13, fibreG: 4, unitGrams: 35, unitLabel: "bar", aliases: ["granola bar", "breakfast bar"] },
   { slug: "dark-chocolate", name: "Dark chocolate, 70%", category: "snack", kcal: 570, proteinG: 8, carbsG: 34, fatG: 42, fibreG: 10, unitGrams: 10, unitLabel: "square", aliases: ["dark chocolate", "plain chocolate"] },
   { slug: "milk-chocolate", name: "Milk chocolate", category: "snack", kcal: 535, proteinG: 7.5, carbsG: 57, fatG: 30, fibreG: 2.5, unitGrams: 10, unitLabel: "square", aliases: ["chocolate", "chocolate bar"] },
-  { slug: "crisps", name: "Crisps, ready salted", category: "snack", kcal: 536, proteinG: 6.6, carbsG: 53, fatG: 35, fibreG: 4, unitGrams: 25, unitLabel: "small bag", aliases: ["potato chips", "chips", "salted crisps"] },
+  { slug: "crisps", name: "Crisps, ready salted", category: "snack", kcal: 536, proteinG: 6.6, carbsG: 53, fatG: 35, fibreG: 4, unitGrams: 25, unitLabel: "small bag", aliases: ["potato chips", "salted crisps"] },
   { slug: "tortilla-chips", name: "Tortilla chips", category: "snack", kcal: 500, proteinG: 7, carbsG: 60, fatG: 25, fibreG: 5, unitGrams: 30, unitLabel: "portion", aliases: ["doritos", "nachos", "corn chips"] },
   { slug: "popcorn", name: "Popcorn, plain", category: "snack", kcal: 387, proteinG: 13, carbsG: 66, fatG: 4.5, fibreG: 14.5, unitGrams: 25, unitLabel: "bag", aliases: ["air popped popcorn"] },
   { slug: "pretzels", name: "Pretzels", category: "snack", kcal: 380, proteinG: 10, carbsG: 80, fatG: 3, fibreG: 3, unitGrams: 30, unitLabel: "portion", aliases: [] },
