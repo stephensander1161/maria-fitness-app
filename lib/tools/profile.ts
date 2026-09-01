@@ -2,9 +2,9 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns } from "@/lib/db/schema";
-import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
-import { missingForPlan } from "@/lib/profile";
+import { missingForPlan, profileToday } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
 
 /** Numbers crossing the tool boundary are always in HER units (lb/in by
@@ -116,7 +116,7 @@ export const updateProfile = defineTool({
     if (input.currentWeight !== undefined) {
       const kg = weightIn(input.currentWeight, u);
       await db.insert(weighIns)
-        .values({ profileId: ctx.profileId, date: today(), weightKg: kg })
+        .values({ profileId: ctx.profileId, date: profileToday(p), weightKg: kg })
         .onConflictDoUpdate({ target: [weighIns.profileId, weighIns.date], set: { weightKg: kg } });
     }
     return { ok: true, updated: Object.keys(patch) };
@@ -135,7 +135,7 @@ export const logWeight = defineTool({
   handler: async (input, ctx) => {
     const p = await profileOf(ctx);
     const kg = weightIn(input.weight, p.units);
-    const date = input.date ?? today();
+    const date = input.date ?? profileToday(p);
     if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const [prev] = await db

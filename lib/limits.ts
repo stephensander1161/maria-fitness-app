@@ -29,7 +29,7 @@ export const LIMITS = {
   get chatPerMinute() { return num("MAX_CHAT_PER_MINUTE", 8); },
   get loginAttemptsPerHour() { return num("MAX_LOGIN_ATTEMPTS_PER_HOUR", 10); },
   /** Across every IP — the ceiling that IP rotation cannot get around. */
-  get loginAttemptsPerHourGlobal() { return num("MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL", 40); },
+  get loginAttemptsPerHourGlobal() { return num("MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL", 200); },
   /** Longest message accepted, in characters. */
   get maxMessageChars() { return num("MAX_MESSAGE_CHARS", 4_000); },
 };
@@ -58,10 +58,12 @@ export async function recordUsage(
   usage: Parameters<typeof costMicros>[0],
   source: UsageSource = "app",
   pricing?: Pricing,
+  profileId?: string,
 ) {
   const row = {
     date: today(),
     source,
+    profileId: profileId ?? null,
     requests: 1,
     inputTokens: usage.input_tokens ?? 0,
     outputTokens: usage.output_tokens ?? 0,
@@ -70,7 +72,7 @@ export async function recordUsage(
     costMicros: costMicros(usage, pricing),
   };
   await db.insert(usageDaily).values(row).onConflictDoUpdate({
-    target: [usageDaily.date, usageDaily.source],
+    target: [usageDaily.date, usageDaily.source, usageDaily.profileId],
     set: {
       requests: sql`${usageDaily.requests} + 1`,
       inputTokens: sql`${usageDaily.inputTokens} + ${row.inputTokens}`,
@@ -101,13 +103,23 @@ export async function effectiveDailyLimit(profileId?: string): Promise<number> {
   return row?.chosen == null ? ceiling : Math.min(row.chosen, ceiling);
 }
 
-/** Spend that counts against her budget — app traffic only, never eval runs. */
+/**
+ * Spend that counts against a person's budget — their own app traffic only,
+ * never eval runs and never anyone else's. Scoped per profile so one talkative
+ * account cannot switch the coach off for everybody.
+ */
 export async function todaySpend(profileId?: string) {
-  const [row] = await db
-    .select()
-    .from(usageDaily)
-    .where(and(eq(usageDaily.date, today()), eq(usageDaily.source, "app")))
-    .limit(1);
+  const [row] = profileId
+    ? await db
+        .select()
+        .from(usageDaily)
+        .where(and(
+          eq(usageDaily.date, today()),
+          eq(usageDaily.source, "app"),
+          eq(usageDaily.profileId, profileId),
+        ))
+        .limit(1)
+    : [];
 
   return {
     costMicros: row?.costMicros ?? 0,
@@ -143,12 +155,15 @@ export type Allowance = { allowed: true };
  * abusive burst is rejected without extra database work.
  */
 export async function checkChatAllowed(profileId?: string): Promise<Allowance | Denial> {
-  const perMinute = await countRecent("chat", 60);
+  // Buckets are per person. A shared bucket would mean one user's burst is
+  // everyone's rate limit.
+  const bucket = `chat:${profileId ?? "anon"}`;
+  const perMinute = await countRecent(bucket, 60);
   if (perMinute >= LIMITS.chatPerMinute) {
     return { allowed: false, reason: "Slow down a moment — too many messages at once. Try again shortly." };
   }
 
-  const perDay = await countRecent("chat", 86_400);
+  const perDay = await countRecent(bucket, 86_400);
   if (perDay >= LIMITS.chatPerDay) {
     return { allowed: false, reason: "That's today's message limit. Your coach will be back tomorrow — everything else still works." };
   }
@@ -158,7 +173,7 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
     return { allowed: false, reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work." };
   }
 
-  await recordEvent("chat");
+  await recordEvent(bucket);
   return { allowed: true };
 }
 
@@ -168,19 +183,32 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
  * rotate it and get a fresh per-IP budget every request. The global ceiling is
  * what actually makes brute force hopeless — it cannot be rotated around.
  */
-export async function checkLoginAllowed(ip: string): Promise<Allowance | Denial> {
-  const [perIp, global] = await Promise.all([
-    countRecent(`login:${ip}`, 3600),
+export async function checkLoginAllowed(ip: string, email?: string): Promise<Allowance | Denial> {
+  const [perIp, perAccount, global] = await Promise.all([
+    countRecent(`login:ip:${ip}`, 3600),
+    // Per account as well as per IP: an attacker rotating addresses against one
+    // account is the case a per-IP limit alone misses.
+    email ? countRecent(`login:acct:${email}`, 3600) : Promise.resolve(0),
     countRecent("login:*", 3600),
   ]);
-  if (perIp >= LIMITS.loginAttemptsPerHour || global >= LIMITS.loginAttemptsPerHourGlobal) {
+
+  if (perIp >= LIMITS.loginAttemptsPerHour || perAccount >= LIMITS.loginAttemptsPerHour) {
+    return { allowed: false, reason: "Too many attempts. Try again in an hour." };
+  }
+  // The global ceiling is the backstop against a distributed attack. It has to
+  // scale with the number of accounts, or one attacked user locks out the rest.
+  if (global >= LIMITS.loginAttemptsPerHourGlobal) {
     return { allowed: false, reason: "Too many attempts. Try again in an hour." };
   }
   return { allowed: true };
 }
 
-export async function recordLoginAttempt(ip: string) {
-  await Promise.all([recordEvent(`login:${ip}`), recordEvent("login:*")]);
+export async function recordLoginAttempt(ip: string, email?: string) {
+  await Promise.all([
+    recordEvent(`login:ip:${ip}`),
+    email ? recordEvent(`login:acct:${email}`) : Promise.resolve(),
+    recordEvent("login:*"),
+  ]);
 }
 
 /**

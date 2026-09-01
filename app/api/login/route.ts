@@ -22,8 +22,12 @@ export async function POST(req: Request) {
   const secret = process.env.AUTH_SECRET;
   if (!secret) return Response.json({ error: "Server not configured" }, { status: 503 });
 
+  const body = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown };
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase().slice(0, 200) : "";
+  const password = typeof body.password === "string" ? body.password.slice(0, 400) : "";
+
   const ip = clientIp(req);
-  const gate = await checkLoginAllowed(ip);
+  const gate = await checkLoginAllowed(ip, email);
   if (!gate.allowed) {
     await audit("login.rate_limited", { req });
     return Response.json({ error: gate.reason }, { status: 429 });
@@ -31,11 +35,7 @@ export async function POST(req: Request) {
 
   // Recorded before the check, so a flood of wrong guesses burns the budget
   // whether or not any of them land.
-  await recordLoginAttempt(ip);
-
-  const body = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown };
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase().slice(0, 200) : "";
-  const password = typeof body.password === "string" ? body.password.slice(0, 400) : "";
+  await recordLoginAttempt(ip, email);
 
   const [user] = email
     ? await db.select().from(users).where(eq(users.email, email)).limit(1)

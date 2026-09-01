@@ -134,7 +134,7 @@ export async function* runCoach(
 
       // Bill every iteration, not just the last — a tool loop is where a
       // runaway would actually spend the money.
-      await recordUsage(message.usage, opts.source ?? "app");
+      await recordUsage(message.usage, opts.source ?? "app", undefined, profile.id);
 
       const assistantContent = message.content as Anthropic.ContentBlockParam[];
       await saveMessage(profile.id, "assistant", assistantContent);

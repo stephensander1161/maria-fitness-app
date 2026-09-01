@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, integer, bigint, real, boolean, date, timestamp, jsonb,
-  uniqueIndex, index, primaryKey,
+  uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 
 /* ─────────────────────────── conventions ───────────────────────────
@@ -68,6 +68,9 @@ export const profiles = pgTable("profiles", {
   dislikedFoods: jsonb("disliked_foods").$type<string[]>().default([]).notNull(),
   cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] }),
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
+  /** IANA zone. Day-level dates are computed here, not in the server's zone.
+   *  Null falls back to APP_TIMEZONE. */
+  timezone: text("timezone"),
   /** Her chosen daily coach budget, in millionths of a dollar. Null means
    *  "use the configured ceiling". It can only tighten the env limit, never
    *  exceed it — see lib/limits.ts effectiveDailyLimit. */
@@ -447,6 +450,7 @@ export const rateEvents = pgTable(
  * instead of a month's rent.
  */
 export const usageDaily = pgTable("usage_daily", {
+  id: id(),
   date: date("date").notNull(),
   /**
    * Keeps developer eval runs out of her budget. Eval spend is real and worth
@@ -454,6 +458,12 @@ export const usageDaily = pgTable("usage_daily", {
    * couple of test runs can silently switch her app off for the day.
    */
   source: text("source", { enum: ["app", "eval"] }).default("app").notNull(),
+  /**
+   * Whose spend this is. Null means unattributed — eval runs whose scratch
+   * profile has since been deleted. Without this the ceiling is global, and one
+   * talkative account would switch the coach off for everybody.
+   */
+  profileId: uuid("profile_id").references(() => profiles.id, { onDelete: "set null" }),
   requests: integer("requests").default(0).notNull(),
   inputTokens: integer("input_tokens").default(0).notNull(),
   outputTokens: integer("output_tokens").default(0).notNull(),
@@ -462,7 +472,16 @@ export const usageDaily = pgTable("usage_daily", {
   /** Millionths of a dollar — integer arithmetic, no float drift. */
   costMicros: bigint("cost_micros", { mode: "number" }).default(0).notNull(),
 },
-(t) => [primaryKey({ columns: [t.date, t.source] })]);
+// Unique per person per day per source.
+//
+// NOTE: the live index is created with NULLS NOT DISTINCT, which Drizzle
+// cannot express. Unattributed rows (eval runs whose scratch profile is
+// gone) have a NULL profile_id, and under the default NULLS DISTINCT the
+// upsert never matches them — every call would insert a new row instead of
+// accumulating. If `db:push` ever recreates this index, restore the clause:
+//   CREATE UNIQUE INDEX usage_daily_day
+//     ON usage_daily (date, source, profile_id) NULLS NOT DISTINCT;
+(t) => [uniqueIndex("usage_daily_day").on(t.date, t.source, t.profileId)]);
 
 export type User = typeof users.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;

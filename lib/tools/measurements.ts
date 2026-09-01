@@ -2,16 +2,24 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { measurements, profiles } from "@/lib/db/schema";
-import { FUTURE_DATE_ERROR, isFuture, today } from "@/lib/date";
+import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { lengthIn, lengthLabel } from "@/lib/units";
 import { MEASURING_ADVICE, SITE_KEYS, SITES, siteHow, siteLabel } from "@/lib/measurements";
 import { measurementProgress } from "@/lib/progress";
+import { profileToday } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
   const [p] = await db.select({ units: profiles.units }).from(profiles)
     .where(eq(profiles.id, ctx.profileId)).limit(1);
   return p?.units ?? "imperial";
+}
+
+/** Today in her timezone — never the server's. */
+async function todayFor(ctx: ToolContext) {
+  const [p] = await db.select({ timezone: profiles.timezone }).from(profiles)
+    .where(eq(profiles.id, ctx.profileId)).limit(1);
+  return profileToday(p ?? { timezone: null });
 }
 
 export const logMeasurement = defineTool({
@@ -28,7 +36,7 @@ export const logMeasurement = defineTool({
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const date = input.date ?? today();
+    const date = input.date ?? (await todayFor(ctx));
     if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
 
     for (const m of input.measurements) {

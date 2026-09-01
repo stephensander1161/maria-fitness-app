@@ -134,7 +134,7 @@ describe("LIMITS", () => {
     ["chatPerDay", "MAX_CHAT_PER_DAY", 250],
     ["chatPerMinute", "MAX_CHAT_PER_MINUTE", 8],
     ["loginAttemptsPerHour", "MAX_LOGIN_ATTEMPTS_PER_HOUR", 10],
-    ["loginAttemptsPerHourGlobal", "MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL", 40],
+    ["loginAttemptsPerHourGlobal", "MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL", 200],
     ["maxMessageChars", "MAX_MESSAGE_CHARS", 4_000],
   ];
 

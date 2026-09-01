@@ -80,6 +80,7 @@ async function draft<S extends z.ZodType>(
   system: string,
   prompt: string,
   source: UsageSource,
+  profileId: string,
 ): Promise<z.infer<S>> {
   const response = await anthropic().messages.create({
     model: PLANNER_MODEL,
@@ -95,7 +96,7 @@ async function draft<S extends z.ZodType>(
   });
 
   // Planner spend is real and belongs on the same ledger as the chat turns.
-  await recordUsage(response.usage, source, PLANNER_PRICING);
+  await recordUsage(response.usage, source, PLANNER_PRICING, profileId);
 
   const block = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
@@ -161,6 +162,7 @@ export async function planWeek(
   intent: { focus?: string; notes?: string; weekStart: string; previous?: string },
   source: UsageSource = "app",
 ) {
+  const profileId = profile.id;
   return draft(
     "emit_plan", "Emit the full week of training.", weekDraft, PLANNER_SYSTEM,
     [
@@ -177,6 +179,7 @@ export async function planWeek(
       `Write the rationale directly to her, in plain language, explaining why the week looks like this.`,
     ].filter(Boolean).join("\n"),
     source,
+    profileId,
   );
 }
 
@@ -185,6 +188,7 @@ export async function planMeals(
   intent: { calorieTarget: number; proteinTargetG: number; notes?: string; weekStart: string },
   source: UsageSource = "app",
 ) {
+  const profileId = profile.id;
   const result = await draft(
     "emit_meals", "Emit the full week of meals.", mealDraft, MEAL_SYSTEM,
     [
@@ -196,6 +200,7 @@ export async function planMeals(
       `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), with ingredients and short steps.`,
     ].filter(Boolean).join("\n"),
     source,
+    profileId,
   );
 
   // The failure that motivated moving this off the chat model was days landing

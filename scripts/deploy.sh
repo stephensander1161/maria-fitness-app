@@ -21,8 +21,10 @@ read_env() {
   grep -m1 "^$1=" .env | cut -d= -f2- || true
 }
 
-REQUIRED=(ANTHROPIC_API_KEY DATABASE_URL AUTH_SECRET APP_PASSPHRASE APP_TIMEZONE)
-OPTIONAL=(DAILY_COST_LIMIT_MICROS MAX_CHAT_PER_DAY MAX_CHAT_PER_MINUTE COACH_MODEL)
+REQUIRED=(ANTHROPIC_API_KEY DATABASE_URL AUTH_SECRET APP_TIMEZONE)
+# APP_PASSPHRASE is only read by the one-time migration to accounts; it is
+# not needed in production and is better deleted once accounts exist.
+OPTIONAL=(DAILY_COST_LIMIT_MICROS MAX_CHAT_PER_DAY MAX_CHAT_PER_MINUTE COACH_MODEL PLANNER_MODEL)
 
 for key in "${REQUIRED[@]}"; do
   [ -n "$(read_env "$key")" ] || { echo "Missing $key in .env" >&2; exit 1; }
@@ -52,7 +54,8 @@ cat <<'DONE'
 
 Done. Next:
   1. Open the URL in Safari on her phone
-  2. Enter the passphrase (APP_PASSPHRASE in .env)
+  2. Sign in with her email and password
+     (create one first: npm run user -- add her@example.com "Name")
   3. Share → Add to Home Screen
 
 To ship a change later:  npx vercel deploy --prod

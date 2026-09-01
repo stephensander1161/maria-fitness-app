@@ -9,12 +9,20 @@ import { weightIn, weightLabel, weightOut } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
 import { planWeek, resolveSlugs } from "@/lib/agent/planner";
 import { weekView } from "@/lib/views";
+import { profileToday } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
   const [p] = await db.select({ units: profiles.units }).from(profiles)
     .where(eq(profiles.id, ctx.profileId)).limit(1);
   return p?.units ?? "imperial";
+}
+
+/** Today in her timezone — never the server's. */
+async function todayFor(ctx: ToolContext) {
+  const [p] = await db.select({ timezone: profiles.timezone }).from(profiles)
+    .where(eq(profiles.id, ctx.profileId)).limit(1);
+  return profileToday(p ?? { timezone: null });
 }
 
 export const searchExercises = defineTool({
@@ -302,7 +310,7 @@ export const startWorkout = defineTool({
     "Open today's workout session so sets can be logged against it. Safe to call repeatedly — it returns the existing session if one is already open.",
   input: z.object({ date: z.string().optional(), title: z.string().optional() }),
   handler: async (input, ctx) => {
-    const when = input.date ?? today();
+    const when = input.date ?? (await todayFor(ctx));
     if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
     const w = await ensureWorkout(ctx, when);
     if (input.title && input.title !== w.title) {
@@ -331,7 +339,7 @@ export const logSet = defineTool({
     const [ex] = await db.select().from(exercises).where(eq(exercises.slug, input.exerciseSlug)).limit(1);
     if (!ex) return { ok: false, error: `Unknown slug '${input.exerciseSlug}'. Use search_exercises.` };
 
-    const when = input.date ?? today();
+    const when = input.date ?? (await todayFor(ctx));
     if (isFuture(when)) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const w = await ensureWorkout(ctx, when);
@@ -377,7 +385,7 @@ export const finishWorkout = defineTool({
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const date = input.date ?? today();
+    const date = input.date ?? (await todayFor(ctx));
     if (isFuture(date)) return { ok: false, error: FUTURE_DATE_ERROR };
     const [w] = await db.select().from(workouts)
       .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
