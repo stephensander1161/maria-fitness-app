@@ -239,3 +239,37 @@ export const getFact = defineTool({
     return { category: fact.category, fact: fact.text, source: fact.source };
   },
 });
+
+export const removeMealLog = defineTool({
+  name: "remove_meal_log",
+  description:
+    "Delete something she logged eating — a mistake, a double entry, or food she ended up not eating. Call get_day_nutrition first if you need the id. Returns the day's totals afterwards so you can tell her where she now stands.",
+  input: z.object({
+    logId: z.string().describe("From get_day_nutrition"),
+  }),
+  handler: async (input, ctx) => {
+    // Scoped to her profile in the delete itself: an id from anywhere else
+    // matches nothing rather than deleting someone's row.
+    const [gone] = await db.delete(mealLogs)
+      .where(and(eq(mealLogs.id, input.logId), eq(mealLogs.profileId, ctx.profileId)))
+      .returning();
+
+    if (!gone) return { ok: false, error: "No such entry — it may already be gone." };
+
+    const rows = await db.select({
+      calories: mealLogs.calories, proteinG: mealLogs.proteinG, fibreG: mealLogs.fibreG,
+    }).from(mealLogs)
+      .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, gone.date)));
+
+    const fibre = fibreForDay(rows);
+    return {
+      ok: true,
+      removed: { description: gone.description, slot: gone.slot, date: gone.date },
+      date: gone.date,
+      todayCalories: rows.reduce((n, r) => n + (r.calories ?? 0), 0),
+      todayProteinG: rows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+      todayFibreG: fibre.grams,
+      fibreIsCompleteForToday: fibre.complete,
+    };
+  },
+});

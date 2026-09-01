@@ -64,6 +64,7 @@ const all: Tool[] = [
   budget.setCoachBudget,
   profile.setGoal,
   training.startWorkout,
+  nutrition.removeMealLog,
   nutrition.swapMeal,
   profile.updateProfile,
 ];

@@ -1,11 +1,12 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, mealPlans, meals, planDays, planExercises, plans, setLogs, workouts,
+  exercises, mealLogs, mealPlans, meals, planDays, planExercises, plans, setLogs, workouts,
 } from "@/lib/db/schema";
 import { DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
+import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 
 /**
  * Read models for the screens. Pages render from these; mutations always go
@@ -302,4 +303,53 @@ export async function pickableExercises(
       .map(({ slug, name, category }) => ({ slug, name, category }));
     return items.length ? [{ group: LABELS[category] ?? category, items }] : [];
   });
+}
+
+export type DayFoodView = {
+  date: ISODate;
+  logged: {
+    id: string; slot: string; description: string;
+    calories: number | null; proteinG: number | null; fibreG: number | null;
+  }[];
+  calories: number;
+  proteinG: number;
+  calorieTarget: number | null;
+  proteinTargetG: number | null;
+  /** Grams from the entries that carry a figure — a floor when incomplete. */
+  fibreG: number;
+  fibreTargetG: number;
+  /** False when any entry has no fibre figure, so the total is a floor. */
+  fibreComplete: boolean;
+};
+
+/**
+ * What she has actually eaten today, against the day's targets.
+ *
+ * Until this existed, meal_logs was written by the calculator and read by
+ * nobody: she could log a meal and the app would show her nothing back. The
+ * only way to see the day was to ask the coach.
+ */
+export async function dayFoodView(profileId: string, date: ISODate = today()): Promise<DayFoodView> {
+  const rows = await db.select().from(mealLogs)
+    .where(and(eq(mealLogs.profileId, profileId), eq(mealLogs.date, date)))
+    .orderBy(asc(mealLogs.createdAt));
+
+  const [plan] = await db.select().from(mealPlans)
+    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
+
+  const fibre = fibreForDay(rows);
+  return {
+    date,
+    logged: rows.map((r) => ({
+      id: r.id, slot: r.slot, description: r.description,
+      calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
+    })),
+    calories: rows.reduce((n, r) => n + (r.calories ?? 0), 0),
+    proteinG: rows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+    calorieTarget: plan?.calorieTarget ?? null,
+    proteinTargetG: plan?.proteinTargetG ?? null,
+    fibreG: fibre.grams,
+    fibreTargetG: FIBRE_TARGET_G,
+    fibreComplete: fibre.complete,
+  };
 }
