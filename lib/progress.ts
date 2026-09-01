@@ -1,9 +1,9 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, goals, mealLogs, mealPlans, measurements, planDays, plans, setLogs, weighIns, workouts,
+  exercises, goals, mealLogs, mealPlans, measurements, planDays, plans, profiles, setLogs, weighIns, workouts,
 } from "@/lib/db/schema";
-import { addDays, daysBetween, type ISODate, today, weekStart } from "@/lib/date";
+import { addDays, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
 
@@ -311,7 +311,10 @@ export type WeekReview = {
   /** Exercises where this week beat, matched, or fell short of the week before. */
   beat: string[];
   missed: string[];
+  /** Latest weigh-in this week minus the last one before the week began
+   *  (looking back up to a week). Null without one on each side. */
   weightChangeKg: number | null;
+  /** Most recent weigh-in in the last two weeks, whichever side of Monday. */
   latestWeightKg: number | null;
 };
 
@@ -335,7 +338,7 @@ export async function weekReview(
 
   const plannedDays = plan
     ? await db
-        .select({ dayOfWeek: planDays.dayOfWeek, title: planDays.title })
+        .select({ id: planDays.id, dayOfWeek: planDays.dayOfWeek, title: planDays.title })
         .from(planDays)
         .where(and(eq(planDays.planId, plan.id), eq(planDays.isRest, false)))
     : [];
@@ -355,8 +358,14 @@ export async function weekReview(
     .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
     .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd)));
 
-  const doneTitles = new Set(done.map((w) => w.title));
-  const missedDays = plannedDays.filter((d) => !doneTitles.has(d.title)).map((d) => d.title);
+  // A planned day is done when a completed workout points at it. Title is
+  // only the fallback for workouts started freeform (no plan day): matching
+  // on title alone let one "Full body" session tick off both of them.
+  const doneIds = new Set(done.map((w) => w.planDayId).filter((id): id is string => id !== null));
+  const freeformTitles = new Set(done.filter((w) => w.planDayId === null).map((w) => w.title));
+  const missedDays = plannedDays
+    .filter((d) => !doneIds.has(d.id) && !freeformTitles.has(d.title))
+    .map((d) => d.title);
 
   // Compare each exercise trained this week against its previous outing.
   const trained = await db
@@ -375,9 +384,16 @@ export async function weekReview(
     .where(and(eq(weighIns.profileId, profileId), gte(weighIns.date, prevWeek), lte(weighIns.date, weekEnd)))
     .orderBy(weighIns.date);
 
+  // "This week's change" means exactly that: the latest weigh-in inside the
+  // week against the last one before it began. The old first-to-last across
+  // the fetched window quietly spanned two weeks.
+  const thisWeek = weights.filter((w) => w.date >= week);
+  const before = weights.filter((w) => w.date < week);
   const latestWeightKg = weights.at(-1)?.weightKg ?? null;
   const weightChangeKg =
-    weights.length >= 2 ? weights[weights.length - 1].weightKg - weights[0].weightKg : null;
+    thisWeek.length > 0 && before.length > 0
+      ? thisWeek[thisWeek.length - 1].weightKg - before[before.length - 1].weightKg
+      : null;
 
   return {
     weekStart: week,
@@ -590,6 +606,21 @@ export async function goalProgress(profileId: string, units: Units): Promise<str
     .orderBy(desc(weighIns.date))
     .limit(1);
 
+  // Which way a weight milestone points. A goal set below where she was is a
+  // loss goal, above is a gain goal; "reached" used to assume loss, which
+  // would have declared a gain goal hit on day one.
+  const [start] = await db.select({ startWeightKg: profiles.startWeightKg })
+    .from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  const weightWhen = async (at: Date): Promise<number | null> => {
+    const [w] = await db
+      .select({ weightKg: weighIns.weightKg })
+      .from(weighIns)
+      .where(and(eq(weighIns.profileId, profileId), lte(weighIns.date, toISODate(at))))
+      .orderBy(desc(weighIns.date))
+      .limit(1);
+    return w?.weightKg ?? start?.startWeightKg ?? null;
+  };
+
   const lines = await Promise.all(
     open.map(async (g) => {
       const label = `"${g.title}" (id ${g.id})`;
@@ -597,8 +628,10 @@ export async function goalProgress(profileId: string, units: Units): Promise<str
       if (g.kind === "weight" && g.targetValue !== null) {
         const now = latestWeight?.weightKg;
         if (now === undefined) return `- ${label}: no weigh-ins yet.`;
-        const reached = now <= g.targetValue;
-        return `- ${label}: currently ${weightOut(now, units)}${weightLabel(units)}, target ${weightOut(g.targetValue, units)}${weightLabel(units)}. ${reached ? "REACHED — call achieve_goal." : "Not yet."}`;
+        const from = await weightWhen(g.createdAt);
+        const gaining = from !== null && g.targetValue > from;
+        const reached = gaining ? now >= g.targetValue : now <= g.targetValue;
+        return `- ${label} (${gaining ? "gain" : "loss"} goal): currently ${weightOut(now, units)}${weightLabel(units)}, target ${weightOut(g.targetValue, units)}${weightLabel(units)}. ${reached ? "REACHED — call achieve_goal." : "Not yet."}`;
       }
 
       if (g.exerciseId) {

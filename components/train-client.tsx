@@ -162,7 +162,7 @@ export function TrainClient({
                   key={label}
                   disabled={totalLogged === 0 || finishing}
                   onClick={() => finish(i + 1)}
-                  className="rounded-xl border border-line bg-raised py-2.5 text-[11px] font-medium text-muted active:bg-line disabled:opacity-30"
+                  className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted active:bg-line disabled:opacity-30"
                 >
                   {label}
                 </button>
@@ -339,9 +339,9 @@ function ExerciseCard({
           <p className="flex-1 text-[12px] text-muted">
             {setCount > 0 ? "Remove from today's plan? Your logged sets stay." : "Remove from today?"}
           </p>
-          <button onClick={() => setConfirmRemove(false)} className="text-[12px] text-muted">Keep</button>
+          <button onClick={() => setConfirmRemove(false)} className="-my-1 px-2.5 py-2.5 text-[12px] text-muted">Keep</button>
           <button onClick={removeFromToday} disabled={removing}
-            className="text-[12px] font-medium text-miss disabled:opacity-50">
+            className="-my-1 px-2.5 py-2.5 text-[12px] font-medium text-miss disabled:opacity-50">
             {removing ? "…" : "Remove"}
           </button>
         </div>

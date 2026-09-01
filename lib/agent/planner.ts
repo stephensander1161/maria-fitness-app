@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exercises, type Profile } from "@/lib/db/schema";
+import { exercises, weighIns, type Profile } from "@/lib/db/schema";
 import { owns } from "@/lib/templates";
 import { env } from "@/lib/env";
 import { DAY_NAMES } from "@/lib/date";
@@ -128,13 +128,26 @@ async function draft<S extends z.ZodType>(
   return parsed.data;
 }
 
-function profileBrief(p: Profile): string {
+async function profileBrief(p: Profile): Promise<string> {
   const u = p.units;
   const age = p.birthYear ? new Date().getFullYear() - p.birthYear : null;
+  // Her current weight, not the one she signed up at. Months in, the start
+  // weight is history, and a planner told only that would set targets for
+  // someone she no longer is.
+  const [latest] = await db
+    .select({ weightKg: weighIns.weightKg, date: weighIns.date })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, p.id))
+    .orderBy(desc(weighIns.date))
+    .limit(1);
+  const kg = weightLabel(u);
+  const weightLine = latest
+    ? `Weight now ${weightOut(latest.weightKg, u)}${kg} (weighed ${latest.date}), started at ${weightOut(p.startWeightKg, u) ?? "?"}${kg}`
+    : `Weight ${weightOut(p.startWeightKg, u) ?? "?"}${kg} (no weigh-ins yet)`;
   return [
     `Name: ${p.name ?? "unknown"}`,
     `Age ${age ?? "?"}, ${p.sex ?? "unspecified"}, ${heightLabel(p.heightCm, u)}`,
-    `Weight ${weightOut(p.startWeightKg, u) ?? "?"}${weightLabel(u)}, goal ${weightOut(p.goalWeightKg, u) ?? "?"}${weightLabel(u)}${p.goalDate ? ` by ${p.goalDate}` : ""}`,
+    `${weightLine}, goal ${weightOut(p.goalWeightKg, u) ?? "?"}${kg}${p.goalDate ? ` by ${p.goalDate}` : ""}`,
     `Why it matters to her: ${p.motivation ?? "not stated"}`,
     `Experience: ${p.experience ?? "unknown"}. Available ${p.daysPerWeek ?? "?"} days/week, ${p.sessionMinutes ?? "?"} minutes.`,
     `Equipment: ${p.equipment.join(", ") || "unknown"}`,
@@ -188,7 +201,7 @@ export async function planWeek(
   return draft(
     "emit_plan", "Emit the full week of training.", weekDraft, PLANNER_SYSTEM,
     [
-      profileBrief(profile),
+      await profileBrief(profile),
       ``,
       `Available exercises (slug — name [category] muscles):`,
       await catalogue(profile),
@@ -215,7 +228,7 @@ export async function planMeals(
   const result = await draft(
     "emit_meals", "Emit the full week of meals.", mealDraft, MEAL_SYSTEM,
     [
-      profileBrief(profile),
+      await profileBrief(profile),
       ``,
       `Week starting ${intent.weekStart}. Target ${intent.calorieTarget} kcal and ${intent.proteinTargetG}g protein per day.`,
       intent.notes ? `Notes: ${intent.notes}` : ``,

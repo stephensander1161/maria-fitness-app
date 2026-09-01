@@ -161,6 +161,19 @@ export async function recordEvent(bucket: string) {
   }
 }
 
+/**
+ * Record the event, then count it in. Counting first and recording only on
+ * success left a window in which a burst of simultaneous requests all read
+ * "under the limit" and all got through; now every request in the burst is on
+ * the books before any of them is counted, so the limit is enforced from the
+ * deny side. The cost is that a refused request still spends a slot — for a
+ * rate limit that is the point.
+ */
+async function admit(bucket: string, seconds: number, limit: number): Promise<boolean> {
+  await recordEvent(bucket);
+  return (await countRecent(bucket, seconds)) <= limit;
+}
+
 export type Denial = { allowed: false; reason: string };
 export type Allowance = { allowed: true };
 
@@ -172,13 +185,12 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
   // Buckets are per person. A shared bucket would mean one user's burst is
   // everyone's rate limit.
   const bucket = `chat:${profileId ?? "anon"}`;
-  const perMinute = await countRecent(bucket, 60);
-  if (perMinute >= LIMITS.chatPerMinute) {
+  if (!(await admit(bucket, 60, LIMITS.chatPerMinute))) {
     return { allowed: false, reason: "Slow down a moment — too many messages at once. Try again shortly." };
   }
 
   const perDay = await countRecent(bucket, 86_400);
-  if (perDay >= LIMITS.chatPerDay) {
+  if (perDay > LIMITS.chatPerDay) {
     return { allowed: false, reason: "That's today's message limit. Your coach will be back tomorrow — everything else still works." };
   }
 
@@ -187,7 +199,6 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
     return { allowed: false, reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work." };
   }
 
-  await recordEvent(bucket);
   return { allowed: true };
 }
 
@@ -198,31 +209,23 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
  * what actually makes brute force hopeless — it cannot be rotated around.
  */
 export async function checkLoginAllowed(ip: string, email?: string): Promise<Allowance | Denial> {
+  // Every attempt is recorded before any is judged — a flood of wrong guesses
+  // burns the budget whether or not any of them land, and a simultaneous
+  // flood cannot all slip under the count.
   const [perIp, perAccount, global] = await Promise.all([
-    countRecent(`login:ip:${ip}`, 3600),
+    admit(`login:ip:${ip}`, 3600, LIMITS.loginAttemptsPerHour),
     // Per account as well as per IP: an attacker rotating addresses against one
     // account is the case a per-IP limit alone misses.
-    email ? countRecent(`login:acct:${email}`, 3600) : Promise.resolve(0),
-    countRecent("login:*", 3600),
+    email ? admit(`login:acct:${email}`, 3600, LIMITS.loginAttemptsPerHour) : Promise.resolve(true),
+    // The global ceiling is the backstop against a distributed attack. It has to
+    // scale with the number of accounts, or one attacked user locks out the rest.
+    admit("login:*", 3600, LIMITS.loginAttemptsPerHourGlobal),
   ]);
 
-  if (perIp >= LIMITS.loginAttemptsPerHour || perAccount >= LIMITS.loginAttemptsPerHour) {
-    return { allowed: false, reason: "Too many attempts. Try again in an hour." };
-  }
-  // The global ceiling is the backstop against a distributed attack. It has to
-  // scale with the number of accounts, or one attacked user locks out the rest.
-  if (global >= LIMITS.loginAttemptsPerHourGlobal) {
+  if (!perIp || !perAccount || !global) {
     return { allowed: false, reason: "Too many attempts. Try again in an hour." };
   }
   return { allowed: true };
-}
-
-export async function recordLoginAttempt(ip: string, email?: string) {
-  await Promise.all([
-    recordEvent(`login:ip:${ip}`),
-    email ? recordEvent(`login:acct:${email}`) : Promise.resolve(),
-    recordEvent("login:*"),
-  ]);
 }
 
 /**
@@ -270,10 +273,8 @@ export async function checkSpendAllowed(
  * because two of those tools plan a week with Sonnet.
  */
 export async function checkActionAllowed(profileId: string): Promise<Allowance | Denial> {
-  const bucket = `action:${profileId}`;
-  if (await countRecent(bucket, 60) >= LIMITS.actionsPerMinute) {
+  if (!(await admit(`action:${profileId}`, 60, LIMITS.actionsPerMinute))) {
     return { allowed: false, reason: "Too many requests at once. Give it a moment." };
   }
-  await recordEvent(bucket);
   return { allowed: true };
 }

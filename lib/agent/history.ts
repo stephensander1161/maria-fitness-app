@@ -1,29 +1,46 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages } from "@/lib/db/schema";
 
-/** Rows are stored as Anthropic content-block arrays, so replay is verbatim —
- *  tool_use and tool_result blocks survive a page reload intact. */
-export async function loadHistory(profileId: string, limit = 40): Promise<Anthropic.MessageParam[]> {
+/** At least this many messages are replayed… */
+const WINDOW = 40;
+/** …and the window's start only moves this many at a time. */
+const STEP = 20;
+
+/**
+ * Rows are stored as Anthropic content-block arrays, so replay is verbatim —
+ * tool_use and tool_result blocks survive a page reload intact.
+ *
+ * The window is anchored, not sliding. Prompt caching matches on an exact
+ * prefix, and a "last 40 rows" window drops its oldest row every turn — so
+ * once a conversation passed 40 rows, the cached history missed on every
+ * single turn. Starting at a multiple of STEP instead means the prefix is
+ * identical for STEP turns in a row and shifts once, and the window is
+ * between WINDOW and WINDOW + STEP long.
+ */
+export async function loadHistory(profileId: string): Promise<Anthropic.MessageParam[]> {
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(messages)
+    .where(eq(messages.profileId, profileId));
+  const start = Math.max(0, Math.floor((total - WINDOW) / STEP) * STEP);
+
   const rows = await db
     .select()
     .from(messages)
     .where(eq(messages.profileId, profileId))
-    .orderBy(desc(messages.createdAt))
-    .limit(limit);
+    .orderBy(asc(messages.createdAt), asc(messages.id))
+    .offset(start);
 
-  const ordered = rows.reverse().map((r) => ({
+  const ordered = rows.map((r) => ({
     role: r.role,
     content: r.content as Anthropic.ContentBlockParam[],
   })) satisfies Anthropic.MessageParam[];
 
-  return trimToValidStart(elideOldPayloads(ordered));
+  return trimToValidStart(elidePayloads(ordered));
 }
 
-/** Most recent messages are replayed untouched; older ones get their bulky
- *  tool payloads stripped. */
-const KEEP_VERBATIM = 6;
 const MAX_BLOCK_CHARS = 800;
 
 /**
@@ -34,12 +51,16 @@ const MAX_BLOCK_CHARS = 800;
  * The blocks stay in place so tool_use/tool_result pairing still validates;
  * only their payloads are replaced. The coach loses nothing it can't recover by
  * calling get_plan or get_meal_plan, which read the live data anyway.
+ *
+ * Applied to every replayed message, not just older ones. Keeping the last
+ * few verbatim meant each large payload was rewritten a few turns after it
+ * happened, and every rewrite changed the cached prefix — a tool-heavy
+ * conversation missed the history cache on most turns. The turn in flight
+ * keeps its own payloads in memory regardless; only the replay is trimmed.
  */
-function elideOldPayloads(list: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  const cutoff = list.length - KEEP_VERBATIM;
-
-  return list.map((message, i) => {
-    if (i >= cutoff || typeof message.content === "string") return message;
+function elidePayloads(list: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  return list.map((message) => {
+    if (typeof message.content === "string") return message;
 
     return {
       ...message,

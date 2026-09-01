@@ -5,7 +5,7 @@ import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { exchangeCode, statesMatch, type Pending } from "@/lib/oauth";
 import { audit } from "@/lib/audit";
-import { checkLoginAllowed, clientIp, recordLoginAttempt } from "@/lib/limits";
+import { checkLoginAllowed, clientIp } from "@/lib/limits";
 
 export const runtime = "nodejs";
 
@@ -48,8 +48,6 @@ export async function GET(req: Request) {
     await audit("login.rate_limited", { req });
     return back(req, "rate_limited");
   }
-  await recordLoginAttempt(ip);
-
   let identity;
   try {
     identity = await exchangeCode(req, code, pending.verifier);
@@ -73,7 +71,9 @@ export async function GET(req: Request) {
   // account — without this, anyone with a Google account could sign up and
   // start spending the API key.
   if (!user) {
-    await audit("login.failure", { req, detail: { reason: "not_invited", email: identity.email } });
+    // Masked: enough to tell "she used her other address" from a stranger,
+    // without the log becoming a record of strangers' addresses.
+    await audit("login.failure", { req, detail: { reason: "not_invited", email: maskEmail(identity.email) } });
     return back(req, "not_invited");
   }
   if (user.disabledAt) {
@@ -96,4 +96,10 @@ export async function GET(req: Request) {
 
   await audit("login.success", { req, detail: { userId: user.id, via: "google" } });
   return Response.redirect(new URL("/", req.url), 302);
+}
+
+/** "m***@gmail.com" — first letter and domain, nothing else. */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  return `${local?.slice(0, 1) ?? ""}***@${domain ?? ""}`;
 }

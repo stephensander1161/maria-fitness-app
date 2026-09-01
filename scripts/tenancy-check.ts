@@ -16,7 +16,7 @@
  * CI cannot run this — it has no database — so it is a local check, meant to
  * be run after any change to a tool that takes an id or joins across tables.
  */
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { mealPlans, meals, mealLogs, goals, photos, profiles, users } from "@/lib/db/schema";
 import { registry, runTool } from "@/lib/tools";
@@ -74,11 +74,27 @@ const READS: Record<string, Record<string, unknown>> = {
   search_exercises: { query: "squat" }, list_templates: {}, suggest_template: {},
 };
 
+/**
+ * Schema facts Drizzle cannot express and `db:push` can silently undo. The
+ * usage index must treat NULL profile ids as equal, or unattributed spend
+ * inserts a fresh row per call and the ceiling never accumulates.
+ */
+async function schemaInvariants(failures: string[]) {
+  const rows = (await db.execute(
+    sql`select indexdef from pg_indexes where indexname = 'usage_daily_day'`,
+  )) as unknown as { indexdef: string }[];
+  const def = rows[0]?.indexdef ?? "";
+  if (!/NULLS NOT DISTINCT/i.test(def)) {
+    failures.push(`usage_daily_day index lost NULLS NOT DISTINCT (see lib/db/schema.ts) — live: ${def || "missing"}`);
+  }
+}
+
 async function main() {
   const failures: string[] = [];
   let a: Account | null = null;
   let b: Account | null = null;
   try {
+    await schemaInvariants(failures);
     a = await makeAccount(A_EMAIL, "Tenancy-Alpha", 60);
     b = await makeAccount(B_EMAIL, "Tenancy-Bravo", 90);
     const ctxA = { profileId: a.profileId };

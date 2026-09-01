@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { streamCoach } from "@/lib/client";
+import { useEscape } from "@/lib/use-escape";
 import { RichText } from "./rich-text";
 
 /**
@@ -63,9 +64,10 @@ function Sheet({
 
     return () => { live = false; controller.abort(); };
   }, [page]);
+  useEscape(onClose);
 
   return (
-    <div onClick={onClose}
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`The coach on your ${label}`}
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm">
       <div onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
@@ -75,7 +77,7 @@ function Sheet({
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}>
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="text-[17px] font-semibold">On your {label}</h2>
-          <button onClick={onClose} className="text-[13px] text-muted">Close</button>
+          <button onClick={onClose} className="-my-2 px-2 py-2 text-[13px] text-muted">Close</button>
         </div>
 
         {error ? (

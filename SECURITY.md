@@ -50,6 +50,10 @@ said 200 — the code is what runs).
 The global ceiling is the one that matters — `x-forwarded-for` is ultimately
 client-supplied, so a per-IP limit alone can be rotated around.
 
+Every limiter records the attempt *before* counting, so a burst of parallel
+requests cannot all pass a check that none of them has yet been counted
+against. A refused request therefore still spends a slot — that is the point.
+
 ## Spend
 
 `lib/limits.ts` holds a hard daily ceiling checked *before* any model call, and

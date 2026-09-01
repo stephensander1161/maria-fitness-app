@@ -158,6 +158,10 @@ export async function* runCoach(
         (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
       );
 
+      // Say what is running before it runs. These used to be emitted after
+      // the await, so "logging your set" appeared at the moment it finished.
+      for (const call of calls) yield { type: "tool", name: call.name, status: "running" };
+
       // Run in parallel, but return every result in one user message — splitting
       // them teaches the model to stop batching tool calls.
       const results = await Promise.all(
@@ -179,8 +183,6 @@ export async function* runCoach(
           }
         }),
       );
-
-      for (const call of calls) yield { type: "tool", name: call.name, status: "running" };
 
       await saveMessage(profile.id, "user", results);
       conversation.push({ role: "user", content: results });

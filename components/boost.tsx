@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { action } from "@/lib/client";
+import { useEscape } from "@/lib/use-escape";
 
 type Evidence = { headline: string; detail?: string };
 type Boost = {
@@ -26,10 +27,14 @@ export function Boost({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     action<Boost>("get_boost").then(setBoost).catch(() => setFailed(true));
   }, []);
+  useEscape(onClose);
 
   return (
     <div
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="A boost"
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden bg-ink/95 px-7 backdrop-blur-md"
     >
       {/* Bloom behind everything */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { action } from "@/lib/client";
+import { useEscape } from "@/lib/use-escape";
 import { ExerciseFigure } from "./exercise-figure";
 
 type Guide = {
@@ -39,10 +40,14 @@ export function FormGuide({
       .then((g) => (g?.error ? setFailed(true) : setGuide(g)))
       .catch(() => setFailed(true));
   }, [slug]);
+  useEscape(onClose);
 
   return (
     <div
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`How to do ${name}`}
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm"
     >
       <div
@@ -62,7 +67,7 @@ export function FormGuide({
               </p>
             )}
           </div>
-          <button onClick={onClose} className="shrink-0 text-[13px] text-muted">Close</button>
+          <button onClick={onClose} className="-my-2 shrink-0 px-2 py-2 text-[13px] text-muted">Close</button>
         </div>
 
         {failed && <p className="py-6 text-center text-[14px] text-muted">Couldn&apos;t load that.</p>}

@@ -209,12 +209,16 @@ export const getPlan = defineTool({
       .where(inArray(planExercises.planDayId, days.map((d) => d.id)))
       .orderBy(planExercises.sortOrder);
 
-    const lastTime = await lastTimeTargets(ctx.profileId, [...new Set(items.map((i) => i.exerciseId))]);
+    // Today's sets are excluded, as the Train screen does: mid-session, her
+    // first set of the day would otherwise become "last time" and the coach
+    // would compare her against herself from ten minutes ago.
+    const hers = await todayForProfile(ctx.profileId);
+    const lastTime = await lastTimeTargets(ctx.profileId, [...new Set(items.map((i) => i.exerciseId))], hers);
 
     return {
       exists: true, weekStart: week, title: plan.title, rationale: plan.rationale,
       unit: weightLabel(units),
-      todayIsDayOfWeek: dayIndex(await todayForProfile(ctx.profileId)),
+      todayIsDayOfWeek: dayIndex(hers),
       days: days.map((d) => ({
         dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek],
         title: d.title, focus: d.focus, isRest: d.isRest, notes: d.notes,
@@ -355,17 +359,26 @@ export const logSet = defineTool({
     if (isFuture(when, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
 
     const w = await ensureWorkout(ctx, when);
-    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(setLogs)
-      .where(and(eq(setLogs.workoutId, w.id), eq(setLogs.exerciseId, ex.id)));
+    const weightKg = input.weight === null || input.weight === undefined ? null : weightIn(input.weight, units);
 
-    // onConflictDoNothing on the client key: a retry of a request that actually
-    // landed returns nothing here, and we report success without logging twice.
-    const inserted = await db.insert(setLogs).values({
-      workoutId: w.id, exerciseId: ex.id, setNumber: n + 1, reps: input.reps,
-      weightKg: input.weight === null || input.weight === undefined ? null : weightIn(input.weight, units),
-      rpe: input.rpe ?? null,
-      clientKey: input.clientKey ?? null,
-    }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
+    // Number the set under a per-workout lock. The agent loop runs tool calls
+    // in parallel, so "log three sets of eight" is three log_set calls at
+    // once — counted separately, all three became set 1.
+    const { n, inserted } = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${w.id}))`);
+      const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(setLogs)
+        .where(and(eq(setLogs.workoutId, w.id), eq(setLogs.exerciseId, ex.id)));
+
+      // onConflictDoNothing on the client key: a retry of a request that actually
+      // landed returns nothing here, and we report success without logging twice.
+      const inserted = await tx.insert(setLogs).values({
+        workoutId: w.id, exerciseId: ex.id, setNumber: n + 1, reps: input.reps,
+        weightKg,
+        rpe: input.rpe ?? null,
+        clientKey: input.clientKey ?? null,
+      }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
+      return { n, inserted };
+    });
 
     if (inserted.length === 0) {
       // The key is unique across the table, so a collision is either her own
@@ -474,6 +487,7 @@ export const getWeekReview = defineTool({
       ...r,
       totalVolume: Math.round(r.totalVolumeKg * (units === "imperial" ? 2.20462 : 1)),
       weightChange: weightOut(r.weightChangeKg, units),
+      weightChangeMeans: "latest weigh-in this week vs the last one before the week began; null when either side is missing",
       latestWeight: weightOut(r.latestWeightKg, units),
       unit: weightLabel(units),
     };

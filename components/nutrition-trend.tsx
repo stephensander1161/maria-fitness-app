@@ -1,4 +1,5 @@
 import type { NutritionTrend } from "@/lib/progress";
+import { prettyDate } from "@/lib/date";
 
 /**
  * Eating over the last fortnight. The bar for a day she did not log is drawn
@@ -33,7 +34,14 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
       </div>
       <p className="mb-4 text-[13px] leading-relaxed text-muted">{trend.headline}</p>
 
-      <div className="relative flex h-24 items-end gap-[3px]">
+      {/* One labelled image rather than fourteen title tooltips: a screen
+          reader gets the day-by-day reading in a sentence, and the bars
+          themselves are presentational. */}
+      <div
+        role="img"
+        aria-label={describeDays(trend)}
+        className="relative flex h-24 items-end gap-[3px]"
+      >
         {target !== null && (
           <div
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-accent/50"
@@ -83,6 +91,14 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
       </p>
     </section>
   );
+}
+
+function describeDays(trend: NutritionTrend): string {
+  const days = trend.days
+    .map((d) => `${prettyDate(d.date)} ${d.logged ? `${d.calories} kcal` : "not logged"}`)
+    .join(", ");
+  const target = trend.calorieTarget === null ? "" : ` Target ${trend.calorieTarget} kcal a day.`;
+  return `Calories by day, last ${trend.windowDays} days: ${days}.${target}`;
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {

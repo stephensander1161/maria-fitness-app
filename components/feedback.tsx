@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { useEscape } from "@/lib/use-escape";
 
 type Kind = "idea" | "bug" | "confusing";
 type Item = { kind: Kind; request: string; status: string; reply: string | null; submitted: string };
@@ -84,12 +85,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
     return () => { cancelled = true; };
   }, []);
 
-  // Escape closes, as every sheet should. The backdrop click already does.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useEscape(onClose);
 
   async function submit() {
     if (!body.trim()) return;

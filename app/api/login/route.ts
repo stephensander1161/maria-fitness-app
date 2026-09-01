@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
-import { checkLoginAllowed, clientIp, recordLoginAttempt } from "@/lib/limits";
+import { checkLoginAllowed, clientIp } from "@/lib/limits";
 import { audit } from "@/lib/audit";
 
 export const runtime = "nodejs";
@@ -32,10 +32,6 @@ export async function POST(req: Request) {
     await audit("login.rate_limited", { req });
     return Response.json({ error: gate.reason }, { status: 429 });
   }
-
-  // Recorded before the check, so a flood of wrong guesses burns the budget
-  // whether or not any of them land.
-  await recordLoginAttempt(ip, email);
 
   const [user] = email
     ? await db.select().from(users).where(eq(users.email, email)).limit(1)

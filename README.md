@@ -95,7 +95,7 @@ onboarding — there is no setup form.
 | Command | Does |
 |---|---|
 | `npm run dev` | Dev server |
-| `npm run db:push` | Sync schema to the database (fast, dev) |
+| `npm run db:push` | Sync schema to the database (fast, dev). Afterwards run `npm run tenancy`: it checks the one index Drizzle cannot express (`usage_daily_day … NULLS NOT DISTINCT`) survived |
 | `npm run db:generate` / `db:migrate` | Versioned migrations (production) |
 | `npm run db:seed` | Upsert the exercise and fact libraries |
 | `npm run user -- list` | Accounts, roles, last sign-in |
