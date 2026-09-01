@@ -227,3 +227,14 @@ describe("session identity", () => {
     await expect(verifySessionToken(`${uid}.${issued}.${later}.${sig}`, SECRET)).resolves.toBeNull();
   });
 });
+
+describe("redirect responses", () => {
+  it("cannot have headers appended — build the cookie in before returning", () => {
+    // Regression: the Google callback set its session by appending Set-Cookie to
+    // a Response.redirect(). That throws, so sign-in linked the account and then
+    // died without ever issuing a session. Cookies go through the cookie store.
+    const redirect = Response.redirect("https://example.com/", 302);
+    expect(() => redirect.headers.append("Set-Cookie", "a=b")).toThrow(TypeError);
+    expect(() => redirect.headers.set("Set-Cookie", "a=b")).toThrow(TypeError);
+  });
+});

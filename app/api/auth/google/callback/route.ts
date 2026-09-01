@@ -88,15 +88,12 @@ export async function GET(req: Request) {
     lastLoginAt: new Date(),
   }).where(eq(users.id, user.id));
 
-  const session = await createSessionToken(secret, user.id);
-  const response = Response.redirect(new URL("/", req.url), 302);
-  response.headers.append(
-    "Set-Cookie",
-    `${SESSION_COOKIE}=${session}; Path=/; Max-Age=${sessionCookieOptions.maxAge}; HttpOnly; SameSite=Lax${
-      sessionCookieOptions.secure ? "; Secure" : ""
-    }`,
-  );
+  // Set the cookie through the cookie store, then redirect. A Response built by
+  // Response.redirect() has immutable headers, so appending Set-Cookie to one
+  // throws — which is exactly what happened here: Google auth succeeded, the
+  // account linked, and then the handler died before issuing the session.
+  store.set(SESSION_COOKIE, await createSessionToken(secret, user.id), sessionCookieOptions);
 
   await audit("login.success", { req, detail: { userId: user.id, via: "google" } });
-  return response;
+  return Response.redirect(new URL("/", req.url), 302);
 }
