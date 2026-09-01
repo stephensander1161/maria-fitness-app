@@ -368,6 +368,15 @@ export const logSet = defineTool({
     }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
 
     if (inserted.length === 0) {
+      // The key is unique across the table, so a collision is either her own
+      // retry (report success, log nothing) or someone else's key (which must
+      // not be reported as her set having landed).
+      const [holder] = await db.select({ profileId: workouts.profileId }).from(setLogs)
+        .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+        .where(eq(setLogs.clientKey, input.clientKey!)).limit(1);
+      if (holder && holder.profileId !== ctx.profileId) {
+        return { ok: false, error: "That clientKey is already in use — retry with a fresh one" };
+      }
       const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
       return {
         ok: true, duplicate: true, exercise: ex.name,

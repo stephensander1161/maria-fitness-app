@@ -21,6 +21,7 @@
     "backup": "tsx --env-file=.env scripts/backup.ts",
     "restore": "tsx --env-file=.env scripts/restore.ts",
     "user": "tsx --env-file=.env scripts/users.ts",
+    "tenancy": "tsx --env-file=.env scripts/tenancy-check.ts",
     "migrate:accounts": "tsx --env-file=.env scripts/migrate-to-accounts.ts"
   },
   "dependencies": {

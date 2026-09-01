@@ -18,6 +18,23 @@ import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 
+/**
+ * A meal row, only if it sits in one of her meal plans.
+ *
+ * `meals` has no profile column — ownership is one join away through
+ * `meal_plans` — and swap_meal used to update by meal id alone. Anyone signed
+ * in could rewrite another account's meal through /api/action with a leaked
+ * id. Every tool that takes a meal id resolves it through here.
+ */
+async function herMeal(profileId: string, mealId: string) {
+  const [row] = await db.select({ id: meals.id })
+    .from(meals)
+    .innerJoin(mealPlans, eq(meals.mealPlanId, mealPlans.id))
+    .where(and(eq(meals.id, mealId), eq(mealPlans.profileId, profileId)))
+    .limit(1);
+  return row ?? null;
+}
+
 export const createMealPlan = defineTool({
   name: "create_meal_plan",
   description:
@@ -133,13 +150,15 @@ export const swapMeal = defineTool({
     steps: z.array(z.string()).optional(),
     prepMinutes: z.number().optional(),
   }),
-  handler: async (input) => {
+  handler: async (input, ctx) => {
+    const mine = await herMeal(ctx.profileId, input.mealId);
+    if (!mine) return { ok: false, error: "Meal not found — call get_meal_plan for current meal ids" };
     const [row] = await db.update(meals).set({
       title: input.title, calories: input.calories, proteinG: input.proteinG,
       carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
       ingredients: input.ingredients ?? [], steps: input.steps ?? [],
       prepMinutes: input.prepMinutes ?? null,
-    }).where(eq(meals.id, input.mealId)).returning();
+    }).where(eq(meals.id, mine.id)).returning();
     if (!row) return { ok: false, error: "Meal not found" };
     return { ok: true, title: row.title };
   },
@@ -164,6 +183,9 @@ export const logMeal = defineTool({
   handler: async (input, ctx) => {
     const date = input.date ?? (await todayForProfile(ctx.profileId));
     if (isFuture(date, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
+    if (input.mealId && !(await herMeal(ctx.profileId, input.mealId))) {
+      return { ok: false, error: "That mealId is not in her plan — log it without mealId, or call get_meal_plan for the right one" };
+    }
     await db.insert(mealLogs).values({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,

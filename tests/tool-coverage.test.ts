@@ -200,4 +200,49 @@ suite("every tool dates her day in her timezone", () => {
       "Use todayForProfile(ctx.profileId).",
     ).toEqual([]);
   });
+
+  /**
+   * A tool that accepts a row id is a tool that can be handed someone else's
+   * row id. /api/action takes arbitrary tool input from any signed-in account,
+   * so the handler — not the caller — is where ownership has to be checked.
+   *
+   * swap_meal took a mealId and updated by it alone; `meals` carries no
+   * profile column, so nothing stopped one account rewriting another's meal.
+   * The cheapest tripwire is structural: if the input schema names an id, the
+   * handler must reach for ctx.profileId somewhere.
+   */
+  it("every tool that takes a row id scopes its work to her profile", () => {
+    const offenders: string[] = [];
+    for (const file of walk("lib/tools")) {
+      const src = read(file);
+      for (const m of src.matchAll(/defineTool\(\{\s*name:\s*"([a-z_]+)"[\s\S]*?\n\}\);/g)) {
+        const block = m[0];
+        const takesId = /\b\w+Id:\s*z\./.test(block.split("handler:")[0] ?? "");
+        const scoped = /ctx\.profileId/.test(block.split("handler:")[1] ?? "");
+        if (takesId && !scoped) offenders.push(`${m[1]} (${file})`);
+      }
+    }
+    expect(
+      offenders,
+      `these tools accept a row id but never consult ctx.profileId: ${offenders.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  /**
+   * The same rule for writes: an update or delete in a tool file must carry a
+   * profile scope in the same statement, or be keyed by a row that was itself
+   * fetched under one. Statements that update by bare `table.id` with an input
+   * value are the shape that leaked.
+   */
+  it("no tool updates or deletes a row by an input id alone", () => {
+    const offenders: string[] = [];
+    for (const file of walk("lib/tools")) {
+      const src = read(file);
+      for (const m of src.matchAll(/db\.(update|delete)\([^)]*\)[\s\S]*?\.where\(([^;]*?)\)(?:\.returning|;)/g)) {
+        const where = m[2];
+        if (/input\.\w+Id\b/.test(where) && !/profileId/.test(where)) offenders.push(`${file}: ${where.trim().slice(0, 80)}`);
+      }
+    }
+    expect(offenders, `writes keyed by an input id with no profile scope: ${offenders.join("; ")}`).toEqual([]);
+  });
 });
