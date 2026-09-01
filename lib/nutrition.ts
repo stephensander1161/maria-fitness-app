@@ -22,6 +22,7 @@ export const CALORIE_FLOOR = 1200;
 export function nutritionTargets(input: TargetInput): {
   calorieTarget: number;
   proteinTargetG: number;
+  maintenanceCalories: number;
 } {
   const heightCm = input.units === "imperial" ? inToCm(input.heightIn) : input.heightIn;
 
@@ -45,7 +46,7 @@ export function nutritionTargets(input: TargetInput): {
   // plateaus and it only costs money.
   const proteinTargetG = Math.round((input.weightKg * 1.6) / 5) * 5;
 
-  return { calorieTarget, proteinTargetG };
+  return { calorieTarget, proteinTargetG, maintenanceCalories: Math.round(maintenance) };
 }
 
 /**
@@ -83,4 +84,40 @@ export function fibreForDay(
     unknownFor: logs.length - known.length,
     complete: logs.length > 0 && known.length === logs.length,
   };
+}
+
+export type TargetDirection = "deficit" | "maintenance" | "surplus";
+
+/**
+ * Whether a chosen calorie target actually points where she is trying to go.
+ *
+ * create_meal_plan takes its target from the model, and had only a floor: any
+ * number above 1200 was accepted. A surplus set for someone trying to lose is
+ * not a rounding error, it is the opposite of the plan, and nothing in the app
+ * would have noticed. This does not clamp the number — a surplus is right when
+ * it is what she asked for — it just makes the direction impossible to miss.
+ *
+ * The band is ±8% of maintenance, wide enough that ordinary estimation noise
+ * does not get called a surplus.
+ */
+export function targetDirection(target: number, maintenance: number): TargetDirection {
+  const ratio = target / maintenance;
+  if (ratio > 1.08) return "surplus";
+  if (ratio < 0.92) return "deficit";
+  return "maintenance";
+}
+
+/**
+ * Does the direction of the target match the direction of her goal weight?
+ * Returns null when we cannot tell — no goal set, or no current weight.
+ */
+export function directionMatchesGoal(
+  direction: TargetDirection,
+  currentKg: number | null,
+  goalKg: number | null,
+): boolean | null {
+  if (currentKg === null || goalKg === null) return null;
+  // Within a kilo of goal, holding steady is the right answer.
+  if (Math.abs(goalKg - currentKg) < 1) return direction === "maintenance";
+  return goalKg < currentKg ? direction === "deficit" : direction === "surplus";
 }

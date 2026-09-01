@@ -1,11 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { mealLogs, mealPlans, meals, profiles } from "@/lib/db/schema";
+import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
 import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
-import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
+import {
+  directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
+} from "@/lib/nutrition";
+import { cmToIn } from "@/lib/units";
+import { desc } from "drizzle-orm";
 import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -66,6 +70,10 @@ export const createMealPlan = defineTool({
       calorieTarget: drafted.calorieTarget,
       proteinTargetG: drafted.proteinTargetG,
       rationale: drafted.rationale,
+      // Whether the target you chose actually points where she is going. Not a
+      // clamp — a surplus is right when she asked for one — but if this says
+      // the direction contradicts her goal, say so to her before anything else.
+      ...(await describeIntent(ctx.profileId, drafted.calorieTarget)),
       // Surfaced rather than hidden: if a day is off target she should hear it
       // from you, not discover it by being hungry.
       daysOffTarget: drafted.shortfalls,
@@ -273,3 +281,44 @@ export const removeMealLog = defineTool({
     };
   },
 });
+
+/**
+ * How the chosen calorie target relates to her own maintenance and her goal.
+ *
+ * Returns an empty object when her numbers are incomplete, because a direction
+ * derived from a missing height is worse than no direction at all.
+ */
+async function describeIntent(profileId: string, calorieTarget: number) {
+  const [profile] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  if (!profile?.heightCm || !profile.birthYear || !profile.sex) return {};
+
+  const [latest] = await db.select().from(weighIns)
+    .where(eq(weighIns.profileId, profileId)).orderBy(desc(weighIns.date)).limit(1);
+  const currentKg = latest?.weightKg ?? profile.startWeightKg;
+  if (!currentKg) return {};
+
+  const { maintenanceCalories } = nutritionTargets({
+    weightKg: currentKg,
+    heightIn: cmToIn(profile.heightCm),
+    age: new Date().getFullYear() - profile.birthYear,
+    sex: profile.sex,
+    daysPerWeek: profile.daysPerWeek ?? 3,
+    units: "imperial",
+  });
+
+  const direction = targetDirection(calorieTarget, maintenanceCalories);
+  const matchesGoal = directionMatchesGoal(direction, currentKg, profile.goalWeightKg);
+
+  return {
+    maintenanceEstimate: maintenanceCalories,
+    direction,
+    directionMatchesHerGoal: matchesGoal,
+    ...(matchesGoal === false && {
+      warning:
+        `This target is a ${direction} against an estimated ${maintenanceCalories} kcal ` +
+        `maintenance, but her goal weight is ${profile.goalWeightKg}kg and she is ` +
+        `${currentKg.toFixed(1)}kg. Tell her the plan points the other way and why, ` +
+        `or rebuild it — do not present it as progress toward her goal.`,
+    }),
+  };
+}

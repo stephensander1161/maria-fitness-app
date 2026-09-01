@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { CALORIE_FLOOR, FIBRE_TARGET_G, fibreForDay, nutritionTargets } from "@/lib/nutrition";
+import { CALORIE_FLOOR, directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection } from "@/lib/nutrition";
 
 const base = {
   weightKg: 78,
@@ -120,5 +120,50 @@ suite("a day's fibre", () => {
 
   it("targets the adult guideline", () => {
     expect(FIBRE_TARGET_G).toBe(30);
+  });
+});
+
+suite("does the target point where she is going", () => {
+  it("calls a clear surplus a surplus and a clear deficit a deficit", () => {
+    expect(targetDirection(2800, 2100)).toBe("surplus");
+    expect(targetDirection(1500, 2100)).toBe("deficit");
+  });
+
+  // Estimation noise must not be reported as a surplus: maintenance is a
+  // Mifflin-St Jeor estimate, not a measurement.
+  it("treats a small difference as maintenance", () => {
+    expect(targetDirection(2100, 2100)).toBe("maintenance");
+    expect(targetDirection(2200, 2100)).toBe("maintenance");
+    expect(targetDirection(2000, 2100)).toBe("maintenance");
+  });
+
+  // The case that motivated this: a 2800 kcal plan on a profile trying to
+  // lose was accepted with nothing but a 1200 floor to stop it.
+  it("catches a surplus set against a weight-loss goal", () => {
+    expect(directionMatchesGoal("surplus", 81.6, 66)).toBe(false);
+    expect(directionMatchesGoal("deficit", 81.6, 66)).toBe(true);
+  });
+
+  it("wants a surplus when she is trying to gain", () => {
+    expect(directionMatchesGoal("surplus", 66, 75)).toBe(true);
+    expect(directionMatchesGoal("deficit", 66, 75)).toBe(false);
+  });
+
+  it("wants maintenance once she is at goal", () => {
+    expect(directionMatchesGoal("maintenance", 66.2, 66)).toBe(true);
+    expect(directionMatchesGoal("deficit", 66.2, 66)).toBe(false);
+  });
+
+  it("says nothing when it cannot tell", () => {
+    expect(directionMatchesGoal("deficit", null, 66)).toBeNull();
+    expect(directionMatchesGoal("deficit", 81, null)).toBeNull();
+  });
+
+  it("exposes maintenance alongside the target", () => {
+    const t = nutritionTargets({
+      weightKg: 81.6, heightIn: 66, age: 32, sex: "female", daysPerWeek: 3, units: "imperial",
+    });
+    expect(t.maintenanceCalories).toBeGreaterThan(t.calorieTarget);
+    expect(targetDirection(t.calorieTarget, t.maintenanceCalories)).toBe("deficit");
   });
 });

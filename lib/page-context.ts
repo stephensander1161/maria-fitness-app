@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { profiles } from "@/lib/db/schema";
 import { currentStreak, exerciseProgression, weekReview, measurementProgress } from "@/lib/progress";
-import { mealWeekView, todayView, weekView } from "@/lib/views";
+import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
 import { weightLabel, weightOut } from "@/lib/units";
 import { DAY_NAMES } from "@/lib/date";
 
@@ -49,9 +49,10 @@ export async function buildPageContext(
   }
 
   if (page === "plan") {
-    const [week, mealWeek] = await Promise.all([
+    const [week, mealWeek, dayFood] = await Promise.all([
       weekView(profileId, u),
       mealWeekView(profileId),
+      dayFoodView(profileId),
     ]);
     const training = week.exists
       ? week.days.map((d) =>
@@ -65,9 +66,29 @@ export async function buildPageContext(
         ]
       : ["No meal plan for this week."];
 
+    // What she actually ate, kept separate from what was planned. Without
+    // this the coach reads the plan and answers "how am I doing today?" from
+    // meals she may never have eaten — planned food reads as eaten food unless
+    // you say which is which. It is also the top of the screen she is on.
+    const eaten = dayFood.logged.length
+      ? [
+          `EATEN so far today (this is actual intake, not the plan): ${dayFood.calories} kcal` +
+            `${dayFood.calorieTarget !== null ? ` of a ${dayFood.calorieTarget} kcal target` : ""}, ` +
+            `${dayFood.proteinG}g protein` +
+            `${dayFood.proteinTargetG !== null ? ` of ${dayFood.proteinTargetG}g` : ""}.`,
+          dayFood.fibreComplete
+            ? `Fibre: ${dayFood.fibreG}g of ${dayFood.fibreTargetG}g.`
+            : `Fibre: at least ${dayFood.fibreG}g of ${dayFood.fibreTargetG}g — ` +
+              `some entries were described in words and carry no fibre figure, so the true ` +
+              `total is higher. Do not tell her she is short on fibre from this number.`,
+          ...dayFood.logged.map((l) =>
+            `- ${l.slot}: ${l.description}${l.calories !== null ? ` (${l.calories} kcal)` : ""}`),
+        ]
+      : ["She has not logged any food today."];
+
     return [
       `She is looking at THIS WEEK'S PLAN${week.exists ? ` — "${week.title}"` : ""}.`,
-      "Training:", ...training, "", "Meals:", ...food,
+      "Training:", ...training, "", "Meals planned:", ...food, "", ...eaten,
     ].join("\n");
   }
 
