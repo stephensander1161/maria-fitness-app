@@ -2,7 +2,9 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
 import { requireOnboarded } from "@/lib/session";
-import { currentStreak, exerciseProgression, measurementProgress, weekReview } from "@/lib/progress";
+import {
+  currentStreak, exerciseProgression, measurementProgress, nutritionTrend, weekReview,
+} from "@/lib/progress";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
@@ -13,6 +15,7 @@ import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
 import { runTool } from "@/lib/tools";
 import { Measurements } from "@/components/measurements";
+import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
 import { photoLibrary } from "@/lib/photos";
 
@@ -23,7 +26,7 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const [history, milestones, review, streak, sites, library, usage, progression] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, usage, progression, eating] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -33,6 +36,7 @@ export default async function ProgressPage() {
     photoLibrary(profile.id),
     runTool("get_coach_usage", {}, { profileId: profile.id }),
     exerciseProgression(profile.id, u),
+    nutritionTrend(profile.id),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -89,6 +93,8 @@ export default async function ProgressPage() {
           <Sparkline points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)} goal={goal} />
         </div>
       </section>
+
+      <NutritionTrendCard trend={eating} />
 
       <Measurements sites={sites} unit={lengthLabel(u)} />
 

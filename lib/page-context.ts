@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { profiles } from "@/lib/db/schema";
-import { currentStreak, exerciseProgression, weekReview, measurementProgress } from "@/lib/progress";
+import {
+  currentStreak, exerciseProgression, nutritionTrend, weekReview, measurementProgress,
+} from "@/lib/progress";
 import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
 import { weightLabel, weightOut } from "@/lib/units";
 import { DAY_NAMES } from "@/lib/date";
@@ -93,11 +95,12 @@ export async function buildPageContext(
   }
 
   // progress
-  const [review, streak, sites, progression] = await Promise.all([
+  const [review, streak, sites, progression, eating] = await Promise.all([
     weekReview(profileId, u),
     currentStreak(profileId),
     measurementProgress(profileId, u),
     exerciseProgression(profileId, u),
+    nutritionTrend(profileId),
   ]);
 
   // The direction is spelled out rather than left to be inferred from three
@@ -132,6 +135,13 @@ export async function buildPageContext(
   return [
     "She is looking at PROGRESS.",
     `Weight: ${weight || "nothing recorded"}.`,
+    // On this screen the eating is what explains the weight line. The headline
+    // already says how much of the window is actually logged; when that is
+    // thin, say so instead of drawing a conclusion from it.
+    `Eating (last ${eating.windowDays} days): ${eating.headline}` +
+      (eating.trend === "under-logged" || eating.trend === "no-data"
+        ? " Do not infer anything about her eating from this — there is not enough logged."
+        : ""),
     `This week: ${review.completed} of ${review.planned} sessions, ${review.totalSets} sets, ${streak}-day streak.`,
     review.missedDays.length ? `Still to do this week: ${review.missedDays.join(", ")}.` : "",
     sites.length

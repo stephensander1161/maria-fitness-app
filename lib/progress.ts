@@ -1,6 +1,8 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exercises, goals, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
+import {
+  exercises, goals, mealLogs, mealPlans, measurements, planDays, plans, setLogs, weighIns, workouts,
+} from "@/lib/db/schema";
 import { addDays, daysBetween, type ISODate, today, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
@@ -746,4 +748,129 @@ export async function exerciseProgression(
   // Anything going backwards or abandoned first — that is what needs attention.
   const rank = { slipping: 0, stalled: 1, holding: 2, climbing: 3, new: 4 } as const;
   return out.sort((a, b) => rank[a.trend] - rank[b.trend] || b.sessions.length - a.sessions.length);
+}
+
+export type NutritionDay = {
+  date: ISODate;
+  /** False when she logged nothing. Not the same as a zero-calorie day. */
+  logged: boolean;
+  calories: number | null;
+  proteinG: number | null;
+  entries: number;
+};
+
+export type NutritionTrend = {
+  days: NutritionDay[];
+  /** Days with at least one entry, out of the window. */
+  daysLogged: number;
+  windowDays: number;
+  calorieTarget: number | null;
+  proteinTargetG: number | null;
+  /** Averages across logged days only — see the note below. */
+  avgCalories: number | null;
+  avgProteinG: number | null;
+  /** Logged days that came in at or under the calorie target. */
+  daysOnTarget: number;
+  trend: "on-track" | "over" | "under-logged" | "no-data";
+  headline: string;
+};
+
+/**
+ * What she has actually eaten over the last fortnight, against her targets.
+ *
+ * The whole difficulty is the unlogged day. A day with no entries is not a
+ * zero-calorie day, and averaging zeros into the total invents a deficit she
+ * never ran — the app would congratulate her for forgetting to log. So averages
+ * are taken across logged days only, the logged-day count travels with them,
+ * and a window that is mostly empty reports "under-logged" rather than any
+ * judgement about her eating.
+ *
+ * The same reasoning as fibreForDay, one level up.
+ */
+export async function nutritionTrend(profileId: string, windowDays = 14): Promise<NutritionTrend> {
+  const end = today();
+  const start = addDays(end, -(windowDays - 1));
+
+  const rows = await db.select({
+    date: mealLogs.date, calories: mealLogs.calories, proteinG: mealLogs.proteinG,
+  }).from(mealLogs)
+    .where(and(eq(mealLogs.profileId, profileId), gte(mealLogs.date, start), lte(mealLogs.date, end)));
+
+  const [plan] = await db.select().from(mealPlans)
+    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(end)))).limit(1);
+  const calorieTarget = plan?.calorieTarget ?? null;
+  const proteinTargetG = plan?.proteinTargetG ?? null;
+
+  const days: NutritionDay[] = [];
+  for (let i = 0; i < windowDays; i++) {
+    const date = addDays(start, i);
+    const forDay = rows.filter((r) => r.date === date);
+    days.push({
+      date,
+      logged: forDay.length > 0,
+      calories: forDay.length ? forDay.reduce((n, r) => n + (r.calories ?? 0), 0) : null,
+      proteinG: forDay.length ? forDay.reduce((n, r) => n + (r.proteinG ?? 0), 0) : null,
+      entries: forDay.length,
+    });
+  }
+
+  return summariseNutrition(days, calorieTarget, proteinTargetG);
+}
+
+/**
+ * The judgement half of nutritionTrend, kept pure so it can be tested without
+ * a database — the classification is where this gets it wrong, not the query.
+ */
+export function summariseNutrition(
+  days: NutritionDay[],
+  calorieTarget: number | null,
+  proteinTargetG: number | null,
+): NutritionTrend {
+  const windowDays = days.length;
+  const loggedDays = days.filter((d) => d.logged);
+  const daysLogged = loggedDays.length;
+
+  // Averaged across logged days only. Including unlogged days as zero invents
+  // a deficit she never ran, and the app would congratulate her for forgetting.
+  const avg = (pick: (d: NutritionDay) => number | null) =>
+    daysLogged === 0
+      ? null
+      : Math.round(loggedDays.reduce((n, d) => n + (pick(d) ?? 0), 0) / daysLogged);
+
+  const avgCalories = avg((d) => d.calories);
+  const daysOnTarget = calorieTarget === null
+    ? 0
+    : loggedDays.filter((d) => (d.calories ?? 0) <= calorieTarget).length;
+
+  const against =
+    `Averaging ${avgCalories} kcal on the ${daysLogged} days logged, against a ` +
+    `${calorieTarget} target — ${daysOnTarget} of those days came in at or under it.`;
+
+  let trend: NutritionTrend["trend"];
+  let headline: string;
+  if (daysLogged === 0) {
+    trend = "no-data";
+    headline = `Nothing logged in the last ${windowDays} days.`;
+  } else if (daysLogged < windowDays / 2) {
+    // Too sparse to say anything about her eating. Saying it anyway is how an
+    // app tells someone they are doing badly at something it cannot see.
+    trend = "under-logged";
+    headline =
+      `Only ${daysLogged} of the last ${windowDays} days have any food logged, ` +
+      `so there is not enough here to judge how the eating is going.`;
+  } else if (calorieTarget === null) {
+    trend = "on-track";
+    headline = `Averaging ${avgCalories} kcal across ${daysLogged} logged days. No calorie target set yet.`;
+  } else if (avgCalories !== null && avgCalories > calorieTarget * 1.05) {
+    trend = "over";
+    headline = against;
+  } else {
+    trend = "on-track";
+    headline = against;
+  }
+
+  return {
+    days, daysLogged, windowDays, calorieTarget, proteinTargetG,
+    avgCalories, avgProteinG: avg((d) => d.proteinG), daysOnTarget, trend, headline,
+  };
 }

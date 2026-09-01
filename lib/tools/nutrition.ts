@@ -5,6 +5,7 @@ import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema"
 import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
+import { nutritionTrend } from "@/lib/progress";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
@@ -322,3 +323,34 @@ async function describeIntent(profileId: string, calorieTarget: number) {
     }),
   };
 }
+
+export const getNutritionTrend = defineTool({
+  name: "get_nutrition_trend",
+  description:
+    "How her eating has actually gone over recent days — calories and protein per day against target, which days she logged, and a plain headline. Use it for 'how have I been eating?', before adjusting her targets, and whenever you are about to comment on why the scale has or has not moved. Days she did not log are marked as unlogged rather than counted as zero, so read daysLogged before drawing any conclusion.",
+  input: z.object({
+    days: z.number().optional().describe("Window length; defaults to 14"),
+  }),
+  handler: async (input, ctx) => {
+    const trend = await nutritionTrend(ctx.profileId, Math.min(60, Math.max(3, input.days ?? 14)));
+    return {
+      headline: trend.headline,
+      trend: trend.trend,
+      daysLogged: trend.daysLogged,
+      windowDays: trend.windowDays,
+      calorieTarget: trend.calorieTarget,
+      proteinTargetG: trend.proteinTargetG,
+      avgCaloriesOnLoggedDays: trend.avgCalories,
+      avgProteinOnLoggedDays: trend.avgProteinG,
+      daysAtOrUnderCalorieTarget: trend.daysOnTarget,
+      // A null means she logged nothing that day. It is not a zero-calorie day,
+      // and treating it as one invents a deficit she never ran.
+      days: trend.days.map((d) => ({
+        date: d.date,
+        calories: d.logged ? d.calories : null,
+        proteinG: d.logged ? d.proteinG : null,
+        logged: d.logged,
+      })),
+    };
+  },
+});
