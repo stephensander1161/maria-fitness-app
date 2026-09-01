@@ -24,7 +24,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Match the development runtime: npm 10 and npm 11 resolve optional
+          # platform dependencies differently, and a lockfile written by one
+          # fails `npm ci` under the other.
+          node-version: 24
           cache: npm
 
       # `ci` not `install`: installs exactly the locked tree, and fails if the
