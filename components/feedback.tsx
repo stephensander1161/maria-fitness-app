@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 
@@ -31,10 +31,44 @@ const STATUS_LABEL: Record<string, string> = {
  * Reachable from every screen, because the moment she notices something is the
  * only moment she'll bother reporting it. The current route rides along — "this
  * is confusing" is far more useful when you know where she was.
+ *
+ * Not on the coach screen: the floating button sat on top of the message box
+ * there, and that screen has its own way in — the coach takes feedback in
+ * conversation, and the header carries the same sheet.
  */
 export function Feedback() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Same reason as the tab bar: nothing but the form should be reachable here.
+  if (path === "/login" || path === "/welcome" || path === "/") return null;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Send feedback"
+        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur active:bg-raised"
+      >
+        <FeedbackGlyph />
+      </button>
+    );
+  }
+  return <FeedbackSheet path={path} onClose={() => setOpen(false)} />;
+}
+
+export function FeedbackGlyph({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3c4.97 0 9 3.13 9 7s-4.03 7-9 7c-.9 0-1.77-.1-2.58-.3L5 19l.9-3.2A7.9 7.9 0 0 1 3 10c0-3.87 4.03-7 9-7Z" />
+      <path d="M12 7v3.5M12 13h.01" />
+    </svg>
+  );
+}
+
+/** The sheet itself, so the coach screen can open it from its header. */
+export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => void }) {
   const [kind, setKind] = useState<Kind>("idea");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,18 +76,20 @@ export function Feedback() {
   const [sent, setSent] = useState(false);
   const [past, setPast] = useState<Item[] | null>(null);
 
-  // Same reason as the tab bar: nothing but the form should be reachable here.
-  if (path === "/login" || path === "/welcome") return null;
+  useEffect(() => {
+    let cancelled = false;
+    action<Item[]>("list_feedback")
+      .then((items) => { if (!cancelled) setPast(items); })
+      .catch(() => { if (!cancelled) setPast([]); });
+    return () => { cancelled = true; };
+  }, []);
 
-  async function show() {
-    setOpen(true);
-    setSent(false);
-    try {
-      setPast(await action<Item[]>("list_feedback"));
-    } catch {
-      setPast([]);
-    }
-  }
+  // Escape closes, as every sheet should. The backdrop click already does.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   async function submit() {
     if (!body.trim()) return;
@@ -73,25 +109,9 @@ export function Feedback() {
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={show}
-        aria-label="Send feedback"
-        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur active:bg-raised"
-      >
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3c4.97 0 9 3.13 9 7s-4.03 7-9 7c-.9 0-1.77-.1-2.58-.3L5 19l.9-3.2A7.9 7.9 0 0 1 3 10c0-3.87 4.03-7 9-7Z" />
-          <path d="M12 7v3.5M12 13h.01" />
-        </svg>
-      </button>
-    );
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 backdrop-blur-sm"
-      onClick={() => setOpen(false)}>
+      onClick={onClose} role="dialog" aria-modal="true" aria-label="Send feedback">
       <div
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
@@ -102,7 +122,7 @@ export function Feedback() {
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[17px] font-semibold">Tell us</h2>
-          <button onClick={() => setOpen(false)} className="text-[13px] text-muted">Close</button>
+          <button onClick={onClose} className="-my-2 px-2 py-2 text-[13px] text-muted">Close</button>
         </div>
 
         {sent ? (

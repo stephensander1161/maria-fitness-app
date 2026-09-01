@@ -20,12 +20,20 @@ const MAX_PULL = 140;
  * every fact handed out is recorded as seen so it is not repeated, and
  * prefetching one on every render would burn through the library showing her
  * nothing. Pulling is the moment she has actually asked for something to read.
+ *
+ * Once she lets go, the fact stays on screen as a card until she taps it or a
+ * dozen seconds pass. It used to vanish with the indicator — a sentence she had
+ * started reading, gone the moment her thumb lifted — and every fact shown is
+ * recorded as seen, so one that vanished was also one she would never get back.
  */
+const LINGER_MS = 12_000;
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [fact, setFact] = useState<Fact | null>(null);
+  /** The fact after release — the card she can actually finish reading. */
+  const [lingering, setLingering] = useState<Fact | null>(null);
   // Kept in state, not a ref: the transition depends on it at render time,
   // and reading a ref there is exactly what React 19 forbids.
   const [dragging, setDragging] = useState(false);
@@ -33,17 +41,34 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const startY = useRef<number | null>(null);
   const asked = useRef(false);
   const active = useRef(false);
+  const loaded = useRef<Fact | null>(null);
+  /** She let go before the fact arrived: hand it to the card when it does. */
+  const awaited = useRef(false);
 
   const loadFact = useCallback(async () => {
     if (asked.current) return;
     asked.current = true;
     try {
-      setFact(await action<Fact>("get_fact"));
+      const f = await action<Fact>("get_fact");
+      if (awaited.current) {
+        awaited.current = false;
+        setLingering(f);
+      } else {
+        loaded.current = f;
+        setFact(f);
+      }
     } catch {
       // A missing fact is not a reason to break the gesture — the pull still
       // reloads, it just does it quietly.
+      awaited.current = false;
     }
   }, []);
+
+  useEffect(() => {
+    if (!lingering) return;
+    const t = window.setTimeout(() => setLingering(null), LINGER_MS);
+    return () => window.clearTimeout(t);
+  }, [lingering]);
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
@@ -86,6 +111,16 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       setDragging(false);
       startY.current = null;
 
+      // Whatever was in the indicator moves to the card; if the fetch is still
+      // in flight, the card gets it on arrival instead.
+      const settle = () => {
+        if (loaded.current) setLingering(loaded.current);
+        else if (asked.current) awaited.current = true;
+        loaded.current = null;
+        asked.current = false;
+        setFact(null);
+      };
+
       setPull((current) => {
         if (current >= THRESHOLD) {
           setRefreshing(true);
@@ -94,12 +129,11 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
           // than snapping back before the new content lands.
           window.setTimeout(() => {
             setRefreshing(false);
-            setFact(null);
-            asked.current = false;
+            settle();
           }, 700);
           return THRESHOLD;
         }
-        asked.current = false;
+        settle();
         return 0;
       });
     };
@@ -141,6 +175,26 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </div>
+
+      {lingering && (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-0 z-40 px-4"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 0.75rem)" }}
+        >
+          <button
+            onClick={() => setLingering(null)}
+            data-no-pull-to-refresh=""
+            aria-label="Dismiss"
+            className="pointer-events-auto mx-auto block w-full max-w-lg rounded-2xl border border-line bg-surface/95 px-4 py-3 text-left shadow-lg shadow-ink/40 backdrop-blur-xl"
+          >
+            <p className="text-[10px] uppercase tracking-wide text-accent">Did you know</p>
+            <p className="mt-1 text-[13px] leading-snug text-text">{lingering.fact}</p>
+            {lingering.source && (
+              <p className="mt-1 text-[11px] text-faint">{lingering.source}</p>
+            )}
+          </button>
+        </div>
+      )}
 
       <div
         style={{

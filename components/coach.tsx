@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { streamCoach } from "@/lib/client";
 import { RichText } from "./rich-text";
 import { Boost } from "./boost";
+import { FeedbackGlyph, FeedbackSheet } from "./feedback";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 
@@ -25,6 +26,7 @@ export function Coach({ initialName }: { initialName: string | null }) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
 
@@ -107,15 +109,22 @@ export function Coach({ initialName }: { initialName: string | null }) {
   }, [stream, reloadKey]);
 
   return (
-    <div className="flex min-h-[calc(100dvh-7rem)] flex-col">
+    <div className="flex flex-col">
       <header className="mb-4 flex items-baseline justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
           {initialName ? `Hey, ${initialName}` : "Coach"}
         </h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-faint">
+        <div className="flex items-center gap-2">
+          <span className="mr-1 text-xs text-faint">
             {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
           </span>
+          <button
+            onClick={() => setFeedback(true)}
+            aria-label="Send feedback"
+            className="grid size-9 place-items-center rounded-full border border-line bg-surface text-muted active:bg-raised"
+          >
+            <FeedbackGlyph />
+          </button>
           <button
             onClick={() => setBoosting(true)}
             aria-label="Give me a boost"
@@ -130,6 +139,7 @@ export function Coach({ initialName }: { initialName: string | null }) {
       </header>
 
       {boosting && <Boost onClose={() => setBoosting(false)} />}
+      {feedback && <FeedbackSheet path="/" onClose={() => setFeedback(false)} />}
 
       <div className="flex-1 space-y-3">
         {messages.map((m) =>
@@ -199,10 +209,21 @@ export function Coach({ initialName }: { initialName: string | null }) {
         </div>
       )}
 
+      {/* Keeps the last message and the openers clear of the fixed composer. */}
+      <div className="h-16" aria-hidden="true" />
+
+      {/*
+        A fixed bar with a solid ground of its own, like any messaging app. It
+        used to be sticky with no backdrop, so the conversation showed through
+        it and the send button sat on top of whatever bubble was underneath.
+        `bottom` is the tab bar's height plus the safe area it pads itself with.
+      */}
       <form
         onSubmit={(e) => { e.preventDefault(); if (input.trim() && !busy) void send(input.trim()); }}
-        className="sticky bottom-24 mt-3 flex gap-2"
+        className="fixed inset-x-0 z-40 border-t border-line/60 bg-base/95 backdrop-blur-xl"
+        style={{ bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
       >
+        <div className="mx-auto flex max-w-lg gap-2 px-4 py-2.5">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -221,6 +242,7 @@ export function Coach({ initialName }: { initialName: string | null }) {
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
         </button>
+        </div>
       </form>
     </div>
   );
