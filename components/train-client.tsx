@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { action } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
+import { NumberField } from "./number-field";
+import { FormGuide } from "./form-guide";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
 import { RestTimerBar, unlockAudio, type Rest } from "@/components/rest-timer";
-import type { TodayExercise, TodayView } from "@/lib/views";
+import type { PickableExercise, TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
 
@@ -22,7 +24,13 @@ const TONE = {
 
 const NO_PENDING: PendingSet[] = [];
 
-export function TrainClient({ view, equipment }: { view: TodayView; equipment: string[] }) {
+export function TrainClient({
+  view,
+  pickable,
+}: {
+  view: TodayView;
+  pickable: { group: string; items: PickableExercise[] }[];
+}) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
@@ -47,6 +55,12 @@ export function TrainClient({ view, equipment }: { view: TodayView; equipment: s
 
   const totalLogged =
     view.exercises.reduce((n, e) => n + e.loggedToday.length, 0) + pending.length;
+  // Movements that still have sets left in them. "Complete" has to mean
+  // every one is done, or adding an exercise after signing off leaves the
+  // card claiming the session is finished when it plainly isn't.
+  const outstanding = view.exercises
+    .filter((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)
+    .map((e) => e.name);
 
   const startRest = useCallback((exercise: TodayExercise) => {
     if (exercise.restSeconds <= 0) return;
@@ -86,7 +100,7 @@ export function TrainClient({ view, equipment }: { view: TodayView; equipment: s
     return (
       <div className="space-y-4">
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
-        <AddExercise equipment={equipment} />
+        <AddExercise groups={pickable} />
       </div>
     );
   }
@@ -98,7 +112,7 @@ export function TrainClient({ view, equipment }: { view: TodayView; equipment: s
           body="Ask your coach to build your week — it takes about a minute."
           cta
         />
-        {view.hasPlan && <AddExercise equipment={equipment} />}
+        {view.hasPlan && <AddExercise groups={pickable} />}
       </div>
     );
   }
@@ -128,15 +142,19 @@ export function TrainClient({ view, equipment }: { view: TodayView; equipment: s
         />
       ))}
 
-      <AddExercise equipment={equipment} />
+      <AddExercise groups={pickable} />
 
       <div className="card p-4">
-        {view.completed ? (
+        {view.completed && outstanding.length === 0 ? (
           <p className="text-center text-sm text-beat">Session complete. Nice work.</p>
         ) : (
           <>
             <p className="mb-3 text-center text-sm text-muted">
-              {totalLogged === 0 ? "Log a set to get going." : `${totalLogged} sets logged — how did it feel?`}
+                {totalLogged === 0
+                  ? "Log a set to get going."
+                  : outstanding.length > 0
+                    ? `Still to do: ${outstanding.join(", ")}`
+                    : `${totalLogged} sets logged — how did it feel?`}
             </p>
             <div className="grid grid-cols-5 gap-2">
               {["Brutal", "Hard", "Solid", "Good", "Easy"].map((label, i) => (
@@ -229,10 +247,15 @@ function ExerciseCard({
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
 
   const setCount = done.length + queued.length;
+  const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
+  const todayVolume = Math.round(
+    [...done, ...queued].reduce((n, s) => n + (s.weight ?? 0) * s.reps, 0),
+  );
 
   async function removeFromToday() {
     setRemoving(true);
@@ -277,15 +300,25 @@ function ExerciseCard({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
+            <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-ink"
+              aria-label="Target sets complete">✓</span>
+          )}
           {exercise.extra && (
             <span className="rounded-full bg-raised px-2.5 py-1 text-[11px] text-faint">Added</span>
           )}
-          <Link
-            href={`/learn/${exercise.slug}`}
-            className="rounded-full border border-line px-3 py-1.5 text-[12px] text-muted"
+          <button
+            onClick={() => setGuideOpen(true)}
+            aria-label={`How to do ${exercise.name}`}
+            className="grid size-8 place-items-center rounded-full border border-line text-muted"
           >
-            Form
-          </Link>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9.5" />
+              <path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5" />
+              <path d="M12 17h.01" />
+            </svg>
+          </button>
           {/* Extras aren't on the plan, so there is nothing to remove them from. */}
           {!exercise.extra && (
             <button
@@ -352,6 +385,40 @@ function ExerciseCard({
         </p>
       )}
 
+      {/* Earned, not always-on: the last few sessions appear once she has done
+          the work, so finishing a movement shows her the shape of her progress
+          rather than another number to read mid-set. */}
+      {targetMet && exercise.trend.length > 0 && (
+        <div className="boost-rise mx-4 mb-3 rounded-xl border border-line bg-raised/60 p-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-faint">
+            Last {exercise.trend.length} session{exercise.trend.length === 1 ? "" : "s"}
+          </p>
+          <div className="flex items-end gap-2">
+            {[...exercise.trend, { date: "today", volume: todayVolume, topSet: null, reps: 0 }].map(
+              (session, i, arr) => {
+                const peak = Math.max(...arr.map((x) => x.volume), 1);
+                const isToday = i === arr.length - 1;
+                return (
+                  <div key={session.date} className="flex flex-1 flex-col items-center gap-1.5">
+                    <span className={`text-[11px] tabular ${isToday ? "text-accent" : "text-faint"}`}>
+                      {session.volume}
+                    </span>
+                    <div
+                      className={`w-full rounded-t transition-all duration-500 ${isToday ? "bg-accent" : "bg-line"}`}
+                      style={{ height: `${Math.max(6, (session.volume / peak) * 40)}px` }}
+                    />
+                    <span className="text-[10px] text-faint">
+                      {isToday ? "today" : session.date.slice(5)}
+                    </span>
+                  </div>
+                );
+              },
+            )}
+          </div>
+          <p className="mt-2 text-center text-[11px] text-faint">volume, {unit}</p>
+        </div>
+      )}
+
       <div className="border-t border-line bg-ink/40 p-3">
         {!open ? (
           <button
@@ -363,13 +430,26 @@ function ExerciseCard({
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              {!exercise.bodyweight && (
-                <Stepper label={`Weight (${unit})`} value={weight} step={step}
-                  onChange={(v) => setWeight(Math.max(0, v))} />
-              )}
-              <Stepper label="Reps" value={reps} step={1}
-                onChange={(v) => setReps(Math.max(1, v))}
-                className={exercise.bodyweight ? "col-span-2" : ""} />
+                {!exercise.bodyweight && (
+                  <NumberField
+                    label={`Weight (${unit})`}
+                    value={weight}
+                    step={step}
+                    min={0}
+                    max={2000}
+                    decimals
+                    onChange={setWeight}
+                  />
+                )}
+                <NumberField
+                  label="Reps"
+                  value={reps}
+                  step={1}
+                  min={1}
+                  max={500}
+                  onChange={setReps}
+                  className={exercise.bodyweight ? "col-span-2" : ""}
+                />
             </div>
             <button
               onClick={logSet}
@@ -382,29 +462,14 @@ function ExerciseCard({
           </div>
         )}
       </div>
+
+      {guideOpen && (
+        <FormGuide slug={exercise.slug} name={exercise.name} onClose={() => setGuideOpen(false)} />
+      )}
     </section>
   );
 }
 
-function Stepper({
-  label, value, step, onChange, className = "",
-}: {
-  label: string; value: number; step: number;
-  onChange: (v: number) => void; className?: string;
-}) {
-  return (
-    <div className={className}>
-      <p className="mb-1.5 text-center text-[11px] uppercase tracking-wide text-faint">{label}</p>
-      <div className="flex items-center rounded-xl border border-line bg-surface">
-        <button onClick={() => onChange(value - step)}
-          className="grid size-12 place-items-center text-xl text-muted active:text-accent" aria-label="Decrease">−</button>
-        <span className="flex-1 text-center text-xl font-semibold tabular">{value}</span>
-        <button onClick={() => onChange(value + step)}
-          className="grid size-12 place-items-center text-xl text-muted active:text-accent" aria-label="Increase">+</button>
-      </div>
-    </div>
-  );
-}
 
 function Empty({ title, body, cta }: { title: string; body: string; cta?: boolean }) {
   return (

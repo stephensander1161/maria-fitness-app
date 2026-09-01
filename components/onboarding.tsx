@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { NumberField } from "./number-field";
 
 /**
  * First run. Four screens, mostly taps, sensible defaults already selected —
@@ -103,7 +104,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
               className="w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
             />
           </Field>
-          <Field label="Age"><Stepper value={age} onChange={setAge} min={13} max={100} /></Field>
+          <Field label="Age"><NumberField value={age} onChange={setAge} min={13} max={100} /></Field>
           <Field label="Sex">
             <Chips options={["female", "male", "other"]} value={[sex]}
               onPick={(v) => setSex(v as typeof sex)} />
@@ -115,15 +116,15 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
         <Screen title="Where you're at" sub="Rough is fine — you can correct it any time.">
           <Field label="Height">
             <div className="grid grid-cols-2 gap-3">
-              <Stepper value={feet} onChange={setFeet} min={3} max={7} suffix="ft" />
-              <Stepper value={inches} onChange={setInches} min={0} max={11} suffix="in" />
+              <NumberField value={feet} onChange={setFeet} min={3} max={7} suffix="ft" />
+              <NumberField value={inches} onChange={setInches} min={0} max={11} suffix="in" />
             </div>
           </Field>
           <Field label="Weight now">
-            <Stepper value={currentWeight} onChange={setCurrentWeight} min={50} max={600} step={1} suffix="lb" />
+            <NumberField value={currentWeight} onChange={setCurrentWeight} min={50} max={600} suffix="lb" />
           </Field>
           <Field label="Where you'd like to be">
-            <Stepper value={goalWeight} onChange={setGoalWeight} min={50} max={600} step={1} suffix="lb" />
+            <NumberField value={goalWeight} onChange={setGoalWeight} min={50} max={600} suffix="lb" />
             {goalWeight < currentWeight && (
               <p className="mt-2 text-center text-[12px] text-muted">
                 {currentWeight - goalWeight} lb — about{" "}
@@ -274,19 +275,3 @@ function Chips({
   );
 }
 
-function Stepper({
-  value, onChange, min, max, step = 1, suffix,
-}: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number; suffix?: string }) {
-  const clamp = (v: number) => Math.min(max, Math.max(min, v));
-  return (
-    <div className="flex items-center rounded-xl border border-line bg-surface">
-      <button onClick={() => onChange(clamp(value - step))} aria-label="Decrease"
-        className="grid size-14 place-items-center text-2xl text-muted active:text-accent">−</button>
-      <span className="flex-1 text-center text-2xl font-semibold tabular">
-        {value}{suffix && <span className="ml-1 text-sm font-normal text-faint">{suffix}</span>}
-      </span>
-      <button onClick={() => onChange(clamp(value + step))} aria-label="Increase"
-        className="grid size-14 place-items-center text-2xl text-muted active:text-accent">+</button>
-    </div>
-  );
-}

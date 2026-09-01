@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action } from "@/lib/client";
+import { NumberField } from "./number-field";
 
 /**
  * The first thing on the Progress screen, above the fold.
@@ -66,15 +67,16 @@ export function WeighIn({
 
   return (
     <section className="card mb-3 space-y-3 p-3">
-      <div className="flex items-center rounded-xl border border-line bg-surface">
-        <button onClick={() => setValue((v) => Math.round((v - 0.2) * 10) / 10)}
-          className="grid size-12 place-items-center text-xl text-muted active:text-accent" aria-label="Decrease">−</button>
-        <span className="flex-1 text-center text-2xl font-semibold tabular">
-          {value.toFixed(1)}<span className="ml-1 text-sm text-faint">{unit}</span>
-        </span>
-        <button onClick={() => setValue((v) => Math.round((v + 0.2) * 10) / 10)}
-          className="grid size-12 place-items-center text-xl text-muted active:text-accent" aria-label="Increase">+</button>
-      </div>
+      <NumberField
+        value={value}
+        onChange={setValue}
+        step={0.2}
+        min={30}
+        max={700}
+        decimals
+        suffix={unit}
+        label="Weight"
+      />
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => { setOpen(false); setError(null); }}
           className="rounded-xl border border-line py-3 text-[14px] text-muted">Cancel</button>

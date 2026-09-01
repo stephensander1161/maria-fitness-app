@@ -5,7 +5,7 @@ import {
 } from "@/lib/db/schema";
 import { DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
-import { lastTimeTargets } from "@/lib/progress";
+import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 
 /**
  * Read models for the screens. Pages render from these; mutations always go
@@ -20,6 +20,9 @@ export type TodayExercise = {
   restSeconds: number; notes: string | null;
   lastTime: { date: ISODate; sets: { reps: number; weight: number | null }[] } | null;
   loggedToday: { setNumber: number; reps: number; weight: number | null }[];
+  /** Recent sessions, oldest first, for the trend shown once she finishes her
+   *  target sets. Excludes today — the point is what came before. */
+  trend: { date: ISODate; volume: number; topSet: number | null; reps: number }[];
 };
 
 export type TodayView = {
@@ -91,6 +94,28 @@ export async function todayView(profileId: string, units: Units, date = today())
 
   const lastTime = await lastTimeTargets(profileId, all.map((i) => i.exerciseId), date);
 
+  // Three weeks of history per movement, so finishing a set can show her where
+  // it sits against recent sessions without another round trip.
+  const trends = new Map<string, TodayExercise["trend"]>();
+  await Promise.all(
+    all.map(async (i) => {
+      const history = await exerciseHistory(profileId, i.exerciseId, 4);
+      trends.set(
+        i.exerciseId,
+        history
+          .filter((h) => h.date !== date)
+          .slice(0, 3)
+          .reverse()
+          .map((h) => ({
+            date: h.date,
+            volume: Math.round(h.volumeKg * (units === "imperial" ? 2.20462 : 1)),
+            topSet: h.bestSet?.weightKg == null ? null : weightOut(h.bestSet.weightKg, units),
+            reps: h.totalReps,
+          })),
+      );
+    }),
+  );
+
   return {
     ...base,
     hasPlan: true,
@@ -108,6 +133,7 @@ export async function todayView(profileId: string, units: Units, date = today())
           : null,
         loggedToday: logged.filter((l) => l.exerciseId === i.exerciseId)
           .map((l) => ({ setNumber: l.setNumber, reps: l.reps, weight: weightOut(l.weightKg, units) })),
+        trend: trends.get(i.exerciseId) ?? [],
       };
     }),
   };
@@ -225,4 +251,52 @@ export async function planSummary(profileId: string, units: Units): Promise<stri
   return (
     `This week's PLANNED targets — "${week.title}". These are what she is scheduled to do, NOT what she has done; read her actual logged sets with get_exercise_history or get_week_review:\n${days}`
   );
+}
+
+export type PickableExercise = { slug: string; name: string; category: string };
+
+/**
+ * Movements she can actually perform, grouped for a picker.
+ *
+ * Loaded server-side with the page so choosing one is instant and needs no
+ * search — the old panel made her type into a box to discover what existed,
+ * and offered a toggle between "everything" and her first listed piece of kit,
+ * which told her nothing useful.
+ */
+export async function pickableExercises(
+  equipment: string[],
+): Promise<{ group: string; items: PickableExercise[] }[]> {
+  const rows = await db
+    .select({
+      slug: exercises.slug, name: exercises.name,
+      category: exercises.category, equipment: exercises.equipment,
+    })
+    .from(exercises)
+    .orderBy(asc(exercises.name));
+
+  const hers = (equipment.length ? equipment : ["bodyweight"]).map((e) => e.toLowerCase());
+  const hasGym = hers.some((h) => h.includes("full gym"));
+
+  const usable = rows.filter((r) => {
+    const needs = r.equipment.map((e) => e.toLowerCase());
+    // Anything needing nothing but a body and a floor is always available.
+    if (needs.every((n) => /bodyweight|mat|floor|wall|chair|outdoors|none/.test(n))) return true;
+    if (hasGym) return true;
+    return needs.some((n) =>
+      hers.some((h) => n.includes(h.replace(/s$/, "")) || h.includes(n.replace(/s$/, ""))),
+    );
+  });
+
+  const LABELS: Record<string, string> = {
+    compound: "Compound", isolation: "Isolation", core: "Core",
+    mobility: "Mobility", cardio: "Cardio",
+  };
+  const ORDER = ["compound", "isolation", "core", "cardio", "mobility"];
+
+  return ORDER.flatMap((category) => {
+    const items = usable
+      .filter((r) => r.category === category)
+      .map(({ slug, name, category }) => ({ slug, name, category }));
+    return items.length ? [{ group: LABELS[category] ?? category, items }] : [];
+  });
 }

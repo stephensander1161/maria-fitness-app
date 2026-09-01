@@ -1,12 +1,15 @@
 import { TrainClient } from "@/components/train-client";
 import { requireOnboarded } from "@/lib/session";
-import { todayView } from "@/lib/views";
+import { pickableExercises, todayView } from "@/lib/views";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainPage() {
   const profile = await requireOnboarded();
-  const view = await todayView(profile.id, profile.units);
+  const [view, pickable] = await Promise.all([
+    todayView(profile.id, profile.units),
+    pickableExercises(profile.equipment),
+  ]);
 
   return (
     <>
@@ -15,7 +18,7 @@ export default async function TrainPage() {
         <h1 className="text-2xl font-bold tracking-tight">{view.title}</h1>
         {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
       </header>
-      <TrainClient view={view} equipment={profile.equipment} />
+      <TrainClient view={view} pickable={pickable} />
     </>
   );
 }
