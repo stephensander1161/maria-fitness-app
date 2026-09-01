@@ -78,8 +78,16 @@ Read it as an honest inventory, not a certificate.
 
 ### CC8.1 — Change management
 
-- All changes through git; CI runs typecheck, lint, 294 tests, dependency audit
+- All changes through git; CI runs typecheck, lint, 328 tests, dependency audit
   and a production build on every push to main.
+- Deploy is a CI job gated on every other job passing. Production cannot be
+  reached from a workstation state that CI has not seen: a red typecheck,
+  lint, test, audit, build or credential scan means the deploy job never
+  starts and the last good build keeps serving.
+- The deploy token lives only in the repository secret and is referenced only
+  by the deploy job, which runs on pushes to main. The repository is public,
+  so this matters: a fork's pull request cannot satisfy that condition and
+  therefore cannot reach the token.
 - The build step proves nothing reaches for a secret at module load.
 - History scanned for credential-shaped strings; `.env` asserted gitignored and
   `.env.example` asserted tracked.
@@ -142,7 +150,9 @@ rate limiting, and no self-service password reset (an owner runs
 everywhere ends every session that account holds, including the one asking.
 
 **Segregation of duties.** Solo developer with production access. No peer
-review, no separate deploy approval, no privileged-access management.
+review and no privileged-access management. Deploy approval is mechanical,
+not human: CI gates it, but the same person writes the code and holds the
+token, and manual `vercel deploy` from a workstation is still possible.
 
 **Alerting.** The audit log is written but nothing watches it. A brute-force
 attempt would be recorded and no one would be told.
@@ -194,8 +204,11 @@ These keep the implemented set from decaying:
 4. **Errors are generic to the client, specific in the log.**
 5. **Secrets stay in the environment.** Nothing reaches for a credential at
    module load; CI's build step exists to catch that.
-6. **CI must pass before deploy.** Not a suggestion — it is the only automated
-   review this project has.
+6. **CI must pass before deploy.** Enforced, not merely intended: deploy is a
+   CI job that needs every other job. It is the only automated review this
+   project has. Deploying by hand bypasses it — and uploads the working
+   directory, untracked files included, which is how a half-written file
+   once reached a production build.
 7. **Back up before anything destructive.** Migrations included.
 8. **If a control is removed, remove it from this document too.** A stale
    readiness document is worse than none, because it is believed.

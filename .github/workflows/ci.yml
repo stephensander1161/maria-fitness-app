@@ -89,3 +89,57 @@ jobs:
           git check-ignore -q .env || { echo "::error::.env is not gitignored"; exit 1; }
           rm -f .env
           echo ".env ignored, .env.example tracked."
+
+  # Nothing reaches her app that the two jobs above haven't passed. `needs`
+  # is the whole point: a red typecheck, lint, test, audit, build or secret
+  # scan means this job never starts, and production keeps serving the last
+  # good deploy.
+  deploy:
+    needs: [verify, secrets]
+    # Pushes to main only. This repo is public, so a fork's pull request must
+    # never be able to reach the deploy token — `pull_request` from a fork
+    # can't satisfy this condition, and the token is not in scope for any
+    # other job.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Two pushes in quick succession would otherwise race, and the loser could
+    # land last and overwrite the newer build. Queue instead of cancelling:
+    # a half-finished deploy is worse than a slow one.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Check the deploy token is present
+        # Without this the CLI fails several steps later with a login prompt.
+        # Fail here instead, saying what to do about it.
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Create a token at"
+            echo "::error::vercel.com/account/tokens and add it with:"
+            echo "::error::  gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+
+      # Vercel builds this itself rather than us running `vercel build` here.
+      # The prebuilt route needs `vercel pull`, which downloads the production
+      # environment — the real database URL and API key — onto the runner. It
+      # costs about thirty seconds to let Vercel build it, and those secrets
+      # never leave Vercel.
+      - name: Deploy to production
+        run: npx vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Identifiers, not credentials: they name the project the token is
+          # allowed to touch, and are useless without it.
+          VERCEL_ORG_ID: team_DTv0u4ESbVaRPY4WbeKJ8sED
+          VERCEL_PROJECT_ID: prj_WVxML4XZ4qhFLDLmjZunPAU6TD4u
