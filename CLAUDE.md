@@ -71,6 +71,28 @@ the test. The only current entry is `add_progress_photo`, because the model
 cannot produce a resized JPEG. "The UI does it" is not a reason — that is true
 of nearly every tool here.
 
+## Unknown is not zero
+
+The most repeated bug class in this app is a missing value summed as if it
+were a measurement. It has now been caught four separate times:
+
+- Fibre is known only for food looked up against the library. A meal typed in
+  words carries no figure, so a day's total is a **floor** — the UI writes
+  "≥12g" and `fibreForDay` returns `knownFor`/`unknownFor` alongside the grams.
+- A day with no meal logs is not a zero-calorie day. `summariseNutrition`
+  averages logged days only, and a window less than half logged reports
+  `under-logged` and refuses to judge her eating at all.
+- A portion in a measure the food is not sold in (`1 glass rice`) returns
+  `null` from `toGrams` rather than a plausible number.
+- Chia and flaxseed carried total carbohydrate where every other row carries
+  available carbohydrate, so their fibre was counted twice.
+
+The rule: when you do not know something, the count of what you do not know
+travels with the number, and anything rendering it says which it is. Summing
+nulls as zeros always fails in the direction that reads as *her* failure —
+under-reported fibre, an invented deficit, a day she "barely ate". That is the
+worst possible direction for this particular app to be wrong in.
+
 ## Context injected into the prompt
 
 `lib/agent/loop.ts` assembles a volatile state block (today's logged sets, the
