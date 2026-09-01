@@ -46,6 +46,7 @@ const all: Tool[] = [
   body.getMeasuringGuide,
   nutrition.getMealPlan,
   nutrition.getNutritionTrend,
+  nutrition.getRecentMeals,
   training.getPlan,
   profile.getProfile,
   training.getWeekReview,

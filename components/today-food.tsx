@@ -3,16 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action } from "@/lib/client";
-import type { DayFoodView } from "@/lib/views";
+import type { DayFoodView, RecentMeal } from "@/lib/views";
 
 /**
  * What she has eaten today. Sits above the week's plan because the question
  * she actually has standing at the fridge is "where am I now", not "what was
  * I supposed to have on Thursday".
  */
-export function TodayFood({ day }: { day: DayFoodView }) {
+export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMeal[] }) {
   const router = useRouter();
   const [removing, setRemoving] = useState<string | null>(null);
+  const [logging, setLogging] = useState<string | null>(null);
+
+  // Re-logging goes through log_meal with the macros she last recorded, so it
+  // is the same write path as typing it out — just without the typing.
+  async function logAgain(m: RecentMeal) {
+    const key = `${m.slot}::${m.description}`;
+    setLogging(key);
+    try {
+      await action("log_meal", {
+        slot: m.slot,
+        description: m.description,
+        ...(m.calories !== null && { calories: m.calories }),
+        ...(m.proteinG !== null && { proteinG: m.proteinG }),
+        ...(m.fibreG !== null && { fibreG: m.fibreG }),
+      });
+      router.refresh();
+    } finally {
+      setLogging(null);
+    }
+  }
 
   async function remove(id: string) {
     setRemoving(id);
@@ -31,6 +51,30 @@ export function TodayFood({ day }: { day: DayFoodView }) {
         <p className="mt-1 text-[13px] text-faint">
           Nothing logged yet. Add food with the calculator below, or just tell your coach.
         </p>
+
+      {usuals.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-faint">Log again</p>
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {usuals.map((m) => {
+              const key = `${m.slot}::${m.description}`;
+              return (
+                <button
+                  key={key}
+                  onClick={() => void logAgain(m)}
+                  disabled={logging === key}
+                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-left text-[13px] active:bg-raised disabled:opacity-40"
+                >
+                  <span className="max-w-[190px] truncate">{m.description}</span>
+                  {m.calories !== null && (
+                    <span className="ml-1.5 text-faint tabular">{m.calories}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       </section>
     );
   }
@@ -91,6 +135,30 @@ export function TodayFood({ day }: { day: DayFoodView }) {
           </li>
         ))}
       </ul>
+
+      {usuals.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-faint">Log again</p>
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {usuals.map((m) => {
+              const key = `${m.slot}::${m.description}`;
+              return (
+                <button
+                  key={key}
+                  onClick={() => void logAgain(m)}
+                  disabled={logging === key}
+                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-left text-[13px] active:bg-raised disabled:opacity-40"
+                >
+                  <span className="max-w-[190px] truncate">{m.description}</span>
+                  {m.calories !== null && (
+                    <span className="ml-1.5 text-faint tabular">{m.calories}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

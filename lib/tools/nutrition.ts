@@ -6,6 +6,7 @@ import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
+import { recentMeals } from "@/lib/views";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
@@ -351,6 +352,30 @@ export const getNutritionTrend = defineTool({
         proteinG: d.logged ? d.proteinG : null,
         logged: d.logged,
       })),
+    };
+  },
+});
+
+export const getRecentMeals = defineTool({
+  name: "get_recent_meals",
+  description:
+    "The meals she logs most often, with the calories and protein she last recorded for each. Use it to offer her usual instead of asking her to describe food again — 'your usual porridge and berries?' — and to log a repeat without making her retype it. Most-repeated first.",
+  input: z.object({
+    slot: slotEnum.optional().describe("Limit to one meal of the day"),
+    limit: z.number().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const all = await recentMeals(ctx.profileId, { limit: Math.min(20, input.limit ?? 6) });
+    const meals = input.slot ? all.filter((m) => m.slot === input.slot) : all;
+    return {
+      meals: meals.map((m) => ({
+        slot: m.slot, description: m.description,
+        calories: m.calories, proteinG: m.proteinG, fibreG: m.fibreG,
+        timesLogged: m.times, lastEaten: m.lastEaten,
+      })),
+      hint: meals.length === 0
+        ? "Nothing logged recently — she has no usuals yet."
+        : "Pass these straight to log_meal to repeat one; do not ask her to describe it again.",
     };
   },
 });

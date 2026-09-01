@@ -1,9 +1,9 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, mealLogs, mealPlans, meals, planDays, planExercises, plans, setLogs, workouts,
 } from "@/lib/db/schema";
-import { DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
+import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
@@ -352,4 +352,56 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     fibreTargetG: FIBRE_TARGET_G,
     fibreComplete: fibre.complete,
   };
+}
+
+export type RecentMeal = {
+  slot: string;
+  description: string;
+  calories: number | null;
+  proteinG: number | null;
+  fibreG: number | null;
+  /** How many times she has logged this in the window. */
+  times: number;
+  lastEaten: ISODate;
+};
+
+/**
+ * Meals she logs often, most-repeated first.
+ *
+ * Food logging survives on how little it costs to do. She eats the same
+ * breakfast most days, and retyping it every morning is the friction that ends
+ * the habit — so the things she actually repeats are one tap.
+ *
+ * Grouped case-insensitively by slot and description, carrying the macros from
+ * the most recent time she logged it, because that is the version she most
+ * recently thought was right.
+ */
+export async function recentMeals(
+  profileId: string,
+  { windowDays = 30, limit = 6 }: { windowDays?: number; limit?: number } = {},
+): Promise<RecentMeal[]> {
+  const since = addDays(today(), -windowDays);
+  const rows = await db.select().from(mealLogs)
+    .where(and(eq(mealLogs.profileId, profileId), gte(mealLogs.date, since)))
+    .orderBy(desc(mealLogs.date), desc(mealLogs.createdAt));
+
+  const grouped = new Map<string, RecentMeal>();
+  for (const r of rows) {
+    const key = `${r.slot}::${r.description.trim().toLowerCase()}`;
+    const seen = grouped.get(key);
+    if (seen) {
+      seen.times += 1;
+      continue;
+    }
+    // Rows arrive newest first, so the first one seen carries the newest macros.
+    grouped.set(key, {
+      slot: r.slot, description: r.description,
+      calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
+      times: 1, lastEaten: r.date,
+    });
+  }
+
+  return [...grouped.values()]
+    .sort((a, b) => b.times - a.times || (a.lastEaten < b.lastEaten ? 1 : -1))
+    .slice(0, limit);
 }

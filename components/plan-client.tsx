@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { DayFoodView, MealWeekView, WeekView } from "@/lib/views";
+import type { DayFoodView, MealWeekView, RecentMeal, WeekView } from "@/lib/views";
 import { CalorieCalculator } from "./calorie-calculator";
 import { TodayFood } from "./today-food";
 
-export function PlanClient({ week, mealWeek, dayFood }: {
-  week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView;
+export function PlanClient({ week, mealWeek, dayFood, usuals }: {
+  week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
 }) {
   const [tab, setTab] = useState<"training" | "meals">("training");
   const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
@@ -58,7 +58,7 @@ export function PlanClient({ week, mealWeek, dayFood }: {
         )
       ) : mealWeek.exists ? (
         <div className="space-y-2">
-          <TodayFood day={dayFood} />
+          <TodayFood day={dayFood} usuals={usuals} />
           <CalorieCalculator calorieTarget={mealWeek.calorieTarget} />
 
           <div className="card mb-3 flex divide-x divide-line p-4">
@@ -85,7 +85,7 @@ export function PlanClient({ week, mealWeek, dayFood }: {
         </div>
       ) : (
         <div className="space-y-2">
-          <TodayFood day={dayFood} />
+          <TodayFood day={dayFood} usuals={usuals} />
           <CalorieCalculator calorieTarget={null} />
           <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
         </div>
