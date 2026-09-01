@@ -7,6 +7,8 @@ import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { matchScore, parsePortion, toGrams } from "@/lib/portion";
+import { foodUnitsFor } from "@/lib/profile";
+import { foodLines, gramsLabel } from "@/lib/food-units";
 import { defineTool, type ToolContext } from "./define";
 
 /**
@@ -25,7 +27,7 @@ const scale = (per100g: number, grams: number) => Math.round((per100g * grams) /
 export const lookupFood = defineTool({
   name: "lookup_food",
   description:
-    "Calories and macros for a food and portion — '100g boiled egg', '2 eggs', '4oz salmon'. Checks the local library first and only estimates when it finds nothing, so prefer it over working the numbers out yourself. If she gives no amount it assumes 100g and says so.",
+    "Calories and macros for a food and portion — '100g boiled egg', '2 eggs', '4oz salmon'. Checks the local library first and only estimates when it finds nothing, so prefer it over working the numbers out yourself. If she gives no amount it assumes 100g and says so. Read the portion back from `portion`, which is already in her food units.",
   input: z.object({
     query: z.string().describe("Food and portion as she said it, e.g. '150g cooked rice'"),
     allowEstimate: z.boolean().optional()
@@ -56,6 +58,9 @@ export const lookupFood = defineTool({
         food: best.name,
         category: best.category,
         grams: Math.round(grams),
+        // The portion as she'd say it — "3.5 oz" or "100 g". `grams` is what
+        // the numbers were worked out on; this is the one to read back.
+        portion: gramsLabel(grams, await foodUnitsFor(ctx.profileId)),
         assumed100g: portion.assumed,
         kcal: Math.round(scale(best.kcal, grams)),
         proteinG: scale(best.proteinG, grams),
@@ -158,7 +163,10 @@ async function estimate(query: string, ctx: ToolContext) {
     const parsed = block && Estimate.safeParse(block.input);
     if (!parsed?.success) return { found: false, error: "Couldn't estimate that one." };
 
-    return { found: true, source: "estimated", ...parsed.data };
+    return {
+      found: true, source: "estimated", ...parsed.data,
+      portion: gramsLabel(parsed.data.grams, await foodUnitsFor(ctx.profileId)),
+    };
   } catch {
     return { found: false, error: "Couldn't estimate that one." };
   }
@@ -213,16 +221,18 @@ export const findRecipes = defineTool({
       return true;
     });
 
+    const fu = await foodUnitsFor(ctx.profileId);
     const shape = (r: {
       title: string; calories: number; proteinG: number; prepMinutes: number | null;
       ingredients: string[]; steps: string[]; slot: string;
     }, onPlan: boolean) => ({
       title: r.title, slot: r.slot, onHerPlan: onPlan,
       calories: r.calories, proteinG: r.proteinG, prepMinutes: r.prepMinutes,
-      ingredients: r.ingredients, steps: r.steps,
+      ingredients: foodLines(r.ingredients, fu), steps: foodLines(r.steps, fu),
     });
 
     return {
+      foodUnits: fu,
       recipes: [
         ...hers.map((r) => shape(r, true)),
         ...extra.slice(0, Math.max(0, limit - hers.length)).map((r) => shape(r, false)),

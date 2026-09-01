@@ -19,7 +19,7 @@ export type Portion = {
 };
 
 export type PortionUnit =
-  | "g" | "kg" | "oz" | "lb" | "ml"
+  | "g" | "kg" | "oz" | "lb" | "ml" | "floz"
   /** One of the food's own natural units — "2 eggs", "1 banana". */
   | "unit"
   /** A named measure: tbsp, tin, glass, handful. See namedUnit and toGrams. */
@@ -33,6 +33,7 @@ const GRAMS: Record<Exclude<PortionUnit, "unit" | "named">, number> = {
   // Treated as grams: true for water and close enough for milk, stock and
   // juice, which is what people measure this way.
   ml: 1,
+  floz: 29.5735,
 };
 
 const UNIT_WORDS: Record<string, PortionUnit> = {
@@ -41,6 +42,8 @@ const UNIT_WORDS: Record<string, PortionUnit> = {
   oz: "oz", ounce: "oz", ounces: "oz",
   lb: "lb", lbs: "lb", pound: "lb", pounds: "lb",
   ml: "ml", millilitre: "ml", milliliter: "ml",
+  // A US fluid ounce of anything measured that way — milk, juice, stock.
+  floz: "floz",
   // Natural units resolve against the food's own unitGrams: these say "one of
   // whatever this food comes as", so whatever that is, is the right answer.
   x: "unit", piece: "unit", pieces: "unit", item: "unit", items: "unit",
@@ -131,8 +134,9 @@ export function parsePortion(input: string): Portion | null {
   const text = input.trim().toLowerCase();
   if (!text) return null;
 
-  // "100g chicken", "100 g chicken", "2 eggs", "1.5 lb mince", "chicken"
-  const match = text.match(/^([\d.]+)\s*([a-z]+)?\s*(.*)$/);
+  // "100g chicken", "100 g chicken", "2 eggs", "1.5 lb mince", "chicken".
+  // "fl oz" is two words for one unit; fold it before the split.
+  const match = text.replace(/^([\d.]+)\s*fl\.?\s*oz\b/, "$1floz").match(/^([\d.]+)\s*([a-z]+)?\s*(.*)$/);
 
   if (!match) {
     return { amount: 100, unit: "g", query: clean(text), assumed: true, namedUnit: null };

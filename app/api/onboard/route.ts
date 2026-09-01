@@ -36,6 +36,8 @@ const Body = z.object({
   dislikedFoods: z.array(z.string()).default([]),
   motivation: z.string().max(400).optional(),
   units: z.enum(["imperial", "metric"]).default("imperial"),
+  /** Kitchen units; null or absent follows `units`. See lib/food-units.ts. */
+  foodUnits: z.enum(["imperial", "metric"]).nullable().optional(),
   timezone: z.string().optional(),
 });
 
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
     dietaryRestrictions: input.dietaryRestrictions,
     dislikedFoods: input.dislikedFoods,
     units: u,
+    foodUnits: input.foodUnits ?? null,
     timezone: input.timezone ?? null,
     onboardedAt: new Date(),
   }).where(eq(profiles.id, profile.id));

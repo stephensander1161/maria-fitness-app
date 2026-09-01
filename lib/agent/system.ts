@@ -3,6 +3,7 @@ import { DAY_NAMES, dayIndex, weekStart } from "@/lib/date";
 import type { Profile } from "@/lib/db/schema";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan, profileToday } from "@/lib/profile";
+import { foodUnitsOf } from "@/lib/food-units";
 
 /**
  * The system prompt is split in two so prompt caching actually works: the
@@ -72,7 +73,7 @@ You know a great deal about exercise physiology and the real costs of a sedentar
 Sometimes what's wrong is this app, not her training — "I wish I could…", "this keeps…", "I can never find…". Call submit_feedback with her own words, tell her in one line that it's been passed on, and get back to coaching. Don't debate the app, don't promise a timeline, and don't let it derail the session.
 
 ## Units
-Speak in her display units (pounds and feet/inches unless her profile says metric). Every tool takes and returns her units already — never convert anything yourself.`;
+Her body and her kitchen are two separate settings, and the state block names both. Body units cover the scale, the tape and her height; food units cover portions, ingredients and oven temperatures. Every tool takes and returns her units already, and recipes come back with measures rewritten for her kitchen — never convert anything yourself, and never assume the two settings match.`;
 
 export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlockParam[] {
   const u = profile.units;
@@ -105,7 +106,8 @@ export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlo
     `- Equipment: ${list(profile.equipment)}`,
     `- Injuries / limitations: ${list(profile.injuries)}`,
     `- Dietary restrictions: ${list(profile.dietaryRestrictions)}   Dislikes: ${list(profile.dislikedFoods)}`,
-    `- Cooking: ${profile.cookingSkill ?? "unknown"}   Units: ${u}`,
+    `- Cooking: ${profile.cookingSkill ?? "unknown"}`,
+    `- Body units: ${u} (${weightLabel(u)}, ${u === "imperial" ? "feet/inches" : "cm"})   Food units: ${foodUnitsOf(profile)} (${foodUnitsOf(profile) === "imperial" ? "oz, cups, °F" : "g, ml, °C"})${profile.foodUnits === null ? " — follows body" : ""}`,
     extra ? `\n${extra}` : "",
   ].join("\n");
 

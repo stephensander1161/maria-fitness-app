@@ -5,6 +5,7 @@ import { goals, profiles, weighIns } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan, profileToday } from "@/lib/profile";
+import { foodUnitsOf } from "@/lib/food-units";
 import { defineTool, type ToolContext } from "./define";
 
 /** Numbers crossing the tool boundary are always in HER units (lb/in by
@@ -35,8 +36,12 @@ export const getProfile = defineTool({
       age: p.birthYear ? new Date().getFullYear() - p.birthYear : null,
       sex: p.sex,
       height: heightLabel(p.heightCm, u),
+      // Body and kitchen are separate preferences. `units` is the scale and
+      // tape; `foodUnits` is portions, ingredients and oven temperatures.
       units: u,
       weightUnit: weightLabel(u),
+      foodUnits: foodUnitsOf(p),
+      foodUnitsFollowBody: p.foodUnits === null,
       startWeight: weightOut(p.startWeightKg, u),
       currentWeight: weightOut(latest?.weightKg ?? p.startWeightKg, u),
       goalWeight: weightOut(p.goalWeightKg, u),
@@ -60,7 +65,7 @@ export const getProfile = defineTool({
 export const updateProfile = defineTool({
   name: "update_profile",
   description:
-    "Create or update her profile. Call this during onboarding as she answers, and any time she mentions a change (new gym, new injury, going vegetarian). Only pass the fields you learned — omitted fields are left alone. Weights are in her display units (lb by default); height in inches, or centimetres if she uses metric.",
+    "Create or update her profile. Call this during onboarding as she answers, and any time she mentions a change (new gym, new injury, going vegetarian, wants grams in the kitchen). Only pass the fields you learned — omitted fields are left alone. Weights are in her display units (lb by default); height in inches, or centimetres if she uses metric. `units` is her body — scale and tape; `foodUnits` is her kitchen — portions, ingredients and oven temperatures — and follows `units` unless set.",
   input: z.object({
     name: z.string().optional(),
     age: z.number().optional().describe("Age in years; stored as birth year"),
@@ -80,7 +85,10 @@ export const updateProfile = defineTool({
     dietaryRestrictions: z.array(z.string()).optional(),
     dislikedFoods: z.array(z.string()).optional(),
     cookingSkill: z.enum(["minimal", "comfortable", "keen"]).optional(),
-    units: z.enum(["imperial", "metric"]).optional(),
+    units: z.enum(["imperial", "metric"]).optional()
+      .describe("Body units: lb and feet/inches, or kg and cm"),
+    foodUnits: z.enum(["imperial", "metric", "same"]).optional()
+      .describe("Kitchen units: oz/cups/°F or g/ml/°C. 'same' makes food follow her body units again"),
     markOnboarded: z.boolean().optional()
       .describe("Set true once you have enough to build her first plan"),
   }),
@@ -107,6 +115,7 @@ export const updateProfile = defineTool({
     if (input.dislikedFoods !== undefined) patch.dislikedFoods = input.dislikedFoods;
     if (input.cookingSkill !== undefined) patch.cookingSkill = input.cookingSkill;
     if (input.units !== undefined) patch.units = input.units;
+    if (input.foodUnits !== undefined) patch.foodUnits = input.foodUnits === "same" ? null : input.foodUnits;
     if (input.markOnboarded && !p.onboardedAt) patch.onboardedAt = new Date();
 
     await db.update(profiles).set(patch).where(eq(profiles.id, ctx.profileId));

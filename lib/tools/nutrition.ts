@@ -7,8 +7,9 @@ import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/l
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
 import { recentMeals } from "@/lib/views";
-import { aggregateIngredients, formatAmount } from "@/lib/shopping";
-import { todayForProfile } from "@/lib/profile";
+import { aggregateIngredients } from "@/lib/shopping";
+import { foodUnitsFor, todayForProfile } from "@/lib/profile";
+import { foodLines, quantityLabel } from "@/lib/food-units";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
@@ -119,17 +120,19 @@ export const getMealPlan = defineTool({
     const rows = await db.select().from(meals)
       .where(eq(meals.mealPlanId, plan.id)).orderBy(meals.dayOfWeek, meals.sortOrder);
     const filtered = input.dayOfWeek === undefined ? rows : rows.filter((m) => m.dayOfWeek === input.dayOfWeek);
+    const fu = await foodUnitsFor(ctx.profileId);
 
     return {
       exists: true, weekStart: week,
       calorieTarget: plan.calorieTarget, proteinTargetG: plan.proteinTargetG,
       carbTargetG: plan.carbTargetG, fatTargetG: plan.fatTargetG,
       rationale: plan.rationale, todayIsDayOfWeek: dayIndex(await todayForProfile(ctx.profileId)),
+      foodUnits: fu,
       meals: filtered.map((m) => ({
         id: m.id, dayName: DAY_NAMES[m.dayOfWeek], dayOfWeek: m.dayOfWeek, slot: m.slot,
         title: m.title, calories: m.calories, proteinG: m.proteinG,
         carbsG: m.carbsG, fatG: m.fatG, prepMinutes: m.prepMinutes,
-        ingredients: m.ingredients, steps: m.steps,
+        ingredients: foodLines(m.ingredients, fu), steps: foodLines(m.steps, fu),
       })),
     };
   },
@@ -424,7 +427,7 @@ const AISLES: Record<string, string> = {
 export const getShoppingList = defineTool({
   name: "get_shopping_list",
   description:
-    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so it stays in the units the recipes used.",
+    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units.",
   input: z.object({
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
     fromDayOfWeek: z.number().optional().describe("Only from this day onward, 0=Monday — for a mid-week top-up shop"),
@@ -441,6 +444,7 @@ export const getShoppingList = defineTool({
       : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
 
     const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
+    const fu = await foodUnitsFor(ctx.profileId);
 
     // Aisle comes from the food library, so it is the same categorisation the
     // calculator uses rather than a second list to keep in step.
@@ -490,6 +494,7 @@ export const getShoppingList = defineTool({
       weekStart: week,
       mealsCovered: wanted.length,
       totalItems: items.length,
+      foodUnits: fu,
       aisles: order
         .filter((a) => grouped.has(a))
         .map((aisle) => ({
@@ -497,8 +502,8 @@ export const getShoppingList = defineTool({
           items: (grouped.get(aisle) ?? []).map((i) => ({
             item: i.item,
             // Written out rather than left as a number and a unit, so it can be
-            // read straight back to her.
-            quantity: i.amount === null ? null : `${formatAmount(i.amount)}${i.unit ? (i.unit.length <= 2 ? "" : " ") + i.unit : ""}`,
+            // read straight back to her — in her kitchen's units.
+            quantity: i.amount === null ? null : quantityLabel(i.amount, i.unit, fu),
             fromMeals: i.fromMeals,
           })),
         })),

@@ -5,8 +5,9 @@ import {
   currentStreak, exerciseProgression, nutritionTrend, weekReview, measurementProgress,
 } from "@/lib/progress";
 import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
-import { weightLabel, weightOut } from "@/lib/units";
+import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { profileToday } from "@/lib/profile";
+import { foodUnitsOf } from "@/lib/food-units";
 import { DAY_NAMES } from "@/lib/date";
 
 export type OpinionPage = "train" | "plan" | "progress";
@@ -54,7 +55,7 @@ export async function buildPageContext(
   if (page === "plan") {
     const [week, mealWeek, dayFood] = await Promise.all([
       weekView(profileId, u),
-      mealWeekView(profileId),
+      mealWeekView(profileId, foodUnitsOf(profile)),
       dayFoodView(profileId),
     ]);
     const training = week.exists
@@ -146,7 +147,7 @@ export async function buildPageContext(
     `This week: ${review.completed} of ${review.planned} sessions, ${review.totalSets} sets, ${streak}-day streak.`,
     review.missedDays.length ? `Still to do this week: ${review.missedDays.join(", ")}.` : "",
     sites.length
-      ? `Measurements: ${sites.map((s) => `${s.label} ${s.current}in${s.changeTotal !== null ? ` (${s.changeTotal > 0 ? "+" : ""}${s.changeTotal} total)` : ""}`).join("; ")}.`
+      ? `Measurements: ${sites.map((s) => `${s.label} ${s.current}${lengthLabel(u)}${s.changeTotal !== null ? ` (${s.changeTotal > 0 ? "+" : ""}${s.changeTotal} total)` : ""}`).join("; ")}.`
       : "No measurements yet.",
     "",
     "Movement trends over twelve weeks, worst first:",

@@ -140,7 +140,7 @@ function profileBrief(p: Profile): string {
     `Equipment: ${p.equipment.join(", ") || "unknown"}`,
     `Injuries and limitations: ${p.injuries.join(", ") || "none"}`,
     `Dietary restrictions: ${p.dietaryRestrictions.join(", ") || "none"}. Dislikes: ${p.dislikedFoods.join(", ") || "none"}.`,
-    `Cooking confidence: ${p.cookingSkill ?? "unknown"}. Units: ${u}.`,
+    `Cooking confidence: ${p.cookingSkill ?? "unknown"}. Body units: ${u}.`,
   ].join("\n");
 }
 
@@ -221,7 +221,10 @@ export async function planMeals(
       intent.notes ? `Notes: ${intent.notes}` : ``,
       ``,
       `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), `
-        + `with ingredients and short steps, and write the rationale directly to her.`,
+        + `with ingredients and short steps, and write the rationale directly to her. `
+        // Stored metric like the recipe library; the app rewrites measures
+        // for her kitchen on the way out, so the planner never needs to know.
+        + `Write ingredient amounts and oven temperatures in metric (g, ml, °C) — the app shows them in her units.`,
     ].filter(Boolean).join("\n"),
     source,
     profileId,

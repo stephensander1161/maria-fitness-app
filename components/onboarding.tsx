@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { NumberField } from "./number-field";
+import { cmToIn, inToCm, kgToLb, lbToKg, type Units } from "@/lib/units";
 
 /**
  * First run. Four screens, mostly taps, sensible defaults already selected —
@@ -33,10 +34,34 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
   const [name, setName] = useState(defaultName ?? "");
   const [age, setAge] = useState(32);
   const [sex, setSex] = useState<"female" | "male" | "other">("female");
+  // Two settings, not one: the scale and the kitchen are chosen separately,
+  // and the kitchen follows the scale until she says otherwise.
+  const [units, setUnits] = useState<Units>("imperial");
+  const [foodUnits, setFoodUnits] = useState<Units | null>(null);
   const [feet, setFeet] = useState(5);
   const [inches, setInches] = useState(6);
+  const [heightCm, setHeightCm] = useState(168);
   const [currentWeight, setCurrentWeight] = useState(160);
   const [goalWeight, setGoalWeight] = useState(140);
+  const wt = units === "imperial" ? "lb" : "kg";
+
+  /** Flip the scale and carry the numbers across, so 160 lb becomes 72.5 kg, not 160 kg. */
+  function switchUnits(next: Units) {
+    if (next === units) return;
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    if (next === "metric") {
+      setHeightCm(Math.round(inToCm(feet * 12 + inches)));
+      setCurrentWeight(r1(lbToKg(currentWeight)));
+      setGoalWeight(r1(lbToKg(goalWeight)));
+    } else {
+      const totalIn = Math.round(cmToIn(heightCm));
+      setFeet(Math.floor(totalIn / 12));
+      setInches(totalIn % 12);
+      setCurrentWeight(Math.round(kgToLb(currentWeight)));
+      setGoalWeight(Math.round(kgToLb(goalWeight)));
+    }
+    setUnits(next);
+  }
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [sessionMinutes, setSessionMinutes] = useState(45);
   const [equipment, setEquipment] = useState<string[]>(["dumbbells"]);
@@ -58,7 +83,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(), age, sex,
-          heightIn: feet * 12 + inches,
+          heightIn: units === "imperial" ? feet * 12 + inches : heightCm,
           currentWeight, goalWeight,
           daysPerWeek, sessionMinutes,
           equipment: equipment.length ? equipment : ["bodyweight only"],
@@ -66,7 +91,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
           dietaryRestrictions: diets,
           dislikedFoods: dislikes.split(",").map((d) => d.trim()).filter(Boolean),
           motivation: motivation.trim() || undefined,
-          units: "imperial",
+          units, foodUnits,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
@@ -114,23 +139,43 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
 
       {step === 1 && (
         <Screen title="Where you're at" sub="Rough is fine — you can correct it any time.">
+          <Field label="Your scale reads in">
+            <Chips options={["lb", "kg"]} value={[wt]}
+              onPick={(v) => switchUnits(v === "lb" ? "imperial" : "metric")} />
+          </Field>
           <Field label="Height">
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField value={feet} onChange={setFeet} min={3} max={7} suffix="ft" />
-              <NumberField value={inches} onChange={setInches} min={0} max={11} suffix="in" />
-            </div>
+            {units === "imperial" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField value={feet} onChange={setFeet} min={3} max={7} suffix="ft" />
+                <NumberField value={inches} onChange={setInches} min={0} max={11} suffix="in" />
+              </div>
+            ) : (
+              <NumberField value={heightCm} onChange={setHeightCm} min={100} max={250} suffix="cm" />
+            )}
           </Field>
           <Field label="Weight now">
-            <NumberField value={currentWeight} onChange={setCurrentWeight} min={50} max={600} suffix="lb" />
+            <NumberField value={currentWeight} onChange={setCurrentWeight}
+              min={units === "imperial" ? 50 : 25} max={units === "imperial" ? 600 : 275} step={units === "imperial" ? 1 : 0.5} decimals={units === "metric"} suffix={wt} />
           </Field>
           <Field label="Where you'd like to be">
-            <NumberField value={goalWeight} onChange={setGoalWeight} min={50} max={600} suffix="lb" />
+            <NumberField value={goalWeight} onChange={setGoalWeight}
+              min={units === "imperial" ? 50 : 25} max={units === "imperial" ? 600 : 275} step={units === "imperial" ? 1 : 0.5} decimals={units === "metric"} suffix={wt} />
             {goalWeight < currentWeight && (
+              // 0.5–1% of bodyweight a week is the pace that holds; the figure
+              // is the same in either unit, and it is a rough guide, not a date.
               <p className="mt-2 text-center text-[12px] text-muted">
-                {currentWeight - goalWeight} lb — about{" "}
-                {Math.ceil((currentWeight - goalWeight) / (currentWeight * 0.0075))} weeks at a pace you can hold.
+                {Math.round((currentWeight - goalWeight) * 10) / 10} {wt} to go — roughly{" "}
+                {Math.ceil((currentWeight - goalWeight) / (currentWeight * 0.0075))} weeks at a steady, sustainable pace.
               </p>
             )}
+          </Field>
+          <Field label="Your kitchen measures in">
+            <Chips options={["oz & cups", "grams & ml"]}
+              value={[(foodUnits ?? units) === "imperial" ? "oz & cups" : "grams & ml"]}
+              onPick={(v) => setFoodUnits(v === "oz & cups" ? "imperial" : "metric")} />
+            <p className="mt-2 text-[12px] text-faint">
+              Recipes, portions and oven temperatures are shown this way. The scale above is separate.
+            </p>
           </Field>
         </Screen>
       )}

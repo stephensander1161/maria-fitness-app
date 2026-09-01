@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
+import { foodLines } from "@/lib/food-units";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 
@@ -194,6 +195,8 @@ export async function weekView(profileId: string, units: Units, week = weekStart
 
 export type MealWeekView = {
   exists: boolean; weekStart: ISODate; todayIndex: number;
+  /** Her kitchen units — every ingredient and step below is already in them. */
+  foodUnits: Units;
   calorieTarget: number; proteinTargetG: number; rationale: string | null;
   days: {
     dayOfWeek: number; dayName: string; calories: number; proteinG: number;
@@ -204,11 +207,12 @@ export type MealWeekView = {
   }[];
 };
 
-export async function mealWeekView(profileId: string, week = weekStart()): Promise<MealWeekView> {
+/** `foodUnits` is her kitchen preference, not her body one — see lib/food-units.ts. */
+export async function mealWeekView(profileId: string, foodUnits: Units, week = weekStart()): Promise<MealWeekView> {
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
   if (!plan) {
-    return { exists: false, weekStart: week, todayIndex: dayIndex(),
+    return { exists: false, weekStart: week, todayIndex: dayIndex(), foodUnits,
       calorieTarget: 0, proteinTargetG: 0, rationale: null, days: [] };
   }
 
@@ -216,7 +220,7 @@ export async function mealWeekView(profileId: string, week = weekStart()): Promi
     .where(eq(meals.mealPlanId, plan.id)).orderBy(asc(meals.dayOfWeek), asc(meals.sortOrder));
 
   return {
-    exists: true, weekStart: week, todayIndex: dayIndex(),
+    exists: true, weekStart: week, todayIndex: dayIndex(), foodUnits,
     calorieTarget: plan.calorieTarget, proteinTargetG: plan.proteinTargetG,
     rationale: plan.rationale,
     days: DAY_NAMES.map((dayName, dow) => {
@@ -228,7 +232,7 @@ export async function mealWeekView(profileId: string, week = weekStart()): Promi
         meals: dayMeals.map((m) => ({
           id: m.id, slot: m.slot, title: m.title, calories: m.calories,
           proteinG: m.proteinG, prepMinutes: m.prepMinutes,
-          ingredients: m.ingredients, steps: m.steps,
+          ingredients: foodLines(m.ingredients, foodUnits), steps: foodLines(m.steps, foodUnits),
         })),
       };
     }),

@@ -61,9 +61,11 @@ async function findEvidence(ctx: ToolContext, asOf: ISODate): Promise<Evidence[]
 
   const sites = await measurementProgress(ctx.profileId, u);
   const waist = sites.find((s) => s.site === "waist");
-  if (waist?.changeTotal !== null && waist !== undefined && (waist.changeTotal ?? 0) <= -0.5) {
+  // Half an inch, or a centimetre — the smallest change a tape can be trusted on.
+  const tapeNoise = u === "imperial" ? 0.5 : 1;
+  if (waist?.changeTotal !== null && waist !== undefined && (waist.changeTotal ?? 0) <= -tapeNoise) {
     out.push({
-      headline: `Waist down ${Math.abs(waist.changeTotal!)} inches`,
+      headline: `Waist down ${Math.abs(waist.changeTotal!)} ${u === "imperial" ? "inches" : "cm"}`,
       detail: "That's the measurement that matters most for health, and it's moving.",
     });
   }

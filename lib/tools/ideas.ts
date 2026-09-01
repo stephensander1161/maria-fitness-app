@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { exercises, mealTemplateItems, mealTemplates, profiles } from "@/lib/db/schema";
 import { owns } from "@/lib/templates";
+import { foodUnitsFor } from "@/lib/profile";
+import { foodLines } from "@/lib/food-units";
 import { defineTool } from "./define";
 
 /**
@@ -54,6 +56,7 @@ export const suggestMeals = defineTool({
       .limit(60);
 
     const limit = Math.min(12, Math.max(1, input.limit ?? 5));
+    const fu = await foodUnitsFor(ctx.profileId);
     const seen = new Set<string>();
     const ideas = rows
       // A meal built around something she will not eat is not an idea.
@@ -74,10 +77,10 @@ export const suggestMeals = defineTool({
         title: m.title, slot: m.slot,
         calories: m.calories, proteinG: m.proteinG,
         carbsG: m.carbsG, fatG: m.fatG, prepMinutes: m.prepMinutes,
-        ingredients: m.ingredients, steps: m.steps,
+        ingredients: foodLines(m.ingredients, fu), steps: foodLines(m.steps, fu),
       }));
 
-    return { ideas, hint: "Pass one to swap_meal with the id of the meal it replaces." };
+    return { ideas, foodUnits: fu, hint: "Pass one to swap_meal with the id of the meal it replaces." };
   },
 });
 

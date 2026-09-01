@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { FoodGlyph } from "./food-glyph";
+import type { Units } from "@/lib/units";
 
 type Lookup = {
   found: boolean;
@@ -11,6 +12,8 @@ type Lookup = {
   food?: string;
   category?: string;
   grams?: number;
+  /** The portion in her food units — "3.5 oz" or "100 g". */
+  portion?: string;
   kcal?: number;
   proteinG?: number;
   carbsG?: number;
@@ -43,7 +46,8 @@ type Item = {
  * shown, because an estimate deserves less trust than a reference value and she
  * should be able to tell them apart.
  */
-export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | null }) {
+export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget: number | null; foodUnits: Units }) {
+  const example = foodUnits === "imperial" ? "4oz chicken breast" : "100g chicken breast";
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,7 +105,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
   function add() {
     if (!result?.found || result.kcal === undefined) return;
     setBasket((b) => [...b, {
-      label: `${result.grams}g ${result.food}`,
+      label: `${result.portion ?? `${result.grams}g`} ${result.food}`,
       grams: result.grams ?? 0,
       kcal: result.kcal ?? 0,
       proteinG: result.proteinG ?? 0,
@@ -143,14 +147,14 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
     <section className="card mb-3 p-5">
       <h2 className="mb-1 text-[15px] font-semibold">Calorie calculator</h2>
       <p className="mb-3 text-[12px] text-faint">
-        Type a food and a portion — &ldquo;100g boiled egg&rdquo;, &ldquo;2 eggs&rdquo;, &ldquo;4oz salmon&rdquo;.
+        Type a food and a portion — &ldquo;{foodUnits === "imperial" ? "3oz boiled egg" : "100g boiled egg"}&rdquo;, &ldquo;2 eggs&rdquo;, &ldquo;{foodUnits === "imperial" ? "4oz salmon" : "150g rice"}&rdquo;.
       </p>
 
       <form onSubmit={(e) => { e.preventDefault(); void look(); }} className="flex gap-2">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="100g chicken breast"
+          placeholder={example}
           enterKeyHint="search"
           className="min-w-0 flex-1 rounded-xl border border-line bg-base px-4 py-3 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
         />
@@ -170,7 +174,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
               <div className="flex items-center gap-3">
                 <FoodGlyph category={result.category} className="size-8 shrink-0 text-faint" />
                 <p className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                  {result.grams}g {result.food}
+                  {result.portion ?? `${result.grams}g`} {result.food}
                 </p>
                 <p className="shrink-0 text-[19px] font-bold tabular text-accent">
                   {result.kcal} <span className="text-[12px] font-normal text-faint">kcal</span>

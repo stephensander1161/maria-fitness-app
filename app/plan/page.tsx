@@ -4,6 +4,7 @@ import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, recentMeals, weekView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
+import { foodUnitsOf } from "@/lib/food-units";
 import { runTool } from "@/lib/tools";
 import type { MealIdea, MoveIdea } from "@/components/ideas";
 import type { ShoppingAisle } from "@/components/shopping-list";
@@ -17,7 +18,7 @@ export default async function PlanPage() {
 
   const [week, mealWeek, dayFood, usuals, mealIdeas, moveIdeas, shopping] = await Promise.all([
     weekView(profile.id, profile.units),
-    mealWeekView(profile.id),
+    mealWeekView(profile.id, foodUnitsOf(profile)),
     dayFoodView(profile.id, her),
     recentMeals(profile.id, { from: her }),
     // Seeded here so the ideas tab opens with something in it. Both are
@@ -32,7 +33,7 @@ export default async function PlanPage() {
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium uppercase tracking-wide text-accent">
-            Week of {prettyDate(weekStart())}
+            Week of {prettyDate(weekStart(her))}
           </p>
           <h1 className="truncate text-2xl font-bold tracking-tight">
             {week.exists ? week.title : "Your plan"}

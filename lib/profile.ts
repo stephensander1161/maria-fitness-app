@@ -2,6 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, type Profile } from "@/lib/db/schema";
 import { APP_TIMEZONE, today, type ISODate } from "@/lib/date";
+import { foodUnitsOf } from "@/lib/food-units";
+import type { Units } from "@/lib/units";
 
 /**
  * Her training profile, created on first sign-in. One profile per account: the
@@ -68,4 +70,15 @@ export async function todayForProfile(profileId: string): Promise<ISODate> {
   const [p] = await db.select({ timezone: profiles.timezone }).from(profiles)
     .where(eq(profiles.id, profileId)).limit(1);
   return profileToday(p ?? { timezone: null });
+}
+
+/**
+ * How one profile measures food, by id — for tools that hand back recipes,
+ * ingredient lines and shopping quantities. Falls back to the body units when
+ * she has not set the kitchen separately (see lib/food-units.ts).
+ */
+export async function foodUnitsFor(profileId: string): Promise<Units> {
+  const [p] = await db.select({ units: profiles.units, foodUnits: profiles.foodUnits }).from(profiles)
+    .where(eq(profiles.id, profileId)).limit(1);
+  return p ? foodUnitsOf(p) : "imperial";
 }

@@ -77,7 +77,12 @@ export const profiles = pgTable("profiles", {
   dietaryRestrictions: jsonb("dietary_restrictions").$type<string[]>().default([]).notNull(),
   dislikedFoods: jsonb("disliked_foods").$type<string[]>().default([]).notNull(),
   cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] }),
+  /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
+  /** How her food is measured — portions, ingredients, oven temperatures.
+   *  Null follows `units`; set when she wants pounds on the scale and grams
+   *  in the kitchen, or the other way round. */
+  foodUnits: text("food_units", { enum: ["imperial", "metric"] }),
   /** IANA zone. Day-level dates are computed here, not in the server's zone.
    *  Null falls back to APP_TIMEZONE. */
   timezone: text("timezone"),

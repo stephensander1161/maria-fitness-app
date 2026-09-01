@@ -175,3 +175,18 @@ suite("the library's own spelling of a measure", () => {
     expect(g("1 square milk", 250, "glass (250ml)")).toBeNull();
   });
 });
+
+suite("fluid ounces", () => {
+  // Two words for one unit, and the one way an imperial kitchen measures milk.
+  it("parses fl oz as a volume and weighs it like millilitres", () => {
+    const p = parsePortion("8 fl oz milk")!;
+    expect(p.unit).toBe("floz");
+    expect(p.query).toBe("milk");
+    expect(Math.round(toGrams(p, null, null)!)).toBe(237);
+    expect(parsePortion("8fl oz milk")!.unit).toBe("floz");
+    expect(parsePortion("8 fl. oz milk")!.unit).toBe("floz");
+  });
+  it("does not mistake plain ounces for fluid ones", () => {
+    expect(parsePortion("4oz salmon")!.unit).toBe("oz");
+  });
+});

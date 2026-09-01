@@ -66,7 +66,7 @@ export function PlanClient({
       ) : mealWeek.exists ? (
         <div className="space-y-2">
           <TodayFood day={dayFood} usuals={usuals} />
-          <CalorieCalculator calorieTarget={mealWeek.calorieTarget} />
+          <CalorieCalculator calorieTarget={mealWeek.calorieTarget} foodUnits={mealWeek.foodUnits} />
 
           <div className="card mb-3 flex divide-x divide-line p-4">
             <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
@@ -95,7 +95,7 @@ export function PlanClient({
       ) : (
         <div className="space-y-2">
           <TodayFood day={dayFood} usuals={usuals} />
-          <CalorieCalculator calorieTarget={null} />
+          <CalorieCalculator calorieTarget={null} foodUnits={mealWeek.foodUnits} />
           <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
         </div>
       )}
