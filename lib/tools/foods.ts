@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { foods } from "@/lib/db/schema";
+import { foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { recordUsage } from "@/lib/limits";
@@ -44,19 +44,24 @@ export const lookupFood = defineTool({
         return {
           found: true, food: best.name,
           error: `${best.name} has no per-item weight, so "${portion.amount} ${portion.unit}" can't be converted. Ask her for it in grams or ounces.`,
-          per100g: { kcal: best.kcal, proteinG: best.proteinG, carbsG: best.carbsG, fatG: best.fatG },
+          per100g: {
+          kcal: best.kcal, proteinG: best.proteinG,
+          carbsG: best.carbsG, fatG: best.fatG, fibreG: best.fibreG,
+        },
         };
       }
       return {
         found: true,
         source: "library",
         food: best.name,
+        category: best.category,
         grams: Math.round(grams),
         assumed100g: portion.assumed,
         kcal: Math.round(scale(best.kcal, grams)),
         proteinG: scale(best.proteinG, grams),
         carbsG: scale(best.carbsG, grams),
         fatG: scale(best.fatG, grams),
+        fibreG: best.fibreG === null ? null : scale(best.fibreG, grams),
         alternatives: matches.slice(1, 4).map((m) => m.name),
       };
     }
@@ -77,7 +82,10 @@ export const searchFoodLibrary = defineTool({
     const rows = await searchFoods(input.query, input.limit ?? 15);
     return rows.map((r) => ({
       name: r.name, category: r.category,
-      per100g: { kcal: r.kcal, proteinG: r.proteinG, carbsG: r.carbsG, fatG: r.fatG },
+      per100g: {
+        kcal: r.kcal, proteinG: r.proteinG, carbsG: r.carbsG,
+        fatG: r.fatG, fibreG: r.fibreG,
+      },
       naturalUnit: r.unitGrams ? `${r.unitLabel} ≈ ${r.unitGrams}g` : null,
     }));
   },
@@ -108,11 +116,16 @@ export async function searchFoods(query: string, limit = 5) {
 
 const Estimate = z.object({
   food: z.string(),
-  grams: z.number(),
+  grams: z.number().describe("Grams the estimate is for"),
   kcal: z.number(),
   proteinG: z.number(),
   carbsG: z.number(),
   fatG: z.number(),
+  fibreG: z.number().nullable().optional().describe("Grams of fibre, null if negligible"),
+  category: z.enum([
+    "meat", "fish", "dairy", "eggs", "grain", "legume", "vegetable",
+    "fruit", "nut", "fat", "sauce", "drink", "snack", "prepared",
+  ]).describe("Closest category"),
   note: z.string().optional(),
 });
 
@@ -148,3 +161,70 @@ async function estimate(query: string, ctx: ToolContext) {
     return { found: false, error: "Couldn't estimate that one." };
   }
 }
+
+export const findRecipes = defineTool({
+  name: "find_recipes",
+  description:
+    "Meals that use a given ingredient, drawn from her own week first and then the recipe library. Use it when she asks what to do with something she has, or when a lookup leaves her wondering what to cook. Everything returned is already portioned with calories and protein, so it fits her targets without further maths.",
+  input: z.object({
+    ingredient: z.string().describe("A food, e.g. 'chicken breast' or 'eggs'"),
+    limit: z.number().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const term = input.ingredient.trim().toLowerCase();
+    if (!term) return { recipes: [] };
+    const limit = input.limit ?? 6;
+
+    // Her own plan first: these are meals she has already been given, so
+    // suggesting one is a nudge back toward the plan rather than away from it.
+    const hers = await db
+      .select({
+        title: meals.title, calories: meals.calories, proteinG: meals.proteinG,
+        prepMinutes: meals.prepMinutes, ingredients: meals.ingredients, steps: meals.steps,
+        dayOfWeek: meals.dayOfWeek, slot: meals.slot,
+      })
+      .from(meals)
+      .innerJoin(mealPlans, eq(meals.mealPlanId, mealPlans.id))
+      .where(and(
+        eq(mealPlans.profileId, ctx.profileId),
+        sql`${meals.ingredients}::text ilike ${`%${term}%`}`,
+      ))
+      .limit(limit);
+
+    const library = await db
+      .select({
+        title: mealTemplateItems.title, calories: mealTemplateItems.calories,
+        proteinG: mealTemplateItems.proteinG, prepMinutes: mealTemplateItems.prepMinutes,
+        ingredients: mealTemplateItems.ingredients, steps: mealTemplateItems.steps,
+        slot: mealTemplateItems.slot,
+      })
+      .from(mealTemplateItems)
+      .where(sql`${mealTemplateItems.ingredients}::text ilike ${`%${term}%`}`)
+      .limit(limit * 3);
+
+    // The library repeats titles across templates; one of each is enough.
+    const seen = new Set(hers.map((h) => h.title.toLowerCase()));
+    const extra = library.filter((r) => {
+      const key = r.title.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const shape = (r: {
+      title: string; calories: number; proteinG: number; prepMinutes: number | null;
+      ingredients: string[]; steps: string[]; slot: string;
+    }, onPlan: boolean) => ({
+      title: r.title, slot: r.slot, onHerPlan: onPlan,
+      calories: r.calories, proteinG: r.proteinG, prepMinutes: r.prepMinutes,
+      ingredients: r.ingredients, steps: r.steps,
+    });
+
+    return {
+      recipes: [
+        ...hers.map((r) => shape(r, true)),
+        ...extra.slice(0, Math.max(0, limit - hers.length)).map((r) => shape(r, false)),
+      ],
+    };
+  },
+});

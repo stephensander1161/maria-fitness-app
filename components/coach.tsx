@@ -199,4 +199,5 @@ const LABELS: Record<string, string> = {
   get_meal_plan: "checking your meals", swap_meal: "swapping that meal",
   log_meal: "logging your meal", get_day_nutrition: "totalling today's food",
   get_fact: "finding something worth knowing",
+  lookup_food: "looking up the macros", find_recipes: "finding recipes",
 };

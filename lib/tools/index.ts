@@ -54,6 +54,7 @@ const all: Tool[] = [
   body.logMeasurement,
   feedback.submitFeedback,
   training.removeExerciseFromDay,
+  foodTools.findRecipes,
   foodTools.lookupFood,
   nutrition.logMeal,
   training.logSet,
