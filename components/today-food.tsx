@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView, RecentMeal } from "@/lib/views";
 
 /**
@@ -14,6 +14,7 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
   const router = useRouter();
   const [removing, setRemoving] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Re-logging goes through log_meal with the macros she last recorded, so it
   // is the same write path as typing it out — just without the typing.
@@ -29,6 +30,8 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
         ...(m.fibreG !== null && { fibreG: m.fibreG }),
       });
       router.refresh();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't log — try again."));
     } finally {
       setLogging(null);
     }
@@ -36,9 +39,12 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
 
   async function remove(id: string) {
     setRemoving(id);
+    setError(null);
     try {
       await action("remove_meal_log", { logId: id });
       router.refresh();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't come off the list — try again."));
     } finally {
       setRemoving(null);
     }
@@ -51,6 +57,8 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
         <p className="mt-1 text-[13px] text-faint">
           Nothing logged yet. Add food with the calculator below, or just tell your coach.
         </p>
+
+      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
 
       {usuals.length > 0 && (
         <div className="mt-4">
@@ -135,6 +143,8 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
           </li>
         ))}
       </ul>
+
+      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
 
       {usuals.length > 0 && (
         <div className="mt-4">

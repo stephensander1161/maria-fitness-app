@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 
 type Kind = "idea" | "bug" | "confusing";
 type Item = { kind: Kind; request: string; status: string; reply: string | null; submitted: string };
@@ -38,6 +38,7 @@ export function Feedback() {
   const [kind, setKind] = useState<Kind>("idea");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [past, setPast] = useState<Item[] | null>(null);
 
@@ -57,11 +58,16 @@ export function Feedback() {
   async function submit() {
     if (!body.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       await action("submit_feedback", { kind, body: body.trim(), path });
       setBody("");
       setSent(true);
       setPast(await action<Item[]>("list_feedback"));
+    } catch (err) {
+      // Silently dropping what she took the trouble to write is the surest way
+      // to stop her writing anything again.
+      setError(actionMessage(err, "That didn't send — try again."));
     } finally {
       setSaving(false);
     }
@@ -128,6 +134,7 @@ export function Feedback() {
             >
               {saving ? "Sending…" : "Send"}
             </button>
+          {error && <p className="mt-2 text-center text-[13px] text-miss">{error}</p>}
           </>
         )}
 

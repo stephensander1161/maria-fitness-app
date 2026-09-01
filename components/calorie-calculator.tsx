@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 import { FoodGlyph } from "./food-glyph";
 
 type Lookup = {
@@ -50,6 +50,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
   const [result, setResult] = useState<Lookup | null>(null);
   const [basket, setBasket] = useState<Item[]>([]);
   const [logging, setLogging] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [recipesFor, setRecipesFor] = useState<string | null>(null);
   const [recipeBusy, setRecipeBusy] = useState(false);
@@ -116,6 +117,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
   async function logIt(slot: "breakfast" | "lunch" | "dinner" | "snack") {
     if (basket.length === 0) return;
     setLogging(true);
+    setLogError(null);
     try {
       await action("log_meal", {
         slot,
@@ -128,6 +130,10 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
       });
       setBasket([]);
       router.refresh();
+    } catch (err) {
+      // The basket is deliberately kept on failure: she assembled it item by
+      // item, and clearing it would make her do that again.
+      setLogError(actionMessage(err, "That didn't log — try again."));
     } finally {
       setLogging(false);
     }
@@ -330,6 +336,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
               </button>
             ))}
           </div>
+          {logError && <p className="mt-2 text-[13px] text-miss">{logError}</p>}
         </div>
       )}
     </section>

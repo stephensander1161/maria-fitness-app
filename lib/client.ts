@@ -87,3 +87,23 @@ export async function* streamCoach(
     }
   }
 }
+
+/**
+ * What to show her when an action fails.
+ *
+ * Five screens used to swallow this entirely: she tapped save, nothing
+ * happened, and nothing said why. A tool's own error is usually the most
+ * useful thing available — "No such entry", "Nothing in the library matches" —
+ * so it is preferred over a generic line, and only the network case gets
+ * rewritten, because "Failed to fetch" means nothing to her.
+ */
+export function actionMessage(
+  err: unknown,
+  fallback = "That didn't save — try again.",
+): string {
+  if (err instanceof ActionError) {
+    if (err.isNetworkFailure) return "No connection — that didn't save. Try again when you're back online.";
+    if (err.message && err.message !== "Action failed") return err.message;
+  }
+  return fallback;
+}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 import { SITES, siteHow } from "@/lib/measurements";
 import type { SiteProgress } from "@/lib/progress";
 
@@ -11,6 +11,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showHow, setShowHow] = useState<string | null>(null);
 
   const tracked = new Map(sites.map((s) => [s.site, s]));
@@ -22,11 +23,16 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
     if (entries.length === 0) return;
 
     setSaving(true);
+    setError(null);
     try {
       await action("log_measurement", { measurements: entries });
       setValues({});
       setOpen(false);
       router.refresh();
+    } catch (err) {
+      // She has just measured herself with a tape. Losing that silently means
+      // doing it again, and she will not.
+      setError(actionMessage(err, "Those measurements didn't save — try again."));
     } finally {
       setSaving(false);
     }
@@ -136,6 +142,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
+          {error && <p className="mt-2 text-center text-[13px] text-miss">{error}</p>}
         </div>
       )}
     </section>

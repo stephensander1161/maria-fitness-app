@@ -146,3 +146,34 @@ suite("every tool says what it is doing", () => {
     ).toEqual([]);
   });
 });
+
+suite("a failed action is never silent", () => {
+  /**
+   * Five components used to swallow the failure entirely: she tapped save,
+   * nothing happened, and nothing said why. The worst of them lost tape-measure
+   * readings, written feedback, and a spend limit she believed she had set.
+   *
+   * A file that writes through `action()` has to be able to tell her when it
+   * did not work. Read-only lookups do not — a search that finds nothing is a
+   * result, not a failure.
+   */
+  it("every component that writes through action() can report a failure", () => {
+    const writesOnly = (file: string) => {
+      const src = read(file);
+      // Files whose only action() calls are reads have nothing to report.
+      const tools = [...src.matchAll(/\baction\s*<[^>]*>\s*\(\s*"([a-z_]+)"|\baction\s*\(\s*"([a-z_]+)"/g)]
+        .map((m) => m[1] ?? m[2]);
+      return tools.some((t) => !/^(get|list|search|find|lookup|suggest)_/.test(t));
+    };
+
+    const silent = walk("components")
+      .filter((f) => /\baction\s*[<(]/.test(read(f)))
+      .filter(writesOnly)
+      .filter((f) => !/setError|setLogError|actionMessage|ActionError/.test(read(f)));
+
+    expect(
+      silent,
+      `these components write through action() but cannot tell her it failed: ${silent.join(", ")}`,
+    ).toEqual([]);
+  });
+});

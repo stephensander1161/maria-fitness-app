@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 
 export type Usage = {
   spentMicros: number;
@@ -26,6 +26,7 @@ const money = (micros: number) => {
 export function CoachBudget({ usage }: { usage: Usage }) {
   const router = useRouter();
   const [saving, setSaving] = useState<number | "max" | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
   const { spentMicros, limitMicros, ceilingMicros, chosenMicros, requests } = usage;
@@ -39,9 +40,13 @@ export function CoachBudget({ usage }: { usage: Usage }) {
 
   async function choose(micros: number | null) {
     setSaving(micros === null ? "max" : micros);
+    setError(null);
     try {
       await action("set_coach_budget", { budgetMicros: micros });
       router.refresh();
+    } catch (err) {
+      // A spend limit she believes she set and did not is worse than none.
+      setError(actionMessage(err, "That limit didn't save — try again."));
     } finally {
       setSaving(null);
     }
@@ -90,6 +95,7 @@ export function CoachBudget({ usage }: { usage: Usage }) {
               );
             })}
           </div>
+          {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
           <p className="mt-3 text-[12px] leading-relaxed text-faint">
             {money(ceilingMicros)} a day is the most this app will ever spend, set on the
             server. You can lower it here, not raise it.
