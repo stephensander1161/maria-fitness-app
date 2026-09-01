@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, goals, measurements, planDays, plans, setLogs, weighIns, workouts } from "@/lib/db/schema";
-import { addDays, type ISODate, today, weekStart } from "@/lib/date";
+import { addDays, daysBetween, type ISODate, today, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
 
@@ -594,4 +594,138 @@ export async function goalProgress(profileId: string, units: Units): Promise<str
   );
 
   return `Open milestones, measured from her logged data:\n${lines.join("\n")}`;
+}
+
+/* ── Progression over time ─────────────────────────────────────────────── */
+
+export type ProgressionPoint = {
+  date: ISODate;
+  sets: number;
+  reps: number;
+  /** Display units. Null for bodyweight movements. */
+  topSet: number | null;
+  volume: number;
+  e1rm: number;
+};
+
+export type ExerciseProgression = {
+  slug: string;
+  name: string;
+  bodyweight: boolean;
+  sessions: ProgressionPoint[];
+  /** Oldest to newest change in the number that best describes the movement. */
+  changePct: number | null;
+  /** Days since she last did it. */
+  daysSince: number;
+  trend: "climbing" | "holding" | "slipping" | "stalled" | "new";
+  /** One plain sentence, written so a summary can quote it directly. */
+  headline: string;
+};
+
+/**
+ * How each movement has actually gone over time.
+ *
+ * The comparison engine answers "versus last time"; this answers "over the last
+ * two months", which is the question that decides whether the programme is
+ * working. Bodyweight movements are judged on reps, loaded ones on estimated
+ * 1RM, because top-set weight alone hides a rep-range change.
+ */
+export async function exerciseProgression(
+  profileId: string,
+  units: Units,
+  opts: { sinceDays?: number; minSessions?: number } = {},
+): Promise<ExerciseProgression[]> {
+  const since = addDays(today(), -(opts.sinceDays ?? 84)); // twelve weeks
+  const minSessions = opts.minSessions ?? 1;
+
+  const rows = await db
+    .select({
+      exerciseId: setLogs.exerciseId,
+      slug: exercises.slug,
+      name: exercises.name,
+      bodyweight: exercises.bodyweight,
+      date: workouts.date,
+      reps: setLogs.reps,
+      weightKg: setLogs.weightKg,
+    })
+    .from(setLogs)
+    .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
+    .where(and(eq(workouts.profileId, profileId), gte(workouts.date, since)))
+    .orderBy(workouts.date);
+
+  // exercise -> date -> sets
+  const byExercise = new Map<string, { meta: (typeof rows)[number]; days: Map<ISODate, typeof rows> }>();
+  for (const r of rows) {
+    if (!byExercise.has(r.slug)) byExercise.set(r.slug, { meta: r, days: new Map() });
+    const entry = byExercise.get(r.slug)!;
+    if (!entry.days.has(r.date)) entry.days.set(r.date, []);
+    entry.days.get(r.date)!.push(r);
+  }
+
+  const out: ExerciseProgression[] = [];
+
+  for (const [slug, { meta, days }] of byExercise) {
+    const sessions: ProgressionPoint[] = [...days.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, sets]) => {
+        const volumeKg = sets.reduce((n, s) => n + (s.weightKg ?? 0) * s.reps, 0);
+        const best = sets.reduce((a, b) => (e1rm(b.weightKg, b.reps) > e1rm(a.weightKg, a.reps) ? b : a));
+        return {
+          date,
+          sets: sets.length,
+          reps: sets.reduce((n, s) => n + s.reps, 0),
+          topSet: weightOut(Math.max(...sets.map((s) => s.weightKg ?? 0)) || null, units),
+          volume: Math.round(volumeKg * (units === "imperial" ? 2.20462 : 1)),
+          e1rm: Math.round(e1rm(best.weightKg, best.reps) * 10) / 10,
+        };
+      });
+
+    if (sessions.length < minSessions) continue;
+
+    const first = sessions[0];
+    const last = sessions[sessions.length - 1];
+    // Loaded movements are judged on estimated 1RM; bodyweight on total reps,
+    // where 1RM degenerates to the top set's rep count.
+    const metric = (s: ProgressionPoint) => (meta.bodyweight ? s.reps : s.e1rm);
+    const changePct =
+      sessions.length > 1 && metric(first) > 0
+        ? ((metric(last) - metric(first)) / metric(first)) * 100
+        : null;
+
+    const daysSince = daysBetween(last.date, today());
+    const unit = weightLabel(units);
+    const describeLast = meta.bodyweight
+      ? `${last.sets}×${Math.round(last.reps / last.sets)}`
+      : `${last.sets}×${Math.round(last.reps / last.sets)}${last.topSet ? ` @ ${last.topSet}${unit}` : ""}`;
+
+    let trend: ExerciseProgression["trend"];
+    let headline: string;
+
+    if (sessions.length === 1) {
+      trend = "new";
+      headline = `${meta.name}: one session so far, ${describeLast}. Nothing to compare yet.`;
+    } else if (daysSince > 21) {
+      trend = "stalled";
+      headline = `${meta.name}: nothing logged for ${daysSince} days. Last was ${describeLast}.`;
+    } else if ((changePct ?? 0) > 5) {
+      trend = "climbing";
+      headline = `${meta.name}: up ${Math.round(changePct!)}% over ${sessions.length} sessions, now ${describeLast}.`;
+    } else if ((changePct ?? 0) < -5) {
+      trend = "slipping";
+      headline = `${meta.name}: down ${Math.abs(Math.round(changePct!))}% over ${sessions.length} sessions, now ${describeLast}.`;
+    } else {
+      trend = "holding";
+      headline = `${meta.name}: level across ${sessions.length} sessions at ${describeLast}. Ready for more.`;
+    }
+
+    out.push({
+      slug, name: meta.name, bodyweight: meta.bodyweight,
+      sessions, changePct, daysSince, trend, headline,
+    });
+  }
+
+  // Anything going backwards or abandoned first — that is what needs attention.
+  const rank = { slipping: 0, stalled: 1, holding: 2, climbing: 3, new: 4 } as const;
+  return out.sort((a, b) => rank[a.trend] - rank[b.trend] || b.sessions.length - a.sessions.length);
 }

@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/session";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
 import { hasHistory } from "@/lib/agent/history";
 import { audit } from "@/lib/audit";
+import { buildPageContext, OPINION_PROMPT, type OpinionPage } from "@/lib/page-context";
 
 /** Server-authored, so the browser can never put words in the system's mouth. */
 const OPENING_PROMPT =
@@ -19,9 +20,10 @@ export const maxDuration = 60;
  * ever sees text deltas and tool-progress labels.
  */
 export async function POST(req: Request) {
-  const { message, kickoff } = (await req.json().catch(() => ({}))) as {
+  const { message, kickoff, opinion } = (await req.json().catch(() => ({}))) as {
     message?: string;
     kickoff?: boolean;
+    opinion?: OpinionPage;
   };
 
   // Middleware proved the token; this proves the account is still valid.
@@ -40,6 +42,18 @@ export async function POST(req: Request) {
       return Response.json({ error: "Already started" }, { status: 409 });
     }
     text = OPENING_PROMPT;
+    silent = true;
+  } else if (opinion) {
+    if (!["train", "plan", "progress"].includes(opinion)) {
+      return Response.json({ error: "Unknown page" }, { status: 400 });
+    }
+    // The screen's contents are read from the database here, not accepted from
+    // the browser — same rule as the opening greeting. Handing the coach the
+    // data directly also saves several tool round trips for a question that is
+    // explicitly about what is already on screen.
+    text = `[She tapped "Get my coach's read" on this screen.]\n\n${
+      await buildPageContext(profile.id, opinion)
+    }\n\n${OPINION_PROMPT[opinion]}`;
     silent = true;
   } else {
     if (typeof message !== "string" || !message.trim()) {

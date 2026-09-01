@@ -8,6 +8,7 @@ import * as feedback from "./feedback";
 import * as budget from "./budget";
 import * as boost from "./boost";
 import * as templates from "./templates";
+import * as progression from "./progression";
 import * as photos from "./photos";
 
 /**
@@ -32,6 +33,7 @@ const all: Tool[] = [
   nutrition.getDayNutrition,
   training.getExerciseGuide,
   training.getExerciseHistory,
+  progression.getProgression,
   templates.applyTemplate,
   templates.listTemplates,
   templates.suggestTemplate,

@@ -2,13 +2,15 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
 import { requireOnboarded } from "@/lib/session";
-import { currentStreak, measurementProgress, weekReview } from "@/lib/progress";
+import { currentStreak, exerciseProgression, measurementProgress, weekReview } from "@/lib/progress";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate, today } from "@/lib/date";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
+import { Progression } from "@/components/progression";
+import { AiOpinion } from "@/components/ai-opinion";
 import { runTool } from "@/lib/tools";
 import { Measurements } from "@/components/measurements";
 import { ProgressPhotos } from "@/components/photos";
@@ -21,7 +23,7 @@ export default async function ProgressPage() {
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const [history, milestones, review, streak, sites, library, usage] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, usage, progression] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -30,6 +32,7 @@ export default async function ProgressPage() {
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
     runTool("get_coach_usage", {}, { profileId: profile.id }),
+    exerciseProgression(profile.id, u),
   ]);
 
   const latest = history[0]?.weightKg ?? profile.startWeightKg;
@@ -49,7 +52,10 @@ export default async function ProgressPage() {
 
   return (
     <>
-      <h1 className="mb-4 text-2xl font-bold tracking-tight">Progress</h1>
+      <header className="mb-5 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
+        <AiOpinion page="progress" label="progress" />
+      </header>
 
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
@@ -87,6 +93,8 @@ export default async function ProgressPage() {
       <Measurements sites={sites} unit={lengthLabel(u)} />
 
       <ProgressPhotos photos={library.photos} total={library.total} />
+
+      <Progression items={progression} unit={weightLabel(u)} />
 
       <section className="card mb-3 p-5">
         <h2 className="mb-3 text-[15px] font-semibold">This week</h2>
