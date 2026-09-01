@@ -94,13 +94,50 @@ jobs:
   # is the whole point: a red typecheck, lint, test, audit, build or secret
   # scan means this job never starts, and production keeps serving the last
   # good deploy.
-  deploy:
+  # Can a deploy happen at all? A secret is not readable from a job-level
+  # `if:`, so the question has to be answered in a step and passed on as an
+  # output. This exists so that a missing token SKIPS the deploy rather than
+  # failing it: without a token there is nothing to deploy, and a red build on
+  # every push turns out to be 21 emails in a night rather than a useful
+  # signal. The skip is still stated loudly in the run summary.
+  deploy-gate:
     needs: [verify, secrets]
     # Pushes to main only. This repo is public, so a fork's pull request must
     # never be able to reach the deploy token — `pull_request` from a fork
     # can't satisfy this condition, and the token is not in scope for any
     # other job.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      token: ${{ steps.check.outputs.token }}
+    steps:
+      - id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "token=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=no" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::VERCEL_TOKEN is not set, so this push was not deployed."
+            {
+              echo "### Deploy skipped"
+              echo
+              echo 'No `VERCEL_TOKEN` secret, so this push was **not deployed**.'
+              echo
+              echo 'Create one at <https://vercel.com/account/tokens>, scoped to this project, then:'
+              echo
+              echo '```'
+              echo 'gh secret set VERCEL_TOKEN'
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: [verify, secrets, deploy-gate]
+    # Skipped, not failed, when there is no token to deploy with.
+    if: needs.deploy-gate.outputs.token == 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Two pushes in quick succession would otherwise race, and the loser could
@@ -116,19 +153,6 @@ jobs:
         with:
           node-version: 24
           cache: npm
-
-      - name: Check the deploy token is present
-        # Without this the CLI fails several steps later with a login prompt.
-        # Fail here instead, saying what to do about it.
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_TOKEN is not set. Create a token at"
-            echo "::error::vercel.com/account/tokens and add it with:"
-            echo "::error::  gh secret set VERCEL_TOKEN"
-            exit 1
-          fi
 
       # Vercel builds this itself rather than us running `vercel build` here.
       # The prebuilt route needs `vercel pull`, which downloads the production
