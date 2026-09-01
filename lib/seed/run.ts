@@ -6,13 +6,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, facts, mealTemplateItems, mealTemplates,
+  exercises, facts, foods, mealTemplateItems, mealTemplates,
   workoutTemplateDays, workoutTemplateExercises, workoutTemplates,
 } from "@/lib/db/schema";
 import { EXERCISES } from "./exercises";
 import { FACTS } from "./facts";
 import { WORKOUT_TEMPLATES } from "./workout-templates";
 import { MEAL_TEMPLATES } from "./meal-templates";
+import { FOODS } from "./foods";
 
 async function main() {
   for (const e of EXERCISES) {
@@ -38,6 +39,18 @@ async function main() {
   // Templates are replaced wholesale rather than upserted: their days and
   // exercises are children, and editing a week in source should not leave
   // orphaned rows from the previous shape behind.
+  for (const f of FOODS) {
+    const row = {
+      slug: f.slug, name: f.name, category: f.category,
+      kcal: f.kcal, proteinG: f.proteinG, carbsG: f.carbsG, fatG: f.fatG,
+      fibreG: f.fibreG, unitGrams: f.unitGrams, unitLabel: f.unitLabel,
+      aliases: f.aliases,
+    };
+    await db.insert(foods).values(row)
+      .onConflictDoUpdate({ target: foods.slug, set: row });
+  }
+  console.log(`\u2713 ${FOODS.length} foods`);
+
   for (const t of WORKOUT_TEMPLATES) {
     const row = {
       slug: t.slug, name: t.name, description: t.description,

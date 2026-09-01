@@ -6,7 +6,7 @@ import { foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { recordUsage } from "@/lib/limits";
-import { parsePortion, toGrams } from "@/lib/portion";
+import { matchScore, parsePortion, toGrams } from "@/lib/portion";
 import { defineTool, type ToolContext } from "./define";
 
 /**
@@ -39,7 +39,7 @@ export const lookupFood = defineTool({
     const best = matches[0];
 
     if (best) {
-      const grams = toGrams(portion, best.unitGrams);
+      const grams = toGrams(portion, best.unitGrams, best.unitLabel);
       if (grams === null) {
         return {
           found: true, food: best.name,
@@ -102,14 +102,10 @@ export async function searchFoods(query: string, limit = 5) {
     .where(or(ilike(foods.name, `%${q}%`), sql`${foods.aliases}::text ilike ${`%${q}%`}`))
     .limit(limit * 4);
 
-  // Rank in JS: an exact name beats a prefix, which beats a substring. SQL
-  // ordering can't express "closest to what she typed" without a trigram index.
+  // Rank in JS: SQL ordering can't express "closest to what she typed" without
+  // a trigram index. matchScore is pure and tested — see lib/portion.ts.
   return rows
-    .map((r) => {
-      const name = r.name.toLowerCase();
-      const score = name === q ? 0 : name.startsWith(q) ? 1 : name.includes(q) ? 2 : 3;
-      return { ...r, score };
-    })
+    .map((r) => ({ ...r, score: matchScore(q, r.name, r.aliases) }))
     .sort((a, b) => a.score - b.score || a.name.length - b.name.length)
     .slice(0, limit);
 }

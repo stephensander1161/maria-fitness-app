@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { parsePortion, toGrams } from "@/lib/portion";
+import { matchScore, parsePortion, toGrams } from "@/lib/portion";
 
 suite("reading a portion", () => {
   it("handles the shapes people actually type", () => {
@@ -56,5 +56,62 @@ suite("reading a portion", () => {
       // would produce a confident wrong calorie count.
       expect(g("2 broccoli", null)).toBeNull();
     });
+  });
+});
+
+suite("spoon measures", () => {
+  it("keeps the food searchable when a spoon is given", () => {
+    const p = parsePortion("1 tbsp olive oil")!;
+    expect(p.unit).toBe("tbsp");
+    expect(p.query).toBe("olive oil");
+    expect(p.amount).toBe(1);
+  });
+
+  it("accepts the spelled-out forms", () => {
+    expect(parsePortion("2 tablespoons peanut butter")!.unit).toBe("tbsp");
+    expect(parsePortion("1 teaspoon honey")!.unit).toBe("tsp");
+  });
+
+  it("resolves a spoon against a food measured in that spoon", () => {
+    expect(toGrams(parsePortion("1 tbsp olive oil")!, 14, "tbsp")).toBe(14);
+    expect(toGrams(parsePortion("2 tbsp olive oil")!, 14, "tbsp")).toBe(28);
+    expect(toGrams(parsePortion("1 tsp sugar")!, 4, "tsp")).toBe(4);
+  });
+
+  // The point of the guard: a tablespoon of oil and one of honey differ by half
+  // again in weight, so a food's "portion" or "slice" tells us nothing about
+  // what a spoon of it weighs. Refusing sends it to the estimate instead of
+  // publishing a confident wrong number.
+  it("refuses a spoon when the food is not measured in spoons", () => {
+    expect(toGrams(parsePortion("1 tbsp rice")!, 180, "portion")).toBeNull();
+    expect(toGrams(parsePortion("1 tbsp bread")!, 40, "slice")).toBeNull();
+    expect(toGrams(parsePortion("1 tbsp mystery")!, null, null)).toBeNull();
+  });
+});
+
+suite("ranking a food match", () => {
+  it("prefers an exact name", () => {
+    expect(matchScore("banana", "Banana", [])).toBeLessThan(
+      matchScore("banana", "Banana bread", []),
+    );
+  });
+
+  // The bug this was written for: "rice" is an exact alias of the staple, but
+  // scoring the name alone ranked it below a snack whose name merely starts
+  // with the word.
+  it("lets an exact alias beat an unrelated name prefix", () => {
+    const staple = matchScore("rice", "White rice, cooked", ["rice", "boiled rice"]);
+    const snack = matchScore("rice", "Rice cakes", ["puffed rice cake"]);
+    expect(staple).toBeLessThan(snack);
+  });
+
+  it("still ranks the food actually called that above an alias match", () => {
+    expect(matchScore("rice cakes", "Rice cakes", [])).toBeLessThan(
+      matchScore("rice cakes", "Something else", ["rice cakes"]),
+    );
+  });
+
+  it("scores a food that matches nothing worst", () => {
+    expect(matchScore("rice", "Olive oil", ["evoo"])).toBe(3);
   });
 });

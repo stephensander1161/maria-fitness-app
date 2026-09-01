@@ -16,9 +16,9 @@ export type Portion = {
   assumed: boolean;
 };
 
-export type PortionUnit = "g" | "kg" | "oz" | "lb" | "ml" | "unit";
+export type PortionUnit = "g" | "kg" | "oz" | "lb" | "ml" | "unit" | "tbsp" | "tsp";
 
-const GRAMS: Record<Exclude<PortionUnit, "unit">, number> = {
+const GRAMS: Record<Exclude<PortionUnit, "unit" | "tbsp" | "tsp">, number> = {
   g: 1,
   kg: 1000,
   oz: 28.3495,
@@ -34,6 +34,10 @@ const UNIT_WORDS: Record<string, PortionUnit> = {
   oz: "oz", ounce: "oz", ounces: "oz",
   lb: "lb", lbs: "lb", pound: "lb", pounds: "lb",
   ml: "ml", millilitre: "ml", milliliter: "ml",
+  // Spoons resolve against the food's own unitGrams, and only when the food
+  // says it is measured that way — see toGrams.
+  tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", tbsps: "tbsp",
+  tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", tsps: "tsp",
   // Natural units resolve against the food's own unitGrams.
   x: "unit", piece: "unit", pieces: "unit", slice: "unit", slices: "unit",
   egg: "unit", eggs: "unit", item: "unit", items: "unit",
@@ -83,9 +87,44 @@ const clean = (s: string) =>
  * How many grams the portion is. Returns null when it depends on a natural unit
  * the food does not define — better to say so than to invent a weight.
  */
-export function toGrams(portion: Portion, unitGrams: number | null): number | null {
+export function toGrams(
+  portion: Portion,
+  unitGrams: number | null,
+  unitLabel?: string | null,
+): number | null {
+  if (portion.unit === "tbsp" || portion.unit === "tsp") {
+    // A tablespoon of oil and a tablespoon of honey differ by half again in
+    // weight, so there is no general spoon-to-gram conversion. Resolve it only
+    // when the food itself is measured in that spoon; otherwise say we cannot,
+    // and let the caller estimate rather than publish a confident wrong number.
+    if (unitGrams === null) return null;
+    return unitLabel?.toLowerCase().includes(portion.unit)
+      ? portion.amount * unitGrams
+      : null;
+  }
   if (portion.unit === "unit") {
     return unitGrams === null ? null : portion.amount * unitGrams;
   }
   return portion.amount * GRAMS[portion.unit];
+}
+
+/**
+ * How well a food's name or one of its aliases answers what she typed.
+ * Lower is better; ranking sorts ascending.
+ *
+ * Aliases have to count. "rice" is an exact alias of "White rice, cooked", and
+ * scoring the name alone put it below "Rice cakes", which merely starts with
+ * the word — so the staple lost to the snack. An alias match scores half a
+ * point behind the equivalent name match: good enough to beat a loose name
+ * hit, never enough to outrank the food actually called that.
+ */
+export function matchScore(query: string, name: string, aliases: string[] = []): number {
+  const q = query.trim().toLowerCase();
+  const rank = (s: string) => {
+    const v = s.trim().toLowerCase();
+    return v === q ? 0 : v.startsWith(q) ? 1 : v.includes(q) ? 2 : 3;
+  };
+  const byName = rank(name);
+  const byAlias = aliases.length ? Math.min(...aliases.map(rank)) + 0.5 : Infinity;
+  return Math.min(byName, byAlias);
 }
