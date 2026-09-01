@@ -90,8 +90,14 @@ export async function runTool(
   if (!tool) return { error: `Unknown tool '${name}'` };
   const parsed = tool.input.safeParse(input ?? {});
   if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+    // Also logged, not only handed back. A rejection is invisible otherwise:
+    // the model reads it, tries again, and if it gives up it may still narrate
+    // success — which is how a turn can end with "logged that" and no row. The
+    // rejected keys are recorded, never their values, since those are her data.
+    console.error("[tool-reject]", name, Object.keys((input ?? {}) as object).join(","), issues.join("; "));
     // Hand the model a correctable message instead of throwing the turn away.
-    return { error: "Invalid arguments", issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
+    return { error: "Invalid arguments", issues };
   }
   return tool.handler(parsed.data, ctx);
 }
