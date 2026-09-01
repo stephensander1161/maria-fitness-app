@@ -29,6 +29,8 @@ type Recipe = {
 };
 
 type Item = {
+  /** False when the food carried no fibre figure — not the same as zero. */
+  fibreKnown: boolean;
   label: string; grams: number; kcal: number;
   proteinG: number; fibreG: number; category?: string; estimated: boolean;
 };
@@ -76,6 +78,9 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
     }),
     { kcal: 0, protein: 0, fibre: 0 },
   );
+  // Only a basket where every item has a real figure can claim a fibre total.
+  // Otherwise it is a floor, and both the label and the log say so.
+  const fibreComplete = basket.length > 0 && basket.every((i) => i.fibreKnown);
 
   async function look() {
     if (!query.trim()) return;
@@ -100,6 +105,7 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
       kcal: result.kcal ?? 0,
       proteinG: result.proteinG ?? 0,
       fibreG: result.fibreG ?? 0,
+      fibreKnown: result.fibreG != null,
       category: result.category,
       estimated: result.source === "estimated",
     }]);
@@ -116,6 +122,9 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
         description: basket.map((i) => i.label).join(", "),
         calories: Math.round(totals.kcal),
         proteinG: Math.round(totals.protein),
+        // Sent only when it is the whole truth for this meal — log_meal treats
+        // a missing figure as unknown, which is what it is.
+        ...(fibreComplete ? { fibreG: Math.round(totals.fibre) } : {}),
       });
       setBasket([]);
       router.refresh();
@@ -297,7 +306,8 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
 
           <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
             <span className="text-[13px] text-muted tabular">
-              {Math.round(totals.protein)}g protein · {Math.round(totals.fibre)}g fibre
+              {Math.round(totals.protein)}g protein · {fibreComplete ? "" : "at least "}
+              {Math.round(totals.fibre)}g fibre
               {calorieTarget && (
                 <span className="ml-2 text-faint">
                   {Math.round((totals.kcal / calorieTarget) * 100)}% of target

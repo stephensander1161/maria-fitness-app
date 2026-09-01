@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { CALORIE_FLOOR, nutritionTargets } from "@/lib/nutrition";
+import { CALORIE_FLOOR, FIBRE_TARGET_G, fibreForDay, nutritionTargets } from "@/lib/nutrition";
 
 const base = {
   weightKg: 78,
@@ -82,5 +82,43 @@ suite("starting nutrition targets", () => {
     const { calorieTarget, proteinTargetG } = nutritionTargets(base);
     expect(calorieTarget % 10).toBe(0);
     expect(proteinTargetG % 5).toBe(0);
+  });
+});
+
+suite("a day's fibre", () => {
+  // The whole point of this function. Fibre is known only for food looked up
+  // against the library; a meal typed in words carries no figure. Summing what
+  // we have and calling it her day's fibre under-reports every day she typed a
+  // sentence, and reads as failure at something she may have done fine.
+  it("reports how much of the day it actually covers", () => {
+    const r = fibreForDay([{ fibreG: 6 }, { fibreG: null }, { fibreG: 4 }]);
+    expect(r.grams).toBe(10);
+    expect(r.knownFor).toBe(2);
+    expect(r.unknownFor).toBe(1);
+    expect(r.complete).toBe(false);
+  });
+
+  it("is complete only when every log carries a figure", () => {
+    expect(fibreForDay([{ fibreG: 6 }, { fibreG: 4 }]).complete).toBe(true);
+    expect(fibreForDay([{ fibreG: 6 }, { fibreG: null }]).complete).toBe(false);
+  });
+
+  // A zero is a real measurement — oil genuinely has no fibre — and must not
+  // be confused with the absence of one.
+  it("counts a genuine zero as known", () => {
+    const r = fibreForDay([{ fibreG: 0 }, { fibreG: 5 }]);
+    expect(r.grams).toBe(5);
+    expect(r.knownFor).toBe(2);
+    expect(r.complete).toBe(true);
+  });
+
+  it("is not complete when nothing is logged at all", () => {
+    const r = fibreForDay([]);
+    expect(r.grams).toBe(0);
+    expect(r.complete).toBe(false);
+  });
+
+  it("targets the adult guideline", () => {
+    expect(FIBRE_TARGET_G).toBe(30);
   });
 });

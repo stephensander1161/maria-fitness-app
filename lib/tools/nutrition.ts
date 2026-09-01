@@ -1,10 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles } from "@/lib/db/schema";
 import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
+import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -141,6 +142,10 @@ export const logMeal = defineTool({
     description: z.string(),
     calories: z.number().optional(),
     proteinG: z.number().optional(),
+    carbsG: z.number().optional(),
+    fatG: z.number().optional(),
+    fibreG: z.number().optional()
+      .describe("Only when you actually know it — from lookup_food, not a guess. Omitting it is correct and expected; a wrong figure here is worse than none."),
     mealId: z.string().optional().describe("If she ate the planned meal, pass its id"),
     date: z.string().optional(),
   }),
@@ -151,13 +156,20 @@ export const logMeal = defineTool({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,
       calories: input.calories ?? null, proteinG: input.proteinG ?? null,
+      carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
+      fibreG: input.fibreG ?? null,
     });
 
-    const [totals] = await db.select({
-      calories: sql<number>`coalesce(sum(${mealLogs.calories}), 0)::int`,
-      protein: sql<number>`coalesce(sum(${mealLogs.proteinG}), 0)::int`,
+    const dayRows = await db.select({
+      calories: mealLogs.calories, proteinG: mealLogs.proteinG, fibreG: mealLogs.fibreG,
     }).from(mealLogs)
       .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+
+    const totals = {
+      calories: dayRows.reduce((n, r) => n + (r.calories ?? 0), 0),
+      protein: dayRows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+    };
+    const fibre = fibreForDay(dayRows);
 
     const [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
@@ -169,6 +181,13 @@ export const logMeal = defineTool({
       proteinTargetG: plan?.proteinTargetG ?? null,
       caloriesRemaining: plan ? plan.calorieTarget - totals.calories : null,
       proteinRemainingG: plan ? plan.proteinTargetG - totals.protein : null,
+      // Fibre is known only for food looked up against the library. Never
+      // present this as her day's fibre unless fibreIsCompleteForToday — say
+      // "at least Xg, from the N items we have figures for" instead.
+      todayFibreG: fibre.grams,
+      fibreTargetG: FIBRE_TARGET_G,
+      fibreIsCompleteForToday: fibre.complete,
+      fibreUnknownForItems: fibre.unknownFor,
     };
   },
 });
@@ -186,11 +205,22 @@ export const getDayNutrition = defineTool({
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
     const calories = rows.reduce((n, r) => n + (r.calories ?? 0), 0);
     const protein = rows.reduce((n, r) => n + (r.proteinG ?? 0), 0);
+    const fibre = fibreForDay(rows);
     return {
       date,
-      logged: rows.map((r) => ({ slot: r.slot, description: r.description, calories: r.calories, proteinG: r.proteinG })),
+      logged: rows.map((r) => ({
+        slot: r.slot, description: r.description,
+        calories: r.calories, proteinG: r.proteinG,
+        carbsG: r.carbsG, fatG: r.fatG, fibreG: r.fibreG,
+      })),
       calories, proteinG: protein,
       calorieTarget: plan?.calorieTarget ?? null, proteinTargetG: plan?.proteinTargetG ?? null,
+      // See log_meal: a null fibreG means we do not know, not zero. Treating
+      // the sum as her day's fibre under-reports every meal she typed in words.
+      fibreG: fibre.grams,
+      fibreTargetG: FIBRE_TARGET_G,
+      fibreIsCompleteForDay: fibre.complete,
+      fibreUnknownForItems: fibre.unknownFor,
     };
   },
 });

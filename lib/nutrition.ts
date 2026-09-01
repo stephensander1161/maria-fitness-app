@@ -47,3 +47,40 @@ export function nutritionTargets(input: TargetInput): {
 
   return { calorieTarget, proteinTargetG };
 }
+
+/**
+ * Daily fibre target, in grams.
+ *
+ * The UK guideline for adults (SACN, carried by the NHS) is 30g. It is a
+ * population figure rather than something computed from her body, which is why
+ * it is a constant here and not part of nutritionTargets — presenting it as a
+ * personalised number would overstate what it is.
+ *
+ * It earns its place in a weight-loss app for one reason: fibre is the cheapest
+ * satiety there is, and a deficit she does not feel is a deficit she keeps.
+ */
+export const FIBRE_TARGET_G = 30;
+
+/**
+ * A day's fibre, and how much of the day it actually covers.
+ *
+ * Fibre is only known for food logged through the calculator, because that is
+ * the only path that resolves a real portion against the library. A meal
+ * described in words carries no fibre figure at all. Summing what we have and
+ * calling it "today's fibre" would under-report every day she typed a sentence,
+ * and read as failure at something she may well have done fine.
+ *
+ * So the count travels with the number, and anything presenting it must say
+ * which it is.
+ */
+export function fibreForDay(
+  logs: { fibreG: number | null }[],
+): { grams: number; knownFor: number; unknownFor: number; complete: boolean } {
+  const known = logs.filter((l) => l.fibreG !== null);
+  return {
+    grams: known.reduce((n, l) => n + (l.fibreG ?? 0), 0),
+    knownFor: known.length,
+    unknownFor: logs.length - known.length,
+    complete: logs.length > 0 && known.length === logs.length,
+  };
+}

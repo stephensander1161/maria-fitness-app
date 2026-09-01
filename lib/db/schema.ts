@@ -446,6 +446,11 @@ export const mealLogs = pgTable(
     description: text("description").notNull(),
     calories: integer("calories"),
     proteinG: integer("protein_g"),
+    carbsG: integer("carbs_g"),
+    fatG: integer("fat_g"),
+    /** Nullable because most logs are described in words, and a sentence does
+        not carry a fibre figure. Only the calculator can fill this honestly. */
+    fibreG: integer("fibre_g"),
     createdAt: createdAt(),
   },
   (t) => [index("meal_logs_profile_date").on(t.profileId, t.date)],
