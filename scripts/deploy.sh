@@ -24,7 +24,8 @@ read_env() {
 REQUIRED=(ANTHROPIC_API_KEY DATABASE_URL AUTH_SECRET APP_TIMEZONE)
 # APP_PASSPHRASE is only read by the one-time migration to accounts; it is
 # not needed in production and is better deleted once accounts exist.
-OPTIONAL=(DAILY_COST_LIMIT_MICROS MAX_CHAT_PER_DAY MAX_CHAT_PER_MINUTE COACH_MODEL PLANNER_MODEL)
+OPTIONAL=(DAILY_COST_LIMIT_MICROS MAX_CHAT_PER_DAY MAX_CHAT_PER_MINUTE COACH_MODEL PLANNER_MODEL
+          GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET)
 
 for key in "${REQUIRED[@]}"; do
   [ -n "$(read_env "$key")" ] || { echo "Missing $key in .env" >&2; exit 1; }

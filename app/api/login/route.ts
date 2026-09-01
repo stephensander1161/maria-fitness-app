@@ -41,17 +41,26 @@ export async function POST(req: Request) {
     ? await db.select().from(users).where(eq(users.email, email)).limit(1)
     : [];
 
-  const ok = user
+  // An invited account that has only ever used Google has no password hash.
+  // It still burns the same work, so "no password set" is indistinguishable
+  // from "wrong password" and from "no such account".
+  const ok = user?.passwordHash
     ? await verifyPassword(password, user.passwordHash)
-    : // Burn the same work so an unknown address is indistinguishable from a
-      // wrong password, then fail regardless.
-      (await verifyPassword(password, DUMMY_HASH), false);
+    : (await verifyPassword(password, DUMMY_HASH), false);
 
   if (!ok || !user || user.disabledAt) {
     // The attempt itself is never logged — a record of near-misses is a wordlist.
     await audit("login.failure", {
       req,
-      detail: { reason: !user ? "unknown_email" : user.disabledAt ? "disabled" : "bad_password" },
+      detail: {
+        reason: !user
+          ? "unknown_email"
+          : user.disabledAt
+            ? "disabled"
+            : !user.passwordHash
+              ? "no_password_set"
+              : "bad_password",
+      },
     });
     // Deliberately identical for every failure mode.
     return Response.json({ error: "That's not right." }, { status: 401 });
@@ -59,7 +68,7 @@ export async function POST(req: Request) {
 
   // Transparently upgrade a hash made with weaker parameters, now we have the
   // plaintext in hand and know it is correct.
-  if (needsRehash(user.passwordHash)) {
+  if (user.passwordHash && needsRehash(user.passwordHash)) {
     await db.update(users)
       .set({ passwordHash: await hashPassword(password) })
       .where(eq(users.id, user.id));

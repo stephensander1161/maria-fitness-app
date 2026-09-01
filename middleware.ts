@@ -11,6 +11,10 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 const PUBLIC_PATHS = new Set([
   "/login",
   "/api/login",
+  // The OAuth round trip must reach these while signed out. They are the
+  // only other doors, and both end in the same invite check.
+  "/api/auth/google",
+  "/api/auth/google/callback",
   // Crawlers must be able to read the disallow rule without being redirected,
   // and iOS fetches the manifest when adding to the home screen.
   "/robots.txt",

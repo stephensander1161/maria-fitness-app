@@ -24,8 +24,18 @@ export const users = pgTable(
     /** Stored lowercased and trimmed; the unique index is the real guarantee. */
     email: text("email").notNull(),
     name: text("name"),
-    /** scrypt, self-describing — see lib/password.ts. Never a plain password. */
-    passwordHash: text("password_hash").notNull(),
+    /**
+     * scrypt, self-describing — see lib/password.ts. Never a plain password.
+     * Null for an account invited for Google sign-in that has not set one;
+     * password sign-in is simply unavailable until it does.
+     */
+    passwordHash: text("password_hash"),
+    /**
+     * Google's stable subject id, captured on first Google sign-in. Matching on
+     * this rather than on email means a later address change at Google does not
+     * silently create a second account.
+     */
+    googleSub: text("google_sub"),
     role: text("role", { enum: ["owner", "member"] }).default("member").notNull(),
     createdAt: createdAt(),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -39,7 +49,7 @@ export const users = pgTable(
     sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true })
       .defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("users_email").on(t.email)],
+  (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google_sub").on(t.googleSub)],
 );
 
 export const profiles = pgTable("profiles", {

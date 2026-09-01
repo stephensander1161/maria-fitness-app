@@ -3,6 +3,7 @@
  *
  *   npm run user -- list
  *   npm run user -- add her@example.com "Maria"      # prompts for a password
+ *   npm run user -- invite her@example.com "Maria"   # Google sign-in only
  *   npm run user -- passwd her@example.com
  *   npm run user -- signout-everywhere her@example.com
  *   npm run user -- disable her@example.com
@@ -72,6 +73,26 @@ async function main() {
       break;
     }
 
+    case "invite": {
+      if (!email) throw new Error("Usage: npm run user -- invite <email> [name]");
+      const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (existing) throw new Error(`${email} already exists.`);
+
+      // No password: this account exists so that Google sign-in has something
+      // to match against. Access is invite-only, and this is the invite.
+      const isFirst = (await db.select({ id: users.id }).from(users).limit(1)).length === 0;
+      const [created] = await db.insert(users).values({
+        email, name: nameArg ?? null, passwordHash: null,
+        role: isFirst ? "owner" : "member",
+      }).returning();
+      await db.insert(profiles).values({ userId: created.id, name: nameArg ?? null });
+
+      console.log(`✓ ${email} invited as ${created.role}.`);
+      console.log("  They sign in with Continue with Google. To add a password as");
+      console.log(`  a fallback: npm run user -- passwd ${email}`);
+      break;
+    }
+
     case "passwd": {
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
       if (!user) throw new Error(`No account for ${email}.`);
@@ -112,6 +133,7 @@ async function main() {
       console.log(`Usage:
   npm run user -- list
   npm run user -- add <email> [name]
+  npm run user -- invite <email> [name]
   npm run user -- passwd <email>
   npm run user -- signout-everywhere <email>
   npm run user -- disable <email>

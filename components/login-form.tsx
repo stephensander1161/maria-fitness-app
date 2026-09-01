@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+export function LoginForm({ google }: { google: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +38,33 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-xs space-y-3">
+    <div className="w-full max-w-xs">
+      {google && (
+        <>
+          {/* A plain link, not fetch: the OAuth round trip is a top-level
+              navigation, and the state cookie has to ride along with it. */}
+          <a
+            href="/api/auth/google"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-line bg-surface py-3.5 text-[15px] font-medium active:bg-raised"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden>
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
+              <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1 .7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24Z" />
+              <path fill="#FBBC05" d="M5.4 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.4a12 12 0 0 0 0 10.8l4-3.1Z" />
+              <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z" />
+            </svg>
+            Continue with Google
+          </a>
+
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-[11px] uppercase tracking-wide text-faint">or</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
+
+      <form onSubmit={submit} className="space-y-3">
       <input
         type="email"
         value={email}
@@ -64,7 +90,8 @@ export function LoginForm() {
       >
         {busy ? "Checking…" : "Enter"}
       </button>
-      {error && <p className="text-center text-[13px] text-miss">{error}</p>}
-    </form>
+        {error && <p className="text-center text-[13px] text-miss">{error}</p>}
+      </form>
+    </div>
   );
 }
