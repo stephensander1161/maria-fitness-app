@@ -17,12 +17,22 @@ import type { ISODate } from "@/lib/date";
  * than drafting from scratch.
  */
 
+/**
+ * Things nobody has to own. Templates list everything a week touches, including
+ * a floor to lie on — requiring her to have declared "mat" would reject every
+ * template she could actually do.
+ */
+const ASSUMED = ["bodyweight", "mat", "floor", "chair", "wall", "outdoors", "none"];
+
 /** Loose match: "dumbbells" should satisfy a template asking for "dumbbell". */
 const owns = (hers: string[], needed: string) => {
   const want = needed.toLowerCase().replace(/s$/, "");
+  if (ASSUMED.some((a) => want.includes(a))) return true;
   return hers.some((h) => {
     const have = h.toLowerCase();
-    return have.includes(want) || want.includes(have.replace(/s$/, "")) || have.includes("full gym");
+    // A full gym covers anything a template can ask for.
+    if (have.includes("full gym")) return true;
+    return have.includes(want) || want.includes(have.replace(/s$/, ""));
   });
 };
 
@@ -42,8 +52,16 @@ export async function pickWorkoutTemplate(profile: Profile) {
 
     // Every piece of kit it needs, she must have. A template she can't perform
     // is worse than a simpler one she can.
-    const usable = t.equipment.every((e) => owns(hers, e) || e.toLowerCase().includes("bodyweight"));
+    const usable = t.equipment.every((e) => owns(hers, e));
     score += usable ? 10 : -20;
+
+    // Then prefer the one that actually uses what she owns. Without this, a
+    // bodyweight week ties with a band week for someone who has bands — both
+    // are performable — and the tie broke on array order.
+    const specific = t.equipment.filter(
+      (e) => !ASSUMED.some((a) => e.toLowerCase().includes(a)),
+    );
+    score += specific.filter((e) => owns(hers, e)).length * 3;
 
     if (profile.experience && t.experience.includes(profile.experience)) score += 5;
 
