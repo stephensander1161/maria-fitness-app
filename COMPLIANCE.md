@@ -38,6 +38,9 @@ Read it as an honest inventory, not a certificate.
 | Global revocation by secret rotation | `AUTH_SECRET` |
 | Brute-force ceilings, per-IP **and** global — `x-forwarded-for` is client-supplied, so a per-IP limit alone can be rotated around | `lib/limits.ts` |
 | Every tool handler scoped to a server-supplied `profileId`, never a client-supplied one | `lib/tools/` |
+| Google sign-in as an identity provider only, invite-only: proving who someone is does not create an account | `lib/oauth.ts` |
+| `email_verified`, `aud`, `iss` and `exp` all checked on the id_token | `lib/oauth.ts` |
+| OAuth `state` in a short-lived httpOnly cookie, compared in constant time, plus PKCE | `lib/oauth.ts` |
 
 ### CC6.6 / CC6.7 — Boundary and transmission
 
@@ -83,6 +86,17 @@ Read it as an honest inventory, not a certificate.
 - Structural tests enforce architectural invariants that would otherwise decay
   (`tests/tool-coverage.test.ts`), and each is verified to fail when violated.
 
+### Cost controls, per person
+
+Spend ceilings, chat rate limits and login attempt limits are all scoped per
+account, so one person cannot exhaust another's budget or lock them out. Login
+attempts are additionally capped globally, because `x-forwarded-for` is
+client-supplied and a per-IP limit alone can be rotated around.
+
+Spend that fails to be attributed to anyone is counted against the ceiling
+regardless — spend charged to nobody would otherwise have no limit at all, which
+is the single thing the cap exists to prevent.
+
 ### CC5 / PI1 — Processing integrity
 
 - Every tool input validated with Zod before any handler runs.
@@ -122,7 +136,7 @@ Anthropic, GitHub). This is the largest gap and no code closes it.
 author and its author's tooling.
 
 **Authentication.** No MFA, and no second factor of any kind — a stolen
-password is full access. No password rotation policy, no account lockout beyond
+password, or a compromised Google account, is full access. No password rotation policy, no account lockout beyond
 rate limiting, and no self-service password reset (an owner runs
 `npm run user -- passwd`). Revocation is per account, not per device: signing out
 everywhere ends every session that account holds, including the one asking.

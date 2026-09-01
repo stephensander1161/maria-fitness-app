@@ -5,6 +5,7 @@ import { profiles, weighIns } from "@/lib/db/schema";
 import { currentUser } from "@/lib/session";
 import { getProfile, profileToday } from "@/lib/profile";
 import { inToCm, weightIn } from "@/lib/units";
+import { nutritionTargets } from "@/lib/nutrition";
 import { runTool } from "@/lib/tools";
 import { weekStart } from "@/lib/date";
 import { audit } from "@/lib/audit";
@@ -93,7 +94,14 @@ export async function POST(req: Request) {
 
   // Targets from her own numbers: a deficit she can hold, and enough protein to
   // keep muscle while losing fat.
-  const targets = nutritionTargets(currentKg, input);
+  const targets = nutritionTargets({
+    weightKg: currentKg,
+    heightIn: input.heightIn,
+    age: input.age,
+    sex: input.sex,
+    daysPerWeek: input.daysPerWeek,
+    units: u,
+  });
   const ctx = { profileId: profile.id };
 
   const week = weekStart(today);
@@ -131,26 +139,4 @@ export async function POST(req: Request) {
   ]);
 
   return Response.json({ ok: true, plan: results[0], meals: results[1] });
-}
-
-/** Mifflin-St Jeor, then a deficit scaled to how much she has to lose. */
-function nutritionTargets(
-  weightKg: number,
-  input: z.infer<typeof Body>,
-): { calorieTarget: number; proteinTargetG: number } {
-  const heightCm = input.units === "imperial" ? inToCm(input.heightIn) : input.heightIn;
-  const s = input.sex === "male" ? 5 : -161;
-  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * input.age + s;
-  // Lightly active: three or four training days plus ordinary life.
-  const maintenance = bmr * (input.daysPerWeek >= 4 ? 1.55 : 1.375);
-
-  // Around 0.75% of body weight per week, which is sustainable rather than fast.
-  const deficit = Math.min(750, Math.max(300, weightKg * 7.7));
-  // Never below 1200: lower than that and it stops being a plan she can hold.
-  const calorieTarget = Math.max(1200, Math.round((maintenance - deficit) / 10) * 10);
-
-  // ~1.6g per kg protects muscle during a deficit.
-  const proteinTargetG = Math.round((weightKg * 1.6) / 5) * 5;
-
-  return { calorieTarget, proteinTargetG };
 }

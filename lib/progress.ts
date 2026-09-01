@@ -42,6 +42,20 @@ export async function exerciseHistory(
   exerciseId: string,
   limit = 8,
 ): Promise<Performance[]> {
+  // Two queries rather than one: find the dates first, then fetch only those
+  // sessions' sets. Pulling every set she has ever logged for a movement and
+  // slicing in JavaScript is fine at twenty sessions and wasteful at a year's
+  // worth — and a single LIMIT cannot be used, because a session is many rows.
+  const dates = await db
+    .selectDistinct({ date: workouts.date })
+    .from(setLogs)
+    .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .where(and(eq(workouts.profileId, profileId), eq(setLogs.exerciseId, exerciseId)))
+    .orderBy(desc(workouts.date))
+    .limit(limit);
+
+  if (dates.length === 0) return [];
+
   const rows = await db
     .select({
       date: workouts.date,
@@ -52,7 +66,11 @@ export async function exerciseHistory(
     })
     .from(setLogs)
     .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
-    .where(and(eq(workouts.profileId, profileId), eq(setLogs.exerciseId, exerciseId)))
+    .where(and(
+      eq(workouts.profileId, profileId),
+      eq(setLogs.exerciseId, exerciseId),
+      inArray(workouts.date, dates.map((d) => d.date)),
+    ))
     .orderBy(desc(workouts.date), setLogs.setNumber);
 
   const byDate = new Map<ISODate, SetSummary[]>();
@@ -60,7 +78,7 @@ export async function exerciseHistory(
     if (!byDate.has(r.date)) byDate.set(r.date, []);
     byDate.get(r.date)!.push(r);
   }
-  return [...byDate.entries()].slice(0, limit).map(([date, sets]) => summarise(date, sets));
+  return [...byDate.entries()].map(([date, sets]) => summarise(date, sets));
 }
 
 export type Comparison = {

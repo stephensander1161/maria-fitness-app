@@ -34,6 +34,19 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
     );
   }, [exercises, query, category]);
 
+  const grouped = useMemo(() => {
+    const LABELS: Record<string, string> = {
+      compound: "Compound lifts", isolation: "Isolation", core: "Core",
+      cardio: "Conditioning", mobility: "Mobility",
+    };
+    // Fixed order, most useful first — not whatever the query returned.
+    const ORDER = ["compound", "isolation", "core", "cardio", "mobility"];
+    return ORDER.flatMap((c) => {
+      const items = filtered.filter((e) => e.category === c);
+      return items.length ? [{ category: LABELS[c] ?? c, items }] : [];
+    });
+  }, [filtered]);
+
   const byCategory = useMemo(() => {
     const map = new Map<string, FactItem[]>();
     for (const f of facts) {
@@ -75,19 +88,44 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
             ))}
           </div>
 
-          <div className="card divide-y divide-line">
-            {filtered.map((e) => (
-              <Link key={e.slug} href={`/learn/${e.slug}`} className="flex items-center gap-3 p-4 active:bg-raised">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium">{e.name}</p>
-                  <p className="truncate text-[12px] text-faint">{e.primaryMuscles.join(" · ")}</p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" className="shrink-0 text-faint"><path d="m9 18 6-6-6-6" /></svg>
-              </Link>
-            ))}
-            {filtered.length === 0 && <p className="p-6 text-center text-[13px] text-faint">Nothing matches that.</p>}
-          </div>
+          <p className="mb-2 text-[11px] text-faint">
+            {filtered.length} of {exercises.length} movements
+          </p>
+
+          {/* Grouped rather than one flat run. At 46 movements a single list was
+              fine; at 125 it is unscannable, and the category is the first thing
+              you narrow by when looking for something. */}
+          {grouped.map(({ category, items }) => (
+            <section key={category} className="mb-3">
+              <h2 className="sticky top-0 z-10 -mx-4 bg-base/95 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-faint backdrop-blur">
+                {category} <span className="font-normal normal-case tracking-normal">· {items.length}</span>
+              </h2>
+              <div className="card divide-y divide-line">
+                {items.map((e) => (
+                  <Link key={e.slug} href={`/learn/${e.slug}`}
+                    className="flex items-center gap-3 p-4 active:bg-raised">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-medium">{e.name}</p>
+                      <p className="truncate text-[12px] text-faint">{e.primaryMuscles.join(" · ")}</p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" className="shrink-0 text-faint"><path d="m9 18 6-6-6-6" /></svg>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ))}
+
+          {filtered.length === 0 && (
+            <div className="card p-6 text-center">
+              <p className="text-[13px] text-faint">Nothing matches that.</p>
+              {query && (
+                <button onClick={() => setQuery("")} className="mt-3 text-[13px] text-accent">
+                  Clear search
+                </button>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <div className="space-y-5">
