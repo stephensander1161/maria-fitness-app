@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { ExerciseFigure } from "@/components/exercise-figure";
 import { exercises } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,10 @@ export default async function ExercisePage({ params }: { params: Promise<{ slug:
           {ex.equipment.length > 0 && <span className="text-faint"> — {ex.equipment.join(", ")}</span>}
         </p>
       </header>
+
+      <div className="card mb-4 flex justify-center py-5">
+        <ExerciseFigure slug={ex.slug} category={ex.category} className="h-40 w-40 text-accent" />
+      </div>
 
       {ex.safetyNote && (
         <div className="mb-4 rounded-xl border border-hold/30 bg-hold-soft p-4">

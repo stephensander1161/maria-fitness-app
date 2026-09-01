@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ExerciseFigure } from "./exercise-figure";
 
 type Item = { slug: string; name: string; category: string; primaryMuscles: string[]; equipment: string[] };
 type FactItem = { id: string; category: string; text: string; source: string | null };
@@ -104,6 +105,11 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
                 {items.map((e) => (
                   <Link key={e.slug} href={`/learn/${e.slug}`}
                     className="flex items-center gap-3 p-4 active:bg-raised">
+                    <ExerciseFigure
+                      slug={e.slug}
+                      category={e.category}
+                      className="size-11 shrink-0 text-muted"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium">{e.name}</p>
                       <p className="truncate text-[12px] text-faint">{e.primaryMuscles.join(" · ")}</p>

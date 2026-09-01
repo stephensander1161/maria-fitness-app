@@ -13,6 +13,8 @@ import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
  */
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
+  /** Drives the wireframe figure's fallback when the name matches no pattern. */
+  category: string;
   /** Logged today but not on the plan — an extra she added, or one she removed
    *  from the schedule after already training it. Never hide logged work. */
   extra: boolean;
@@ -51,7 +53,7 @@ export async function todayView(profileId: string, units: Units, date = today())
 
   const items = await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
-    bodyweight: exercises.bodyweight,
+    bodyweight: exercises.bodyweight, category: exercises.category,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
     targetWeightKg: planExercises.targetWeightKg,
     restSeconds: planExercises.restSeconds, notes: planExercises.notes,
@@ -79,7 +81,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const extras = extraIds.length
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
-        bodyweight: exercises.bodyweight,
+        bodyweight: exercises.bodyweight, category: exercises.category,
       }).from(exercises).where(inArray(exercises.id, extraIds))
     : [];
 
@@ -124,7 +126,8 @@ export async function todayView(profileId: string, units: Units, date = today())
     exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
       return {
-        slug: i.slug, name: i.name, bodyweight: i.bodyweight, extra: i.extra,
+        slug: i.slug, name: i.name, bodyweight: i.bodyweight,
+        category: i.category, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
         targetWeight: weightOut(i.targetWeightKg, units),
         restSeconds: i.restSeconds, notes: i.notes,

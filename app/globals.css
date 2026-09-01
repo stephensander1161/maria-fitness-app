@@ -93,3 +93,17 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
     transform: none !important;
   }
 }
+
+/* ── Exercise wireframes ────────────────────────────────────────────────────
+   The two poses cross-fade so the movement reads without a video or a
+   dependency. Slow on purpose — it sits behind the text, it isn't the point. */
+@keyframes figure-in  { 0%, 45% { opacity: 0.28 } 55%, 100% { opacity: 1 } }
+@keyframes figure-out { 0%, 45% { opacity: 1 } 55%, 100% { opacity: 0.28 } }
+
+.figure-end   { animation: figure-in  2.6s ease-in-out infinite alternate; }
+.figure-start { animation: figure-out 2.6s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .figure-end   { animation: none; opacity: 1 !important; }
+  .figure-start { animation: none; opacity: 0.28 !important; }
+}

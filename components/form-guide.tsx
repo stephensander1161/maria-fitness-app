@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { action } from "@/lib/client";
+import { ExerciseFigure } from "./exercise-figure";
 
 type Guide = {
   name: string;
@@ -22,7 +23,14 @@ type Guide = {
  * cue and navigating back. Mid-set, that is the difference between checking and
  * not bothering.
  */
-export function FormGuide({ slug, name, onClose }: { slug: string; name: string; onClose: () => void }) {
+export function FormGuide({
+  slug, name, category, onClose,
+}: {
+  slug: string;
+  name: string;
+  category: string;
+  onClose: () => void;
+}) {
   const [guide, setGuide] = useState<Guide | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -67,6 +75,9 @@ export function FormGuide({ slug, name, onClose }: { slug: string; name: string;
 
         {guide && (
           <div className="space-y-5">
+            <div className="flex justify-center rounded-2xl border border-line bg-base py-3">
+              <ExerciseFigure slug={slug} category={category} className="h-32 w-32 text-accent" />
+            </div>
             {guide.safetyNote && (
               <div className="rounded-xl border border-hold/30 bg-hold-soft p-3.5">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-hold">

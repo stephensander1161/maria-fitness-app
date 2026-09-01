@@ -464,7 +464,12 @@ function ExerciseCard({
       </div>
 
       {guideOpen && (
-        <FormGuide slug={exercise.slug} name={exercise.name} onClose={() => setGuideOpen(false)} />
+        <FormGuide
+          slug={exercise.slug}
+          name={exercise.name}
+          category={exercise.category}
+          onClose={() => setGuideOpen(false)}
+        />
       )}
     </section>
   );
