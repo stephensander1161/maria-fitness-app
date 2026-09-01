@@ -22,10 +22,10 @@ import type { ISODate } from "@/lib/date";
  * a floor to lie on — requiring her to have declared "mat" would reject every
  * template she could actually do.
  */
-const ASSUMED = ["bodyweight", "mat", "floor", "chair", "wall", "outdoors", "none"];
+export const ASSUMED = ["bodyweight", "mat", "floor", "chair", "wall", "outdoors", "none"];
 
 /** Loose match: "dumbbells" should satisfy a template asking for "dumbbell". */
-const owns = (hers: string[], needed: string) => {
+export const owns = (hers: string[], needed: string) => {
   const want = needed.toLowerCase().replace(/s$/, "");
   if (ASSUMED.some((a) => want.includes(a))) return true;
   return hers.some((h) => {

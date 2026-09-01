@@ -3,6 +3,7 @@ import { toAnthropicTool, type Tool, type ToolContext } from "./define";
 import * as profile from "./profile";
 import * as training from "./training";
 import * as nutrition from "./nutrition";
+import * as ideas from "./ideas";
 import * as body from "./measurements";
 import * as feedback from "./feedback";
 import * as budget from "./budget";
@@ -46,6 +47,8 @@ const all: Tool[] = [
   body.getMeasuringGuide,
   nutrition.getMealPlan,
   nutrition.getNutritionTrend,
+  ideas.suggestExercises,
+  ideas.suggestMeals,
   nutrition.getRecentMeals,
   training.getPlan,
   profile.getProfile,

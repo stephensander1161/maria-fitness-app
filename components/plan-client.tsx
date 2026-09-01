@@ -5,17 +5,19 @@ import Link from "next/link";
 import type { DayFoodView, MealWeekView, RecentMeal, WeekView } from "@/lib/views";
 import { CalorieCalculator } from "./calorie-calculator";
 import { TodayFood } from "./today-food";
+import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 
-export function PlanClient({ week, mealWeek, dayFood, usuals }: {
+export function PlanClient({ week, mealWeek, dayFood, usuals, initialMeals, initialMoves }: {
   week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
+  initialMeals: MealIdea[]; initialMoves: MoveIdea[];
 }) {
-  const [tab, setTab] = useState<"training" | "meals">("training");
+  const [tab, setTab] = useState<"training" | "meals" | "ideas">("training");
   const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1">
-        {(["training", "meals"] as const).map((t) => (
+      <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1">
+        {(["training", "meals", "ideas"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`rounded-full py-2 text-[13px] font-medium capitalize transition-colors ${
               tab === t ? "bg-accent text-ink" : "text-muted"
@@ -25,7 +27,9 @@ export function PlanClient({ week, mealWeek, dayFood, usuals }: {
         ))}
       </div>
 
-      {tab === "training" ? (
+      {tab === "ideas" ? (
+        <Ideas week={week} mealWeek={mealWeek} initialMeals={initialMeals} initialMoves={initialMoves} />
+      ) : tab === "training" ? (
         week.exists ? (
           <div className="space-y-2">
             {week.rationale && (
