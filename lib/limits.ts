@@ -60,6 +60,12 @@ export async function recordUsage(
   pricing?: Pricing,
   profileId?: string,
 ) {
+  if (source === "app" && !profileId) {
+    // Not fatal — the spend is real and must still be recorded — but it means
+    // some path is spending without an owner, and todaySpend counts these
+    // against everyone precisely so it cannot go unnoticed or unlimited.
+    console.error("[limits] app usage recorded with no profile — spend is unattributed");
+  }
   const row = {
     date: today(),
     source,
@@ -109,21 +115,23 @@ export async function effectiveDailyLimit(profileId?: string): Promise<number> {
  * account cannot switch the coach off for everybody.
  */
 export async function todaySpend(profileId?: string) {
-  const [row] = profileId
-    ? await db
-        .select()
-        .from(usageDaily)
-        .where(and(
-          eq(usageDaily.date, today()),
-          eq(usageDaily.source, "app"),
-          eq(usageDaily.profileId, profileId),
-        ))
-        .limit(1)
-    : [];
+  // Her own app spend, plus any app spend that failed to be attributed.
+  // Unattributed rows would otherwise escape every ceiling — spend that counts
+  // against nobody is spend with no limit, which is the one thing this must
+  // never allow. Eval rows are excluded by the source filter.
+  const rows = await db
+    .select()
+    .from(usageDaily)
+    .where(and(eq(usageDaily.date, today()), eq(usageDaily.source, "app")));
+
+  const mine = rows.filter((r) => r.profileId === profileId || r.profileId === null);
 
   return {
-    costMicros: row?.costMicros ?? 0,
-    requests: row?.requests ?? 0,
+    costMicros: mine.reduce((n, r) => n + r.costMicros, 0),
+    requests: mine.reduce((n, r) => n + r.requests, 0),
+    unattributedMicros: rows
+      .filter((r) => r.profileId === null)
+      .reduce((n, r) => n + r.costMicros, 0),
     limitMicros: await effectiveDailyLimit(profileId),
     ceilingMicros: LIMITS.dailyCostMicros,
   };
