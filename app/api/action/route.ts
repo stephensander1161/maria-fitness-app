@@ -1,6 +1,7 @@
 import { runTool } from "@/lib/tools";
 import { getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
+import { checkActionAllowed } from "@/lib/limits";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,15 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const profile = await getProfile(user.id);
+
+  // This route reaches every registered tool, so it needs its own ceiling —
+  // it had none. Per profile, because a shared bucket would make one person's
+  // burst everyone's rate limit.
+  const allowed = await checkActionAllowed(profile.id);
+  if (!allowed.allowed) {
+    return Response.json({ ok: false, error: allowed.reason }, { status: 429 });
+  }
+
   try {
     const result = await runTool(tool, input ?? {}, { profileId: profile.id });
     return Response.json({ ok: true, result });

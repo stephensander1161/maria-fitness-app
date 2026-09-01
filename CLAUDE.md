@@ -144,8 +144,16 @@ document is worse than none, because it gets believed.
   protected paths; new routes must be protected automatically. Adding to
   `PUBLIC_PATHS` exposes something publicly — treat it as a deliberate decision.
 - A missing `AUTH_SECRET` must fail closed (503), never fall open.
-- Every model call goes through `checkChatAllowed()` first, and every response's
-  usage through `recordUsage()` — including inside the tool loop.
+- Every model call goes through a spend gate **before** it is made, and every
+  response's usage through `recordUsage()` after — including inside the tool
+  loop. Chat turns use `checkChatAllowed()` (rate + spend, records an event);
+  model calls made anywhere else use `checkSpendAllowed()` (spend only, records
+  nothing), so a planner call during a turn does not spend a second message
+  from her allowance. The planner had `recordUsage` without a gate: spend went
+  onto the ledger with nothing reading it back, and `/api/action` reaches every
+  registered tool, two of which plan a week with Sonnet.
+- `/api/action` is rate-limited per profile (`checkActionAllowed`). It has the
+  same reach as the chat route and must never again have less protection.
 - If `COACH_MODEL` changes, `PRICING` in `lib/agent/model.ts` must change with
   it, or the spend cap computes against the wrong prices.
 - Rate-limit and usage state belongs in Postgres. In-memory counters do not work

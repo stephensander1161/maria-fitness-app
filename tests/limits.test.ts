@@ -212,3 +212,30 @@ describe("LIMITS", () => {
     expect(LIMITS.dailyCostMicros).toBe(500_000); // $0.50/day
   });
 });
+
+describe("the action route has a ceiling of its own", () => {
+  // /api/action reaches every registered tool, so it had the same reach as the
+  // chat route and none of its limits.
+  it("bounds direct tool calls per minute", () => {
+    expect(LIMITS.actionsPerMinute).toBeGreaterThan(0);
+  });
+
+  // These are taps — logging a set between reps, stepping a weight. The limit
+  // exists to bound a runaway client, not to pace her, so it must sit well
+  // above anything a person does by hand.
+  it("sets it far above human tapping speed", () => {
+    expect(LIMITS.actionsPerMinute).toBeGreaterThanOrEqual(60);
+  });
+
+  it("reads it from the environment like every other limit", () => {
+    const prev = process.env.MAX_ACTIONS_PER_MINUTE;
+    process.env.MAX_ACTIONS_PER_MINUTE = "40";
+    expect(LIMITS.actionsPerMinute).toBe(40);
+    // An empty variable must not read as zero — that would pin the ceiling
+    // shut, the bug already fixed once for the daily cost limit.
+    process.env.MAX_ACTIONS_PER_MINUTE = "";
+    expect(LIMITS.actionsPerMinute).toBe(120);
+    if (prev === undefined) delete process.env.MAX_ACTIONS_PER_MINUTE;
+    else process.env.MAX_ACTIONS_PER_MINUTE = prev;
+  });
+});

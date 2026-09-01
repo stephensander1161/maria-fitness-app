@@ -32,6 +32,12 @@ export const LIMITS = {
   get loginAttemptsPerHourGlobal() { return num("MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL", 200); },
   /** Longest message accepted, in characters. */
   get maxMessageChars() { return num("MAX_MESSAGE_CHARS", 4_000); },
+  /**
+   * Direct tool calls a minute. Generous, because these are taps: logging a
+   * set between reps, stepping a weight, ticking off a meal. It exists to
+   * bound a runaway client or a stolen session, not to pace her.
+   */
+  get actionsPerMinute() { return num("MAX_ACTIONS_PER_MINUTE", 120); },
 };
 
 /** cost(micros) = tokens × USD-per-million. The units cancel exactly. */
@@ -227,4 +233,47 @@ export function clientIp(req: Request): string {
   const real = req.headers.get("x-real-ip");
   const fwd = req.headers.get("x-forwarded-for")?.split(",")[0];
   return (real ?? fwd ?? "unknown").trim().slice(0, 45) || "unknown";
+}
+
+/**
+ * Is there budget left to make a model call at all?
+ *
+ * checkChatAllowed also enforces the message rate and records an event against
+ * it, which is right for a turn of conversation and wrong everywhere else: a
+ * planner call made *during* a turn would spend a second message from her
+ * allowance for one thing she asked for.
+ *
+ * This is the spend half on its own, so it can guard a model call made from
+ * anywhere without distorting the rate limit. The standing rule is that every
+ * model call is gated before it is made, not merely recorded after — recording
+ * alone lets an unbounded caller run past the cap and only notice afterwards.
+ */
+export async function checkSpendAllowed(
+  profileId?: string,
+): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+  const spend = await todaySpend(profileId);
+  if (spend.costMicros >= spend.limitMicros) {
+    return {
+      allowed: false,
+      reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work.",
+    };
+  }
+  return { allowed: true };
+}
+
+/**
+ * The gate in front of direct tool calls from the browser.
+ *
+ * /api/action reaches every registered tool, so it had the same reach as the
+ * chat route with none of its limits. Cheap taps dominate here, so the ceiling
+ * is high; the spend cap is enforced separately and at the model call itself,
+ * because two of those tools plan a week with Sonnet.
+ */
+export async function checkActionAllowed(profileId: string): Promise<Allowance | Denial> {
+  const bucket = `action:${profileId}`;
+  if (await countRecent(bucket, 60) >= LIMITS.actionsPerMinute) {
+    return { allowed: false, reason: "Too many requests at once. Give it a moment." };
+  }
+  await recordEvent(bucket);
+  return { allowed: true };
 }

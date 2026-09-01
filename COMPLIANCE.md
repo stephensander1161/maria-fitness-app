@@ -78,7 +78,7 @@ Read it as an honest inventory, not a certificate.
 
 ### CC8.1 — Change management
 
-- All changes through git; CI runs typecheck, lint, 376 tests, dependency audit
+- All changes through git; CI runs typecheck, lint, 381 tests, dependency audit
   and a production build on every push to main.
 - Deploy is a CI job gated on every other job passing. Production cannot be
   reached from a workstation state that CI has not seen: a red typecheck,

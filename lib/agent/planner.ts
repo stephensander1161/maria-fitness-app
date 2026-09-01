@@ -6,7 +6,7 @@ import { exercises, type Profile } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { DAY_NAMES } from "@/lib/date";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
-import { recordUsage, type UsageSource } from "@/lib/limits";
+import { checkSpendAllowed, recordUsage, type UsageSource } from "@/lib/limits";
 import { MAX_TOKENS, PLANNER_MODEL, PLANNER_PRICING } from "./model";
 
 /**
@@ -86,6 +86,13 @@ async function draft<S extends z.ZodType>(
   source: UsageSource,
   profileId: string,
 ): Promise<z.infer<S>> {
+  // Gated before the call, not merely recorded after it. Usage was going onto
+  // the ledger with nothing reading it back on this path, so a caller outside
+  // the chat route — /api/action reaches every registered tool, and two of
+  // them plan — could run past the daily cap and only be noticed afterwards.
+  const budget = await checkSpendAllowed(profileId);
+  if (!budget.allowed) throw new Error(budget.reason);
+
   const response = await anthropic().messages.create({
     model: PLANNER_MODEL,
     max_tokens: MAX_TOKENS,
