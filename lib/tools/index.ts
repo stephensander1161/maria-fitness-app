@@ -50,6 +50,7 @@ const all: Tool[] = [
   ideas.suggestExercises,
   ideas.suggestMeals,
   nutrition.getRecentMeals,
+  nutrition.getShoppingList,
   training.getPlan,
   profile.getProfile,
   training.getWeekReview,

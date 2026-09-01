@@ -6,6 +6,7 @@ import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { runTool } from "@/lib/tools";
 import type { MealIdea, MoveIdea } from "@/components/ideas";
+import type { ShoppingAisle } from "@/components/shopping-list";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function PlanPage() {
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
 
-  const [week, mealWeek, dayFood, usuals, mealIdeas, moveIdeas] = await Promise.all([
+  const [week, mealWeek, dayFood, usuals, mealIdeas, moveIdeas, shopping] = await Promise.all([
     weekView(profile.id, profile.units),
     mealWeekView(profile.id),
     dayFoodView(profile.id, her),
@@ -23,6 +24,7 @@ export default async function PlanPage() {
     // library reads, no model call.
     runTool("suggest_meals", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MealIdea[] }>,
     runTool("suggest_exercises", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MoveIdea[] }>,
+    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[] }>,
   ]);
 
   return (
@@ -45,6 +47,7 @@ export default async function PlanPage() {
         usuals={usuals}
         initialMeals={mealIdeas.ideas}
         initialMoves={moveIdeas.ideas}
+        shopping={shopping.aisles ?? []}
       />
     </>
   );

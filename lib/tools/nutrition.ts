@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
+import { foods, mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
 import { planMeals } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
 import { recentMeals } from "@/lib/views";
+import { aggregateIngredients, formatAmount } from "@/lib/shopping";
 import { todayForProfile } from "@/lib/profile";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
@@ -384,6 +385,101 @@ export const getRecentMeals = defineTool({
       hint: meals.length === 0
         ? "Nothing logged recently — she has no usuals yet."
         : "Pass these straight to log_meal to repeat one; do not ask her to describe it again.",
+    };
+  },
+});
+
+/** Supermarket order, roughly. Anything unmatched falls to the end. */
+const AISLES: Record<string, string> = {
+  vegetable: "Fruit & veg", fruit: "Fruit & veg",
+  meat: "Meat & fish", fish: "Meat & fish",
+  dairy: "Dairy & eggs", eggs: "Dairy & eggs",
+  grain: "Cupboard", legume: "Cupboard", nut: "Cupboard",
+  fat: "Cupboard", sauce: "Cupboard",
+  drink: "Drinks", snack: "Snacks", prepared: "Chilled & frozen",
+};
+
+export const getShoppingList = defineTool({
+  name: "get_shopping_list",
+  description:
+    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so it stays in the units the recipes used.",
+  input: z.object({
+    weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
+    fromDayOfWeek: z.number().optional().describe("Only from this day onward, 0=Monday — for a mid-week top-up shop"),
+  }),
+  handler: async (input, ctx) => {
+    const week = input.weekStart ?? weekStart();
+    const [plan] = await db.select().from(mealPlans)
+      .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, week))).limit(1);
+    if (!plan) return { exists: false, weekStart: week, hint: "No meal plan for that week yet." };
+
+    const rows = await db.select().from(meals).where(eq(meals.mealPlanId, plan.id));
+    const wanted = input.fromDayOfWeek === undefined
+      ? rows
+      : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
+
+    const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
+
+    // Aisle comes from the food library, so it is the same categorisation the
+    // calculator uses rather than a second list to keep in step.
+    const library = await db.select({
+      name: foods.name, category: foods.category, aliases: foods.aliases,
+    }).from(foods);
+
+    // Rank, do not just match. Direction matters: when the shopping item
+    // contains the label ("chicken breast" contains "chicken"), a longer label
+    // is a more specific hit. When the label contains the item ("garlic bread"
+    // contains "garlic"), a longer label is a *worse* hit — that is how garlic
+    // ended up filed as a frozen ready meal.
+    const aisleFor = (item: string): string => {
+      const q = item.toLowerCase().trim();
+      let best: { category: string; rank: number; length: number } | null = null;
+
+      for (const f of library) {
+        for (const label of [f.name, ...f.aliases]) {
+          const l = label.toLowerCase().trim();
+          let rank: number;
+          if (l === q) rank = 0;
+          else if (q.includes(l)) rank = 1;
+          else if (l.includes(q)) rank = 2;
+          else continue;
+
+          const better =
+            !best ||
+            rank < best.rank ||
+            // Within a rank: longest label when the item contains it, shortest
+            // when it contains the item.
+            (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
+          if (better) best = { category: f.category, rank, length: l.length };
+        }
+      }
+      return best ? AISLES[best.category] ?? "Other" : "Other";
+    };
+
+    const grouped = new Map<string, typeof items>();
+    for (const item of items) {
+      const aisle = aisleFor(item.item);
+      grouped.set(aisle, [...(grouped.get(aisle) ?? []), item]);
+    }
+
+    const order = ["Fruit & veg", "Meat & fish", "Dairy & eggs", "Chilled & frozen", "Cupboard", "Snacks", "Drinks", "Other"];
+    return {
+      exists: true,
+      weekStart: week,
+      mealsCovered: wanted.length,
+      totalItems: items.length,
+      aisles: order
+        .filter((a) => grouped.has(a))
+        .map((aisle) => ({
+          aisle,
+          items: (grouped.get(aisle) ?? []).map((i) => ({
+            item: i.item,
+            // Written out rather than left as a number and a unit, so it can be
+            // read straight back to her.
+            quantity: i.amount === null ? null : `${formatAmount(i.amount)}${i.unit ? (i.unit.length <= 2 ? "" : " ") + i.unit : ""}`,
+            fromMeals: i.fromMeals,
+          })),
+        })),
     };
   },
 });
