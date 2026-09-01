@@ -2,10 +2,11 @@ import { z } from "zod";
 import { and, desc, eq, gte, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, profiles, setLogs, weighIns, workouts } from "@/lib/db/schema";
-import { addDays, today } from "@/lib/date";
+import { addDays, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut } from "@/lib/units";
 import { currentStreak, measurementProgress } from "@/lib/progress";
 import { pickUnseenFact } from "@/lib/facts";
+import { todayForProfile } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
 
 /**
@@ -32,7 +33,7 @@ const OPENERS = [
 type Evidence = { headline: string; detail?: string };
 
 /** Whichever true thing about her is most worth hearing right now. */
-async function findEvidence(ctx: ToolContext): Promise<Evidence[]> {
+async function findEvidence(ctx: ToolContext, asOf: ISODate): Promise<Evidence[]> {
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
   if (!profile) return [];
   const u = profile.units;
@@ -75,7 +76,7 @@ async function findEvidence(ctx: ToolContext): Promise<Evidence[]> {
     .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
     .where(and(
       eq(workouts.profileId, ctx.profileId),
-      gte(workouts.date, addDays(today(), -30)),
+      gte(workouts.date, addDays(asOf, -30)),
       // Bodyweight sets carry no weight, and Postgres sorts NULLs first on
       // DESC — without this the "heaviest set" was always a plank.
       isNotNull(setLogs.weightKg),
@@ -110,12 +111,13 @@ export const getBoost = defineTool({
     "Pull together an encouragement built from her real numbers — a streak, weight or inches lost, her heaviest recent set — plus a fact she hasn't seen. Use it when she is flat, discouraged, or talking herself out of training, and say the numbers back to her rather than offering generic reassurance.",
   input: z.object({}),
   handler: async (_input, ctx) => {
-    const evidence = await findEvidence(ctx);
+    const asOf = await todayForProfile(ctx.profileId);
+    const evidence = await findEvidence(ctx, asOf);
     const fact = await pickUnseenFact(ctx.profileId);
 
     return {
       // Rotates on the date so the same day is consistent but tomorrow differs.
-      opener: OPENERS[new Date(today()).getUTCDate() % OPENERS.length],
+      opener: OPENERS[new Date(asOf).getUTCDate() % OPENERS.length],
       evidence,
       fact: fact ? { text: fact.text, source: fact.source, category: fact.category } : null,
       hasData: evidence.length > 0,

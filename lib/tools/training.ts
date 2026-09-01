@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import {
   exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
-import { addDays, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, today, weekStart } from "@/lib/date";
+import { addDays, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart, type ISODate } from "@/lib/date";
 import { weightIn, weightLabel, weightOut } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
 import { planWeek, resolveSlugs } from "@/lib/agent/planner";
@@ -288,7 +288,9 @@ export const adjustPlanDay = defineTool({
 
 /** Find today's open workout, or open one from the plan. Shared by log_set and
  *  the fast-log UI so both land in the same session row. */
-export async function ensureWorkout(ctx: ToolContext, date = today()) {
+// `date` is required: both callers compute it in her timezone, and a default
+// in the server's would silently open a session on the wrong day.
+export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
   const [open] = await db.select().from(workouts)
     .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
     .orderBy(desc(workouts.startedAt)).limit(1);

@@ -177,3 +177,24 @@ suite("a failed action is never silent", () => {
     ).toEqual([]);
   });
 });
+
+suite("every tool dates her day in her timezone", () => {
+  /**
+   * The app once held two notions of "today": sets and weigh-ins used the
+   * profile's timezone, meals and photos used APP_TIMEZONE. They agree only
+   * while the deployment happens to match the one profile, so a second user
+   * elsewhere would file their dinner on the wrong day.
+   *
+   * A tool must reach for todayForProfile, never the bare today().
+   */
+  it("no tool computes today from the server's clock", () => {
+    const offenders = walk("lib/tools")
+      .filter((file) => /(?<![.\w])today\s*\(\s*\)/.test(read(file)));
+
+    expect(
+      offenders,
+      `these tools date her day in the server's timezone: ${offenders.join(", ")}. ` +
+      "Use todayForProfile(ctx.profileId).",
+    ).toEqual([]);
+  });
+});
