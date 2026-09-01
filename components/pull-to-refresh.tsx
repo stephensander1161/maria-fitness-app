@@ -50,6 +50,13 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       // Only from a genuine resting position at the top. Mid-scroll pulls are
       // the browser's job, not ours.
       if (window.scrollY > 0 || refreshing) return;
+
+      // The overlays scroll inside themselves, so the page's scrollY is 0 the
+      // whole time one is open. Without this, dragging down to scroll back up
+      // inside a form guide mid-set moved the page underneath instead, and
+      // letting go reloaded a screen she never asked to reload.
+      const target = e.target as Element | null;
+      if (target?.closest?.("[data-no-pull-to-refresh]")) return;
       startY.current = e.touches[0].clientY;
       active.current = true;
       setDragging(true);

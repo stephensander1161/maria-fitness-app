@@ -22,6 +22,8 @@ export function Coach({ initialName }: { initialName: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
@@ -35,20 +37,25 @@ export function Coach({ initialName }: { initialName: string | null }) {
   /** Shared streaming path for both a typed message and the opening turn. */
   const stream = useCallback(async (body: { message: string } | { kickoff: true }) => {
     let acc = "";
+    let failed = false;
     try {
       for await (const event of streamCoach(body)) {
         if (event.type === "text") { acc += event.text; setStreaming(acc); setActivity(null); }
         else if (event.type === "tool") setActivity(event.status === "running" ? LABELS[event.name] ?? "working" : null);
-        else if (event.type === "error") setError(event.message);
+        else if (event.type === "error") { setError(event.message); failed = true; }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection lost");
+      failed = true;
     }
 
     if (acc.trim()) setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: acc }]);
     setStreaming("");
     setActivity(null);
     setBusy(false);
+    // Delivered means the coach said something. A failure with no text at
+    // all is the case where her message never landed.
+    return acc.trim().length > 0 || !failed;
   }, []);
 
   const send = useCallback(
@@ -57,7 +64,15 @@ export function Coach({ initialName }: { initialName: string | null }) {
       setError(null);
       setInput("");
       setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
-      await stream({ message: text });
+
+      const delivered = await stream({ message: text });
+      if (!delivered) {
+        // Nothing came back at all, so the server never heard it. Put her words
+        // back in the box rather than making her remember what she typed —
+        // this is the gym-with-bad-signal case the whole app is built around.
+        setMessages((m) => m.slice(0, -1));
+        setInput((current) => current || text);
+      }
     },
     [stream],
   );
@@ -65,18 +80,31 @@ export function Coach({ initialName }: { initialName: string | null }) {
   // Load the transcript, and if there isn't one, let the coach open the
   // conversation itself — this app greets her, it doesn't wait to be prompted.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const res = await fetch("/api/messages");
-      const data = await res.json();
-      setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
-      setLoaded(true);
-      if (data.messages.length === 0 && !kicked.current) {
-        kicked.current = true;
-        setBusy(true);
-        void stream({ kickoff: true });
+      try {
+        const res = await fetch("/api/messages");
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (cancelled) return;
+        setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
+        setLoaded(true);
+        if (data.messages.length === 0 && !kicked.current) {
+          kicked.current = true;
+          setBusy(true);
+          void stream({ kickoff: true });
+        }
+      } catch {
+        // This is the front door, and it used to fail in total silence: the
+        // fetch rejected, nothing was caught, and she got "Hey, Maria" over an
+        // empty screen with her history apparently gone. Say so instead.
+        if (cancelled) return;
+        setLoaded(true);
+        setLoadFailed(true);
       }
     })();
-  }, [stream]);
+    return () => { cancelled = true; };
+  }, [stream, reloadKey]);
 
   return (
     <div className="flex min-h-[calc(100dvh-7rem)] flex-col">
@@ -137,6 +165,18 @@ export function Coach({ initialName }: { initialName: string | null }) {
               <span key={i} className="size-1.5 animate-bounce rounded-full bg-faint"
                 style={{ animationDelay: `${i * 120}ms` }} />
             ))}
+          </div>
+        )}
+
+        {loadFailed && (
+          <div className="rounded-xl border border-line bg-surface px-3.5 py-3 text-[14px] text-muted">
+            <p>Couldn&rsquo;t load your conversation — you may be offline.</p>
+            <button
+              onClick={() => { setLoadFailed(false); setReloadKey((k) => k + 1); }}
+              className="mt-2 rounded-lg border border-line px-3 py-2 text-[13px] text-accent"
+            >
+              Try again
+            </button>
           </div>
         )}
 

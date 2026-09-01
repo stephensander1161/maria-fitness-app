@@ -158,6 +158,23 @@ export async function logSetOrQueue<T>(input: PendingSetInput): Promise<LogSetOu
   }
 }
 
+/**
+ * The zone the phone is in.
+ *
+ * This module runs in the browser, where `process.env.APP_TIMEZONE` is not
+ * inlined — it has no NEXT_PUBLIC_ prefix — so a bare `today()` here silently
+ * fell back to UTC. Every set logged after about 5pm Mountain was dated
+ * tomorrow, offline or not: exactly the bug lib/date.ts was written to
+ * prevent, reintroduced on the client side of the same feature.
+ */
+const deviceZone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+};
+
 /** Build the input for a set performed right now. */
 export const setInput = (
   exerciseSlug: string,
@@ -167,7 +184,7 @@ export const setInput = (
   exerciseSlug,
   reps,
   weight,
-  date: today(),
+  date: today(deviceZone()),
   clientKey: crypto.randomUUID(),
 });
 

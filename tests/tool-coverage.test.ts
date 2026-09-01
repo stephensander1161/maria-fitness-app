@@ -188,8 +188,11 @@ suite("every tool dates her day in her timezone", () => {
    * A tool must reach for todayForProfile, never the bare today().
    */
   it("no tool computes today from the server's clock", () => {
-    const offenders = walk("lib/tools")
-      .filter((file) => /(?<![.\w])today\s*\(\s*\)/.test(read(file)));
+    // weekStart() and dayIndex() default to today() internally, so banning
+    // today() alone left twelve call sites still on the server's weekday —
+    // which is how add_exercise_to_day came to edit the wrong day of her plan.
+    const serverDated = /(?<![.\w])(today|weekStart|dayIndex)\s*\(\s*\)/;
+    const offenders = walk("lib/tools").filter((file) => serverDated.test(read(file)));
 
     expect(
       offenders,

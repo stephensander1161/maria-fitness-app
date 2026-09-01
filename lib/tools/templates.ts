@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealPlans, mealTemplates, profiles, workoutTemplates } from "@/lib/db/schema";
 import { weekStart } from "@/lib/date";
+import { todayForProfile } from "@/lib/profile";
 import {
   instantiateMealPlan, instantiateWorkoutPlan, pickMealTemplate, pickWorkoutTemplate,
 } from "@/lib/templates";
@@ -50,7 +51,7 @@ export const applyTemplate = defineTool({
       return { ok: false, error: "Name a training or meal template slug." };
     }
 
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
     const applied: string[] = [];
 
     if (input.trainingSlug) {

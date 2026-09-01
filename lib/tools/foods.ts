@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
-import { recordUsage } from "@/lib/limits";
+import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { matchScore, parsePortion, toGrams } from "@/lib/portion";
 import { defineTool, type ToolContext } from "./define";
 
@@ -128,6 +128,12 @@ const Estimate = z.object({
 /** The fallback. Cheap, and only reached when the library has nothing. */
 async function estimate(query: string, ctx: ToolContext) {
   try {
+    // Gated before the call, like every other model call. This one was
+    // recording its usage and checking nothing, and lookup_food is reachable
+    // in a loop from /api/action — so it was the way past the daily cap.
+    const budget = await checkSpendAllowed(ctx.profileId);
+    if (!budget.allowed) return { found: false, error: budget.reason };
+
     const response = await anthropic().messages.create({
       model: MODEL,
       max_tokens: 512,

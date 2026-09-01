@@ -69,6 +69,9 @@ function Sheet({
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm">
       <div onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
+        // This sheet scrolls inside itself, so the page-level pull gesture
+        // must leave it alone.
+        data-no-pull-to-refresh=""
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}>
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="text-[17px] font-semibold">On your {label}</h2>

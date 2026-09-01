@@ -33,7 +33,7 @@ export const createMealPlan = defineTool({
     const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
     if (!profile) return { ok: false, error: "Profile not found." };
 
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
 
     let drafted;
     try {
@@ -94,7 +94,7 @@ export const getMealPlan = defineTool({
     dayOfWeek: z.number().optional().describe("Limit to one day; 0=Monday"),
   }),
   handler: async (input, ctx) => {
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
     const [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, week))).limit(1);
     if (!plan) return { exists: false, weekStart: week, hint: "No meal plan yet — call create_meal_plan." };
@@ -107,7 +107,7 @@ export const getMealPlan = defineTool({
       exists: true, weekStart: week,
       calorieTarget: plan.calorieTarget, proteinTargetG: plan.proteinTargetG,
       carbTargetG: plan.carbTargetG, fatTargetG: plan.fatTargetG,
-      rationale: plan.rationale, todayIsDayOfWeek: dayIndex(),
+      rationale: plan.rationale, todayIsDayOfWeek: dayIndex(await todayForProfile(ctx.profileId)),
       meals: filtered.map((m) => ({
         id: m.id, dayName: DAY_NAMES[m.dayOfWeek], dayOfWeek: m.dayOfWeek, slot: m.slot,
         title: m.title, calories: m.calories, proteinG: m.proteinG,
@@ -408,7 +408,7 @@ export const getShoppingList = defineTool({
     fromDayOfWeek: z.number().optional().describe("Only from this day onward, 0=Monday — for a mid-week top-up shop"),
   }),
   handler: async (input, ctx) => {
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
     const [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, week))).limit(1);
     if (!plan) return { exists: false, weekStart: week, hint: "No meal plan for that week yet." };

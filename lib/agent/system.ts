@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { DAY_NAMES, dayIndex, today, weekStart } from "@/lib/date";
+import { DAY_NAMES, dayIndex, weekStart } from "@/lib/date";
 import type { Profile } from "@/lib/db/schema";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
-import { missingForPlan } from "@/lib/profile";
+import { missingForPlan, profileToday } from "@/lib/profile";
 
 /**
  * The system prompt is split in two so prompt caching actually works: the
@@ -81,7 +81,14 @@ export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlo
   const missing = missingForPlan(profile);
 
   const state = [
-    `Today is ${DAY_NAMES[dayIndex()]}, ${today()} — that is dayOfWeek ${dayIndex()} for any tool that takes one. `+ `The current training week starts ${weekStart()}.`,
+    // Her day, not the server's. This line is the one the model trusts
+    // most completely, and getting it wrong sends every dayOfWeek-taking
+    // tool at the wrong day of her plan.
+    (() => {
+      const d = profileToday(profile);
+      return `Today is ${DAY_NAMES[dayIndex(d)]}, ${d} — that is dayOfWeek ${dayIndex(d)} for any tool that takes one. `
+        + `The current training week starts ${weekStart(d)}.`;
+    })(),
     profile.onboardedAt
       ? `She is onboarded.`
       : `SHE IS NOT ONBOARDED YET — interview her warmly and build her first plan.`,

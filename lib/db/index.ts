@@ -8,7 +8,12 @@ type Db = ReturnType<typeof drizzle<typeof schema>>;
 /**
  * The pool is created on first query, not at module load — otherwise Next's
  * build-time page-data collection would demand DATABASE_URL just to read the
- * module. The globalThis cache keeps dev hot-reload from opening a pool per edit.
+ * module.
+ *
+ * The cache is NOT dev-only. `db` is a Proxy that calls connect() on every
+ * property access, so caching only outside production meant production built a
+ * fresh postgres client — five more connections — on every single query, and
+ * leaked them. Neon runs out long before that is noticed in a page load.
  */
 const globalForDb = globalThis as unknown as { _sql?: ReturnType<typeof postgres>; _db?: Db };
 
@@ -24,10 +29,8 @@ function connect(): Db {
     });
 
   const instance = drizzle(sql, { schema });
-  if (process.env.NODE_ENV !== "production") {
-    globalForDb._sql = sql;
-    globalForDb._db = instance;
-  }
+  globalForDb._sql = sql;
+  globalForDb._db = instance;
   return instance;
 }
 

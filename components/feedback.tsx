@@ -95,6 +95,9 @@ export function Feedback() {
       <div
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
+        // This sheet scrolls inside itself, so the page-level pull gesture
+        // must leave it alone.
+        data-no-pull-to-refresh=""
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
       >
         <div className="mb-4 flex items-center justify-between">

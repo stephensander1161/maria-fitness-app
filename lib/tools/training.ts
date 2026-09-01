@@ -9,7 +9,7 @@ import { weightIn, weightLabel, weightOut } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
 import { planWeek, resolveSlugs } from "@/lib/agent/planner";
 import { weekView } from "@/lib/views";
-import { profileToday } from "@/lib/profile";
+import { profileToday, todayForProfile } from "@/lib/profile";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
@@ -106,7 +106,7 @@ export const createWeeklyPlan = defineTool({
     const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
     if (!profile) return { ok: false, error: "Profile not found." };
 
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
 
     // Hand the planner last week so it can progress rather than restart.
     const previousView = await weekView(ctx.profileId, profile.units, addDays(week, -7));
@@ -189,7 +189,7 @@ export const getPlan = defineTool({
   input: z.object({ weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week") }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
     const [plan] = await db.select().from(plans)
       .where(and(eq(plans.profileId, ctx.profileId), eq(plans.weekStart, week))).limit(1);
     if (!plan) return { exists: false, weekStart: week, hint: "No plan for this week — call create_weekly_plan." };
@@ -214,7 +214,7 @@ export const getPlan = defineTool({
     return {
       exists: true, weekStart: week, title: plan.title, rationale: plan.rationale,
       unit: weightLabel(units),
-      todayIsDayOfWeek: dayIndex(),
+      todayIsDayOfWeek: dayIndex(await todayForProfile(ctx.profileId)),
       days: days.map((d) => ({
         dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek],
         title: d.title, focus: d.focus, isRest: d.isRest, notes: d.notes,
@@ -250,7 +250,7 @@ export const adjustPlanDay = defineTool({
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const week = input.weekStart ?? weekStart();
+    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
     const [plan] = await db.select().from(plans)
       .where(and(eq(plans.profileId, ctx.profileId), eq(plans.weekStart, week))).limit(1);
     if (!plan) return { ok: false, error: "No plan for that week. Call create_weekly_plan first." };
@@ -460,7 +460,7 @@ export const getWeekReview = defineTool({
   input: z.object({ weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week") }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const r = await weekReview(ctx.profileId, units, input.weekStart ?? weekStart());
+    const r = await weekReview(ctx.profileId, units, input.weekStart ?? weekStart(await todayForProfile(ctx.profileId)));
     return {
       ...r,
       totalVolume: Math.round(r.totalVolumeKg * (units === "imperial" ? 2.20462 : 1)),
@@ -476,8 +476,12 @@ async function planDayFor(
   profileId: string,
   opts: { dayOfWeek?: number; weekStart?: string },
 ) {
-  const week = opts.weekStart ?? weekStart();
-  const dow = opts.dayOfWeek ?? dayIndex();
+  // One lookup, not two: this helper backs add_exercise_to_day and
+  // remove_exercise_from_day, which defaulted to the server's weekday and so
+  // edited the wrong day of her plan every evening.
+  const hers = await todayForProfile(profileId);
+  const week = opts.weekStart ?? weekStart(hers);
+  const dow = opts.dayOfWeek ?? dayIndex(hers);
   const [plan] = await db.select({ id: plans.id }).from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
   if (!plan) return { error: "No plan for that week yet. Call create_weekly_plan first." } as const;
