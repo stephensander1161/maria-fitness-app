@@ -496,7 +496,7 @@ export const facts = pgTable(
     id: id(),
     slug: text("slug").notNull(),
     category: text("category", {
-      enum: ["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health"],
+      enum: ["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health", "postpartum"],
     }).notNull(),
     text: text("text").notNull(),
     source: text("source"),

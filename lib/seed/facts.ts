@@ -1,6 +1,8 @@
 type FactSeed = {
   slug: string;
-  category: "sedentary_risk" | "strength" | "nutrition" | "recovery" | "motivation" | "womens_health";
+  category:
+    | "sedentary_risk" | "strength" | "nutrition" | "recovery" | "motivation"
+    | "womens_health" | "postpartum";
   text: string;
   source?: string;
 };
@@ -337,4 +339,51 @@ export const FACTS: FactSeed[] = [
   { slug: "log-your-sets", category: "motivation",
     text: "Written logs beat memory by a wide margin, and seeing last week's numbers is what makes progressive overload actually happen. The log isn't admin — it's the mechanism.",
     source: "Self-monitoring research in behaviour change" },
+  // ── What her body actually did ────────────────────────────────────────────
+  // Written to be true first and kind second, because a compliment she can
+  // tell is hollow is worth nothing. Every one of these is a real, measurable
+  // thing a pregnant body does — the awe is in the physiology, not in the
+  // adjectives.
+  { slug: "pp-blood-volume", category: "postpartum",
+    text: "Your blood volume rose by 40–50% during pregnancy — litres of extra blood, made from nothing, to supply an organ you also grew from scratch. Your heart moved more of it per minute than an endurance athlete's does at rest." },
+  { slug: "pp-cardiac-output", category: "postpartum",
+    text: "Cardiac output climbs 30–50% in pregnancy and the heart enlarges to manage it. That is a training adaptation most athletes would spend years chasing, and you did it while asleep." },
+  { slug: "pp-uterus-growth", category: "postpartum",
+    text: "The uterus goes from roughly the size of a pear, about 60g, to over a kilogram — and its capacity increases around 500-fold. Then, in about six weeks, it comes almost all the way back. No other organ does anything like it." },
+  { slug: "pp-placenta", category: "postpartum",
+    text: "You grew an entire organ, used it for nine months, and then delivered it. The placenta is the only organ a human body builds temporarily and on purpose." },
+  { slug: "pp-microchimerism", category: "postpartum",
+    text: "Cells from your baby crossed into your bloodstream during pregnancy, and some are still there — fetal cells have been found in mothers decades later, settled into tissue including the heart. Part of them stays, literally." },
+  { slug: "pp-diastasis-normal", category: "postpartum",
+    text: "Essentially every pregnancy produces some separation of the abdominal muscles by the third trimester. It is the connective tissue doing what it is designed to do — stretching to make room — not damage, and for most it narrows substantially over the months after birth.",
+    source: "Mota et al., J Orthop Sports Phys Ther, 2015" },
+  { slug: "pp-linea-alba", category: "postpartum",
+    text: "The line down the middle of your abdomen is connective tissue, not muscle, and it is built to stretch. A gap there is a stretched seam, not a tear — which is why the work is about how it holds tension, not about closing a number." },
+  { slug: "pp-six-weeks", category: "postpartum",
+    text: "The six-week check is a check, not a finish line. Connective tissue carries on remodelling for six to twelve months afterwards, which is why something can feel fine at eight weeks and better again at eight months." },
+  { slug: "pp-pelvic-floor-trainable", category: "postpartum",
+    text: "The pelvic floor is skeletal muscle, the same as a bicep, and it responds to training the same way. Supervised pelvic floor muscle training is the first-line treatment for postnatal leaking, and it works — this is a fixable thing, not a permanent one.",
+    source: "Woodley et al., Cochrane Review" },
+  { slug: "pp-feeding-energy", category: "postpartum",
+    text: "Breastfeeding costs roughly 450–500 kcal a day — comparable to running five miles. If you are feeding and eating like you did before, you are running a deficit whether you intended one or not." },
+  { slug: "pp-bone-density", category: "postpartum",
+    text: "Bone density drops measurably during lactation as calcium goes to milk, and then recovers after weaning. Your skeleton lends out material and takes it back. Resistance training is what makes that recovery go well." },
+  { slug: "pp-relaxin", category: "postpartum",
+    text: "Relaxin loosened your ligaments to let the pelvis open, and joint laxity can persist for months after birth. That is why things feel less stable than your strength suggests — it is a ligament timeline, not a fitness one." },
+  { slug: "pp-ribcage", category: "postpartum",
+    text: "The ribcage widens in pregnancy to make room, and often does not go all the way back. Some of what changed is permanent — your body was reshaped by what it did, which is a different thing entirely from damaged." },
+  { slug: "pp-feet", category: "postpartum",
+    text: "Many women's feet get permanently longer or wider after pregnancy, as the arch settles under load and relaxin does its work. If your shoes stopped fitting, nothing went wrong — you are a slightly different shape than before." },
+  { slug: "pp-carrying-overload", category: "postpartum",
+    text: "A baby goes from about 3.5kg to around 10kg in a year, and you carry them the whole way. That is textbook progressive overload — the same principle as adding a plate a month, except you cannot skip a session." },
+  { slug: "pp-walking-counts", category: "postpartum",
+    text: "In the early weeks a walk is genuine training, not a consolation prize. After the deconditioning of late pregnancy and birth, walking sits at a real percentage of your capacity — which is the definition of a training stimulus." },
+  { slug: "pp-sleep-strength", category: "postpartum",
+    text: "Short sleep measurably lowers strength, power and how well you recover between sessions. On a broken night the right move is a lighter session, not a missed one — and that is a physiological fact, not an excuse." },
+  { slug: "pp-return-stronger", category: "postpartum",
+    text: "Plenty of athletes come back from pregnancy and go on to their best performances. Whatever else is true right now, having a baby is not the end of what your body can do — the evidence is firmly the other way." },
+  { slug: "pp-doming-signal", category: "postpartum",
+    text: "A ridge that appears down the middle of your abdomen during an exercise is information, not failure. It means the load is currently more than the tissue manages well — do fewer, or an easier version, and it moves within weeks." },
+  { slug: "pp-heaviness-flag", category: "postpartum",
+    text: "Heaviness or dragging in the pelvis, or leaking, are the two signals worth acting on rather than training through. Both are common, both are treatable, and a pelvic health physiotherapist is the person for them." },
 ];

@@ -241,7 +241,7 @@ export const getFact = defineTool({
   description:
     "Pull a fitness or health fact she hasn't seen recently — strength, nutrition, recovery, women's health, or the risks of a sedentary lifestyle. Drop one in naturally when it lands on something she just did or asked about; never open with one twice in a row.",
   input: z.object({
-    category: z.enum(["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health"])
+    category: z.enum(["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health", "postpartum"])
       .optional().describe("Omit to let it pick"),
   }),
   handler: async (input, ctx) => {
