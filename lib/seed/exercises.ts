@@ -1385,6 +1385,7 @@ export const EXERCISES: Seed[] = [
     primaryMuscles: ["spine", "core"], equipment: ["bodyweight", "mat"], bodyweight: true,
     formCues: ["On hands and knees.", "Exhale and round your spine toward the ceiling.", "Inhale and let your belly drop as your chest and tailbone lift.", "Move slowly with the breath."],
     commonMistakes: ["Rushing and only moving the lower back."],
+    safetyNote: "Move within comfort — this is a warm-up for the spine, not a stretch to push into. Nothing here should pinch.",
   },
   {
     slug: "hip-flexor-stretch", name: "Half-Kneeling Hip Flexor Stretch", category: "mobility",
@@ -1398,12 +1399,14 @@ export const EXERCISES: Seed[] = [
     primaryMuscles: ["upper back", "chest"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
     formCues: ["Lie on your side, knees bent at 90 degrees and stacked.", "Arms straight out in front, palms together.", "Open the top arm across your body like a book, following it with your eyes.", "Keep the knees stacked and down."],
     commonMistakes: ["Letting the knees roll open, which turns it into a lower-back twist."],
+    safetyNote: "Rotation comes from the upper back. If you feel it in the lower back instead, bend the knees more and keep them stacked.",
   },
   {
     slug: "downward-dog", name: "Downward Dog", category: "mobility",
     primaryMuscles: ["hamstrings", "calves", "shoulders"], equipment: ["bodyweight", "mat"], bodyweight: true,
     formCues: ["From hands and knees, lift the hips up and back.", "Bend the knees as much as needed to get a long, flat back.", "Press the floor away through your hands."],
     commonMistakes: ["Forcing straight legs and rounding the back instead."],
+    safetyNote: "Bend the knees as much as you need to keep a long back. Straight legs at the cost of a rounded spine is the wrong trade.",
   },
   {
     slug: "ankle-mobilization", name: "Knee-to-Wall Ankle Mobilization", category: "mobility",
@@ -1442,6 +1445,7 @@ export const EXERCISES: Seed[] = [
       "Rushing through it — one slow rep per side beats six fast ones.",
     ],
     easier: ["hip-flexor-stretch"],
+    safetyNote: "Pad the back knee, and go through it slowly. It covers a lot of joints at once, which is what makes it useful and what makes it easy to rush.",
   },
   {
     slug: "childs-pose", name: "Child's Pose", category: "mobility",
@@ -1456,6 +1460,7 @@ export const EXERCISES: Seed[] = [
       "Holding tension in the shoulders instead of letting them go.",
       "Cutting it short — the release comes from time, not effort.",
     ],
+    safetyNote: "Knees wider if it pinches at the front of the hips, and a cushion under the backside if the position is out of reach today.",
   },
   {
     slug: "figure-four-stretch", name: "Supine Figure-Four Stretch", category: "mobility",
@@ -1470,6 +1475,7 @@ export const EXERCISES: Seed[] = [
       "Pulling so hard the lower back peels off the floor.",
       "Letting the crossed knee drift inward instead of staying open.",
     ],
+    safetyNote: "Pull behind the thigh rather than over the top of the shin, and stop short of any pinch at the front of the hip.",
   },
   {
     slug: "supine-hamstring-stretch", name: "Supine Hamstring Stretch", category: "mobility",
@@ -1484,6 +1490,7 @@ export const EXERCISES: Seed[] = [
       "Yanking the leg straighter than the hamstring will allow.",
       "Letting the opposite hip lift off the floor.",
     ],
+    safetyNote: "Use a strap or towel rather than reaching for the foot — reaching rounds the back, which is the thing you are trying to protect.",
   },
   {
     slug: "doorway-chest-stretch", name: "Doorway Chest Stretch", category: "mobility",
@@ -1513,6 +1520,7 @@ export const EXERCISES: Seed[] = [
       "Gripping too narrow too soon, which forces the elbows to bend.",
       "Arching the lower back to get the band past.",
     ],
+    safetyNote: "Start with the hands far wider than feels necessary and narrow them over weeks. Forcing a narrow grip is how shoulders get irritated.",
   },
 
   // ── Cardio ────────────────────────────────────────────────────────────────
@@ -1652,5 +1660,363 @@ export const EXERCISES: Seed[] = [
     ],
     safetyNote: "Adds real work to a walk with almost none of the impact of running. Leave it out if your lower back is already irritable.",
     easier: ["brisk-walk"], harder: ["incline-treadmill-walk"],
+  },
+  // ── Physiotherapy stretches and rehab drills ──────────────────────────────
+  // Standard, widely-prescribed movements for the complaints that actually
+  // stop people training: desk neck, cranky lower backs, knees, calves and
+  // wrists. Every one carries the same rule in its safety note — a stretch
+  // should feel like a stretch, and sharp or radiating pain means stop and get
+  // it looked at. These do not replace an assessment; they are what a
+  // physiotherapist most often sends someone home with.
+  {
+    slug: "chin-tuck", name: "Chin Tuck", category: "mobility",
+    primaryMuscles: ["deep neck flexors", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true,
+    formCues: [
+      "Sit or stand tall, eyes level with the horizon.",
+      "Draw your chin straight back, as if making a double chin — not down toward your chest.",
+      "You should feel a gentle lengthening at the base of the skull.",
+      "Hold five seconds, release. Ten of those.",
+    ],
+    commonMistakes: [
+      "Nodding the chin down instead of gliding it back — a different movement entirely.",
+      "Pushing hard enough to clench the jaw. This one is deliberately small.",
+    ],
+    safetyNote: "The single most useful drill for a neck that aches by mid-afternoon. Dizziness or pain running into an arm means stop and get it assessed.",
+    harder: ["wall-slide"],
+  },
+  {
+    slug: "upper-trap-stretch", name: "Upper Trapezius Stretch", category: "mobility",
+    primaryMuscles: ["upper traps", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Sit on your hand on one side to anchor that shoulder down.",
+      "Tip the opposite ear toward the opposite shoulder.",
+      "Add a light pull with the free hand only if you need more.",
+      "Thirty seconds each side, breathing out as you settle.",
+    ],
+    commonMistakes: [
+      "Letting the anchored shoulder ride up, which removes the stretch entirely.",
+      "Rotating the head instead of tipping it sideways.",
+    ],
+    safetyNote: "Never pull hard on your own head. The anchor does the work, not the hand.",
+  },
+  {
+    slug: "levator-scapulae-stretch", name: "Levator Scapulae Stretch", category: "mobility",
+    primaryMuscles: ["levator scapulae", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Anchor one shoulder by sitting on that hand.",
+      "Turn your head about 45 degrees away from that side, then look down toward your armpit.",
+      "Light pressure from the free hand on the back of your head if needed.",
+      "Thirty seconds each side.",
+    ],
+    commonMistakes: [
+      "Confusing it with the upper trap stretch — this one looks down into the armpit, not sideways.",
+    ],
+    safetyNote: "This is the one for the knot at the top inside edge of the shoulder blade.",
+  },
+  {
+    slug: "thread-the-needle", name: "Thread the Needle", category: "mobility",
+    primaryMuscles: ["thoracic spine", "rear shoulder"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "On all fours, hips over knees.",
+      "Slide one arm underneath your body, palm up, until the shoulder and side of the head rest down.",
+      "Keep the hips stacked over the knees rather than drifting back.",
+      "Five slow breaths, then swap.",
+    ],
+    commonMistakes: [
+      "Letting the hips sit back toward the heels, which turns it into a child's pose.",
+      "Rushing. The rotation opens over several breaths, not on contact.",
+    ],
+    easier: ["thoracic-rotation"], harder: ["thoracic-extension-roller"],
+    safetyNote: "Come out of it if the shoulder you are lying on complains — the stretch belongs in the upper back, not the shoulder joint.",
+  },
+  {
+    slug: "thoracic-extension-roller", name: "Foam Roller Thoracic Extension", category: "mobility",
+    primaryMuscles: ["thoracic spine", "upper back"], equipment: ["foam roller", "mat"], bodyweight: true,
+    formCues: [
+      "Roller across the upper back, just below the shoulder blades.",
+      "Hands behind your head to support its weight, elbows toward each other.",
+      "Breathe out and let the upper back drape backwards over the roller.",
+      "Move the roller an inch higher and repeat, three or four positions.",
+    ],
+    commonMistakes: [
+      "Extending from the lower back instead of the upper — ribs stay down, the movement is above them.",
+      "Rolling up and down quickly. Stop at a spot and breathe instead.",
+    ],
+    safetyNote: "Stay above the bottom of the ribs. The lower back is not meant to extend over a roller.",
+    easier: ["thread-the-needle"],
+  },
+  {
+    slug: "pendulum-swing", name: "Shoulder Pendulum", category: "mobility",
+    primaryMuscles: ["shoulder"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Lean forward, supporting yourself with the good arm on a chair or table.",
+      "Let the sore arm hang completely dead.",
+      "Move your hips to swing the arm — small circles, then side to side.",
+      "Thirty seconds each direction.",
+    ],
+    commonMistakes: [
+      "Using the shoulder muscles to move the arm. The hips swing it; the arm is a rope.",
+    ],
+    safetyNote: "The standard first movement after a shoulder has been sore or immobilised, precisely because the joint moves without the muscles working.",
+  },
+  {
+    slug: "sleeper-stretch", name: "Sleeper Stretch", category: "mobility",
+    primaryMuscles: ["posterior shoulder capsule"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Lie on the side you want to stretch, shoulder under you, elbow bent to 90 degrees out in front.",
+      "Roll slightly back so you are not directly on the point of the shoulder.",
+      "Use the top hand to press the bottom forearm gently toward the floor.",
+      "Thirty seconds, stop well short of pinching.",
+    ],
+    commonMistakes: [
+      "Pressing until it pinches at the front of the shoulder — that is impingement, not a stretch.",
+      "Lying square on the shoulder rather than rolled back a little.",
+    ],
+    safetyNote: "Gentle. If it pinches at the front, come off it — this stretch is easy to overdo and shoulders do not forgive it.",
+  },
+  {
+    slug: "scapular-squeeze", name: "Scapular Squeeze", category: "mobility",
+    primaryMuscles: ["mid traps", "rhomboids"], equipment: ["bodyweight", "chair"], bodyweight: true,
+    formCues: [
+      "Sit or stand tall, arms relaxed at your sides.",
+      "Draw the shoulder blades together and slightly down, as if holding a pencil between them.",
+      "Hold five seconds without shrugging.",
+      "Ten repetitions.",
+    ],
+    commonMistakes: [
+      "Shrugging upward instead of squeezing back and down.",
+      "Arching the lower back to fake the movement.",
+    ],
+    safetyNote: "Costs nothing and can be done at a desk. The antidote to a day spent reaching forward.",
+    harder: ["band-pull-apart"],
+  },
+  {
+    slug: "mckenzie-press-up", name: "Prone Press-Up", category: "mobility",
+    primaryMuscles: ["lower back"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    formCues: [
+      "Lie face down, hands under your shoulders.",
+      "Press the upper body up while the hips stay heavy on the floor.",
+      "Go only as far as is comfortable — the elbows may not straighten, and that is fine.",
+      "Lower slowly. Ten repetitions.",
+    ],
+    commonMistakes: [
+      "Lifting the hips off the floor, which turns it into a plank rather than an extension.",
+      "Clenching the glutes and lower back instead of letting them relax.",
+    ],
+    safetyNote: "A staple for a stiff, achy lower back. If it sends pain further down a leg, stop — pain moving away from the spine is the signal to get assessed, not to push on.",
+    easier: ["pelvic-tilt"], harder: ["cat-cow"],
+  },
+  {
+    slug: "double-knee-to-chest", name: "Double Knee to Chest", category: "mobility",
+    primaryMuscles: ["lower back", "glutes"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    formCues: [
+      "Lie on your back, knees bent, feet flat.",
+      "Bring both knees up and hold them behind the thighs.",
+      "Draw them gently toward your chest until the lower back feels long.",
+      "Hold twenty seconds, repeat three times.",
+    ],
+    commonMistakes: [
+      "Gripping over the top of the shins, which cranks the knees. Hold behind the thighs instead.",
+      "Lifting the head and shoulders off the floor.",
+    ],
+    safetyNote: "Hold behind the thighs, especially if your knees are unhappy.",
+  },
+  {
+    slug: "supine-lumbar-rotation", name: "Supine Lower Back Rotation", category: "mobility",
+    primaryMuscles: ["lower back", "obliques"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "On your back, knees bent and together, arms out in a T.",
+      "Let both knees fall slowly to one side, keeping both shoulders on the floor.",
+      "Turn your head the other way if it feels good.",
+      "Five breaths, then the other side.",
+    ],
+    commonMistakes: [
+      "Letting the opposite shoulder peel off the floor — the rotation should be felt, not chased.",
+      "Dropping the knees fast rather than lowering them under control.",
+    ],
+    safetyNote: "Keep it gentle and stop short of any pinch in the lower back.",
+  },
+  {
+    slug: "pelvic-tilt", name: "Pelvic Tilt", category: "mobility",
+    primaryMuscles: ["lower back", "core"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    formCues: [
+      "On your back, knees bent, feet flat.",
+      "Flatten the lower back gently into the floor by rolling the pelvis back.",
+      "Hold five seconds, then release to neutral.",
+      "Ten repetitions, small and controlled.",
+    ],
+    commonMistakes: [
+      "Pushing through the feet to lift the hips — this is a tilt, not a bridge.",
+      "Holding your breath.",
+    ],
+    safetyNote: "The gentlest thing here. A reasonable starting point on a day when the back is too sore for anything else.",
+    harder: ["glute-bridge", "dead-bug"],
+  },
+  {
+    slug: "standing-quad-stretch", name: "Standing Quad Stretch", category: "mobility",
+    primaryMuscles: ["quads", "hip flexors"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Stand tall, a hand on a wall for balance.",
+      "Bend one knee and hold the ankle behind you.",
+      "Tuck the tailbone under and squeeze that glute — that is what makes it work.",
+      "Knees stay side by side. Thirty seconds each.",
+    ],
+    commonMistakes: [
+      "Letting the knee drift out to the side or the back arch, which takes the stretch away.",
+      "Pulling the heel hard into the backside; the tailbone tuck does more than the pull.",
+    ],
+    safetyNote: "Hold the ankle, not the foot, if your knee is sensitive.",
+    harder: ["couch-stretch"],
+  },
+  {
+    slug: "couch-stretch", name: "Couch Stretch", category: "mobility",
+    primaryMuscles: ["hip flexors", "quads"], equipment: ["bodyweight", "mat", "wall"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Kneel with one shin up a wall or against a sofa, other foot planted in front.",
+      "Tuck the tailbone under and stand the torso up tall.",
+      "Squeeze the glute on the kneeling side.",
+      "Thirty to sixty seconds each side. This one is meant to be strong.",
+    ],
+    commonMistakes: [
+      "Arching the lower back to get upright, which is the back stretching instead of the hip.",
+      "Going straight to the full version. Start with the knee further from the wall.",
+    ],
+    safetyNote: "Pad under the knee. Back off if the kneecap complains — the shin should take the pressure, not the kneecap.",
+    easier: ["hip-flexor-stretch", "standing-quad-stretch"],
+  },
+  {
+    slug: "frog-stretch", name: "Frog Stretch", category: "mobility",
+    primaryMuscles: ["adductors", "hips"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    formCues: [
+      "On all fours, knees wide, insides of the shins and feet flat on the floor.",
+      "Keep the back flat and rock the hips slowly backwards.",
+      "Go to the first real resistance, not past it.",
+      "Rock in and out ten times, then hold at the end for a few breaths.",
+    ],
+    commonMistakes: [
+      "Rounding the lower back to get further back.",
+      "Widening the knees past what the groin is ready for. This one gets sore easily.",
+    ],
+    safetyNote: "Pad the knees, and go up in small steps between sessions. Groin strains from over-eager frog stretches are common.",
+    easier: ["90-90-hip-switch"],
+  },
+  {
+    slug: "quad-set", name: "Quad Set", category: "mobility",
+    primaryMuscles: ["quads"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Sit with the leg straight out in front, a rolled towel under the knee.",
+      "Press the back of the knee down into the towel by tightening the thigh.",
+      "Hold five seconds — the heel may lift slightly.",
+      "Ten repetitions each side.",
+    ],
+    commonMistakes: [
+      "Holding the breath, which is easy on an isometric.",
+      "Lifting the whole leg instead of pressing the knee down.",
+    ],
+    safetyNote: "Often the first exercise given after a knee problem, because it loads the quad without moving the joint at all.",
+    harder: ["straight-leg-raise", "terminal-knee-extension"],
+  },
+  {
+    slug: "straight-leg-raise", name: "Straight Leg Raise", category: "mobility",
+    primaryMuscles: ["quads", "hip flexors"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "On your back, one knee bent with the foot flat, the other leg straight.",
+      "Tighten the thigh of the straight leg and lock the knee.",
+      "Lift it to the height of the opposite knee, slowly.",
+      "Lower under control. Ten each side.",
+    ],
+    commonMistakes: [
+      "Letting the knee bend on the way up — the locked knee is the whole point.",
+      "Swinging the leg up fast and dropping it.",
+    ],
+    safetyNote: "Keep the other knee bent. It protects the lower back.",
+    easier: ["quad-set"],
+  },
+  {
+    slug: "heel-slide", name: "Heel Slide", category: "mobility",
+    primaryMuscles: ["knee"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Lie on your back, legs straight, on a smooth floor or with a towel under the heel.",
+      "Slide the heel toward your backside, bending the knee as far as is comfortable.",
+      "Hold two seconds at the end, then slide back out.",
+      "Ten repetitions each side.",
+    ],
+    commonMistakes: [
+      "Forcing past the comfortable range. Range comes back over sessions, not within one.",
+    ],
+    safetyNote: "The standard way to get bend back into a stiff knee. Should feel like stretch and effort, never sharp.",
+  },
+  {
+    slug: "gastroc-calf-stretch", name: "Calf Stretch, Straight Knee", category: "mobility",
+    primaryMuscles: ["calves", "gastrocnemius"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Hands on a wall, one foot well back.",
+      "Back leg straight, heel pressed down, toes pointing forward.",
+      "Lean into the wall until you feel the stretch in the upper calf.",
+      "Thirty seconds each side.",
+    ],
+    commonMistakes: [
+      "Letting the back heel lift, which ends the stretch.",
+      "Turning the back foot out, which sends it to the wrong tissue.",
+    ],
+    harder: ["soleus-calf-stretch"],
+    safetyNote: "Ease into it if the achilles has been sore. A calf stretch should pull, never sting.",
+  },
+  {
+    slug: "soleus-calf-stretch", name: "Calf Stretch, Bent Knee", category: "mobility",
+    primaryMuscles: ["calves", "soleus", "achilles"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Same wall position as the straight-knee version, but the back foot comes closer in.",
+      "Bend the back knee while keeping that heel down.",
+      "The stretch drops lower, nearer the ankle and achilles.",
+      "Thirty seconds each side.",
+    ],
+    commonMistakes: [
+      "Skipping this one. The straight-knee version misses the soleus entirely, and that is often the tight one.",
+    ],
+    safetyNote: "Worth doing alongside the straight-knee version rather than instead of it — they reach different muscles.",
+    easier: ["gastroc-calf-stretch"],
+  },
+  {
+    slug: "plantar-fascia-stretch", name: "Plantar Fascia Stretch", category: "mobility",
+    primaryMuscles: ["foot", "plantar fascia"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Sit and cross one ankle over the opposite knee.",
+      "Pull the toes back toward the shin with your hand until the arch feels taut.",
+      "Run your thumb along the arch — it should feel like a tight band.",
+      "Hold thirty seconds, three times each foot.",
+    ],
+    commonMistakes: [
+      "Pulling only the big toe rather than all of them.",
+    ],
+    safetyNote: "Best done before the first steps of the morning, which is when plantar pain is usually worst.",
+  },
+  {
+    slug: "wrist-flexor-stretch", name: "Wrist Flexor Stretch", category: "mobility",
+    primaryMuscles: ["forearm", "wrist"], equipment: ["bodyweight"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Arm straight out in front, palm up.",
+      "With the other hand, draw the fingers down and back toward the floor.",
+      "Keep the elbow straight.",
+      "Thirty seconds each side.",
+    ],
+    commonMistakes: [
+      "Bending the elbow, which slackens everything.",
+    ],
+    safetyNote: "Useful before pressing or carrying if your wrists complain about loaded positions.",
+  },
+  {
+    slug: "wrist-extensor-stretch", name: "Wrist Extensor Stretch", category: "mobility",
+    primaryMuscles: ["forearm", "wrist", "elbow"], equipment: ["bodyweight"], bodyweight: true, unilateral: true,
+    formCues: [
+      "Arm straight out in front, palm down.",
+      "With the other hand, draw the back of the hand down and toward you.",
+      "Elbow stays straight.",
+      "Thirty seconds each side.",
+    ],
+    commonMistakes: [
+      "Rushing it. This side is usually the tighter of the two on anyone who types.",
+    ],
+    safetyNote: "The one that helps the outside of the elbow — tennis elbow territory. Gentle and often beats hard and occasional.",
   },
 ];
