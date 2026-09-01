@@ -9,6 +9,7 @@ import * as budget from "./budget";
 import * as boost from "./boost";
 import * as templates from "./templates";
 import * as progression from "./progression";
+import * as foodTools from "./foods";
 import * as photos from "./photos";
 
 /**
@@ -53,9 +54,11 @@ const all: Tool[] = [
   body.logMeasurement,
   feedback.submitFeedback,
   training.removeExerciseFromDay,
+  foodTools.lookupFood,
   nutrition.logMeal,
   training.logSet,
   profile.logWeight,
+  foodTools.searchFoodLibrary,
   training.searchExercises,
   budget.setCoachBudget,
   profile.setGoal,

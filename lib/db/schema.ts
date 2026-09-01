@@ -451,6 +451,35 @@ export const mealLogs = pgTable(
   (t) => [index("meal_logs_profile_date").on(t.profileId, t.date)],
 );
 
+/**
+ * Food macros per 100g, seeded as reference data like the exercise library.
+ *
+ * Local first so the common case — "how many calories in 100g of chicken" — is
+ * instant, free, and works with no signal. Anything not in here falls back to
+ * the coach, which costs a fraction of a cent and only happens on a miss.
+ */
+export const foods = pgTable(
+  "foods",
+  {
+    id: id(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    /** Everything is stored per 100g; portions scale from there. */
+    kcal: real("kcal").notNull(),
+    proteinG: real("protein_g").notNull(),
+    carbsG: real("carbs_g").notNull(),
+    fatG: real("fat_g").notNull(),
+    fibreG: real("fibre_g"),
+    /** Grams in one natural unit — one egg, one slice, one medium banana. */
+    unitGrams: real("unit_grams"),
+    unitLabel: text("unit_label"),
+    /** Alternative names, so "aubergine" finds "eggplant". */
+    aliases: jsonb("aliases").$type<string[]>().default([]).notNull(),
+  },
+  (t) => [uniqueIndex("foods_slug").on(t.slug), index("foods_name").on(t.name)],
+);
+
 /** Fitness factoids and sedentary-risk facts. Surfaced daily, never twice running. */
 export const facts = pgTable(
   "facts",
@@ -606,6 +635,7 @@ export type Workout = typeof workouts.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type Meal = typeof meals.$inferSelect;
 export type Fact = typeof facts.$inferSelect;
+export type Food = typeof foods.$inferSelect;
 export type WorkoutTemplate = typeof workoutTemplates.$inferSelect;
 export type MealTemplate = typeof mealTemplates.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;

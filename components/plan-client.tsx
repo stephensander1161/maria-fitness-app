@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { MealWeekView, WeekView } from "@/lib/views";
+import { CalorieCalculator } from "./calorie-calculator";
 
 export function PlanClient({ week, mealWeek }: { week: WeekView; mealWeek: MealWeekView }) {
   const [tab, setTab] = useState<"training" | "meals">("training");
@@ -54,6 +55,8 @@ export function PlanClient({ week, mealWeek }: { week: WeekView; mealWeek: MealW
         )
       ) : mealWeek.exists ? (
         <div className="space-y-2">
+          <CalorieCalculator calorieTarget={mealWeek.calorieTarget} />
+
           <div className="card mb-3 flex divide-x divide-line p-4">
             <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
             <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
@@ -77,7 +80,10 @@ export function PlanClient({ week, mealWeek }: { week: WeekView; mealWeek: MealW
           ))}
         </div>
       ) : (
-        <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
+        <div className="space-y-2">
+          <CalorieCalculator calorieTarget={null} />
+          <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
+        </div>
       )}
     </>
   );
