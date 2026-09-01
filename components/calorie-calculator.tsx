@@ -301,7 +301,9 @@ export function CalorieCalculator({ calorieTarget }: { calorieTarget: number | n
                   <button
                     onClick={() => setBasket((b) => b.filter((_, j) => j !== i))}
                     aria-label={`Remove ${item.label}`}
-                    className="text-faint"
+                    // She assembles the basket item by item; a stray tap used
+                    // to drop one silently and quietly skew the logged total.
+                    className="-my-2 grid size-10 place-items-center text-faint active:text-miss"
                   >
                     ×
                   </button>

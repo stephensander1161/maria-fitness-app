@@ -211,7 +211,7 @@ export function RestTimerBar({
           {!over && (
             <button
               onClick={() => onExtend(30)}
-              className="shrink-0 rounded-lg border border-line bg-raised px-2.5 py-2 text-[12px] font-medium text-muted active:bg-line"
+              className="shrink-0 rounded-lg border border-line bg-raised px-3 py-3 text-[12px] font-medium text-muted active:bg-line"
             >
               +30s
             </button>

@@ -44,7 +44,9 @@ Revocation: `npm run user -- signout-everywhere <email>`, disabling an account,
 or changing its password all invalidate that account's sessions immediately and
 leave everyone else's alone. Rotating `AUTH_SECRET` invalidates all of them.
 
-Brute force is capped twice: 10 attempts/hour per IP, and **40/hour globally**.
+Brute force is capped twice: 10 attempts/hour per IP, and **200/hour globally**
+(`MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL`; this document said 40 while the code
+said 200 — the code is what runs).
 The global ceiling is the one that matters — `x-forwarded-for` is ultimately
 client-supplied, so a per-IP limit alone can be rotated around.
 

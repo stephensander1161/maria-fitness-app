@@ -20,7 +20,10 @@ const Body = z.object({
   name: z.string().min(1).max(60),
   age: z.number().min(13).max(100),
   sex: z.enum(["female", "male", "other"]),
-  heightIn: z.number().min(36).max(90),
+  // Inches when units are imperial, centimetres when metric — the range has
+  // to cover both, or a metric height of 168 is rejected as out of bounds
+  // and metric onboarding cannot complete at all.
+  heightIn: z.number().min(36).max(250),
   currentWeight: z.number().min(50).max(600),
   goalWeight: z.number().min(50).max(600),
   goalDate: z.string().optional(),

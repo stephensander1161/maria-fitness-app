@@ -16,7 +16,9 @@ export const viewport: Viewport = {
   themeColor: "#0b0e13",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Deliberately not capped: the app leans on 10-13px text and she should
+  // be able to zoom it. Inputs are 15px+, so there is no zoom-on-focus jump
+  // to prevent here anyway.
   viewportFit: "cover",
 };
 

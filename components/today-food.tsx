@@ -133,7 +133,9 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
               onClick={() => void remove(l.id)}
               disabled={removing === l.id}
               aria-label={`Remove ${l.description}`}
-              className="-mr-1 shrink-0 px-1.5 text-faint transition-opacity active:text-miss disabled:opacity-30"
+              // A 14px icon with no vertical padding, next to the calorie figure, that
+              // deleted a meal on contact. Now a proper thumb target.
+              className="-my-2 -mr-2 grid size-11 shrink-0 place-items-center text-faint transition-opacity active:text-miss disabled:opacity-30"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2.2" strokeLinecap="round">

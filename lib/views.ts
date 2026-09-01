@@ -172,17 +172,19 @@ export async function weekView(profileId: string, units: Units, week = weekStart
         sortOrder: planExercises.sortOrder,
       }).from(planExercises)
         .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+        // Scoped. Without this the query read every plan exercise belonging to
+        // every profile on each Plan render and each chat turn, then threw all
+        // but one week away in JS.
+        .where(inArray(planExercises.planDayId, days.map((d) => d.id)))
         .orderBy(asc(planExercises.sortOrder))
     : [];
-
-  const dayIds = new Set(days.map((d) => d.id));
   return {
     weekStart: week, exists: true, title: plan.title, rationale: plan.rationale,
     todayIndex: dayIndex(), unit: weightLabel(units),
     days: days.map((d) => ({
       dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek], title: d.title,
       focus: d.focus, isRest: d.isRest, notes: d.notes,
-      exercises: items.filter((i) => i.planDayId === d.id && dayIds.has(i.planDayId)).map((i) => ({
+      exercises: items.filter((i) => i.planDayId === d.id).map((i) => ({
         slug: i.slug, name: i.name, notes: i.notes,
         target: `${i.sets}×${i.reps}${i.weightKg !== null ? ` @ ${weightOut(i.weightKg, units)}${weightLabel(units)}` : ""}`,
       })),

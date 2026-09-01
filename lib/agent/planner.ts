@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { inArray, sql } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, type Profile } from "@/lib/db/schema";
+import { owns } from "@/lib/templates";
 import { env } from "@/lib/env";
 import { DAY_NAMES } from "@/lib/date";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
@@ -151,13 +152,17 @@ async function catalogue(p: Profile): Promise<string> {
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       muscles: exercises.primaryMuscles, equipment: exercises.equipment,
     })
-    .from(exercises)
-    .where(
-      // Match any of her equipment, and always include bodyweight work.
-      sql`${exercises.equipment}::text ~* ${owned.concat("bodyweight").join("|")}`,
-    );
+    .from(exercises);
 
+  // Filtered in JS with the same predicate the template picker uses. The SQL
+  // version built a regex out of her equipment strings, which had two faults:
+  // "full gym" matched only exercises literally saying "full gym", so the
+  // best-equipped user got a bodyweight catalogue; and an entry like
+  // "kettlebell (16kg)" is not a valid pattern, while "." matches everything.
+  // A hundred and fifty rows is nothing to filter here, and it removes the
+  // third copy of this logic.
   return rows
+    .filter((r) => r.equipment.some((kit) => owns(owned, kit)) || r.equipment.length === 0)
     .map((r) => `${r.slug} — ${r.name} [${r.category}] ${r.muscles.join("/")}`)
     .join("\n");
 }

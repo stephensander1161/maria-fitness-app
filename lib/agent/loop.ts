@@ -5,7 +5,7 @@ import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
 import { goalProgress, recompositionSignal, todaySnapshot } from "@/lib/progress";
-import { recordUsage } from "@/lib/limits";
+import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
 import type { Profile } from "@/lib/db/schema";
 
@@ -108,6 +108,15 @@ export async function* runCoach(
     let emittedText = false;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+      // Re-checked each iteration, not just once per turn. The loop runs up
+      // to MAX_TOOL_ITERATIONS times recording usage as it goes, so a single
+      // turn could carry on well past the daily cap before anything looked.
+      const budget = await checkSpendAllowed(profile.id);
+      if (!budget.allowed) {
+        yield { type: "error", message: budget.reason };
+        return;
+      }
+
       const stream = anthropic().messages.stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
