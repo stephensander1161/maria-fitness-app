@@ -76,6 +76,13 @@ Read it as an honest inventory, not a certificate.
   backed up, wiped, restored, every table count matched.
 - `db:reset` refuses to run without `--yes` and points at the backup first.
 
+**Service worker.** `public/sw.js` intercepts same-origin GETs. It is scoped
+to content-hashed build output only: documents, RSC payloads and `/api`
+responses go straight to the network, so no account data is ever written to
+the cache. `/sw.js`, `/icon-192` and `/icon-512` are in `PUBLIC_PATHS` — static
+generated assets holding nothing of hers, the same category as the icons
+already there.
+
 ### CC8.1 — Change management
 
 - All changes through git; CI runs typecheck, lint, 414 tests, dependency audit

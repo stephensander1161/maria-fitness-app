@@ -22,8 +22,15 @@ const PUBLIC_PATHS = new Set([
   // Icons are exact paths, never prefixes — a lookahead like `icon` in the
   // matcher would also have let /iconoclast through.
   "/icon",
+  "/icon-192",
+  "/icon-512",
   "/apple-icon",
   "/favicon.ico",
+  // The service worker script. It has to be reachable without a session or
+  // its update check gets an HTML redirect instead of JavaScript and the
+  // browser drops the registration. It contains no data of hers and caches
+  // only content-hashed build assets — see public/sw.js.
+  "/sw.js",
 ]);
 
 export function middleware(req: NextRequest) {
