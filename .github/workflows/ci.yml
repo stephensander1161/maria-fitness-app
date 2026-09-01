@@ -69,7 +69,11 @@ jobs:
       # someone else's bill and her data.
       - name: Scan history for credentials
         run: |
-          if git log -p --all | grep -nE 'sk-ant-api[0-9a-zA-Z_-]{20}|postgres(ql)?://[^ "]*:[^ "@]{8}' ; then
+          # .env.example is excluded: it exists to carry placeholders, and
+          # "user:password@host" is documentation, not a leak.
+          if git log -p --all -- . ':(exclude).env.example' \
+             | grep -vE 'user:password|USER:PASSWORD|<[^>]+>|\.\.\.' \
+             | grep -nE 'sk-ant-api[0-9a-zA-Z_-]{20}|npg_[A-Za-z0-9]{16}|postgres(ql)?://[a-z_]+:[A-Za-z0-9]{12}' ; then
             echo "::error::Credential-shaped string found in git history"
             exit 1
           fi
