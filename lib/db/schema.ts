@@ -569,11 +569,16 @@ export const usageDaily = pgTable("usage_daily", {
    */
   source: text("source", { enum: ["app", "eval"] }).default("app").notNull(),
   /**
-   * Whose spend this is. Null means unattributed — eval runs whose scratch
-   * profile has since been deleted. Without this the ceiling is global, and one
-   * talkative account would switch the coach off for everybody.
+   * Whose spend this is. Null means unattributed — eval runs, which are never
+   * charged to anyone. Without this the ceiling is global, and one talkative
+   * account would switch the coach off for everybody.
+   *
+   * Cascades rather than nulling on delete: her spend record belongs with her
+   * data. Nulling collided with the existing unattributed row for the same day
+   * under NULLS NOT DISTINCT, which made deleting a profile fail outright — and
+   * silently took db:reset down with it.
    */
-  profileId: uuid("profile_id").references(() => profiles.id, { onDelete: "set null" }),
+  profileId: uuid("profile_id").references(() => profiles.id, { onDelete: "cascade" }),
   requests: integer("requests").default(0).notNull(),
   inputTokens: integer("input_tokens").default(0).notNull(),
   outputTokens: integer("output_tokens").default(0).notNull(),
