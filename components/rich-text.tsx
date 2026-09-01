@@ -4,7 +4,35 @@ import { Fragment, type ReactNode } from "react";
  * The coach writes light markdown — bold, bullets, the odd numbered list.
  * A dependency-free renderer that builds React nodes (never raw HTML) keeps
  * model output structurally unable to inject anything.
+ *
+ * Bare https links become anchors, because a tool can hand back a URL (the
+ * Instacart cart) and a link she cannot tap is a link she has to retype. Only
+ * the https scheme is recognised, so nothing else can ride in on an href.
  */
+const LINK = /(\[[^\]\n]+\]\(https:\/\/[^\s)]+\)|https:\/\/[^\s<>"'()]+)/g;
+
+function anchor(href: string, label: string, key: string) {
+  return (
+    <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="break-all text-accent underline">
+      {label}
+    </a>
+  );
+}
+
+function linkify(text: string, key: string): ReactNode[] {
+  return text.split(LINK).map((part, i) => {
+    const k = `${key}-${i}`;
+    // Markdown form: [label](https://…)
+    const md = part.match(/^\[([^\]]+)\]\((https:\/\/[^\s)]+)\)$/);
+    if (md) return anchor(md[2], md[1], k);
+    if (!part.startsWith("https://")) return <Fragment key={k}>{part}</Fragment>;
+    // A sentence-ending full stop or comma belongs to the prose, not the link.
+    const trail = part.match(/[.,;:!?]+$/)?.[0] ?? "";
+    const href = part.slice(0, part.length - trail.length);
+    return <Fragment key={k}>{anchor(href, href, k)}{trail}</Fragment>;
+  });
+}
+
 function inline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
@@ -14,7 +42,7 @@ function inline(text: string): ReactNode[] {
     if (part.startsWith("`") && part.endsWith("`")) {
       return <code key={i} className="rounded bg-raised px-1 py-0.5 text-[0.9em]">{part.slice(1, -1)}</code>;
     }
-    return <Fragment key={i}>{part}</Fragment>;
+    return <Fragment key={i}>{linkify(part, String(i))}</Fragment>;
   });
 }
 

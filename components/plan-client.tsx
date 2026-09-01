@@ -9,10 +9,10 @@ import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { ShoppingList, type ShoppingAisle } from "./shopping-list";
 
 export function PlanClient({
-  week, mealWeek, dayFood, usuals, initialMeals, initialMoves, shopping,
+  week, mealWeek, dayFood, usuals, initialMeals, initialMoves, shopping, instacart,
 }: {
   week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
-  initialMeals: MealIdea[]; initialMoves: MoveIdea[]; shopping: ShoppingAisle[];
+  initialMeals: MealIdea[]; initialMoves: MoveIdea[]; shopping: ShoppingAisle[]; instacart: boolean;
 }) {
   const [tab, setTab] = useState<"training" | "meals" | "ideas">("training");
   const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
@@ -72,7 +72,7 @@ export function PlanClient({
             <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
             <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
           </div>
-          <ShoppingList weekStart={mealWeek.weekStart} aisles={shopping} />
+          <ShoppingList weekStart={mealWeek.weekStart} aisles={shopping} instacart={instacart} />
 
           {mealWeek.rationale && (
             <p className="card mb-3 p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>

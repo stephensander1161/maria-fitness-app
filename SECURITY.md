@@ -85,7 +85,9 @@ call isn't resent forever.
 
 - The API key is read only in server code (`lib/env.ts`) and never reaches the browser.
 - Coach output renders through `components/rich-text.tsx`, which builds React
-  nodes. Nothing in the app uses `dangerouslySetInnerHTML`.
+  nodes. Nothing in the app uses `dangerouslySetInnerHTML`. The only markup
+  it will build from model text is bold, code, lists, and `https:` links —
+  no other scheme becomes an href.
 - Every tool input is parsed with Zod before the handler runs; bad arguments
   return a correctable message rather than throwing.
 - Tool handlers are scoped to a `profileId` supplied by the server, never the client.
@@ -94,6 +96,11 @@ call isn't resent forever.
 - CSP allows no external origins at all. `connect-src 'self'` means that even if
   something coaxed a malicious URL out of the model, the browser has nowhere to
   send anything.
+- The server makes exactly two kinds of outbound call: Anthropic, and — when
+  `INSTACART_API_KEY` is set and she asks — Instacart, which receives the
+  week's shopping list (item names and quantities, nothing about her) and
+  answers with a link. `lib/instacart.ts` is the whole of that surface, and
+  each send is written to the audit log.
 - `robots.txt` disallows everything and `X-Robots-Tag: noindex` is set on every
   response, so the deployment URL should not turn up in search.
 

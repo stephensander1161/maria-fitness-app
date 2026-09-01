@@ -47,6 +47,13 @@ Read it as an honest inventory, not a certificate.
 - CSP permitting **no external origin at all**. `connect-src 'self'` means that
   even if something coaxed a malicious URL out of the model, the browser has
   nowhere to send anything.
+- Outbound data flows are enumerated: the model call to Anthropic (her
+  conversation and the state block), and — only when `INSTACART_API_KEY` is set
+  and only when she asks — the week's shopping list to Instacart's API, which is
+  item names and quantities and nothing about her. Both are server-side calls;
+  the browser talks to no one but this app.
+- Links in coach output render only for the `https:` scheme
+  (`components/rich-text.tsx`), and open in a new tab with `noopener`.
 - HSTS with a two-year max-age, `frame-ancestors 'none'`, `nosniff`,
   `no-referrer`, restrictive `Permissions-Policy`, framework version header off.
 - TLS in transit (Vercel); database connections require `sslmode`.
@@ -62,8 +69,9 @@ Read it as an honest inventory, not a certificate.
 ### CC7.2 / CC7.3 — Monitoring and event detection
 
 - `audit_log` records authentication success and failure, rate-limiting,
-  sign-out, budget changes, spend-ceiling hits, and every export, restore or
-  deletion of her data (`lib/audit.ts`).
+  sign-out, budget changes, spend-ceiling hits, every export, restore or
+  deletion of her data, and every time her data is handed to a third party at
+  her request — currently the shopping list to Instacart (`lib/audit.ts`).
 - Deliberately narrow: **no credentials, and no record of passphrase attempts
   even hashed** — a log of near-misses is a wordlist. No body or training data.
 - Append-only by convention, and it survives `db:reset`.
@@ -134,6 +142,10 @@ is the single thing the cap exists to prevent.
 - Each account has its own profile; one account cannot read another's data.
   The subject is inside the signed session payload, so a token cannot be
   re-pointed at a different account.
+- Two structural tests keep it that way: a tool whose input names a row id must
+  consult `ctx.profileId`, and no tool may update or delete by an input id
+  without a profile scope in the same statement. `npm run tenancy` then proves
+  it against a real database with two throwaway accounts.
 
 ---
 
@@ -145,7 +157,8 @@ marketing.
 **Organisational — all of CC1, CC2, CC3, CC9.** No entity, no policies, no
 personnel screening, no security training, no risk register, no board oversight,
 no vendor management for the subprocessors this app depends on (Vercel, Neon,
-Anthropic, GitHub). This is the largest gap and no code closes it.
+Anthropic, GitHub, and Instacart when connected). This is the largest gap and
+no code closes it.
 
 **No independent audit.** Nothing here has been reviewed by anyone but its
 author and its author's tooling.

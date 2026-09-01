@@ -48,6 +48,15 @@ Keeping that seam clean is what stops the agent and the UI from drifting apart.
   in centimetres, always. The UI and the tool boundary convert using the
   profile's `units` preference, so switching between pounds and kilos is a
   display change, never a migration.
+- Food is a separate preference. `profiles.food_units` (oz, cups, °F or g, ml,
+  °C) is independent of the body one, because a kitchen in Canada is often
+  imperial while the scale is metric or vice versa. Null means "follow the body
+  units". Recipes are stored in metric and rewritten at the boundary by
+  `lib/food-units.ts`.
+- The shopping list can leave the app two ways: the share sheet (plain text),
+  or as an Instacart cart when `INSTACART_API_KEY` is set — Costco delivers
+  through Instacart in Canada. Only item names and quantities go; the event is
+  audited.
 - Measurement sites are stored as text against a list in `lib/measurements.ts`,
   so adding a new site is a code change rather than a migration.
 - Day-level dates are `date` columns holding `YYYY-MM-DD` in local time — never
@@ -69,6 +78,7 @@ every response. Full details in [SECURITY.md](./SECURITY.md).
 ```bash
 npm install
 cp .env.example .env        # ANTHROPIC_API_KEY, DATABASE_URL, AUTH_SECRET, APP_TIMEZONE
+                            # optional: INSTACART_API_KEY for "Send to Instacart"
 npm run setup               # push schema + seed exercises and facts
 npm run user -- add you@example.com "Your name"
 npm run dev
@@ -97,6 +107,7 @@ onboarding — there is no setup form.
 | `npm run restore -- <file>` | Restore a backup, ids preserved |
 | `npm run db:reset -- --yes` | Wipe her data (refuses without `--yes`) |
 | `npm run db:studio` | Drizzle Studio |
+| `npm run tenancy` | Two-account isolation check against the real database — run after touching any tool that takes an id |
 
 ## Backups
 

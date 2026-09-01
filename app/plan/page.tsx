@@ -25,7 +25,7 @@ export default async function PlanPage() {
     // library reads, no model call.
     runTool("suggest_meals", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MealIdea[] }>,
     runTool("suggest_exercises", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MoveIdea[] }>,
-    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[] }>,
+    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[]; instacart: boolean }>,
   ]);
 
   return (
@@ -49,6 +49,7 @@ export default async function PlanPage() {
         initialMeals={mealIdeas.ideas}
         initialMoves={moveIdeas.ideas}
         shopping={shopping.aisles ?? []}
+        instacart={shopping.instacart}
       />
     </>
   );

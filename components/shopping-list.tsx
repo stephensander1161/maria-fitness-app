@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { action, actionMessage } from "@/lib/client";
+import { prettyDate } from "@/lib/date";
+import { shoppingListText } from "@/lib/shopping";
 
 export type ShoppingAisle = {
   aisle: string;
@@ -43,9 +46,28 @@ function read(key: string): string {
   }
 }
 
-export function ShoppingList({ weekStart, aisles }: { weekStart: string; aisles: ShoppingAisle[] }) {
+/** Whether this browser has a share sheet. Stable per browser, false on the
+ *  server, so it is read as an external value rather than set in an effect. */
+const noop = () => () => {};
+const useCanShare = () =>
+  useSyncExternalStore(noop, () => typeof navigator.share === "function", () => false);
+
+export function ShoppingList({
+  weekStart, aisles, instacart,
+}: {
+  weekStart: string;
+  aisles: ShoppingAisle[];
+  /** Whether the server has an Instacart key. Without one the button would
+   *  only ever say no. */
+  instacart: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const storageKey = `shopping:${weekStart}`;
+  const canShare = useCanShare();
+  const [shared, setShared] = useState<"copied" | null>(null);
+  const [sending, setSending] = useState(false);
+  const [cart, setCart] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const raw = useSyncExternalStore(
     subscribe,
@@ -76,8 +98,50 @@ export function ShoppingList({ weekStart, aisles }: { weekStart: string; aisles:
   }
 
   const total = aisles.reduce((n, a) => n + a.items.length, 0);
-  if (total === 0) return null;
   const done = aisles.reduce((n, a) => n + a.items.filter((i) => ticked.has(i.item)).length, 0);
+  const title = `Shopping list — week of ${prettyDate(weekStart)}`;
+
+  /** The share sheet where there is one, the clipboard where there isn't —
+   *  either way the whole list, since a partner doing the shop wants all of
+   *  it, not just what she has not ticked yet. */
+  async function share() {
+    const text = shoppingListText(title, aisles);
+    setError(null);
+    try {
+      if (canShare) {
+        await navigator.share({ title, text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setShared("copied");
+      setTimeout(() => setShared(null), 2000);
+    } catch (err) {
+      // Dismissing the share sheet rejects with AbortError. That is not a failure.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setError("Couldn't share the list from here.");
+    }
+  }
+
+  async function sendToInstacart() {
+    setSending(true);
+    setError(null);
+    try {
+      const r = await action<{ ok: boolean; url?: string; error?: string }>(
+        "send_shopping_list_to_instacart", { weekStart },
+      );
+      if (!r.ok || !r.url) throw new Error(r.error ?? "Instacart didn't take the list.");
+      setCart(r.url);
+      // Popup blockers may refuse a window opened after an await; the link
+      // rendered below is the fallback, and also where she comes back to.
+      window.open(r.url, "_blank", "noopener");
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't send the list to Instacart."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (total === 0) return null;
 
   return (
     <section className="card mb-3 p-5">
@@ -96,6 +160,35 @@ export function ShoppingList({ weekStart, aisles }: { weekStart: string; aisles:
 
       {open && (
         <div className="mt-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={share}
+              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised"
+            >
+              {shared === "copied" ? "Copied" : canShare ? "Share list" : "Copy list"}
+            </button>
+            {instacart && (
+              <button
+                onClick={sendToInstacart}
+                disabled={sending}
+                className="rounded-full border border-accent/60 bg-accent-soft px-3.5 py-2 text-[13px] text-accent disabled:opacity-50"
+              >
+                {sending ? "Sending…" : "Send to Instacart"}
+              </button>
+            )}
+          </div>
+          {cart && (
+            <a
+              href={cart}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl border border-beat/40 bg-beat-soft px-4 py-3 text-[14px] text-beat"
+            >
+              Your cart is ready on Instacart — open it to pick a store and check out. The link works for a week.
+            </a>
+          )}
+          {error && <p className="text-[13px] text-miss">{error}</p>}
+
           {aisles.map((a) => (
             <div key={a.aisle}>
               <p className="mb-1.5 text-[11px] uppercase tracking-wide text-accent">{a.aisle}</p>

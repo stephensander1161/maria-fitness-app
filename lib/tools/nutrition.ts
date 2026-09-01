@@ -7,7 +7,8 @@ import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/l
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
 import { recentMeals } from "@/lib/views";
-import { aggregateIngredients } from "@/lib/shopping";
+import { aggregateIngredients, type ShoppingItem } from "@/lib/shopping";
+import { instacartConfigured } from "@/lib/instacart";
 import { foodUnitsFor, todayForProfile } from "@/lib/profile";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import {
@@ -424,89 +425,113 @@ const AISLES: Record<string, string> = {
   drink: "Drinks", snack: "Snacks", prepared: "Chilled & frozen",
 };
 
+type ShoppingList =
+  | { exists: false; weekStart: string }
+  | { exists: true; weekStart: string; mealsCovered: number; aisles: { aisle: string; items: ShoppingItem[] }[] };
+
+/**
+ * The week's ingredients, added up and grouped by aisle. Shared by the tool
+ * that reads the list back and the one that sends it to Instacart, so both
+ * are shopping from the same list.
+ */
+export async function shoppingListFor(
+  profileId: string,
+  input: { weekStart?: string; fromDayOfWeek?: number },
+): Promise<ShoppingList> {
+  const week = input.weekStart ?? weekStart(await todayForProfile(profileId));
+  const [plan] = await db.select().from(mealPlans)
+    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
+  if (!plan) return { exists: false, weekStart: week };
+
+  const rows = await db.select().from(meals).where(eq(meals.mealPlanId, plan.id));
+  const wanted = input.fromDayOfWeek === undefined
+    ? rows
+    : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
+
+  const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
+
+  // Aisle comes from the food library, so it is the same categorisation the
+  // calculator uses rather than a second list to keep in step.
+  const library = await db.select({
+    name: foods.name, category: foods.category, aliases: foods.aliases,
+  }).from(foods);
+
+  // Rank, do not just match. Direction matters: when the shopping item
+  // contains the label ("chicken breast" contains "chicken"), a longer label
+  // is a more specific hit. When the label contains the item ("garlic bread"
+  // contains "garlic"), a longer label is a *worse* hit — that is how garlic
+  // ended up filed as a frozen ready meal.
+  const aisleFor = (item: string): string => {
+    const q = item.toLowerCase().trim();
+    let best: { category: string; rank: number; length: number } | null = null;
+
+    for (const f of library) {
+      for (const label of [f.name, ...f.aliases]) {
+        const l = label.toLowerCase().trim();
+        let rank: number;
+        if (l === q) rank = 0;
+        else if (q.includes(l)) rank = 1;
+        else if (l.includes(q)) rank = 2;
+        else continue;
+
+        const better =
+          !best ||
+          rank < best.rank ||
+          // Within a rank: longest label when the item contains it, shortest
+          // when it contains the item.
+          (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
+        if (better) best = { category: f.category, rank, length: l.length };
+      }
+    }
+    return best ? AISLES[best.category] ?? "Other" : "Other";
+  };
+
+  const grouped = new Map<string, ShoppingItem[]>();
+  for (const item of items) {
+    const aisle = aisleFor(item.item);
+    grouped.set(aisle, [...(grouped.get(aisle) ?? []), item]);
+  }
+
+  const order = ["Fruit & veg", "Meat & fish", "Dairy & eggs", "Chilled & frozen", "Cupboard", "Snacks", "Drinks", "Other"];
+  return {
+    exists: true,
+    weekStart: week,
+    mealsCovered: wanted.length,
+    aisles: order.filter((a) => grouped.has(a)).map((aisle) => ({ aisle, items: grouped.get(aisle) ?? [] })),
+  };
+}
+
 export const getShoppingList = defineTool({
   name: "get_shopping_list",
   description:
-    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units.",
+    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units. The result says whether Instacart is connected; if it is, send_shopping_list_to_instacart turns the list into a cart.",
   input: z.object({
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
     fromDayOfWeek: z.number().optional().describe("Only from this day onward, 0=Monday — for a mid-week top-up shop"),
   }),
   handler: async (input, ctx) => {
-    const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
-    const [plan] = await db.select().from(mealPlans)
-      .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, week))).limit(1);
-    if (!plan) return { exists: false, weekStart: week, hint: "No meal plan for that week yet." };
-
-    const rows = await db.select().from(meals).where(eq(meals.mealPlanId, plan.id));
-    const wanted = input.fromDayOfWeek === undefined
-      ? rows
-      : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
-
-    const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
+    const list = await shoppingListFor(ctx.profileId, input);
+    const instacart = instacartConfigured();
+    if (!list.exists) return { exists: false, weekStart: list.weekStart, instacart, hint: "No meal plan for that week yet." };
     const fu = await foodUnitsFor(ctx.profileId);
 
-    // Aisle comes from the food library, so it is the same categorisation the
-    // calculator uses rather than a second list to keep in step.
-    const library = await db.select({
-      name: foods.name, category: foods.category, aliases: foods.aliases,
-    }).from(foods);
-
-    // Rank, do not just match. Direction matters: when the shopping item
-    // contains the label ("chicken breast" contains "chicken"), a longer label
-    // is a more specific hit. When the label contains the item ("garlic bread"
-    // contains "garlic"), a longer label is a *worse* hit — that is how garlic
-    // ended up filed as a frozen ready meal.
-    const aisleFor = (item: string): string => {
-      const q = item.toLowerCase().trim();
-      let best: { category: string; rank: number; length: number } | null = null;
-
-      for (const f of library) {
-        for (const label of [f.name, ...f.aliases]) {
-          const l = label.toLowerCase().trim();
-          let rank: number;
-          if (l === q) rank = 0;
-          else if (q.includes(l)) rank = 1;
-          else if (l.includes(q)) rank = 2;
-          else continue;
-
-          const better =
-            !best ||
-            rank < best.rank ||
-            // Within a rank: longest label when the item contains it, shortest
-            // when it contains the item.
-            (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
-          if (better) best = { category: f.category, rank, length: l.length };
-        }
-      }
-      return best ? AISLES[best.category] ?? "Other" : "Other";
-    };
-
-    const grouped = new Map<string, typeof items>();
-    for (const item of items) {
-      const aisle = aisleFor(item.item);
-      grouped.set(aisle, [...(grouped.get(aisle) ?? []), item]);
-    }
-
-    const order = ["Fruit & veg", "Meat & fish", "Dairy & eggs", "Chilled & frozen", "Cupboard", "Snacks", "Drinks", "Other"];
     return {
       exists: true,
-      weekStart: week,
-      mealsCovered: wanted.length,
-      totalItems: items.length,
+      weekStart: list.weekStart,
+      mealsCovered: list.mealsCovered,
+      totalItems: list.aisles.reduce((n, a) => n + a.items.length, 0),
       foodUnits: fu,
-      aisles: order
-        .filter((a) => grouped.has(a))
-        .map((aisle) => ({
-          aisle,
-          items: (grouped.get(aisle) ?? []).map((i) => ({
-            item: i.item,
-            // Written out rather than left as a number and a unit, so it can be
-            // read straight back to her — in her kitchen's units.
-            quantity: i.amount === null ? null : quantityLabel(i.amount, i.unit, fu),
-            fromMeals: i.fromMeals,
-          })),
+      instacart,
+      aisles: list.aisles.map((a) => ({
+        aisle: a.aisle,
+        items: a.items.map((i) => ({
+          item: i.item,
+          // Written out rather than left as a number and a unit, so it can be
+          // read straight back to her — in her kitchen's units.
+          quantity: i.amount === null ? null : quantityLabel(i.amount, i.unit, fu),
+          fromMeals: i.fromMeals,
         })),
+      })),
     };
   },
 });

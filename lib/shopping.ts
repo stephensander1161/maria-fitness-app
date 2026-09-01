@@ -144,3 +144,19 @@ export function aggregateIngredients(lines: string[]): ShoppingItem[] {
 /** Trailing zeros help nobody on a shopping list. */
 export const formatAmount = (n: number): string =>
   Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+
+/**
+ * The list as plain text, for the share sheet or the clipboard. Grouped the
+ * same way the screen is, so what she pastes into a message reads like what
+ * she was looking at.
+ */
+export function shoppingListText(
+  title: string,
+  aisles: { aisle: string; items: { item: string; quantity: string | null }[] }[],
+): string {
+  const blocks = aisles.map((a) => [
+    a.aisle.toUpperCase(),
+    ...a.items.map((i) => `• ${i.quantity ? `${i.quantity} ` : ""}${i.item}`),
+  ].join("\n"));
+  return [title, ...blocks].join("\n\n");
+}

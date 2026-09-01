@@ -22,6 +22,9 @@ export type AuditEventName =
   | "budget.changed"
   | "data.exported"
   | "data.restored"
+  /** Her data handed to a third party at her request — currently the
+   *  shopping list to Instacart. Detail carries where and how many, never what. */
+  | "data.shared"
   | "data.deleted"
   | "onboarding.completed"
   | "spend.ceiling_reached";

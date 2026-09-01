@@ -12,6 +12,7 @@ import * as templates from "./templates";
 import * as progression from "./progression";
 import * as foodTools from "./foods";
 import * as photos from "./photos";
+import * as shopping from "./shopping";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -51,6 +52,7 @@ const all: Tool[] = [
   ideas.suggestMeals,
   nutrition.getRecentMeals,
   nutrition.getShoppingList,
+  shopping.sendShoppingListToInstacart,
   training.getPlan,
   profile.getProfile,
   training.getWeekReview,

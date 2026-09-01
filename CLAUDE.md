@@ -19,6 +19,11 @@ go through tools, so it gets the same numbers she sees.
 - Canonical storage is metric (kg, cm). Convert at the boundary via `lib/units.ts`.
   Tool inputs and outputs are always in *her* display units — the model never
   does unit arithmetic.
+- Food has its own units preference (`profiles.food_units`, null = follow the
+  body one). Recipes and shopping quantities are stored metric and rewritten by
+  `lib/food-units.ts` at every output boundary; tools reach for
+  `foodUnitsFor(profileId)`, pages for `foodUnitsOf(profile)`. The planner is
+  told to write metric so there is one source to convert from.
 - Exercises are addressed by **slug**, never UUID, everywhere the model can see.
   Unknown slugs return a recoverable `{ ok: false, unknownSlugs }` result rather
   than throwing, so the model can call `search_exercises` and retry.
@@ -142,6 +147,14 @@ rules. Two that bite most often:
 - **CI is the only review this project has.** Typecheck, lint, tests, dependency
   audit, a build that proves nothing needs a secret at module load, and a scan
   of git history for credentials. It must pass before deploy.
+- **Probes never write to real rows.** A script that needs data creates a
+  throwaway account and deletes it (`scripts/tenancy-check.ts` is the pattern).
+  An overnight probe once overwrote the real profile with fake data and the
+  coach greeted the wrong person for a day. If a real-row write is needed, the
+  script goes in the scratchpad and the owner runs it.
+- **Third parties are enumerated.** Anthropic and, optionally, Instacart
+  (`lib/instacart.ts`) are the only places her data leaves the server. Adding
+  another means an `audit()` call, a line in COMPLIANCE.md, and a reason.
 
 If you remove a control, remove it from COMPLIANCE.md too. A stale readiness
 document is worse than none, because it gets believed.

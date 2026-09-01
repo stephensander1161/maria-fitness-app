@@ -267,6 +267,7 @@ const LABELS: Record<string, string> = {
   get_recent_meals: "finding your usuals", remove_meal_log: "removing that entry",
   suggest_meals: "looking for something different", suggest_exercises: "finding you options",
   get_shopping_list: "building your shopping list",
+  send_shopping_list_to_instacart: "sending your list to Instacart",
   log_measurement: "saving your measurement", get_measurements: "checking your measurements",
   get_measuring_guide: "pulling up the measuring guide",
   get_exercise_progression: "tracking your progression",
