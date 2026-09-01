@@ -13,8 +13,40 @@ import {
 const id = () => uuid("id").defaultRandom().primaryKey();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
 
+/**
+ * People who can sign in. Separate from `profiles`, which holds the training
+ * data: an account is who you are, a profile is what you're working on.
+ */
+export const users = pgTable(
+  "users",
+  {
+    id: id(),
+    /** Stored lowercased and trimmed; the unique index is the real guarantee. */
+    email: text("email").notNull(),
+    name: text("name"),
+    /** scrypt, self-describing — see lib/password.ts. Never a plain password. */
+    passwordHash: text("password_hash").notNull(),
+    role: text("role", { enum: ["owner", "member"] }).default("member").notNull(),
+    createdAt: createdAt(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    /** Set to disable an account without deleting its history. */
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    /**
+     * Sessions issued before this instant are rejected. Bumping it is
+     * "sign out everywhere" for one person — which the old shared passphrase
+     * could only do for everyone, by rotating the server secret.
+     */
+    sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true })
+      .defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("users_email").on(t.email)],
+);
+
 export const profiles = pgTable("profiles", {
   id: id(),
+  /** Nullable only so existing rows survive the migration that introduced
+   *  accounts; every profile created from here on belongs to a user. */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   name: text("name"),
   birthYear: integer("birth_year"),
   sex: text("sex", { enum: ["female", "male", "other"] }),
@@ -432,6 +464,7 @@ export const usageDaily = pgTable("usage_daily", {
 },
 (t) => [primaryKey({ columns: [t.date, t.source] })]);
 
+export type User = typeof users.$inferSelect;
 export type Profile = typeof profiles.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type SetLog = typeof setLogs.$inferSelect;

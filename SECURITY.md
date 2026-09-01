@@ -15,14 +15,34 @@ A missing `AUTH_SECRET` returns 503 rather than falling open.
 
 ## Authentication
 
-One passphrase, verified server-side by comparing HMACs (fixed length, so the
-comparison is constant time and leaks no information about the passphrase).
-Success sets a stateless signed cookie: `<expiry>.<HMAC-SHA256>`, `httpOnly`
-(unreachable from JavaScript, so XSS cannot lift it), `secure` in production,
-`sameSite=lax` (which is what makes cross-site POSTs fail, so no CSRF token is
-needed).
+Per-user accounts. Passwords are hashed with scrypt at OWASP's minimum
+parameters (N=2^17, r=8, p=1) using Node's standard library — memory-hard, so
+GPU cracking is expensive, and no dependency to audit. Each password gets its own
+salt, and the parameters are recorded inside the hash so they can be raised later
+without invalidating anyone; a hash below current parameters is upgraded silently
+on the next correct sign-in.
 
-Rotating `AUTH_SECRET` invalidates every session immediately.
+A failed sign-in verifies against a dummy hash when the address is unknown, so a
+missing account costs the same ~200ms as a wrong password and response time
+cannot be used to enumerate accounts. Every failure returns the same message.
+
+Sessions are checked in two layers. The edge middleware verifies the signature
+and expiry — cheap, and enough to turn away anyone without a valid token before
+any code runs. A stateless token cannot know that an account was disabled a
+minute ago, so `lib/session.ts` re-checks in Node, where the database is
+reachable: the account must still exist, be enabled, and the token must have been
+issued after that account's `sessionsValidFrom`.
+
+The account id is inside the signed payload, so a session cannot be re-pointed at
+someone else's data.
+
+Cookie is `httpOnly` (unreachable from JavaScript, so XSS cannot lift it),
+`secure` in production, `sameSite=lax` (which is what makes cross-site POSTs
+fail, so no CSRF token is needed).
+
+Revocation: `npm run user -- signout-everywhere <email>`, disabling an account,
+or changing its password all invalidate that account's sessions immediately and
+leave everyone else's alone. Rotating `AUTH_SECRET` invalidates all of them.
 
 Brute force is capped twice: 10 attempts/hour per IP, and **40/hour globally**.
 The global ceiling is the one that matters — `x-forwarded-for` is ultimately

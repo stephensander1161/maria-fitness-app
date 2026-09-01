@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SESSION_COOKIE,
   createSessionToken,
-  passphraseMatches,
   sessionCookieOptions,
   verifySessionToken,
 } from "@/lib/auth";
 
 const SECRET = "a-secret-of-reasonable-length-1234567890";
+const USER = "11111111-2222-3333-4444-555555555555";
 const OTHER_SECRET = "a-secret-of-reasonable-length-1234567891";
 const THIRTY_DAYS_MS = 30 * 86_400_000;
 
@@ -24,9 +24,9 @@ afterEach(() => {
 });
 
 describe("createSessionToken", () => {
-  it("produces <expiryMs>.<base64url signature>", async () => {
-    const token = await createSessionToken(SECRET);
-    expect(token).toMatch(/^\d+\.[A-Za-z0-9_-]+$/);
+  it("produces userId.issuedAt.expiry.signature, base64url and unpadded", async () => {
+    const token = await createSessionToken(SECRET, USER);
+    expect(token).toMatch(/^[0-9a-f-]+\.\d+\.\d+\.[A-Za-z0-9_-]+$/);
     expect(token).not.toContain("="); // padding stripped
     expect(token).not.toContain("+");
     expect(token).not.toContain("/");
@@ -34,8 +34,8 @@ describe("createSessionToken", () => {
 
   it("expires 30 days out", async () => {
     const before = Date.now();
-    const token = await createSessionToken(SECRET);
-    const expiry = Number(token.split(".")[0]);
+    const token = await createSessionToken(SECRET, USER);
+    const expiry = Number(token.split(".")[2]);
     expect(expiry).toBeGreaterThanOrEqual(before + THIRTY_DAYS_MS);
     expect(expiry).toBeLessThanOrEqual(Date.now() + THIRTY_DAYS_MS);
   });
@@ -43,86 +43,100 @@ describe("createSessionToken", () => {
   it("gives different secrets different signatures for the same instant", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
-    const [a, b] = await Promise.all([createSessionToken(SECRET), createSessionToken(OTHER_SECRET)]);
-    expect(a.split(".")[0]).toBe(b.split(".")[0]);
-    expect(a.split(".")[1]).not.toBe(b.split(".")[1]);
+    const [a, b] = await Promise.all([
+      createSessionToken(SECRET, USER),
+      createSessionToken(OTHER_SECRET, USER),
+    ]);
+    expect(a.split(".").slice(0, 3)).toEqual(b.split(".").slice(0, 3));
+    expect(a.split(".")[3]).not.toBe(b.split(".")[3]);
+  });
+
+  it("gives different accounts different signatures", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
+    const other = "99999999-8888-7777-6666-555555555555";
+    const [a, b] = await Promise.all([
+      createSessionToken(SECRET, USER),
+      createSessionToken(SECRET, other),
+    ]);
+    expect(a.split(".")[3]).not.toBe(b.split(".")[3]);
   });
 });
 
 describe("verifySessionToken", () => {
   it("accepts a token it just issued", async () => {
-    const token = await createSessionToken(SECRET);
-    await expect(verifySessionToken(token, SECRET)).resolves.toBe(true);
+    const token = await createSessionToken(SECRET, USER);
+    await expect(verifySessionToken(token, SECRET)).resolves.not.toBeNull();
   });
 
   it("accepts the same token repeatedly - it is stateless", async () => {
-    const token = await createSessionToken(SECRET);
+    const token = await createSessionToken(SECRET, USER);
     for (let i = 0; i < 3; i++) {
-      await expect(verifySessionToken(token, SECRET)).resolves.toBe(true);
+      await expect(verifySessionToken(token, SECRET)).resolves.not.toBeNull();
     }
   });
 
   it("rejects a token signed with a different secret (rotation revokes)", async () => {
-    const token = await createSessionToken(SECRET);
-    await expect(verifySessionToken(token, OTHER_SECRET)).resolves.toBe(false);
+    const token = await createSessionToken(SECRET, USER);
+    await expect(verifySessionToken(token, OTHER_SECRET)).resolves.toBeNull();
   });
 
   it("rejects a tampered signature", async () => {
-    const token = await createSessionToken(SECRET);
+    const token = await createSessionToken(SECRET, USER);
     const forged = tamperSignature(token);
     expect(forged).not.toBe(token);
-    await expect(verifySessionToken(forged, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(forged, SECRET)).resolves.toBeNull();
   });
 
   it("rejects a truncated signature", async () => {
-    const token = await createSessionToken(SECRET);
-    await expect(verifySessionToken(token.slice(0, -1), SECRET)).resolves.toBe(false);
+    const token = await createSessionToken(SECRET, USER);
+    await expect(verifySessionToken(token.slice(0, -1), SECRET)).resolves.toBeNull();
   });
 
   it("rejects an extended signature", async () => {
-    const token = await createSessionToken(SECRET);
-    await expect(verifySessionToken(`${token}A`, SECRET)).resolves.toBe(false);
+    const token = await createSessionToken(SECRET, USER);
+    await expect(verifySessionToken(`${token}A`, SECRET)).resolves.toBeNull();
   });
 
   it("rejects a tampered expiry, even one pushed further into the future", async () => {
-    const token = await createSessionToken(SECRET);
+    const token = await createSessionToken(SECRET, USER);
     const [expiry, sig] = token.split(".");
     const extended = `${Number(expiry) + 86_400_000}.${sig}`;
-    await expect(verifySessionToken(extended, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(extended, SECRET)).resolves.toBeNull();
     // ...and one pulled backwards, while still in the future.
-    await expect(verifySessionToken(`${Number(expiry) - 1}.${sig}`, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(`${Number(expiry) - 1}.${sig}`, SECRET)).resolves.toBeNull();
   });
 
   it("rejects a signature lifted onto another expiry", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
-    const a = await createSessionToken(SECRET);
+    const a = await createSessionToken(SECRET, USER);
     vi.setSystemTime(new Date("2026-09-01T12:00:00Z"));
-    const b = await createSessionToken(SECRET);
+    const b = await createSessionToken(SECRET, USER);
     const spliced = `${a.split(".")[0]}.${b.split(".")[1]}`;
-    await expect(verifySessionToken(spliced, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(spliced, SECRET)).resolves.toBeNull();
   });
 
   it("rejects a correctly signed but expired token", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2020-01-01T00:00:00Z"));
-    const stale = await createSessionToken(SECRET); // expires 2020-01-31
+    const stale = await createSessionToken(SECRET, USER); // expires 2020-01-31
     vi.useRealTimers();
-    await expect(verifySessionToken(stale, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(stale, SECRET)).resolves.toBeNull();
   });
 
   it("is valid up to and including the expiry instant, and not after", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
-    const token = await createSessionToken(SECRET);
-    const expiry = Number(token.split(".")[0]);
+    const token = await createSessionToken(SECRET, USER);
+    const expiry = Number(token.split(".")[2]);
 
     vi.setSystemTime(expiry - 1);
-    await expect(verifySessionToken(token, SECRET)).resolves.toBe(true);
+    await expect(verifySessionToken(token, SECRET)).resolves.not.toBeNull();
     vi.setSystemTime(expiry);
-    await expect(verifySessionToken(token, SECRET)).resolves.toBe(true);
+    await expect(verifySessionToken(token, SECRET)).resolves.not.toBeNull();
     vi.setSystemTime(expiry + 1);
-    await expect(verifySessionToken(token, SECRET)).resolves.toBe(false);
+    await expect(verifySessionToken(token, SECRET)).resolves.toBeNull();
   });
 
   const garbage: [name: string, token: string | undefined][] = [
@@ -145,7 +159,7 @@ describe("verifySessionToken", () => {
 
   for (const [name, token] of garbage) {
     it(`rejects ${name}`, async () => {
-      await expect(verifySessionToken(token, SECRET)).resolves.toBe(false);
+      await expect(verifySessionToken(token, SECRET)).resolves.toBeNull();
     });
   }
 
@@ -155,47 +169,11 @@ describe("verifySessionToken", () => {
     // returns 503), and the important property is that it can never return
     // true; if that guard were ever removed this would surface as a 500, not
     // as an open door.
-    const token = await createSessionToken(SECRET);
+    const token = await createSessionToken(SECRET, USER);
     await expect(verifySessionToken(token, "")).rejects.toThrow();
   });
 });
 
-describe("passphraseMatches", () => {
-  const REAL = "correct horse battery staple";
-
-  const cases: [name: string, attempt: string, expected: boolean][] = [
-    ["the exact passphrase", REAL, true],
-    ["a different passphrase", "wrong horse battery staple", false],
-    ["a prefix of the real passphrase", "correct horse battery stapl", false],
-    ["a single character", "c", false],
-    ["the empty string", "", false],
-    ["a superset of the real passphrase", `${REAL} extra`, false],
-    ["a trailing space", `${REAL} `, false],
-    ["a leading space", ` ${REAL}`, false],
-    ["different capitalisation", "Correct Horse Battery Staple", false],
-    ["a same-length near miss", "correct horse battery stapld", false],
-  ];
-
-  for (const [name, attempt, expected] of cases) {
-    it(`${expected ? "accepts" : "rejects"} ${name}`, async () => {
-      await expect(passphraseMatches(attempt, REAL, SECRET)).resolves.toBe(expected);
-    });
-  }
-
-  it("matches regardless of which secret keys the comparison", async () => {
-    await expect(passphraseMatches(REAL, REAL, OTHER_SECRET)).resolves.toBe(true);
-    await expect(passphraseMatches("nope", REAL, OTHER_SECRET)).resolves.toBe(false);
-  });
-
-  it("handles unicode passphrases", async () => {
-    await expect(passphraseMatches("passwoerd-é", "passwoerd-é", SECRET)).resolves.toBe(true);
-    await expect(passphraseMatches("passwoerd-e", "passwoerd-é", SECRET)).resolves.toBe(false);
-  });
-
-  it("compares two empty passphrases as equal - the caller must reject an unset one", async () => {
-    await expect(passphraseMatches("", "", SECRET)).resolves.toBe(true);
-  });
-});
 
 describe("cookie settings", () => {
   it("keeps the session out of JavaScript's reach and off cross-site requests", () => {
@@ -207,5 +185,45 @@ describe("cookie settings", () => {
 
   it("expires the cookie alongside the token it carries", () => {
     expect(sessionCookieOptions.maxAge * 1000).toBe(THIRTY_DAYS_MS);
+  });
+});
+
+describe("session identity", () => {
+  it("carries the subject back, so a route knows who is asking", async () => {
+    const token = await createSessionToken(SECRET, USER);
+    const session = await verifySessionToken(token, SECRET);
+    expect(session?.userId).toBe(USER);
+  });
+
+  it("reports when it was issued, which is what makes revocation possible", async () => {
+    const before = Date.now();
+    const session = await verifySessionToken(await createSessionToken(SECRET, USER), SECRET);
+    expect(session!.issuedAt).toBeGreaterThanOrEqual(before);
+    expect(session!.issuedAt).toBeLessThanOrEqual(Date.now());
+    expect(session!.expiry).toBeGreaterThan(session!.issuedAt);
+  });
+
+  it("cannot be re-pointed at another account", async () => {
+    // The subject is inside the signed payload, so swapping it invalidates it —
+    // otherwise anyone with a session could read anyone else's data.
+    const token = await createSessionToken(SECRET, USER);
+    const [, issued, expires, sig] = token.split(".");
+    const other = "99999999-8888-7777-6666-555555555555";
+    await expect(
+      verifySessionToken(`${other}.${issued}.${expires}.${sig}`, SECRET),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a token with the wrong number of parts", async () => {
+    for (const bad of ["", "a", "a.b", "a.b.c", "a.b.c.d.e"]) {
+      await expect(verifySessionToken(bad, SECRET)).resolves.toBeNull();
+    }
+  });
+
+  it("rejects a stretched expiry even with the original signature", async () => {
+    const token = await createSessionToken(SECRET, USER);
+    const [uid, issued, expires, sig] = token.split(".");
+    const later = String(Number(expires) + 86_400_000);
+    await expect(verifySessionToken(`${uid}.${issued}.${later}.${sig}`, SECRET)).resolves.toBeNull();
   });
 });

@@ -19,7 +19,9 @@
     "test:watch": "vitest",
     "eval": "tsx --env-file=.env evals/run.ts",
     "backup": "tsx --env-file=.env scripts/backup.ts",
-    "restore": "tsx --env-file=.env scripts/restore.ts"
+    "restore": "tsx --env-file=.env scripts/restore.ts",
+    "user": "tsx --env-file=.env scripts/users.ts",
+    "migrate:accounts": "tsx --env-file=.env scripts/migrate-to-accounts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

@@ -49,21 +49,41 @@ export async function passphraseMatches(attempt: string, expected: string, secre
   return safeEqual(b64url(a), b64url(b));
 }
 
-export async function createSessionToken(secret: string): Promise<string> {
-  const expiry = Date.now() + SESSION_DAYS * 86_400_000;
-  return `${expiry}.${b64url(await hmac(secret, `session:${expiry}`))}`;
+export type Session = { userId: string; issuedAt: number; expiry: number };
+
+/**
+ * `userId.issuedAt.expiry.signature` — stateless, so the edge gate can verify
+ * it without a database round trip. `issuedAt` is what makes per-user
+ * revocation possible: a route can compare it against the account's
+ * sessionsValidFrom and reject anything older.
+ */
+export async function createSessionToken(secret: string, userId: string): Promise<string> {
+  const issuedAt = Date.now();
+  const expiry = issuedAt + SESSION_DAYS * 86_400_000;
+  const payload = `${userId}.${issuedAt}.${expiry}`;
+  return `${payload}.${b64url(await hmac(secret, `session:${payload}`))}`;
 }
 
-export async function verifySessionToken(token: string | undefined, secret: string): Promise<boolean> {
-  if (!token) return false;
-  const dot = token.indexOf(".");
-  if (dot <= 0) return false;
+/** Signature and expiry only — cheap, and safe to run on the edge. */
+export async function verifySessionToken(
+  token: string | undefined,
+  secret: string,
+): Promise<Session | null> {
+  if (!token) return null;
 
-  const expiry = Number(token.slice(0, dot));
-  if (!Number.isFinite(expiry) || expiry < Date.now()) return false;
+  const parts = token.split(".");
+  if (parts.length !== 4) return null;
 
-  const expected = b64url(await hmac(secret, `session:${expiry}`));
-  return safeEqual(token.slice(dot + 1), expected);
+  const [userId, issued, expires, signature] = parts;
+  const issuedAt = Number(issued);
+  const expiry = Number(expires);
+  if (!userId || !Number.isFinite(issuedAt) || !Number.isFinite(expiry)) return null;
+  if (expiry < Date.now()) return null;
+
+  const expected = b64url(await hmac(secret, `session:${userId}.${issued}.${expires}`));
+  if (!safeEqual(signature, expected)) return null;
+
+  return { userId, issuedAt, expiry };
 }
 
 export const sessionCookieOptions = {

@@ -28,9 +28,14 @@ Read it as an honest inventory, not a certificate.
 |---|---|
 | Deny-by-default perimeter; every route gated before any handler runs | `middleware.ts` |
 | Fails closed — a missing `AUTH_SECRET` returns 503, never open access | `middleware.ts` |
-| Passphrase compared as fixed-length HMACs, so the comparison is constant time and leaks no length | `lib/auth.ts` |
+| Per-user accounts; passwords hashed with scrypt at OWASP's N=2^17, per-password salt, parameters recorded in the hash so they can be raised later | `lib/password.ts` |
+| Failed sign-in costs the same whether the address exists or not, so response time doesn't enumerate accounts | `app/api/login/route.ts` |
+| Hashes upgraded transparently on next sign-in when parameters are raised | `lib/password.ts` |
 | Stateless signed session: `httpOnly` (unreachable from JS), `secure` in production, `sameSite=lax` (blocks cross-site POST, so no CSRF token is needed) | `lib/auth.ts` |
-| Session revocation by secret rotation | `AUTH_SECRET` |
+| Two-layer session check: edge verifies signature and expiry, Node verifies the account still exists, is enabled, and hasn't been signed out everywhere | `middleware.ts`, `lib/session.ts` |
+| Per-user revocation — `signout-everywhere`, disable, and password change all invalidate that account's sessions immediately, without touching anyone else's | `scripts/users.ts` |
+| Account disable retains history rather than deleting it | `users.disabledAt` |
+| Global revocation by secret rotation | `AUTH_SECRET` |
 | Brute-force ceilings, per-IP **and** global — `x-forwarded-for` is client-supplied, so a per-IP limit alone can be rotated around | `lib/limits.ts` |
 | Every tool handler scoped to a server-supplied `profileId`, never a client-supplied one | `lib/tools/` |
 
@@ -97,7 +102,9 @@ Read it as an honest inventory, not a certificate.
 ### P — Privacy (partial)
 
 - Data export and deletion both exist and are tested.
-- Single-tenant: her data is never mixed with anyone else's.
+- Each account has its own profile; one account cannot read another's data.
+  The subject is inside the signed session payload, so a token cannot be
+  re-pointed at a different account.
 
 ---
 
@@ -114,9 +121,11 @@ Anthropic, GitHub). This is the largest gap and no code closes it.
 **No independent audit.** Nothing here has been reviewed by anyone but its
 author and its author's tooling.
 
-**Authentication.** One shared passphrase. No MFA, no per-user identity, no
-password rotation policy, no account lockout beyond rate limiting, no ability to
-revoke one device without revoking all.
+**Authentication.** No MFA, and no second factor of any kind — a stolen
+password is full access. No password rotation policy, no account lockout beyond
+rate limiting, and no self-service password reset (an owner runs
+`npm run user -- passwd`). Revocation is per account, not per device: signing out
+everywhere ends every session that account holds, including the one asking.
 
 **Segregation of duties.** Solo developer with production access. No peer
 review, no separate deploy approval, no privileged-access management.

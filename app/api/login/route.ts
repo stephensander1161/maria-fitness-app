@@ -1,18 +1,26 @@
 import { cookies } from "next/headers";
-import {
-  createSessionToken, passphraseMatches, SESSION_COOKIE, sessionCookieOptions,
-} from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 import { checkLoginAllowed, clientIp, recordLoginAttempt } from "@/lib/limits";
 import { audit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
+/**
+ * A dummy hash with the real parameters. Verifying against it when the email is
+ * unknown makes a missing account cost the same ~200ms as a wrong password, so
+ * response time doesn't reveal which addresses exist.
+ */
+const DUMMY_HASH =
+  "scrypt$131072$8$1$AAAAAAAAAAAAAAAAAAAAAA$" +
+  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 export async function POST(req: Request) {
   const secret = process.env.AUTH_SECRET;
-  const expected = process.env.APP_PASSPHRASE;
-  if (!secret || !expected) {
-    return Response.json({ error: "Server not configured" }, { status: 503 });
-  }
+  if (!secret) return Response.json({ error: "Server not configured" }, { status: 503 });
 
   const ip = clientIp(req);
   const gate = await checkLoginAllowed(ip);
@@ -21,27 +29,52 @@ export async function POST(req: Request) {
     return Response.json({ error: gate.reason }, { status: 429 });
   }
 
-  // Every attempt is recorded before the check, so a flood of wrong guesses
-  // burns the budget whether or not any of them land.
+  // Recorded before the check, so a flood of wrong guesses burns the budget
+  // whether or not any of them land.
   await recordLoginAttempt(ip);
 
-  const body = (await req.json().catch(() => ({}))) as { passphrase?: unknown };
-  const attempt = typeof body.passphrase === "string" ? body.passphrase.slice(0, 200) : "";
+  const body = (await req.json().catch(() => ({}))) as { email?: unknown; password?: unknown };
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase().slice(0, 200) : "";
+  const password = typeof body.password === "string" ? body.password.slice(0, 400) : "";
 
-  if (!(await passphraseMatches(attempt, expected, secret))) {
+  const [user] = email
+    ? await db.select().from(users).where(eq(users.email, email)).limit(1)
+    : [];
+
+  const ok = user
+    ? await verifyPassword(password, user.passwordHash)
+    : // Burn the same work so an unknown address is indistinguishable from a
+      // wrong password, then fail regardless.
+      (await verifyPassword(password, DUMMY_HASH), false);
+
+  if (!ok || !user || user.disabledAt) {
     // The attempt itself is never logged — a record of near-misses is a wordlist.
-    await audit("login.failure", { req });
-    // Deliberately vague, and no timing signal — the comparison is over HMACs.
-    return Response.json({ error: "That's not it." }, { status: 401 });
+    await audit("login.failure", {
+      req,
+      detail: { reason: !user ? "unknown_email" : user.disabledAt ? "disabled" : "bad_password" },
+    });
+    // Deliberately identical for every failure mode.
+    return Response.json({ error: "That's not right." }, { status: 401 });
   }
 
+  // Transparently upgrade a hash made with weaker parameters, now we have the
+  // plaintext in hand and know it is correct.
+  if (needsRehash(user.passwordHash)) {
+    await db.update(users)
+      .set({ passwordHash: await hashPassword(password) })
+      .where(eq(users.id, user.id));
+  }
+
+  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+
   const store = await cookies();
-  store.set(SESSION_COOKIE, await createSessionToken(secret), sessionCookieOptions);
-  await audit("login.success", { req });
-  return Response.json({ ok: true });
+  store.set(SESSION_COOKIE, await createSessionToken(secret, user.id), sessionCookieOptions);
+  await audit("login.success", { req, detail: { userId: user.id } });
+
+  return Response.json({ ok: true, name: user.name });
 }
 
-/** Sign out — clears the cookie. */
+/** Sign out on this device — clears the cookie only. */
 export async function DELETE(req: Request) {
   const store = await cookies();
   store.set(SESSION_COOKIE, "", { ...sessionCookieOptions, maxAge: 0 });

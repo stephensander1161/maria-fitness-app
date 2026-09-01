@@ -1,5 +1,6 @@
 import { runCoach, type CoachEvent } from "@/lib/agent/loop";
 import { getProfile } from "@/lib/profile";
+import { currentUser } from "@/lib/session";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
 import { hasHistory } from "@/lib/agent/history";
 import { audit } from "@/lib/audit";
@@ -23,7 +24,10 @@ export async function POST(req: Request) {
     kickoff?: boolean;
   };
 
-  const profile = await getProfile();
+  // Middleware proved the token; this proves the account is still valid.
+  const user = await currentUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const profile = await getProfile(user.id);
 
   // The first-run greeting is composed here, not sent by the browser. Letting
   // the client supply text that is hidden from the transcript would hand it a

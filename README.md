@@ -68,10 +68,14 @@ every response. Full details in [SECURITY.md](./SECURITY.md).
 
 ```bash
 npm install
-cp .env.example .env        # ANTHROPIC_API_KEY, DATABASE_URL, AUTH_SECRET, APP_PASSPHRASE
+cp .env.example .env        # ANTHROPIC_API_KEY, DATABASE_URL, AUTH_SECRET, APP_TIMEZONE
 npm run setup               # push schema + seed exercises and facts
+npm run user -- add you@example.com "Your name"
 npm run dev
 ```
+
+The first account created becomes the owner. Add one per person — each account
+gets its own profile and its own coach; no account can see another's data.
 
 Open http://localhost:3000. The coach opens the conversation itself and runs
 onboarding — there is no setup form.
@@ -84,6 +88,10 @@ onboarding — there is no setup form.
 | `npm run db:push` | Sync schema to the database (fast, dev) |
 | `npm run db:generate` / `db:migrate` | Versioned migrations (production) |
 | `npm run db:seed` | Upsert the exercise and fact libraries |
+| `npm run user -- list` | Accounts, roles, last sign-in |
+| `npm run user -- add <email> [name]` | Create an account (prompts for a password) |
+| `npm run user -- passwd <email>` | Change a password; signs that account out everywhere |
+| `npm run user -- signout-everywhere <email>` | Revoke one account's sessions |
 | `npm run feedback` | Read what she's asked for; set status and reply |
 | `npm run backup` | Dump all her data to `backups/` as JSON |
 | `npm run restore -- <file>` | Restore a backup, ids preserved |

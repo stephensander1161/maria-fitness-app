@@ -33,8 +33,11 @@ export function middleware(req: NextRequest) {
     return new NextResponse("Server not configured", { status: 503 });
   }
 
-  return verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value, secret).then((ok) => {
-    if (ok) return NextResponse.next();
+  // Signature and expiry only. Whether the account still exists, is enabled,
+  // and has not been signed out everywhere is checked in lib/session.ts,
+  // where the database is reachable.
+  return verifySessionToken(req.cookies.get(SESSION_COOKIE)?.value, secret).then((session) => {
+    if (session) return NextResponse.next();
 
     // APIs get a status code; pages get redirected to the login screen.
     if (pathname.startsWith("/api/")) {

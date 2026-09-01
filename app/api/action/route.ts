@@ -1,5 +1,6 @@
 import { runTool } from "@/lib/tools";
 import { getProfile } from "@/lib/profile";
+import { currentUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
     return Response.json({ error: "tool required" }, { status: 400 });
   }
 
-  const profile = await getProfile();
+  // Middleware proved the token; this proves the account is still valid.
+  const user = await currentUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const profile = await getProfile(user.id);
   try {
     const result = await runTool(tool, input ?? {}, { profileId: profile.id });
     return Response.json({ ok: true, result });

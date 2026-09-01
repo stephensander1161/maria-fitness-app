@@ -3,14 +3,19 @@ import { db } from "@/lib/db";
 import { profiles, type Profile } from "@/lib/db/schema";
 
 /**
- * Single-user app today: the first profile row is hers. The rest of the code
- * only ever receives a profileId, so adding real auth later means changing
- * this function and nothing else.
+ * Her training profile, created on first sign-in. One profile per account: the
+ * account is who you are, the profile is what you're working on.
  */
-export async function getProfile(): Promise<Profile> {
-  const [existing] = await db.select().from(profiles).orderBy(asc(profiles.createdAt)).limit(1);
+export async function getProfile(userId: string): Promise<Profile> {
+  const [existing] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.userId, userId))
+    .orderBy(asc(profiles.createdAt))
+    .limit(1);
   if (existing) return existing;
-  const [created] = await db.insert(profiles).values({}).returning();
+
+  const [created] = await db.insert(profiles).values({ userId }).returning();
   return created;
 }
 

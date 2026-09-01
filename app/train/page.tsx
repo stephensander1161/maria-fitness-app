@@ -1,11 +1,13 @@
 import { TrainClient } from "@/components/train-client";
 import { getProfile } from "@/lib/profile";
+import { requireUser } from "@/lib/session";
 import { todayView } from "@/lib/views";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainPage() {
-  const profile = await getProfile();
+  const user = await requireUser();
+  const profile = await getProfile(user.id);
   const view = await todayView(profile.id, profile.units);
 
   return (

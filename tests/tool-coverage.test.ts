@@ -78,6 +78,10 @@ suite("tool registry", () => {
       // Written by the app about itself, never on her behalf. Exposing an
       // audit log to the model would let a prompt reach the security record.
       "auditLog",
+      // Accounts and credentials. Managed by `npm run user`, deliberately
+      // out of the model's reach — no prompt should be able to change a
+      // password, enable an account, or read a hash.
+      "users",
     ]);
 
     const toolSource = walk("lib/tools").map(read).join("\n");

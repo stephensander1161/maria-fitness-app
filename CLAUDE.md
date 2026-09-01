@@ -85,6 +85,22 @@ correctly-but-wrongly told her she hadn't hit her milestone. If you add to that
 block, it must be exactly true, in her units, and labelled for what it is —
 planned targets read as achievements unless you say otherwise.
 
+## Accounts
+
+`users` holds accounts; `profiles` holds training data, one per account. The
+account is who you are, the profile is what you're working on.
+
+- Server components call `requireUser()`; API routes call `currentUser()` and
+  return 401. Never call `getProfile()` without a user id — it is scoped now.
+- Middleware only verifies the session signature and expiry, because the edge
+  has no database. Disabled accounts and "sign out everywhere" are enforced in
+  `lib/session.ts`. Both layers are load-bearing; do not drop either.
+- `users` is deliberately out of the model's reach (asserted in
+  tests/tool-coverage.test.ts). No prompt should be able to change a password,
+  enable an account, or read a hash.
+- Passwords never come from argv — `npm run user` prompts with echo off, because
+  a command line lands in shell history and the process table.
+
 ## Security controls
 
 COMPLIANCE.md is the inventory of what exists, what doesn't, and the standing
