@@ -2,6 +2,7 @@ import { runCoach, type CoachEvent } from "@/lib/agent/loop";
 import { getProfile } from "@/lib/profile";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
 import { hasHistory } from "@/lib/agent/history";
+import { audit } from "@/lib/audit";
 
 /** Server-authored, so the browser can never put words in the system's mouth. */
 const OPENING_PROMPT =
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
   // Rate and spend ceiling, checked before a single token is bought.
   const gate = await checkChatAllowed(profile.id);
   if (!gate.allowed) {
+    await audit("spend.ceiling_reached", { req, detail: { reason: gate.reason } });
     return Response.json({ error: gate.reason }, { status: 429 });
   }
 

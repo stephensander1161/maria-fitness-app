@@ -1,0 +1,84 @@
+name: CI
+
+# Every change to main is checked before it can be deployed. This is the
+# change-management control: nothing reaches her app without the type checker,
+# the linter, the full test suite and a dependency audit having passed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Dependencies rot even when the code doesn't — catch a new advisory in a
+  # package we already shipped.
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci` not `install`: installs exactly the locked tree, and fails if the
+      # lockfile and manifest disagree.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint .
+
+      # No database, no API key: the suite is pure logic by design, and this
+      # job proves it stays that way.
+      - name: Tests
+        run: npm test
+
+      - name: Dependency audit (production)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Dev-only advisories shouldn't block a deploy, but shouldn't be silent.
+      - name: Dependency audit (all, advisory)
+        run: npm audit --audit-level=moderate || true
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must not need real credentials. If this starts failing,
+          # something began reaching for a secret at module load — the bug
+          # already fixed twice, in the database client and the Anthropic client.
+          SKIP_ENV_VALIDATION: "1"
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A committed key is the failure that matters most here: it would be
+      # someone else's bill and her data.
+      - name: Scan history for credentials
+        run: |
+          if git log -p --all | grep -nE 'sk-ant-api[0-9a-zA-Z_-]{20}|postgres(ql)?://[^ "]*:[^ "@]{8}' ; then
+            echo "::error::Credential-shaped string found in git history"
+            exit 1
+          fi
+          echo "No credentials found in history."
+
+      - name: .env must be ignored
+        run: |
+          git check-ignore -q .env.example && { echo "::error::.env.example must NOT be ignored"; exit 1; }
+          printf 'ANTHROPIC_API_KEY=sk-ant-test\n' > .env
+          git check-ignore -q .env || { echo "::error::.env is not gitignored"; exit 1; }
+          rm -f .env
+          echo ".env ignored, .env.example tracked."

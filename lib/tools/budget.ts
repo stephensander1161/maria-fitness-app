@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { LIMITS, todaySpend } from "@/lib/limits";
+import { audit } from "@/lib/audit";
 import { defineTool } from "./define";
 
 /**
@@ -59,6 +60,7 @@ export const setCoachBudget = defineTool({
       .set({ dailyBudgetMicros: chosen })
       .where(eq(profiles.id, ctx.profileId));
 
+    await audit("budget.changed", { detail: { requested: input.budgetMicros, applied: chosen, ceiling } });
     return { ok: true, limitMicros: chosen ?? ceiling, ceilingMicros: ceiling };
   },
 });

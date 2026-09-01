@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 import {
   factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
   photos, planDays, planExercises, plans, profiles, setLogs, usageDaily, weighIns,
@@ -49,6 +50,7 @@ async function main() {
   );
 
   const kb = Math.round(fs.statSync(target).size / 1024);
+  await audit("data.exported");
   console.log(`\n✓ ${rows} rows -> ${target} (${kb}KB)`);
   process.exit(0);
 }

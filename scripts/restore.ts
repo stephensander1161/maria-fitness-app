@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 import {
   factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
   photos, planDays, planExercises, plans, profiles, setLogs, usageDaily, weighIns,
@@ -59,6 +60,7 @@ async function main() {
   }
 
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(profiles);
+  await audit("data.restored");
   console.log(`\n✓ restored — ${n} profile(s)`);
   process.exit(0);
 }

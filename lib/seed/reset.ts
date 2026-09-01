@@ -4,6 +4,7 @@
  * clean app after testing. Run: npm run db:reset
  */
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 import {
   factViews, goals, mealLogs, mealPlans, measurements, messages, plans, profiles,
   setLogs, weighIns, workouts,
@@ -33,6 +34,8 @@ async function main() {
   await db.delete(factViews);
   await db.delete(messages);
   await db.delete(profiles);
+  // Recorded after the wipe: the audit log deliberately survives a reset.
+  await audit("data.deleted", { detail: { scope: "all profile data" } });
   console.log("✓ profile data cleared — exercise and fact libraries kept");
   process.exit(0);
 }

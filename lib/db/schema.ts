@@ -355,6 +355,30 @@ export const feedback = pgTable(
   (t) => [index("feedback_profile_status").on(t.profileId, t.status)],
 );
 
+/**
+ * Security-relevant events: who got in, who failed, what changed, what left.
+ *
+ * Nothing else in the app would tell you that someone spent a night guessing
+ * the passphrase, or that her data was exported. Append-only by convention —
+ * nothing in the app updates or deletes a row here, and it survives db:reset.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: id(),
+    at: timestamp("at", { withTimezone: true }).defaultNow().notNull(),
+    event: text("event").notNull(),
+    /** "info" for normal activity, "warn" for anything worth looking at. */
+    severity: text("severity", { enum: ["info", "warn"] }).default("info").notNull(),
+    /** Truncated and never joined to anything — enough to spot a pattern. */
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    /** Small structured payload. Never credentials, never her body data. */
+    detail: jsonb("detail").$type<Record<string, unknown>>(),
+  },
+  (t) => [index("audit_log_at").on(t.at), index("audit_log_event").on(t.event, t.at)],
+);
+
 /** Full conversation history — this is the agent's memory across sessions. */
 export const messages = pgTable(
   "messages",
@@ -418,3 +442,4 @@ export type Fact = typeof facts.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;
+export type AuditEvent = typeof auditLog.$inferSelect;

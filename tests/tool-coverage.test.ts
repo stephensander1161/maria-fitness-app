@@ -73,7 +73,12 @@ suite("tool registry", () => {
     // Reference data is seeded, not written through tools.
     const REFERENCE_ONLY = new Set(["exercises", "facts"]);
     // Infrastructure the app maintains itself, never on her behalf.
-    const INTERNAL = new Set(["messages", "rateEvents", "usageDaily", "factViews", "profiles"]);
+    const INTERNAL = new Set([
+      "messages", "rateEvents", "usageDaily", "factViews", "profiles",
+      // Written by the app about itself, never on her behalf. Exposing an
+      // audit log to the model would let a prompt reach the security record.
+      "auditLog",
+    ]);
 
     const toolSource = walk("lib/tools").map(read).join("\n");
     const uncovered = Object.keys(schema)
