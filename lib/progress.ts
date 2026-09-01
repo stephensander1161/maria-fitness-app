@@ -531,6 +531,9 @@ export async function measurementProgress(
  * This is the single most useful thing measurements buy her, and the moment a
  * coach is most needed — it's exactly when people quit.
  */
+/** Below this, a waist change is as likely to be how the tape was held. */
+const MIN_RECOMP_DAYS = 14;
+
 export async function recompositionSignal(
   profileId: string,
   units: Units,
@@ -538,6 +541,13 @@ export async function recompositionSignal(
   const sites = await measurementProgress(profileId, units);
   const waist = sites.find((s) => s.site === "waist");
   if (!waist || waist.changeTotal === null || waist.changeTotal >= -0.5) return null;
+
+  // Over a long enough span to be a trend rather than a tape held differently.
+  // This goes into the prompt prefixed IMPORTANT and the model believes it
+  // completely, so half an inch across three days must not become "that is fat
+  // loss the scale cannot see" — an encouraging claim is still a false one.
+  if (waist.firstDate === null || waist.currentDate === null) return null;
+  if (daysBetween(waist.firstDate, waist.currentDate) < MIN_RECOMP_DAYS) return null;
 
   const weights = await db
     .select({ date: weighIns.date, weightKg: weighIns.weightKg })
