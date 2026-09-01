@@ -2,6 +2,8 @@ type Seed = {
   slug: string; name: string;
   category: "compound" | "isolation" | "cardio" | "mobility" | "core";
   primaryMuscles: string[]; equipment: string[];
+  /** Extra search terms — the complaint, not the muscle. */
+  tags?: string[];
   formCues: string[]; commonMistakes: string[]; safetyNote?: string;
   easier?: string[]; harder?: string[];
   unilateral?: boolean; bodyweight?: boolean;
@@ -1671,6 +1673,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "chin-tuck", name: "Chin Tuck", category: "mobility",
     primaryMuscles: ["deep neck flexors", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "neck", "posture", "desk"],
     formCues: [
       "Sit or stand tall, eyes level with the horizon.",
       "Draw your chin straight back, as if making a double chin — not down toward your chest.",
@@ -1687,6 +1690,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "upper-trap-stretch", name: "Upper Trapezius Stretch", category: "mobility",
     primaryMuscles: ["upper traps", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "neck", "shoulder", "desk"],
     formCues: [
       "Sit on your hand on one side to anchor that shoulder down.",
       "Tip the opposite ear toward the opposite shoulder.",
@@ -1702,6 +1706,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "levator-scapulae-stretch", name: "Levator Scapulae Stretch", category: "mobility",
     primaryMuscles: ["levator scapulae", "neck"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "neck", "shoulder"],
     formCues: [
       "Anchor one shoulder by sitting on that hand.",
       "Turn your head about 45 degrees away from that side, then look down toward your armpit.",
@@ -1716,6 +1721,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "thread-the-needle", name: "Thread the Needle", category: "mobility",
     primaryMuscles: ["thoracic spine", "rear shoulder"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "upper back", "posture"],
     formCues: [
       "On all fours, hips over knees.",
       "Slide one arm underneath your body, palm up, until the shoulder and side of the head rest down.",
@@ -1732,6 +1738,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "thoracic-extension-roller", name: "Foam Roller Thoracic Extension", category: "mobility",
     primaryMuscles: ["thoracic spine", "upper back"], equipment: ["foam roller", "mat"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "upper back", "posture", "desk"],
     formCues: [
       "Roller across the upper back, just below the shoulder blades.",
       "Hands behind your head to support its weight, elbows toward each other.",
@@ -1748,6 +1755,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "pendulum-swing", name: "Shoulder Pendulum", category: "mobility",
     primaryMuscles: ["shoulder"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "shoulder"],
     formCues: [
       "Lean forward, supporting yourself with the good arm on a chair or table.",
       "Let the sore arm hang completely dead.",
@@ -1762,6 +1770,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "sleeper-stretch", name: "Sleeper Stretch", category: "mobility",
     primaryMuscles: ["posterior shoulder capsule"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "shoulder"],
     formCues: [
       "Lie on the side you want to stretch, shoulder under you, elbow bent to 90 degrees out in front.",
       "Roll slightly back so you are not directly on the point of the shoulder.",
@@ -1777,6 +1786,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "scapular-squeeze", name: "Scapular Squeeze", category: "mobility",
     primaryMuscles: ["mid traps", "rhomboids"], equipment: ["bodyweight", "chair"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "posture", "desk", "shoulder"],
     formCues: [
       "Sit or stand tall, arms relaxed at your sides.",
       "Draw the shoulder blades together and slightly down, as if holding a pencil between them.",
@@ -1793,6 +1803,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "mckenzie-press-up", name: "Prone Press-Up", category: "mobility",
     primaryMuscles: ["lower back"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "lower back", "back pain"],
     formCues: [
       "Lie face down, hands under your shoulders.",
       "Press the upper body up while the hips stay heavy on the floor.",
@@ -1809,6 +1820,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "double-knee-to-chest", name: "Double Knee to Chest", category: "mobility",
     primaryMuscles: ["lower back", "glutes"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "lower back", "back pain"],
     formCues: [
       "Lie on your back, knees bent, feet flat.",
       "Bring both knees up and hold them behind the thighs.",
@@ -1824,6 +1836,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "supine-lumbar-rotation", name: "Supine Lower Back Rotation", category: "mobility",
     primaryMuscles: ["lower back", "obliques"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "lower back", "back pain"],
     formCues: [
       "On your back, knees bent and together, arms out in a T.",
       "Let both knees fall slowly to one side, keeping both shoulders on the floor.",
@@ -1839,6 +1852,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "pelvic-tilt", name: "Pelvic Tilt", category: "mobility",
     primaryMuscles: ["lower back", "core"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "lower back", "back pain", "core"],
     formCues: [
       "On your back, knees bent, feet flat.",
       "Flatten the lower back gently into the floor by rolling the pelvis back.",
@@ -1855,6 +1869,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "standing-quad-stretch", name: "Standing Quad Stretch", category: "mobility",
     primaryMuscles: ["quads", "hip flexors"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "knee", "quad"],
     formCues: [
       "Stand tall, a hand on a wall for balance.",
       "Bend one knee and hold the ankle behind you.",
@@ -1871,6 +1886,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "couch-stretch", name: "Couch Stretch", category: "mobility",
     primaryMuscles: ["hip flexors", "quads"], equipment: ["bodyweight", "mat", "wall"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "hip", "hip flexor"],
     formCues: [
       "Kneel with one shin up a wall or against a sofa, other foot planted in front.",
       "Tuck the tailbone under and stand the torso up tall.",
@@ -1887,6 +1903,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "frog-stretch", name: "Frog Stretch", category: "mobility",
     primaryMuscles: ["adductors", "hips"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["physio", "physiotherapy", "rehab", "hip", "groin"],
     formCues: [
       "On all fours, knees wide, insides of the shins and feet flat on the floor.",
       "Keep the back flat and rock the hips slowly backwards.",
@@ -1903,6 +1920,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "quad-set", name: "Quad Set", category: "mobility",
     primaryMuscles: ["quads"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "knee", "knee pain"],
     formCues: [
       "Sit with the leg straight out in front, a rolled towel under the knee.",
       "Press the back of the knee down into the towel by tightening the thigh.",
@@ -1919,6 +1937,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "straight-leg-raise", name: "Straight Leg Raise", category: "mobility",
     primaryMuscles: ["quads", "hip flexors"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "knee", "knee pain"],
     formCues: [
       "On your back, one knee bent with the foot flat, the other leg straight.",
       "Tighten the thigh of the straight leg and lock the knee.",
@@ -1935,6 +1954,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "heel-slide", name: "Heel Slide", category: "mobility",
     primaryMuscles: ["knee"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "knee", "knee pain"],
     formCues: [
       "Lie on your back, legs straight, on a smooth floor or with a towel under the heel.",
       "Slide the heel toward your backside, bending the knee as far as is comfortable.",
@@ -1949,6 +1969,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "gastroc-calf-stretch", name: "Calf Stretch, Straight Knee", category: "mobility",
     primaryMuscles: ["calves", "gastrocnemius"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "calf", "ankle", "achilles"],
     formCues: [
       "Hands on a wall, one foot well back.",
       "Back leg straight, heel pressed down, toes pointing forward.",
@@ -1965,6 +1986,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "soleus-calf-stretch", name: "Calf Stretch, Bent Knee", category: "mobility",
     primaryMuscles: ["calves", "soleus", "achilles"], equipment: ["bodyweight", "wall"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "calf", "ankle", "achilles"],
     formCues: [
       "Same wall position as the straight-knee version, but the back foot comes closer in.",
       "Bend the back knee while keeping that heel down.",
@@ -1980,6 +2002,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "plantar-fascia-stretch", name: "Plantar Fascia Stretch", category: "mobility",
     primaryMuscles: ["foot", "plantar fascia"], equipment: ["bodyweight", "chair"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "foot", "plantar fasciitis", "heel pain"],
     formCues: [
       "Sit and cross one ankle over the opposite knee.",
       "Pull the toes back toward the shin with your hand until the arch feels taut.",
@@ -1994,6 +2017,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "wrist-flexor-stretch", name: "Wrist Flexor Stretch", category: "mobility",
     primaryMuscles: ["forearm", "wrist"], equipment: ["bodyweight"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "wrist", "forearm"],
     formCues: [
       "Arm straight out in front, palm up.",
       "With the other hand, draw the fingers down and back toward the floor.",
@@ -2008,6 +2032,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "wrist-extensor-stretch", name: "Wrist Extensor Stretch", category: "mobility",
     primaryMuscles: ["forearm", "wrist", "elbow"], equipment: ["bodyweight"], bodyweight: true, unilateral: true,
+    tags: ["physio", "physiotherapy", "rehab", "wrist", "forearm", "tennis elbow", "elbow"],
     formCues: [
       "Arm straight out in front, palm down.",
       "With the other hand, draw the back of the hand down and toward you.",
@@ -2018,5 +2043,202 @@ export const EXERCISES: Seed[] = [
       "Rushing it. This side is usually the tighter of the two on anyone who types.",
     ],
     safetyNote: "The one that helps the outside of the elbow — tennis elbow territory. Gentle and often beats hard and occasional.",
+  },
+  // ── Post-partum rebuilding ────────────────────────────────────────────────
+  // The standard progression a pelvic health physiotherapist works through:
+  // breathe first, then coordinate the deep core with the pelvic floor, then
+  // add load. It is deliberately unglamorous at the start, because the
+  // foundation is what everything later is built on.
+  //
+  // Every entry says the same three things where they apply: wait for
+  // clearance, watch the midline for doming, and heaviness or leaking means
+  // stop and see a pelvic health physiotherapist rather than push on. That is
+  // not boilerplate — those are the signs that separate "keep going" from
+  // "get this looked at", and nobody tells you them.
+  {
+    slug: "diaphragmatic-breathing", name: "360 Breathing", category: "mobility",
+    primaryMuscles: ["diaphragm", "deep core", "pelvic floor"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Lie on your back, knees bent, one hand on your ribs and one on your belly.",
+      "Breathe in through the nose and send the air wide — ribs expand sideways and back, not just the belly up.",
+      "Breathe out slowly through the mouth and feel the ribs close down.",
+      "Ten slow breaths. That is the whole exercise.",
+    ],
+    commonMistakes: [
+      "Breathing only into the belly, which misses the sideways rib expansion that actually matters.",
+      "Forcing a big breath. Easy and full beats big and tense.",
+    ],
+    safetyNote: "This is the foundation everything else here is built on, and it is safe from very early on. Your pelvic floor lengthens as you breathe in and recoils as you breathe out — getting that rhythm back is the first job.",
+    harder: ["postpartum-connection-breath"],
+  },
+  {
+    slug: "pelvic-floor-activation", name: "Pelvic Floor Lift", category: "core",
+    primaryMuscles: ["pelvic floor"], equipment: ["bodyweight", "mat", "chair"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Sitting or lying, breathe out and gently draw up as if stopping wind and then a flow of urine.",
+      "The lift is forwards and upwards, and it is smaller than you expect.",
+      "Hold for three to five seconds while breathing normally, then fully let go.",
+      "Eight to ten lifts, once or twice a day.",
+    ],
+    commonMistakes: [
+      "Squeezing the glutes, inner thighs or stomach instead — if anything visible moves, it is not the pelvic floor.",
+      "Holding your breath, which pushes down rather than lifting up.",
+      "Never fully releasing between repetitions. The letting go is half the exercise.",
+    ],
+    safetyNote: "Do not practise by stopping your urine mid-flow — that is a test, not an exercise, and repeating it causes problems. If you feel heaviness or dragging in the pelvis, or you leak, see a pelvic health physiotherapist: both are common and both are treatable, and neither is something to train through.",
+    easier: ["diaphragmatic-breathing"], harder: ["pelvic-floor-relaxation", "tva-activation"],
+  },
+  {
+    slug: "pelvic-floor-relaxation", name: "Pelvic Floor Release", category: "mobility",
+    primaryMuscles: ["pelvic floor", "hips"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Lie with the soles of the feet together, knees falling open, or sit on a low stool with knees apart.",
+      "Breathe in and picture the pelvic floor softening and widening downwards.",
+      "Let the jaw unclench at the same time — the two release together.",
+      "Five to ten slow breaths.",
+    ],
+    commonMistakes: [
+      "Skipping this because lifting feels more like exercise. A pelvic floor that cannot relax is as much a problem as one that cannot lift.",
+    ],
+    safetyNote: "If you have pain with sitting, tampons or sex, this direction matters more than lifting — and it is worth a pelvic health physiotherapist rather than guesswork.",
+    easier: ["childs-pose"],
+  },
+  {
+    slug: "tva-activation", name: "Deep Core Draw-In", category: "core",
+    primaryMuscles: ["transverse abdominis", "deep core"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "On your back, knees bent, fingers just inside your hip bones.",
+      "Breathe out and gently draw the lower belly in and up, as if easing into tight jeans.",
+      "You should feel a light tension under your fingers, not a hard bulge.",
+      "Hold five seconds, breathing. Ten repetitions.",
+    ],
+    commonMistakes: [
+      "Sucking in hard, which recruits everything except the muscle you want.",
+      "Tilting the pelvis. This is tension, not movement.",
+      "Doming — a ridge appearing down the midline means back off and use less effort.",
+    ],
+    safetyNote: "Watch your midline. A ridge or doming along it means the effort is too much for the connective tissue right now; less is genuinely more here.",
+    easier: ["diaphragmatic-breathing", "pelvic-floor-activation"], harder: ["core-heel-slide"],
+  },
+  {
+    slug: "postpartum-connection-breath", name: "Connection Breath", category: "core",
+    primaryMuscles: ["pelvic floor", "transverse abdominis", "deep core"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Breathe in and let the ribs widen and the pelvic floor soften.",
+      "Breathe out and let the pelvic floor lift and the lower belly draw in together.",
+      "The exhale and the effort happen at the same moment — that pairing is the point.",
+      "Ten breaths.",
+    ],
+    commonMistakes: [
+      "Lifting on the in-breath, which is the opposite of what you want under load.",
+      "Making it forceful. It should be barely visible from the outside.",
+    ],
+    safetyNote: "Exhale on effort is the rule that carries into everything else — the breath out happens as you stand up, lift the car seat, or press the weight.",
+    easier: ["diaphragmatic-breathing"], harder: ["core-heel-slide", "glute-bridge"],
+  },
+  {
+    slug: "core-heel-slide", name: "Core Heel Slide", category: "core",
+    primaryMuscles: ["transverse abdominis", "deep core"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "On your back, knees bent, lower back in its natural position.",
+      "Breathe out, draw the deep core in, and slide one heel away until the leg is nearly straight.",
+      "Only go as far as you can keep the lower back still and the midline flat.",
+      "Breathe in to bring it back. Eight each side.",
+    ],
+    commonMistakes: [
+      "Sliding so far that the lower back arches off the floor — that range is not yours yet.",
+      "Holding the breath through the slide.",
+    ],
+    safetyNote: "Stop the slide at the point where the midline domes or the back arches. That point moves further out over weeks, which is exactly the progress you are looking for.",
+    easier: ["tva-activation"], harder: ["supine-march", "dead-bug"],
+  },
+  {
+    slug: "supine-march", name: "Supine March", category: "core",
+    primaryMuscles: ["deep core", "hip flexors"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "On your back, knees bent, feet flat, deep core gently engaged.",
+      "Breathe out and lift one foot a few inches, knee staying bent.",
+      "Lower it with control and swap. The pelvis does not rock.",
+      "Ten each side.",
+    ],
+    commonMistakes: [
+      "Letting the pelvis tip side to side as the foot lifts.",
+      "Lifting both feet at once too early.",
+    ],
+    safetyNote: "If the lower back arches or the midline domes, go back to heel slides for another week or two. Nothing is lost by doing that.",
+    easier: ["core-heel-slide"], harder: ["dead-bug"],
+  },
+  {
+    slug: "wall-plank", name: "Wall Plank", category: "core",
+    primaryMuscles: ["deep core", "shoulders"], equipment: ["bodyweight", "wall"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Hands on a wall at chest height, feet a step back.",
+      "One straight line from head to heels, ribs down, tailbone gently tucked.",
+      "Breathe out and hold the deep core lightly.",
+      "Twenty to thirty seconds, breathing the whole time.",
+    ],
+    commonMistakes: [
+      "Letting the lower back sag, which is the position a full plank punishes.",
+      "Holding the breath to make it feel stronger.",
+    ],
+    safetyNote: "This is where plank work should start after a baby, not on the floor. A full plank too early is the classic way to make a midline gap worse.",
+    harder: ["incline-plank"],
+  },
+  {
+    slug: "incline-plank", name: "Incline Plank", category: "core",
+    primaryMuscles: ["deep core", "shoulders"], equipment: ["bodyweight", "chair"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Forearms or hands on a sofa arm, worktop or stairs — the higher the surface, the easier.",
+      "Straight line from head to heels, ribs down.",
+      "Breathe normally throughout. Twenty to forty seconds.",
+      "Lower the surface a step every week or two as it gets easy.",
+    ],
+    commonMistakes: [
+      "Dropping to the floor as soon as the incline feels manageable, skipping the steps in between.",
+      "Letting the hips pike up to take the work out of it.",
+    ],
+    safetyNote: "Check the midline: any doming or a visible ridge means go back up to a higher surface. Progress here is measured in weeks, and that is normal.",
+    easier: ["wall-plank"], harder: ["plank"],
+  },
+  {
+    slug: "standing-pelvic-tilt", name: "Standing Pelvic Tilt", category: "mobility",
+    primaryMuscles: ["lower back", "deep core", "glutes"], equipment: ["bodyweight", "wall"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "Stand with your back against a wall, knees soft.",
+      "Breathe out and gently flatten the lower back toward the wall by tucking the tailbone.",
+      "Release back to neutral. Ten repetitions.",
+      "Small, quiet movement — nobody watching should notice.",
+    ],
+    commonMistakes: [
+      "Using the glutes to squeeze the hips forward rather than tilting the pelvis.",
+    ],
+    safetyNote: "Useful during the day, standing at the kettle or rocking a baby, when lying on the floor is not going to happen.",
+    easier: ["pelvic-tilt"],
+  },
+  {
+    slug: "happy-baby", name: "Happy Baby", category: "mobility",
+    primaryMuscles: ["pelvic floor", "hips", "lower back"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
+    formCues: [
+      "On your back, knees drawn toward the armpits, holding the outsides of the feet or behind the thighs.",
+      "Let the knees widen and the lower back settle.",
+      "Breathe into the back and let the pelvic floor lengthen.",
+      "Five to ten slow breaths.",
+    ],
+    commonMistakes: [
+      "Pulling hard on the feet. Gravity does this one.",
+    ],
+    safetyNote: "A release, not a stretch to win. Hold behind the thighs if reaching the feet rounds your back.",
+    easier: ["childs-pose"],
   },
 ];

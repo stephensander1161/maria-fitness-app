@@ -28,7 +28,7 @@ async function todayFor(ctx: ToolContext) {
 export const searchExercises = defineTool({
   name: "search_exercises",
   description:
-    "Search the exercise library by name, muscle group, or equipment. ALWAYS use this to find valid exercise slugs before building or adjusting a plan — every other training tool identifies exercises by slug.",
+    "Search the exercise library by name, muscle group, equipment, or complaint — 'postpartum', 'diastasis', 'pelvic floor', 'physio', 'neck' all work. ALWAYS use this to find valid exercise slugs before building or adjusting a plan — every other training tool identifies exercises by slug.",
   input: z.object({
     query: z.string().optional().describe("Name or muscle, e.g. 'squat', 'glutes', 'back'"),
     equipment: z.string().optional().describe("Filter to what she has, e.g. 'dumbbell', 'bodyweight'"),
@@ -43,6 +43,9 @@ export const searchExercises = defineTool({
         ilike(exercises.name, q),
         ilike(exercises.slug, q),
         sql`${exercises.primaryMuscles}::text ilike ${q}`,
+        // Tags carry the complaint — "diastasis", "postpartum", "physio" —
+        // which is how she and the coach actually look for this content.
+        sql`${exercises.tags}::text ilike ${q}`,
       ));
     }
     if (input.equipment) filters.push(sql`${exercises.equipment}::text ilike ${`%${input.equipment}%`}`);
@@ -51,6 +54,7 @@ export const searchExercises = defineTool({
     const rows = await db.select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       primaryMuscles: exercises.primaryMuscles, equipment: exercises.equipment,
+      tags: exercises.tags,
       bodyweight: exercises.bodyweight,
     }).from(exercises)
       .where(filters.length ? and(...filters) : undefined)

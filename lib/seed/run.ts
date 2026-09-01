@@ -20,6 +20,7 @@ async function main() {
     const row = {
       slug: e.slug, name: e.name, category: e.category,
       primaryMuscles: e.primaryMuscles, equipment: e.equipment,
+      tags: e.tags ?? [],
       formCues: e.formCues, commonMistakes: e.commonMistakes,
       safetyNote: e.safetyNote ?? null,
       easierAlternatives: e.easier ?? [], harderAlternatives: e.harder ?? [],

@@ -188,6 +188,10 @@ export const exercises = pgTable(
       enum: ["compound", "isolation", "cardio", "mobility", "core"],
     }).notNull(),
     primaryMuscles: jsonb("primary_muscles").$type<string[]>().default([]).notNull(),
+    /** Search terms that are not the name or a muscle — "postpartum",
+     *  "diastasis", "physio". Without these the library holds exactly the
+     *  right movement for a complaint and cannot be found by its name. */
+    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
     equipment: jsonb("equipment").$type<string[]>().default([]).notNull(),
     /** Ordered setup + execution cues. Rendered as the form guide. */
     formCues: jsonb("form_cues").$type<string[]>().default([]).notNull(),
