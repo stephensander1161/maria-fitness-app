@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { PRICING } from "@/lib/agent/model";
-import { LIMITS, costMicros } from "@/lib/limits";
+import { LIMITS, clientIp, costMicros } from "@/lib/limits";
 
 /**
  * The expected costs below are hand-computed from the published Haiku 4.5
@@ -237,5 +237,33 @@ describe("the action route has a ceiling of its own", () => {
     expect(LIMITS.actionsPerMinute).toBe(120);
     if (prev === undefined) delete process.env.MAX_ACTIONS_PER_MINUTE;
     else process.env.MAX_ACTIONS_PER_MINUTE = prev;
+  });
+});
+
+describe("identifying the caller for rate limiting", () => {
+  const req = (headers: Record<string, string>) =>
+    new Request("https://example.test/api/login", { headers });
+
+  it("prefers x-real-ip, which the platform sets", () => {
+    expect(clientIp(req({ "x-real-ip": "203.0.113.7" }))).toBe("203.0.113.7");
+  });
+
+  it("falls back to the first hop of x-forwarded-for", () => {
+    expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 70.41.3.18" }))).toBe("203.0.113.7");
+    expect(clientIp(req({ "x-forwarded-for": "  203.0.113.7  " }))).toBe("203.0.113.7");
+  });
+
+  // Everything unidentifiable shares one bucket. That is the safe direction:
+  // they collectively hit the login ceiling rather than each getting a fresh
+  // allowance, which is what an attacker stripping the header would want.
+  it("buckets anything it cannot identify together", () => {
+    expect(clientIp(req({}))).toBe("unknown");
+    expect(clientIp(req({ "x-forwarded-for": "" }))).toBe("unknown");
+    expect(clientIp(req({ "x-real-ip": "   " }))).toBe("unknown");
+  });
+
+  it("bounds the length so a huge header cannot bloat the bucket key", () => {
+    const long = "9".repeat(5000);
+    expect(clientIp(req({ "x-real-ip": long }).valueOf() as Request).length).toBeLessThanOrEqual(45);
   });
 });

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { statesMatch } from "@/lib/oauth";
 import {
   SESSION_COOKIE,
   createSessionToken,
+  passphraseMatches,
   sessionCookieOptions,
   verifySessionToken,
 } from "@/lib/auth";
@@ -236,5 +238,48 @@ describe("redirect responses", () => {
     const redirect = Response.redirect("https://example.com/", 302);
     expect(() => redirect.headers.append("Set-Cookie", "a=b")).toThrow(TypeError);
     expect(() => redirect.headers.set("Set-Cookie", "a=b")).toThrow(TypeError);
+  });
+});
+
+describe("comparing a passphrase", () => {
+  const SECRET = "test-secret-not-a-real-one";
+
+  it("accepts the right one and rejects the rest", async () => {
+    expect(await passphraseMatches("open sesame", "open sesame", SECRET)).toBe(true);
+    expect(await passphraseMatches("open sesamf", "open sesame", SECRET)).toBe(false);
+    expect(await passphraseMatches("", "open sesame", SECRET)).toBe(false);
+    expect(await passphraseMatches("open sesame ", "open sesame", SECRET)).toBe(false);
+  });
+
+  // It compares HMACs rather than the strings, so a wrong attempt of a
+  // different length still compares two equal-length digests.
+  it("is unaffected by how wrong the attempt is", async () => {
+    expect(await passphraseMatches("x", "open sesame", SECRET)).toBe(false);
+    expect(await passphraseMatches("x".repeat(5000), "open sesame", SECRET)).toBe(false);
+  });
+
+  it("is bound to the secret, so the same passphrase fails under another", async () => {
+    expect(await passphraseMatches("open sesame", "open sesame", "another-secret")).toBe(true);
+    const a = await passphraseMatches("open sesame", "open sesame", SECRET);
+    const b = await passphraseMatches("open sesame", "different", SECRET);
+    expect(a).toBe(true);
+    expect(b).toBe(false);
+  });
+});
+
+describe("the OAuth state check", () => {
+  it("matches only an identical state", () => {
+    const state = "Zm9vYmFyYmF6cXV4";
+    expect(statesMatch(state, state)).toBe(true);
+    expect(statesMatch(state, state.slice(0, -1) + "X")).toBe(false);
+  });
+
+  // A length mismatch must be false, not a thrown error: timingSafeEqual
+  // throws on unequal lengths, and an exception here would surface as a 500
+  // rather than a refused sign-in.
+  it("returns false on a length mismatch instead of throwing", () => {
+    expect(statesMatch("short", "considerably longer")).toBe(false);
+    expect(statesMatch("", "x")).toBe(false);
+    expect(statesMatch("", "")).toBe(true);
   });
 });
