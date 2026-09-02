@@ -79,6 +79,16 @@ table has no tools, if the UI calls something outside the registry, or if a tool
 is hidden from the model without justification. Those tests are verified to
 actually fail when violated — don't weaken them to get a feature through.
 
+**Verify that, don't assume it.** Two marquee security assertions in
+`tests/auth.test.ts` were destructuring a four-part token into two variables,
+so they verified a malformed string and passed because it was junk. The
+tool-order test asserted a sorted array was sorted. The backup test's slice
+fell back to the whole file when its marker was missing. All three passed for
+years while checking nothing. `tests/invariants.test.ts` now covers the rules
+CLAUDE.md states — the spend gate, deny-by-default, `users` out of reach, her
+timezone everywhere, the persona's cacheability — and each was confirmed to
+fail when the rule is broken.
+
 A screen may fire a model call by itself — the meal panel asks for a recipe the
 week planner left blank — but only through a tool, and only once: the tool
 writes the answer back with a conditional update (`where jsonb_array_length(
@@ -296,8 +306,11 @@ document is worse than none, because it gets believed.
   meal screen the first time she opens a meal that has none.
 - `/api/action` is rate-limited per profile (`checkActionAllowed`). It has the
   same reach as the chat route and must never again have less protection.
-- If `COACH_MODEL` changes, `PRICING` in `lib/agent/model.ts` must change with
-  it, or the spend cap computes against the wrong prices.
+- Pricing is derived from the model id (`ratesFor`), not hand-written beside
+  it — the old pair of literals had a comment saying they must be kept in step
+  and a test that never checked. An unrecognised model bills at the top of the
+  range: over-charging stops her coach early, under-charging spends money
+  nobody is watching.
 - Rate-limit and usage state belongs in Postgres. In-memory counters do not work
   on serverless and would silently enforce nothing.
 - Never render model output as HTML. `components/rich-text.tsx` builds React

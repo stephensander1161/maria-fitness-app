@@ -107,14 +107,22 @@ suite("tool registry", () => {
     ).toEqual([]);
   });
 
-  it("tool names are unique and the list order is stable", () => {
+  it("tool names are unique", () => {
     const names = anthropicTools.map((t) => t.name);
     expect(new Set(names).size, "duplicate tool name").toBe(names.length);
+  });
 
-    // Order is the first thing hashed for prompt caching (tools → system →
-    // messages), so a reshuffle silently invalidates the cache on every request.
-    expect(names, "keep lib/tools/index.ts alphabetical by tool name")
-      .toEqual([...names].sort());
+  it("the tool list is sorted at construction, not by hand", () => {
+    // Asserting that a sorted array is sorted cannot fail. What actually keeps
+    // the prompt cache alive is the sort itself: tool order is the first thing
+    // hashed, so hand-ordering drifts and every drift invalidates the cache on
+    // every request for the rest of the conversation.
+    const src = read("lib/tools/index.ts");
+    expect(src, "lib/tools/index.ts must sort the tool array by name")
+      .toMatch(/\.sort\(\(a, b\) => \(a\.name < b\.name/);
+
+    const names = anthropicTools.map((t) => t.name);
+    expect(names).toEqual([...names].sort());
   });
 
   it("every tool describes itself well enough to be chosen correctly", () => {

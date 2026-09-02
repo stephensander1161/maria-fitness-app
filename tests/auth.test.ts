@@ -102,21 +102,37 @@ describe("verifySessionToken", () => {
 
   it("rejects a tampered expiry, even one pushed further into the future", async () => {
     const token = await createSessionToken(SECRET, USER);
-    const [expiry, sig] = token.split(".");
-    const extended = `${Number(expiry) + 86_400_000}.${sig}`;
+    // userId.issuedAt.expiry.signature — four parts. This used to destructure
+    // the first two, so it verified a malformed two-part string and passed
+    // because the token was junk, not because the expiry was rejected.
+    const parts = token.split(".");
+    expect(parts).toHaveLength(4);
+    const [userId, issuedAt, expiry, sig] = parts;
+
+    const extended = [userId, issuedAt, String(Number(expiry) + 86_400_000), sig].join(".");
     await expect(verifySessionToken(extended, SECRET)).resolves.toBeNull();
     // ...and one pulled backwards, while still in the future.
-    await expect(verifySessionToken(`${Number(expiry) - 1}.${sig}`, SECRET)).resolves.toBeNull();
+    const pulled = [userId, issuedAt, String(Number(expiry) - 1), sig].join(".");
+    await expect(verifySessionToken(pulled, SECRET)).resolves.toBeNull();
+    // The untouched token still verifies, or the two above prove nothing.
+    await expect(verifySessionToken(token, SECRET)).resolves.not.toBeNull();
   });
 
-  it("rejects a signature lifted onto another expiry", async () => {
+  it("rejects a signature lifted onto another token's body", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
     const a = await createSessionToken(SECRET, USER);
     vi.setSystemTime(new Date("2026-09-01T12:00:00Z"));
     const b = await createSessionToken(SECRET, USER);
-    const spliced = `${a.split(".")[0]}.${b.split(".")[1]}`;
+
+    // A's body with B's signature. The old version spliced two *prefix* parts
+    // and produced "userId.issuedAt", which was rejected for being malformed.
+    const [aUser, aIssued, aExpiry] = a.split(".");
+    const bSig = b.split(".")[3];
+    const spliced = [aUser, aIssued, aExpiry, bSig].join(".");
+    expect(spliced).not.toBe(a);
     await expect(verifySessionToken(spliced, SECRET)).resolves.toBeNull();
+    await expect(verifySessionToken(a, SECRET)).resolves.not.toBeNull();
   });
 
   it("rejects a correctly signed but expired token", async () => {

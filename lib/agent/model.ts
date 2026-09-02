@@ -25,26 +25,34 @@ export type Pricing = {
 };
 
 /**
- * USD per million tokens. These MUST be updated alongside the model ids above:
- * pricing the wrong model silently disarms the spend cap that keeps a runaway
- * loop from costing real money. tests/limits.test.ts asserts the pairing.
+ * USD per million tokens, by model family.
  *
- * Haiku 4.5: $1 / $5.   Sonnet 5: $2 / $10.   (Opus 5 would be $5 / $25.)
- * Cache writes bill at 1.25x input, cache reads at 0.1x.
+ * Cache writes bill at 1.25x input, cache reads at 0.1x. Pricing the wrong
+ * model silently disarms the spend cap that keeps a runaway loop from costing
+ * real money: set COACH_MODEL to Opus and bill it at Haiku's rates and the cap
+ * allows five times the spend it is supposed to.
+ *
+ * That is why the table is keyed by model rather than hand-written per role,
+ * and why the lookup falls back to the *most* expensive family rather than the
+ * cheapest — an unrecognised model should over-charge the ledger and stop
+ * early, never under-charge it and run on.
  */
-export const PRICING: Pricing = {
-  input: 1.0,
-  output: 5.0,
-  cacheWrite: 1.25,
-  cacheRead: 0.1,
+const RATES: Record<string, Pricing> = {
+  haiku: { input: 1.0, output: 5.0, cacheWrite: 1.25, cacheRead: 0.1 },
+  sonnet: { input: 2.0, output: 10.0, cacheWrite: 2.5, cacheRead: 0.2 },
+  opus: { input: 5.0, output: 25.0, cacheWrite: 6.25, cacheRead: 0.5 },
+  fable: { input: 5.0, output: 25.0, cacheWrite: 6.25, cacheRead: 0.5 },
 };
 
-export const PLANNER_PRICING: Pricing = {
-  input: 2.0,
-  output: 10.0,
-  cacheWrite: 2.5,
-  cacheRead: 0.2,
-};
+export function ratesFor(model: string): Pricing {
+  const family = Object.keys(RATES).find((f) => model.includes(f));
+  // Unknown model: bill it at the top of the range. Over-charging the ledger
+  // stops her coach early; under-charging it spends money nobody is watching.
+  return RATES[family ?? "opus"];
+}
+
+export const PRICING: Pricing = ratesFor(MODEL);
+export const PLANNER_PRICING: Pricing = ratesFor(PLANNER_MODEL);
 
 export const pricingFor = (model: string): Pricing =>
   model === PLANNER_MODEL ? PLANNER_PRICING : PRICING;

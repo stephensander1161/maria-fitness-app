@@ -115,7 +115,7 @@ export const getBoost = defineTool({
   handler: async (_input, ctx) => {
     const asOf = await todayForProfile(ctx.profileId);
     const evidence = await findEvidence(ctx, asOf);
-    const fact = await pickUnseenFact(ctx.profileId);
+    const fact = await pickUnseenFact(ctx.profileId, await todayForProfile(ctx.profileId));
 
     return {
       // Rotates on the date so the same day is consistent but tomorrow differs.

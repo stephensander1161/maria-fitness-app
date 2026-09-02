@@ -375,7 +375,9 @@ export const getFact = defineTool({
       .optional().describe("Omit to let it pick"),
   }),
   handler: async (input, ctx) => {
-    const fact = await pickUnseenFact(ctx.profileId, input.category);
+    const fact = await pickUnseenFact(
+      ctx.profileId, await todayForProfile(ctx.profileId), input.category,
+    );
     if (!fact) return { error: "No facts seeded yet." };
     return { category: fact.category, fact: fact.text, source: fact.source };
   },

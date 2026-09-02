@@ -1,7 +1,7 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { facts, factViews, type Fact } from "@/lib/db/schema";
-import { today } from "@/lib/date";
+import { today, type ISODate } from "@/lib/date";
 
 export type FactCategory = Fact["category"];
 export type PickedFact = { category: FactCategory; text: string; source: string | null };
@@ -13,6 +13,8 @@ export type PickedFact = { category: FactCategory; text: string; source: string 
  */
 export async function pickUnseenFact(
   profileId: string,
+  /** Her today. A fact marked seen "tomorrow" is one she never gets again. */
+  asOf: ISODate = today(),
   category?: FactCategory,
 ): Promise<PickedFact | null> {
   const seen = db.select({ id: factViews.factId }).from(factViews)
@@ -32,6 +34,6 @@ export async function pickUnseenFact(
     if (!row) return null;
   }
 
-  await db.insert(factViews).values({ profileId, factId: row.id, shownOn: today() });
+  await db.insert(factViews).values({ profileId, factId: row.id, shownOn: asOf });
   return { category: row.category, text: row.text, source: row.source };
 }
