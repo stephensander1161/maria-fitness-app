@@ -44,6 +44,13 @@ Revocation: `npm run user -- signout-everywhere <email>`, disabling an account,
 or changing its password all invalidate that account's sessions immediately and
 leave everyone else's alone. Rotating `AUTH_SECRET` invalidates all of them.
 
+What the database holds about her: account and credentials (`users`), training
+and food data, tape measurements, progress photos as blobs, the coach
+conversation, and — since the niggle log — what she has reported as hurting.
+The last of those is the most sensitive thing here after the photos; it is
+readable by the coach, included in backups, and cascades on account deletion
+like everything else.
+
 Brute force is capped twice: 10 attempts/hour per IP, and **200/hour globally**
 (`MAX_LOGIN_ATTEMPTS_PER_HOUR_GLOBAL`; this document said 40 while the code
 said 200 — the code is what runs).

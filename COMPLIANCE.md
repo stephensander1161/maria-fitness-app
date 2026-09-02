@@ -72,6 +72,11 @@ Read it as an honest inventory, not a certificate.
   sign-out, budget changes, spend-ceiling hits, every export, restore or
   deletion of her data, and every time her data is handed to a third party at
   her request — currently the shopping list to Instacart (`lib/audit.ts`).
+- Deletion is now something she can do herself, through the coach or the
+  screens: sets, sessions, weigh-ins, measurements, meals, milestones, photos,
+  the kitchen, a date range, and the conversation itself. Every one of those
+  paths calls `audit("data.deleted")` with a count and a scope — never with
+  what was removed.
 - Deliberately narrow: **no credentials, and no record of passphrase attempts
   even hashed** — a log of near-misses is a wordlist. No body or training data.
 - Append-only by convention, and it survives `db:reset`.
@@ -109,6 +114,20 @@ already there.
 - Structural tests enforce architectural invariants that would otherwise decay
   (`tests/tool-coverage.test.ts`), and each is verified to fail when violated.
 
+### Health data she volunteers
+
+Beyond weight, measurements and food, the app now stores what she reports as
+hurting (`complaints`: a body region in her own words, a 0-10 severity, and the
+movement that provoked it). It exists so the plan stops prescribing the thing
+that aggravates it, and it is used for exactly that.
+
+- It never leaves the server except to Anthropic, in the same channel as the
+  rest of the coaching context, and never to Instacart.
+- It is not diagnostic and the app does not treat it as such: severity 7+, or
+  anything open for a fortnight, produces one response — see a
+  physiotherapist — and the app generates no rehabilitation programme.
+- It is in the backup set and in the cascade behind account deletion.
+
 ### Cost controls, per person
 
 Spend ceilings, chat rate limits and login attempt limits are all scoped per
@@ -123,7 +142,17 @@ is the single thing the cap exists to prevent.
 ### CC5 / PI1 — Processing integrity
 
 - Every tool input validated with Zod before any handler runs.
-- Idempotency keys on set logging, so a lost response cannot double-record.
+- Idempotency keys on set and meal logging, so a lost response cannot
+  double-record — and, for a planned meal, cannot empty the kitchen twice.
+- **Unknown is carried, not zeroed.** A meal logged in words has no calorie
+  figure and a day containing one is reported as a floor, never a total; a
+  fortnight that is mostly uncounted is refused rather than averaged. The
+  adaptive calorie engine will not lower a target from thin data, and will not
+  go below her resting expenditure whatever it is asked for
+  (`lib/expenditure.ts`).
+- Every mutation goes through the tool registry, asserted by
+  `tests/invariants.test.ts` — `app/api/onboard` was the last exception and no
+  longer is.
 - Dates computed in her timezone, not the server's.
 - Spend ceiling enforced *before* any model call, with real token usage recorded
   from every response — including each iteration of a tool loop.
