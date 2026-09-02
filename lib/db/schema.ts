@@ -105,6 +105,36 @@ export const profiles = pgTable("profiles", {
 });
 
 /**
+ * Something that hurts, in her words.
+ *
+ * A returning lifter's most likely reason to quit is a knee or a shoulder that
+ * grumbles for three weeks while the plan keeps prescribing the movement that
+ * aggravates it. The value here is almost entirely in the *plan remembering* —
+ * not in rehab content, which this app has no business generating.
+ *
+ * Severity is hers, 0-10, and it is never used to decide anything on its own:
+ * it decides what to ask her next, and anything above a threshold or unresolved
+ * for a fortnight gets the same answer, which is see a physiotherapist.
+ */
+export const complaints = pgTable(
+  "complaints",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** "left knee", "lower back" — her words, not a taxonomy. */
+    region: text("region").notNull(),
+    severity: integer("severity"),
+    /** The movement that brought it on, when there is one. */
+    provokedBySlug: text("provoked_by_slug"),
+    note: text("note"),
+    startedOn: date("started_on").notNull(),
+    resolvedOn: date("resolved_on"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("complaints_profile_open").on(t.profileId, t.resolvedOn)],
+);
+
+/**
  * Things to buy that no meal asked for — coffee, loo roll, her husband's
  * cereal. The shopping list is generated from the week's meals, so without
  * this "add coffee to the list" was a flat refusal, and the Instacart cart
@@ -747,4 +777,5 @@ export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;
 export type PantryItem = typeof pantryItems.$inferSelect;
 export type ShoppingExtra = typeof shoppingExtras.$inferSelect;
+export type Complaint = typeof complaints.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;

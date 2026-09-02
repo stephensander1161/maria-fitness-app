@@ -12,14 +12,14 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
-  factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
+  complaints, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, profiles, setLogs, shoppingExtras,
   usageDaily, weighIns, workouts,
 } from "@/lib/db/schema";
 
 // Same order as backup.ts: parents before children.
 const TABLES = {
-  profiles, weighIns, measurements, goals, photos,
+  profiles, weighIns, measurements, goals, photos, complaints,
   plans, planDays, planExercises,
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, shoppingExtras,

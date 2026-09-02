@@ -4,6 +4,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, weighIns, type Profile } from "@/lib/db/schema";
 import { owns } from "@/lib/templates";
+import { complaintSummary } from "@/lib/tools/swaps";
 import { env } from "@/lib/env";
 import { DAY_NAMES } from "@/lib/date";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
@@ -129,6 +130,10 @@ async function draft<S extends z.ZodType>(
 }
 
 async function profileBrief(p: Profile): Promise<string> {
+  // Anything open in the niggle log is a hard constraint on the week, not a
+  // note: a plan that prescribes the movement she said hurts is how someone
+  // decides the app is not listening.
+  const hurts = await complaintSummary(p.id);
   const u = p.units;
   const age = p.birthYear ? new Date().getFullYear() - p.birthYear : null;
   // Her current weight, not the one she signed up at. Months in, the start
@@ -152,9 +157,10 @@ async function profileBrief(p: Profile): Promise<string> {
     `Experience: ${p.experience ?? "unknown"}. Available ${p.daysPerWeek ?? "?"} days/week, ${p.sessionMinutes ?? "?"} minutes.`,
     `Equipment: ${p.equipment.join(", ") || "unknown"}`,
     `Injuries and limitations: ${p.injuries.join(", ") || "none"}`,
+    hurts ? `RIGHT NOW: ${hurts}` : "",
     `Dietary restrictions: ${p.dietaryRestrictions.join(", ") || "none"}. Dislikes: ${p.dislikedFoods.join(", ") || "none"}.`,
     `Cooking confidence: ${p.cookingSkill ?? "unknown"}. Body units: ${u}.`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 /** Only movements she can actually perform, so slugs cannot be invented. */
