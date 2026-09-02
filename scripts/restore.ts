@@ -13,8 +13,8 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
   factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
-  photos, planDays, planExercises, plans, profiles, setLogs, usageDaily, weighIns,
-  workouts,
+  pantryItems, photos, planDays, planExercises, plans, profiles, setLogs, usageDaily,
+  weighIns, workouts,
 } from "@/lib/db/schema";
 
 // Same order as backup.ts: parents before children.
@@ -22,7 +22,7 @@ const TABLES = {
   profiles, weighIns, measurements, goals, photos,
   plans, planDays, planExercises,
   workouts, setLogs,
-  mealPlans, meals, mealLogs,
+  mealPlans, meals, mealLogs, pantryItems,
   messages, feedback, factViews, usageDaily,
 };
 

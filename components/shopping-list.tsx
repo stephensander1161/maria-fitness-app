@@ -7,23 +7,30 @@ import { shoppingListText } from "@/lib/shopping";
 
 export type ShoppingAisle = {
   aisle: string;
-  items: { item: string; quantity: string | null; fromMeals: number }[];
+  items: {
+    item: string;
+    quantity: string | null;
+    fromMeals: number;
+    /** What her kitchen already holds against this line. */
+    inKitchen?: "have" | "short" | "out" | "unknown" | "missing";
+    shortBy?: string | null;
+  }[];
 };
 
 /**
  * The week's meals, added up into something you can shop from.
  *
- * Ticks are kept in this browser only, keyed by the week: a shopping list is a
- * thing you use for an hour and throw away, and putting it on the server would
- * mean a stale tick from last Tuesday greeting her in the aisle. They are
- * wrapped in try/catch because a private window or blocked site data makes
- * localStorage throw rather than return nothing.
- */
-/**
- * localStorage is an external store, so it is read through the API meant for
- * one rather than copied into state by an effect. The snapshot is the raw
- * string, which is stable to compare — returning a fresh Set each call would
- * spin forever.
+ * A tick is a *selection*, not a strike-through: what she ticks is what gets
+ * shared, sent to Instacart, or put away into the kitchen. Sharing used to send
+ * the whole list whatever she had chosen, which quietly made the ticks
+ * decorative — she would untick the four things she already had, send it, and
+ * get all thirty back.
+ *
+ * Everything starts ticked except what the kitchen already covers, so the
+ * common case is one tap. Her own taps always win over that default, and are
+ * kept in this browser only, keyed by the week: a shopping list is a thing you
+ * use for an hour and throw away, and putting it on the server would mean a
+ * stale tick from last Tuesday greeting her in the aisle.
  */
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
@@ -39,10 +46,10 @@ function subscribe(onChange: () => void) {
 
 function read(key: string): string {
   try {
-    return window.localStorage.getItem(key) ?? "[]";
+    return window.localStorage.getItem(key) ?? "{}";
   } catch {
     // A private window or blocked site data throws rather than returning null.
-    return "[]";
+    return "{}";
   }
 }
 
@@ -51,6 +58,8 @@ function read(key: string): string {
 const noop = () => () => {};
 const useCanShare = () =>
   useSyncExternalStore(noop, () => typeof navigator.share === "function", () => false);
+
+type Choices = { on: string[]; off: string[] };
 
 export function ShoppingList({
   weekStart, aisles, instacart,
@@ -62,50 +71,74 @@ export function ShoppingList({
   instacart: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const storageKey = `shopping:${weekStart}`;
+  // v2: ticks used to mean "got it, cross it off". They now mean "include it",
+  // which is the opposite, so the old key must not be read.
+  const storageKey = `shopping:v2:${weekStart}`;
   const canShare = useCanShare();
   const [shared, setShared] = useState<"copied" | null>(null);
   const [sending, setSending] = useState(false);
+  const [stocking, setStocking] = useState(false);
+  const [stocked, setStocked] = useState<number | null>(null);
   const [cart, setCart] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const raw = useSyncExternalStore(
     subscribe,
     () => read(storageKey),
-    // Nothing is ticked on the server, which is also what the first client
+    // Nothing is chosen on the server, which is also what the first client
     // render must say or hydration disagrees with itself.
-    () => "[]",
+    () => "{}",
   );
 
-  const ticked = useMemo<Set<string>>(() => {
+  const choices = useMemo<Choices>(() => {
     try {
-      return new Set(JSON.parse(raw) as string[]);
+      const parsed = JSON.parse(raw) as Partial<Choices>;
+      return { on: parsed.on ?? [], off: parsed.off ?? [] };
     } catch {
-      return new Set();
+      return { on: [], off: [] };
     }
   }, [raw]);
 
-  function toggle(item: string) {
-    const next = new Set(ticked);
-    if (next.has(item)) next.delete(item);
-    else next.add(item);
+  const items = aisles.flatMap((a) => a.items);
+  /** Already covered by the kitchen, so it starts unticked. */
+  const covered = (i: ShoppingAisle["items"][number]) => i.inKitchen === "have";
+  const isOn = (i: ShoppingAisle["items"][number]) =>
+    choices.on.includes(i.item) ? true : choices.off.includes(i.item) ? false : !covered(i);
+
+  const selected = items.filter(isOn);
+  const selectedNames = new Set(selected.map((i) => i.item));
+
+  function write(next: Choices) {
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify([...next]));
+      window.localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
-      // Ticking cannot be remembered here, but the list still works.
+      // Choices cannot be remembered here, but the list still works.
     }
     notify();
   }
 
-  const total = aisles.reduce((n, a) => n + a.items.length, 0);
-  const done = aisles.reduce((n, a) => n + a.items.filter((i) => ticked.has(i.item)).length, 0);
-  const title = `Shopping list — week of ${prettyDate(weekStart)}`;
+  function toggle(item: ShoppingAisle["items"][number]) {
+    const on = choices.on.filter((i) => i !== item.item);
+    const off = choices.off.filter((i) => i !== item.item);
+    if (isOn(item)) off.push(item.item);
+    else on.push(item.item);
+    write({ on, off });
+  }
 
-  /** The share sheet where there is one, the clipboard where there isn't —
-   *  either way the whole list, since a partner doing the shop wants all of
-   *  it, not just what she has not ticked yet. */
+  const setAll = (value: boolean) =>
+    write(value
+      ? { on: items.map((i) => i.item), off: [] }
+      : { on: [], off: items.map((i) => i.item) });
+
+  const total = items.length;
+  const title = `Shopping list — week of ${prettyDate(weekStart)}`;
+  /** Only what is ticked, grouped as it is on screen. */
+  const chosenAisles = aisles
+    .map((a) => ({ ...a, items: a.items.filter((i) => selectedNames.has(i.item)) }))
+    .filter((a) => a.items.length > 0);
+
   async function share() {
-    const text = shoppingListText(title, aisles);
+    const text = shoppingListText(title, chosenAisles);
     setError(null);
     try {
       if (canShare) {
@@ -127,7 +160,8 @@ export function ShoppingList({
     setError(null);
     try {
       const r = await action<{ ok: boolean; url?: string; error?: string }>(
-        "send_shopping_list_to_instacart", { weekStart },
+        "send_shopping_list_to_instacart",
+        { weekStart, items: [...selectedNames] },
       );
       if (!r.ok || !r.url) throw new Error(r.error ?? "Instacart didn't take the list.");
       setCart(r.url);
@@ -141,6 +175,24 @@ export function ShoppingList({
     }
   }
 
+  /** Shopping done: what she ticked goes into the kitchen at the quantities
+   *  the list asked for, so the next list knows she has it. */
+  async function putAway() {
+    setStocking(true);
+    setError(null);
+    try {
+      const r = await action<{ ok: boolean; added: number; error?: string }>(
+        "mark_shopping_bought", { weekStart, items: [...selectedNames] },
+      );
+      if (!r.ok) throw new Error(r.error ?? "That didn't save.");
+      setStocked(r.added);
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't put that into your kitchen."));
+    } finally {
+      setStocking(false);
+    }
+  }
+
   if (total === 0) return null;
 
   return (
@@ -148,7 +200,7 @@ export function ShoppingList({
       <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3">
         <h2 className="text-[15px] font-semibold">Shopping list</h2>
         <span className="shrink-0 text-[13px] tabular text-muted">
-          {done > 0 ? `${done}/${total}` : `${total} items`}
+          {selected.length === total ? `${total} items` : `${selected.length}/${total} chosen`}
         </span>
       </button>
 
@@ -163,20 +215,41 @@ export function ShoppingList({
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={share}
-              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised"
+              disabled={selected.length === 0}
+              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised disabled:opacity-40"
             >
-              {shared === "copied" ? "Copied" : canShare ? "Share list" : "Copy list"}
+              {shared === "copied" ? "Copied" : `${canShare ? "Share" : "Copy"} ${selected.length}`}
             </button>
             {instacart && (
               <button
                 onClick={sendToInstacart}
-                disabled={sending}
-                className="rounded-full border border-accent/60 bg-accent-soft px-3.5 py-2 text-[13px] text-accent disabled:opacity-50"
+                disabled={sending || selected.length === 0}
+                className="rounded-full border border-accent/60 bg-accent-soft px-3.5 py-2 text-[13px] text-accent disabled:opacity-40"
               >
-                {sending ? "Sending…" : "Send to Instacart"}
+                {sending ? "Sending…" : `Send ${selected.length} to Instacart`}
               </button>
             )}
+            <button
+              onClick={putAway}
+              disabled={stocking || selected.length === 0}
+              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+            >
+              {stocking ? "Saving…" : "Got these"}
+            </button>
+            <button
+              onClick={() => setAll(selected.length !== total)}
+              className="ml-auto text-[12px] text-faint underline underline-offset-2"
+            >
+              {selected.length === total ? "Clear all" : "Select all"}
+            </button>
           </div>
+
+          {stocked !== null && (
+            <p className="rounded-xl border border-beat/40 bg-beat-soft px-3.5 py-2.5 text-[13px] text-beat">
+              {stocked} {stocked === 1 ? "item is" : "items are"} in your kitchen now. Meals take from it as
+              you log them.
+            </p>
+          )}
           {cart && (
             <a
               href={cart}
@@ -194,29 +267,31 @@ export function ShoppingList({
               <p className="mb-1.5 text-[11px] uppercase tracking-wide text-accent">{a.aisle}</p>
               <ul>
                 {a.items.map((i) => {
-                  const isTicked = ticked.has(i.item);
+                  const on = isOn(i);
                   return (
                     <li key={i.item}>
                       <button
-                        onClick={() => toggle(i.item)}
+                        onClick={() => toggle(i)}
+                        aria-pressed={on}
                         className="flex w-full items-baseline gap-2.5 border-b border-line/60 py-2 text-left last:border-0"
                       >
                         <span
                           className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border ${
-                            isTicked ? "border-accent bg-accent text-ink" : "border-line"
+                            on ? "border-accent bg-accent text-ink" : "border-line"
                           }`}
                         >
-                          {isTicked && (
+                          {on && (
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                               strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M20 6 9 17l-5-5" />
                             </svg>
                           )}
                         </span>
-                        <span className={`min-w-0 flex-1 text-[14px] ${isTicked ? "text-faint line-through" : ""}`}>
-                          {i.item}
+                        <span className="min-w-0 flex-1">
+                          <span className={`text-[14px] ${on ? "" : "text-faint"}`}>{i.item}</span>
+                          <KitchenNote item={i} />
                         </span>
-                        <span className={`shrink-0 text-[12px] tabular ${isTicked ? "text-faint" : "text-muted"}`}>
+                        <span className={`shrink-0 text-[12px] tabular ${on ? "text-muted" : "text-faint"}`}>
                           {i.quantity ?? ""}
                         </span>
                       </button>
@@ -228,11 +303,37 @@ export function ShoppingList({
           ))}
 
           <p className="text-[11px] leading-relaxed text-faint">
-            Quantities are added only where the units match, so a weight and a handful of the same
-            thing stay on separate lines. Ticks are kept on this phone and reset each week.
+            Ticked is what gets shared, sent or put away. Things your kitchen already covers start
+            unticked. Quantities are added only where the units match, so a weight and a handful of the
+            same thing stay on separate lines. Choices are kept on this phone and reset each week.
           </p>
         </div>
       )}
     </section>
   );
+}
+
+/**
+ * What the kitchen says about this line. "Some, uncounted" is deliberately not
+ * rendered as "you have it" — that is the difference between a list she
+ * believes and one she stops reading.
+ */
+function KitchenNote({ item }: { item: ShoppingAisle["items"][number] }) {
+  if (item.inKitchen === "have") {
+    return <span className="ml-2 text-[11px] text-beat">in your kitchen</span>;
+  }
+  if (item.inKitchen === "short") {
+    return (
+      <span className="ml-2 text-[11px] text-hold">
+        {item.shortBy ? `${item.shortBy} short` : "not enough"}
+      </span>
+    );
+  }
+  if (item.inKitchen === "out") {
+    return <span className="ml-2 text-[11px] text-miss">out</span>;
+  }
+  if (item.inKitchen === "unknown") {
+    return <span className="ml-2 text-[11px] text-faint">you have some — uncounted</span>;
+  }
+  return null;
 }

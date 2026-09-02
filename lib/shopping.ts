@@ -107,9 +107,36 @@ export function parseIngredientLine(line: string): IngredientLine {
   return { amount: read.amount, unit, item: item || rest.trim() || raw };
 }
 
+/**
+ * The name of a thing, as a key: lower case, no trailing punctuation, singular.
+ *
+ * The plural rule is more than `s$` because the kitchen *shows* this string
+ * back to her — "tomatoes" reduced to "tomatoe" reads as a typo in the app,
+ * where in a lookup key nobody would ever have seen it. It is deliberately
+ * shared with lib/pantry.ts so a recipe line, a shopping line and a kitchen row
+ * all fold to the same name.
+ */
+export function normaliseItem(item: string): string {
+  const clean = item.trim().toLowerCase().replace(/[.,;:]+$/, "");
+  const words = clean.split(/\s+/);
+  const last = words.at(-1);
+  if (!last) return clean;
+  words[words.length - 1] = singular(last);
+  return words.join(" ");
+}
+
+function singular(word: string): string {
+  // "grass", "hummus", "molasses" — an s that was never a plural.
+  if (/(ss|us|is)$/.test(word)) return word;
+  if (/ies$/.test(word)) return `${word.slice(0, -3)}y`;
+  if (/(ch|sh|s|x|z)es$/.test(word)) return word.slice(0, -2);
+  if (/oes$/.test(word)) return word.slice(0, -2);
+  if (/s$/.test(word)) return word.slice(0, -1);
+  return word;
+}
+
 /** Same thing, however it was capitalised or pluralised in one recipe. */
-const key = (item: string, unit: string | null) =>
-  `${item.toLowerCase().replace(/[.,;]+$/, "").replace(/s$/, "")}::${unit ?? ""}`;
+const key = (item: string, unit: string | null) => `${normaliseItem(item)}::${unit ?? ""}`;
 
 /**
  * One line per thing to buy, quantities added where they can be.

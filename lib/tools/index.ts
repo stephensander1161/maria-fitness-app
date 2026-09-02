@@ -12,6 +12,8 @@ import * as templates from "./templates";
 import * as progression from "./progression";
 import * as foodTools from "./foods";
 import * as photos from "./photos";
+import * as pantry from "./pantry";
+import * as setup from "./setup";
 import * as shopping from "./shopping";
 
 /**
@@ -48,6 +50,13 @@ const all: Tool[] = [
   body.getMeasuringGuide,
   nutrition.getMealPlan,
   nutrition.getMealRecipe,
+  pantry.getPantry,
+  pantry.addToPantry,
+  pantry.setPantryItem,
+  pantry.removePantryItem,
+  pantry.markShoppingBought,
+  setup.runPlanSetup,
+  setup.skipPlanSetup,
   nutrition.getNutritionTrend,
   ideas.suggestExercises,
   ideas.suggestMeals,

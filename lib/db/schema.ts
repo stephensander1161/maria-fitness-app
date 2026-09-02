@@ -92,8 +92,61 @@ export const profiles = pgTable("profiles", {
   dailyBudgetMicros: bigint("daily_budget_micros", { mode: "number" }),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  /**
+   * The guided plan setup — days a week, what she wants to work, what she has
+   * to cook with — last run. Null means it has never been through, which is
+   * what the invitation on the home screen keys off.
+   */
+  planSetupAt: timestamp("plan_setup_at", { withTimezone: true }),
+  /** She said not now. The invitation stops; the setup itself is still there
+   *  whenever she asks for it. */
+  planSetupSkippedAt: timestamp("plan_setup_skipped_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
+
+/**
+ * What is actually in her kitchen.
+ *
+ * The point is to know when something runs out: planned meals take from it as
+ * she logs them, groceries put things back, and the shopping list stops asking
+ * her to buy chicken she already has.
+ *
+ * `amount` is deliberately nullable and it does NOT mean zero — it means "she
+ * has some of this and we do not know how much", which is the honest state
+ * after a recipe line like "chicken breast" with no quantity. Zero means known
+ * to be out, and an absent row means never bought. Those three are different
+ * and the app must never collapse them: telling her she is out of something
+ * she has is how a shopping list stops being believed.
+ *
+ * Quantities are stored exactly as recipes and shopping lists write them —
+ * "g", "tbsp", "cans" — because a shopping list adds like with like and
+ * converting to grams would produce a list nobody can take to a shop. Metric
+ * throughout, like the rest of the food data; lib/food-units.ts rewrites it
+ * for her kitchen at the boundary.
+ */
+export const pantryItems = pgTable(
+  "pantry_items",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** Normalised (lower case, singular) so "Eggs" and "egg" are one row. */
+    item: text("item").notNull(),
+    /** Null = has some, amount unknown. 0 = known to be out. */
+    amount: real("amount"),
+    /**
+     * As written on the recipe line: "g", "ml", "tbsp". The empty string is
+     * "no unit" ("4 eggs") rather than NULL, because the uniqueness of
+     * (profile, item, unit) is what stops every restock inserting another egg
+     * row — and under Postgres's default rule two NULLs are never equal, so a
+     * nullable column here would defeat the index exactly where most items
+     * live. lib/pantry.ts is the only place that maps "" to null and back.
+     */
+    unit: text("unit").default("").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("pantry_items_profile_item").on(t.profileId, t.item, t.unit)],
+);
 
 export const weighIns = pgTable(
   "weigh_ins",
@@ -655,4 +708,5 @@ export type MealTemplate = typeof mealTemplates.$inferSelect;
 export type Measurement = typeof measurements.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;
+export type PantryItem = typeof pantryItems.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;

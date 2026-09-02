@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { DayFoodView, MealWeekView, RecentMeal, WeekView } from "@/lib/views";
+import type { DayFoodView, MealWeekView, PantryView, RecentMeal, WeekView } from "@/lib/views";
 import { CalorieCalculator } from "./calorie-calculator";
 import { TodayFood } from "./today-food";
 import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { ShoppingList, type ShoppingAisle } from "./shopping-list";
+import { Kitchen } from "./kitchen";
 import { action, actionMessage } from "@/lib/client";
 import { AskCoach } from "./ask-coach";
 
 export function PlanClient({
-  week, mealWeek, dayFood, usuals, initialMeals, initialMoves, shopping, instacart,
+  week, mealWeek, dayFood, usuals, initialMeals, initialMoves, shopping, instacart, pantry,
 }: {
   week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
   initialMeals: MealIdea[]; initialMoves: MoveIdea[]; shopping: ShoppingAisle[]; instacart: boolean;
+  pantry: PantryView;
 }) {
   const [tab, setTab] = useState<"training" | "meals" | "ideas">("training");
   const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
@@ -87,6 +89,7 @@ export function PlanClient({
             <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
           </div>
           <ShoppingList weekStart={mealWeek.weekStart} aisles={shopping} instacart={instacart} />
+          <Kitchen pantry={pantry} />
 
           {mealWeek.rationale && (
             <p className="card mb-3 p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
@@ -110,6 +113,7 @@ export function PlanClient({
         <div className="space-y-2">
           <TodayFood day={dayFood} usuals={usuals} />
           <CalorieCalculator calorieTarget={null} foodUnits={mealWeek.foodUnits} />
+          <Kitchen pantry={pantry} />
           <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
           <AskCoach
             title="Ask your coach"

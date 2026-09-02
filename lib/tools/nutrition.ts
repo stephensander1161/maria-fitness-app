@@ -1,13 +1,13 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { foods, mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
+import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
 import { planMeals, writeRecipe } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
-import { recentMeals } from "@/lib/views";
-import { aggregateIngredients, type ShoppingItem } from "@/lib/shopping";
+import { pantryStock, recentMeals } from "@/lib/views";
+import { type ShoppingItem } from "@/lib/shopping";
 import { instacartConfigured } from "@/lib/instacart";
 import { foodUnitsFor, todayForProfile } from "@/lib/profile";
 import { foodLines, quantityLabel } from "@/lib/food-units";
@@ -16,6 +16,9 @@ import {
 } from "@/lib/nutrition";
 import { cmToIn } from "@/lib/units";
 import { desc } from "drizzle-orm";
+import { compareStock, normaliseItem } from "@/lib/pantry";
+import { shoppingListFor } from "@/lib/shopping-list";
+import { consumeForMeal } from "./pantry";
 import { defineTool } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -237,7 +240,8 @@ export const logMeal = defineTool({
   handler: async (input, ctx) => {
     const date = input.date ?? (await todayForProfile(ctx.profileId));
     if (isFuture(date, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
-    if (input.mealId && !(await herMeal(ctx.profileId, input.mealId))) {
+    const planned = input.mealId ? await herMeal(ctx.profileId, input.mealId) : null;
+    if (input.mealId && !planned) {
       return { ok: false, error: "That mealId is not in her plan — log it without mealId, or call get_meal_plan for the right one" };
     }
     await db.insert(mealLogs).values({
@@ -247,6 +251,12 @@ export const logMeal = defineTool({
       carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
       fibreG: input.fibreG ?? null,
     });
+
+    // Eating a planned meal empties part of the kitchen. Only for a planned
+    // meal: a sentence she typed carries no ingredient list, and guessing what
+    // came out of the cupboard would be worse than not knowing.
+    let kitchen: { touched: number } | null = null;
+    if (planned) kitchen = await consumeForMeal(ctx.profileId, planned.ingredients);
 
     const dayRows = await db.select({
       calories: mealLogs.calories, proteinG: mealLogs.proteinG, fibreG: mealLogs.fibreG,
@@ -276,6 +286,8 @@ export const logMeal = defineTool({
       fibreTargetG: FIBRE_TARGET_G,
       fibreIsCompleteForToday: fibre.complete,
       fibreUnknownForItems: fibre.unknownFor,
+      /** Ingredients taken out of her kitchen by logging this, if any. */
+      pantryLinesUpdated: kitchen?.touched ?? 0,
     };
   },
 });
@@ -465,96 +477,10 @@ export const getRecentMeals = defineTool({
   },
 });
 
-/** Supermarket order, roughly. Anything unmatched falls to the end. */
-const AISLES: Record<string, string> = {
-  vegetable: "Fruit & veg", fruit: "Fruit & veg",
-  meat: "Meat & fish", fish: "Meat & fish",
-  dairy: "Dairy & eggs", eggs: "Dairy & eggs",
-  grain: "Cupboard", legume: "Cupboard", nut: "Cupboard",
-  fat: "Cupboard", sauce: "Cupboard",
-  drink: "Drinks", snack: "Snacks", prepared: "Chilled & frozen",
-};
-
-type ShoppingList =
-  | { exists: false; weekStart: string }
-  | { exists: true; weekStart: string; mealsCovered: number; aisles: { aisle: string; items: ShoppingItem[] }[] };
-
-/**
- * The week's ingredients, added up and grouped by aisle. Shared by the tool
- * that reads the list back and the one that sends it to Instacart, so both
- * are shopping from the same list.
- */
-export async function shoppingListFor(
-  profileId: string,
-  input: { weekStart?: string; fromDayOfWeek?: number },
-): Promise<ShoppingList> {
-  const week = input.weekStart ?? weekStart(await todayForProfile(profileId));
-  const [plan] = await db.select().from(mealPlans)
-    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
-  if (!plan) return { exists: false, weekStart: week };
-
-  const rows = await db.select().from(meals).where(eq(meals.mealPlanId, plan.id));
-  const wanted = input.fromDayOfWeek === undefined
-    ? rows
-    : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
-
-  const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
-
-  // Aisle comes from the food library, so it is the same categorisation the
-  // calculator uses rather than a second list to keep in step.
-  const library = await db.select({
-    name: foods.name, category: foods.category, aliases: foods.aliases,
-  }).from(foods);
-
-  // Rank, do not just match. Direction matters: when the shopping item
-  // contains the label ("chicken breast" contains "chicken"), a longer label
-  // is a more specific hit. When the label contains the item ("garlic bread"
-  // contains "garlic"), a longer label is a *worse* hit — that is how garlic
-  // ended up filed as a frozen ready meal.
-  const aisleFor = (item: string): string => {
-    const q = item.toLowerCase().trim();
-    let best: { category: string; rank: number; length: number } | null = null;
-
-    for (const f of library) {
-      for (const label of [f.name, ...f.aliases]) {
-        const l = label.toLowerCase().trim();
-        let rank: number;
-        if (l === q) rank = 0;
-        else if (q.includes(l)) rank = 1;
-        else if (l.includes(q)) rank = 2;
-        else continue;
-
-        const better =
-          !best ||
-          rank < best.rank ||
-          // Within a rank: longest label when the item contains it, shortest
-          // when it contains the item.
-          (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
-        if (better) best = { category: f.category, rank, length: l.length };
-      }
-    }
-    return best ? AISLES[best.category] ?? "Other" : "Other";
-  };
-
-  const grouped = new Map<string, ShoppingItem[]>();
-  for (const item of items) {
-    const aisle = aisleFor(item.item);
-    grouped.set(aisle, [...(grouped.get(aisle) ?? []), item]);
-  }
-
-  const order = ["Fruit & veg", "Meat & fish", "Dairy & eggs", "Chilled & frozen", "Cupboard", "Snacks", "Drinks", "Other"];
-  return {
-    exists: true,
-    weekStart: week,
-    mealsCovered: wanted.length,
-    aisles: order.filter((a) => grouped.has(a)).map((aisle) => ({ aisle, items: grouped.get(aisle) ?? [] })),
-  };
-}
-
 export const getShoppingList = defineTool({
   name: "get_shopping_list",
   description:
-    "Everything the week's meals need, added up and grouped by aisle. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units. The result says whether Instacart is connected; if it is, send_shopping_list_to_instacart turns the list into a cart.",
+    "Everything the week's meals need, added up and grouped by aisle, with what her kitchen already holds marked against it. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units. Each item carries an `inKitchen` status: only 'missing', 'out' and 'short' actually need buying, and 'unknown' means the amount was never counted, so ask rather than assume. The result says whether Instacart is connected; if it is, send_shopping_list_to_instacart turns the list into a cart.",
   input: z.object({
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
     fromDayOfWeek: z.number().optional().describe("Only from this day onward, 0=Monday — for a mid-week top-up shop"),
@@ -565,6 +491,17 @@ export const getShoppingList = defineTool({
     if (!list.exists) return { exists: false, weekStart: list.weekStart, instacart, hint: "No meal plan for that week yet." };
     const fu = await foodUnitsFor(ctx.profileId);
 
+    // What she already has, so the list can stop asking her to buy it. Status
+    // by item and unit, never a bare boolean: "some, uncounted" is not "have".
+    const stock = await pantryStock(ctx.profileId);
+    const marks = new Map(
+      compareStock(
+        list.aisles.flatMap((a) => a.items.map((i) => ({ ...i }))),
+        stock,
+      ).map((l) => [`${normaliseItem(l.item)}::${l.unit ?? ""}`, l]),
+    );
+    const markOf = (i: ShoppingItem) => marks.get(`${normaliseItem(i.item)}::${i.unit ?? ""}`);
+
     return {
       exists: true,
       weekStart: list.weekStart,
@@ -574,13 +511,21 @@ export const getShoppingList = defineTool({
       instacart,
       aisles: list.aisles.map((a) => ({
         aisle: a.aisle,
-        items: a.items.map((i) => ({
-          item: i.item,
-          // Written out rather than left as a number and a unit, so it can be
-          // read straight back to her — in her kitchen's units.
-          quantity: i.amount === null ? null : quantityLabel(i.amount, i.unit, fu),
-          fromMeals: i.fromMeals,
-        })),
+        items: a.items.map((i) => {
+          const mark = markOf(i);
+          return {
+            item: i.item,
+            // Written out rather than left as a number and a unit, so it can be
+            // read straight back to her — in her kitchen's units.
+            quantity: i.amount === null ? null : quantityLabel(i.amount, i.unit, fu),
+            fromMeals: i.fromMeals,
+            inKitchen: mark?.status ?? "missing",
+            /** Only ever set when both sides were counted in the same measure. */
+            shortBy: mark?.shortBy === null || mark?.shortBy === undefined
+              ? null
+              : quantityLabel(mark.shortBy, i.unit, fu),
+          };
+        }),
       })),
     };
   },

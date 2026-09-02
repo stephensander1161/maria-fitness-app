@@ -33,6 +33,7 @@ lib/
   agent/                model config, system prompt, streaming tool loop, history
   tools/                the capability registry — the app's real API
   db/                   Drizzle schema + lazy pooled client
+  pantry.ts             what is in her kitchen, and the four states of "how much"
   progress.ts           week-over-week comparison + measurement/recomposition logic
   measurements.ts       tape sites and how to take each one consistently
   views.ts              read models for the screens
@@ -41,6 +42,12 @@ lib/
 
 **Writes always go through the tool registry. Reads go through `lib/views.ts`.**
 Keeping that seam clean is what stops the agent and the UI from drifting apart.
+
+Food is tracked all the way round: the week's meals make a shopping list, what
+she ticks off it goes into her kitchen, logging a planned meal takes those
+ingredients back out, and the next list knows what she already has. Every step
+of that says which numbers are counted and which are not — "some, uncounted" is
+never rendered as either "you have it" or "you're out".
 
 The chat is not a place, it is a component. Anywhere there is something to ask
 about — a movement in the library, an empty week, the coach's read on a screen

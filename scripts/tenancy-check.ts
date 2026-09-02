@@ -69,6 +69,7 @@ const READS: Record<string, Record<string, unknown>> = {
   get_profile: {}, get_weight_history: {}, list_goals: {}, get_plan: {}, get_week_review: {},
   get_meal_plan: {}, get_day_nutrition: {}, get_nutrition_trend: {}, get_recent_meals: {},
   get_shopping_list: {}, get_measurements: {}, get_exercise_progression: {}, list_progress_photos: {},
+  get_pantry: {},
   get_coach_usage: {}, list_feedback: {}, get_boost: {}, suggest_meals: {}, suggest_exercises: {},
   get_exercise_history: { slug: "goblet-squat" }, find_recipes: { ingredient: "chicken" },
   search_exercises: { query: "squat" }, list_templates: {}, suggest_template: {},
@@ -86,6 +87,16 @@ async function schemaInvariants(failures: string[]) {
   const def = rows[0]?.indexdef ?? "";
   if (!/NULLS NOT DISTINCT/i.test(def)) {
     failures.push(`usage_daily_day index lost NULLS NOT DISTINCT (see lib/db/schema.ts) — live: ${def || "missing"}`);
+  }
+
+  // The kitchen upserts on (profile, item, unit). Without the unique index
+  // every restock inserts another row and she ends up with four half-empty
+  // bags of rice, none of which is the one the shopping list reads.
+  const pantry = (await db.execute(
+    sql`select indexdef from pg_indexes where indexname = 'pantry_items_profile_item'`,
+  )) as unknown as { indexdef: string }[];
+  if (!/UNIQUE/i.test(pantry[0]?.indexdef ?? "")) {
+    failures.push("pantry_items_profile_item is missing or not unique — restocking would duplicate rows");
   }
 }
 

@@ -1,11 +1,14 @@
 import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, mealLogs, mealPlans, meals, planDays, planExercises, plans, setLogs, workouts,
+  exercises, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans, setLogs,
+  workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
-import { foodLines } from "@/lib/food-units";
+import { foodLines, quantityLabel } from "@/lib/food-units";
+import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
+import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 
@@ -433,4 +436,71 @@ export function groupRecentMeals(
   return [...grouped.values()]
     .sort((a, b) => b.times - a.times || (a.lastEaten < b.lastEaten ? 1 : -1))
     .slice(0, limit);
+}
+
+/** Her kitchen as the domain sees it — the stored "" unit back to null. */
+export async function pantryStock(profileId: string): Promise<Stock[]> {
+  const rows = await db.select().from(pantryItems)
+    .where(eq(pantryItems.profileId, profileId))
+    .orderBy(asc(pantryItems.item));
+  return rows.map((r) => ({ item: r.item, amount: r.amount, unit: unitOut(r.unit) }));
+}
+
+/** What the rest of this week still asks her to cook with. */
+export async function pantryNeeds(
+  profileId: string,
+  asOf: ISODate,
+): Promise<{ needs: Need[]; weekStart: string; hasPlan: boolean }> {
+  const week = weekStart(asOf);
+  const list = await shoppingListFor(profileId, { weekStart: week, fromDayOfWeek: dayIndex(asOf) });
+  if (!list.exists) return { needs: [], weekStart: week, hasPlan: false };
+  return {
+    hasPlan: true,
+    weekStart: week,
+    needs: list.aisles.flatMap((a) =>
+      a.items.map((i) => ({ item: i.item, amount: i.amount, unit: i.unit, fromMeals: i.fromMeals })),
+    ),
+  };
+}
+
+/**
+ * The kitchen, for the screen that shows it.
+ *
+ * Every line says which kind of number it carries — counted, uncounted, or
+ * out — because the one thing this feature must never do is tell her she has
+ * something she does not, or that she is out of something she has.
+ */
+export type PantryView = Awaited<ReturnType<typeof pantryView>>;
+
+export async function pantryView(profileId: string, foodUnits: Units, asOf: ISODate) {
+  const stock = await pantryStock(profileId);
+  const { needs, hasPlan } = await pantryNeeds(profileId, asOf);
+  const lines = compareStock(needs, stock);
+  const status = new Map(lines.map((l) => [normaliseItem(l.item) + "::" + (l.unit ?? ""), l]));
+
+  return {
+    hasMealPlan: hasPlan,
+    summary: summariseStock(lines),
+    items: stock.map((s) => {
+      const line = status.get(normaliseItem(s.item) + "::" + (s.unit ?? ""));
+      return {
+        item: s.item,
+        amount: s.amount,
+        unit: s.unit,
+        label: s.amount === null ? "some" : s.amount === 0 ? "out" : quantityLabel(s.amount, s.unit, foodUnits),
+        counted: s.amount !== null,
+        needed: line?.amount ?? null,
+        status: line?.status ?? null,
+      };
+    }),
+    /** Planned this week, not in the kitchen at all — the reason to shop. */
+    missing: lines
+      .filter((l) => l.status === "missing" || l.status === "out" || l.status === "short")
+      .map((l) => ({
+        item: l.item,
+        needed: l.amount === null ? null : quantityLabel(l.amount, l.unit, foodUnits),
+        status: l.status,
+      })),
+    unknownFor: lines.filter((l) => l.status === "unknown").length,
+  };
 }

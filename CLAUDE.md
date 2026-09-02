@@ -106,6 +106,13 @@ were a measurement. It has now been caught four separate times:
   `null` from `toGrams` rather than a plausible number.
 - Chia and flaxseed carried total carbohydrate where every other row carries
   available carbohydrate, so their fibre was counted twice.
+- The kitchen holds four states that a boolean would flatten into two: an
+  amount, `null` for "she has some, nobody counted it", `0` for known to be
+  out, and no row at all for never bought. Only *out*, *short* and *missing*
+  mean buy it. `compareStock` reports a mismatch of measures as `unknown`
+  rather than guessing, and cooking with an unmeasured line sets the stock to
+  `null` — she used some, so the old number is no longer true and zero would
+  be a lie in the other direction.
 
 The rule: when you do not know something, the count of what you do not know
 travels with the number, and anything rendering it says which it is. Summing
@@ -126,6 +133,40 @@ reported "6×8 @ 60lb" for a session ending in three sets at 95, and the coach
 correctly-but-wrongly told her she hadn't hit her milestone. If you add to that
 block, it must be exactly true, in her units, and labelled for what it is —
 planned targets read as achievements unless you say otherwise.
+
+## Her kitchen
+
+`pantry_items` is what she actually has in. Planned meals take from it when she
+logs them (`log_meal` with a `mealId` — a meal described in words carries no
+ingredient list, so nothing is guessed), the shopping list puts it back
+(`mark_shopping_bought`), and `get_shopping_list` marks every line against it so
+she is not sent to buy rice she has a bag of.
+
+Two rules hold the whole thing up:
+
+- **Amounts are never converted.** Grams, tablespoons and tins are compared
+  like with like, and a mismatch is `unknown`, not a number. This is the same
+  rule as `lib/shopping.ts` — "4 eggs plus 2 eggs" is six eggs, not 300g.
+- **Unknown is a value, not a gap.** See above; `lib/pantry.ts` is where it
+  lives and `tests/pantry.test.ts` is mostly tests of that one distinction.
+
+The unit column stores `""` rather than NULL for "no unit", because uniqueness
+of `(profile, item, unit)` is what stops a restock inserting a second row and
+Postgres never considers two NULLs equal. `npm run tenancy` asserts the index
+is still unique after a `db:push`.
+
+## The guided setup
+
+`run_plan_setup` is the interactive intake — days a week, session length, what
+she wants to work, equipment, injuries, food — and it rebuilds the week from
+the answers. It is deliberately re-runnable, offered once on the home screen and
+available from Progress from then on; `skip_plan_setup` puts the invitation away
+without deleting anything (`profiles.plan_setup_at` / `plan_setup_skipped_at`).
+
+It returns the calorie and protein targets rather than planning the meals
+itself, and the screen makes a second call to `create_meal_plan`. **Two planner
+calls in one request blow the 60-second function limit** — she ends up on a
+spinner with half a plan.
 
 ## Asking the coach happens where the question is
 

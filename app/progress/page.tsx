@@ -13,6 +13,7 @@ import { profileToday } from "@/lib/profile";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
+import { PlanSetupButton } from "@/components/plan-setup";
 import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
 import { runTool } from "@/lib/tools";
@@ -157,6 +158,17 @@ export default async function ProgressPage() {
         )}
       </section>
 
+      <PlanSetupButton
+        defaults={{
+          daysPerWeek: profile.daysPerWeek,
+          sessionMinutes: profile.sessionMinutes,
+          equipment: profile.equipment,
+          injuries: profile.injuries,
+          dietaryRestrictions: profile.dietaryRestrictions,
+          dislikedFoods: profile.dislikedFoods,
+          cookingSkill: profile.cookingSkill,
+        }}
+      />
       <UnitsSettings units={u} foodUnits={profile.foodUnits} />
       <CoachBudget usage={usage as Usage} />
 
