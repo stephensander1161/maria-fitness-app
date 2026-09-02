@@ -1,33 +1,13 @@
-import { Coach } from "@/components/coach";
-import { PlanSetupInvite } from "@/components/plan-setup";
-import { requireOnboarded } from "@/lib/session";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function CoachPage() {
-  const profile = await requireOnboarded();
-
-  // Once, unless she asks for it again: the invitation goes when she has been
-  // through the setup or said not now, and lives on the Progress screen from
-  // then on.
-  const invite = profile.planSetupAt === null && profile.planSetupSkippedAt === null;
-
-  return (
-    <>
-      {invite && (
-        <PlanSetupInvite
-          defaults={{
-            daysPerWeek: profile.daysPerWeek,
-            sessionMinutes: profile.sessionMinutes,
-            equipment: profile.equipment,
-            injuries: profile.injuries,
-            dietaryRestrictions: profile.dietaryRestrictions,
-            dislikedFoods: profile.dislikedFoods,
-            cookingSkill: profile.cookingSkill,
-          }}
-        />
-      )}
-      <Coach initialName={profile.name} />
-    </>
-  );
+/**
+ * Home is today's session. The coach used to live here, back when it was a
+ * tab; it is a bubble on every screen now, so "/" would otherwise be a page
+ * with nothing on it.
+ *
+ * A redirect rather than a second copy of the training screen: one
+ * implementation, and sign-in and onboarding can keep sending her to "/".
+ */
+export default function Home() {
+  redirect("/train");
 }

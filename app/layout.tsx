@@ -4,6 +4,7 @@ import { TabBar } from "@/components/tab-bar";
 import { Feedback } from "@/components/feedback";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
+import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PullToRefresh>
           <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4">{children}</main>
         </PullToRefresh>
+        <CoachBubbleGate />
         <Feedback />
         <InstallApp />
         <TabBar />

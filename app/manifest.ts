@@ -14,7 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Coach",
     short_name: "Coach",
     description: "Your strength and nutrition coach",
-    start_url: "/",
+    // Straight into today's session — "/" only redirects here.
+    start_url: "/train",
     scope: "/",
     display: "standalone",
     background_color: "#0b0e13",

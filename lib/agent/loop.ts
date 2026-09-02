@@ -53,7 +53,7 @@ function markCachePoint(history: Anthropic.MessageParam[]): Anthropic.MessagePar
 export async function* runCoach(
   profile: Profile,
   userText: string,
-  opts: { silent?: boolean; source?: "app" | "eval" } = {},
+  opts: { silent?: boolean; source?: "app" | "eval"; save?: string } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
   const [snapshot, plan, milestones, recomp] = await Promise.all([
@@ -69,6 +69,12 @@ export async function* runCoach(
 
   const history = await loadHistory(profile.id);
   const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];
+  // What the model is sent and what the transcript keeps are not always the
+  // same thing: a message sent from a screen carries that screen's contents,
+  // and she should see her own sentence in the conversation, not the briefing
+  // wrapped around it.
+  const savedContent: Anthropic.ContentBlockParam[] =
+    opts.save === undefined ? userContent : [{ type: "text", text: opts.save }];
   const conversation: Anthropic.MessageParam[] = [
     ...markCachePoint(history),
     { role: "user", content: userContent },
@@ -76,7 +82,7 @@ export async function* runCoach(
 
   // A silent turn is a system nudge (e.g. the daily check-in), not something
   // she typed — keep it out of the visible transcript but in the model's context.
-  if (!opts.silent) await saveMessage(profile.id, "user", userContent);
+  if (!opts.silent) await saveMessage(profile.id, "user", savedContent);
 
   try {
     let emittedText = false;

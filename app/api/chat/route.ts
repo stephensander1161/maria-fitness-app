@@ -4,7 +4,9 @@ import { currentUser } from "@/lib/session";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
 import { hasHistory } from "@/lib/agent/history";
 import { audit } from "@/lib/audit";
-import { buildPageContext, OPINION_PROMPT, type OpinionPage } from "@/lib/page-context";
+import {
+  buildPageContext, contextForPath, OPINION_PROMPT, type OpinionPage,
+} from "@/lib/page-context";
 
 /** Server-authored, so the browser can never put words in the system's mouth. */
 const OPENING_PROMPT =
@@ -20,10 +22,12 @@ export const maxDuration = 60;
  * ever sees text deltas and tool-progress labels.
  */
 export async function POST(req: Request) {
-  const { message, kickoff, opinion } = (await req.json().catch(() => ({}))) as {
+  const { message, kickoff, opinion, page } = (await req.json().catch(() => ({}))) as {
     message?: string;
     kickoff?: boolean;
     opinion?: OpinionPage;
+    /** The path she is on. Names a screen; never carries its contents. */
+    page?: string;
   };
 
   // Middleware proved the token; this proves the account is still valid.
@@ -36,6 +40,8 @@ export async function POST(req: Request) {
   // channel for forging system-style instructions to the model.
   let text: string;
   let silent = false;
+  /** Kept out of the transcript when it differs from what she typed. */
+  let save: string | undefined;
 
   if (kickoff === true) {
     if (await hasHistory(profile.id)) {
@@ -63,6 +69,24 @@ export async function POST(req: Request) {
       return Response.json({ error: "That message is too long." }, { status: 413 });
     }
     text = message;
+
+    // She is asking from a screen, so hand the coach that screen. The browser
+    // says *which* page; this reads what is on it — the same rule as the
+    // opening greeting, and the reason a client cannot author what the model
+    // is told. Sent once per screen, not on every message.
+    if (typeof page === "string" && page.length < 200) {
+      const seen = await contextForPath(profile.id, page);
+      if (seen) {
+        save = message;
+        text = [
+          `[She is looking at ${seen.label}. What that screen shows right now:]`,
+          seen.context,
+          ``,
+          `[Her message:]`,
+          message,
+        ].join("\n");
+      }
+    }
   }
 
   // Rate and spend ceiling, checked before a single token is bought.
@@ -79,7 +103,7 @@ export async function POST(req: Request) {
       const send = (event: CoachEvent) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       try {
-        for await (const event of runCoach(profile, text, { silent })) send(event);
+        for await (const event of runCoach(profile, text, { silent, save })) send(event);
       } catch (err) {
         send({ type: "error", message: err instanceof Error ? err.message : "Coach failed" });
       } finally {

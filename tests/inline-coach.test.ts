@@ -10,8 +10,9 @@ import path from "node:path";
  * about to ask, and typed the name of the movement back in — so mostly she
  * didn't bother, which is the one failure this app cannot afford.
  *
- * The rule: a screen may never send her to the Coach tab to ask a question.
- * The tab bar navigates there; nothing else does.
+ * The rule: a screen may never navigate her away to ask a question. There is
+ * nowhere to navigate to any more — the coach is a bubble on every screen
+ * (components/coach-bubble.tsx) and "/" only redirects to today's session.
  */
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
@@ -29,7 +30,7 @@ suite("asking the coach never means leaving the screen", () => {
   const screens = [...walk("components"), ...walk("app")]
     .filter((f) => !f.endsWith(path.join("components", "tab-bar.tsx")));
 
-  it("no screen links to the Coach tab", () => {
+  it("no screen links to the old Coach tab", () => {
     const offenders = screens.filter((f) => /href=(\{)?"\/"(\})?/.test(read(f)));
     expect(
       offenders,
@@ -40,7 +41,8 @@ suite("asking the coach never means leaving the screen", () => {
 
   it("no screen navigates to the Coach tab in code", () => {
     // Signing in and finishing onboarding land her on the home screen, which
-    // is the Coach tab. That is arriving, not being sent away mid-question.
+    // redirects to today's session. That is arriving, not being sent away
+    // mid-question.
     const ARRIVALS = ["components/login-form.tsx", "components/onboarding.tsx"];
     const offenders = screens
       .filter((f) => !ARRIVALS.includes(f))
@@ -49,6 +51,13 @@ suite("asking the coach never means leaving the screen", () => {
       offenders,
       `these screens route her to the Coach tab: ${offenders.join(", ")}`,
     ).toEqual([]);
+  });
+
+  it("the coach reaches every screen", () => {
+    // A bubble in the root layout, not a destination. If this ever stops being
+    // rendered globally, asking about the screen she is on means leaving it.
+    const layout = read("app/layout.tsx");
+    expect(layout).toMatch(/CoachBubbleGate/);
   });
 
   it("every surface that streams the coach goes through the shared thread", () => {

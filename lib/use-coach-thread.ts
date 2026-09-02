@@ -71,13 +71,14 @@ export function useCoachThread(
   }, []);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, page?: string) => {
       const said = text.trim();
       if (!said) return;
       setInput("");
       setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: said }]);
 
-      const delivered = await stream({ message: said });
+      // `page` is a path, not content: the server reads what that screen shows.
+      const delivered = await stream(page ? { message: said, page } : { message: said });
       if (!delivered) {
         // Nothing came back at all, so the server never heard it. Put her words
         // back in the box rather than making her remember what she typed —

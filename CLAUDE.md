@@ -168,19 +168,28 @@ itself, and the screen makes a second call to `create_meal_plan`. **Two planner
 calls in one request blow the 60-second function limit** — she ends up on a
 spinner with half a plan.
 
-## Asking the coach happens where the question is
+## The coach is not a place
 
-No screen sends her to the Coach tab to ask something. Every "ask about this"
-is an inline thread on the screen she is already on — `<AskCoach>` for a panel,
-`useCoachThread()` for the streaming state, `ThreadMessages`/`Composer` for the
-markup. It is all one conversation: an inline turn posts to the same transcript
-and is there on the Coach tab afterwards.
+There is no Coach tab. `components/coach-bubble.tsx` floats on every screen
+(mounted in the root layout via `CoachBubbleGate`), and `<AskCoach>` puts an
+inline thread next to a specific thing — a movement, an empty week. All of it
+is one conversation through `useCoachThread()` / `ThreadMessages` / `Composer`.
 
-Links to `/` were how this broke. She lost the page she was reading, landed in
-a chat with no idea what she had been about to ask, and mostly stopped asking.
+**A message sent from a screen carries that screen.** The browser sends the
+*path*; `contextForPath()` reads what is on it and the route prepends it to her
+message. The client never authors context — same rule as the opening greeting,
+and the model believes this block completely. It is attached once per screen
+per session, not per message, and `runCoach`'s `save` option keeps the briefing
+out of the transcript so she sees her own sentence in the conversation.
+
+The chat sheet is a flex column: header, a `min-h-0 flex-1 overflow-y-auto`
+thread, then the composer *outside* the scroller. The tab version grew the page
+under a fixed composer instead, and the newest message sat behind it — she had
+to scroll down to read the answer she had just been given.
+
 `tests/inline-coach.test.ts` fails the build on a new `href="/"`, on a
-`router.push("/")` outside sign-in, and on a component calling `streamCoach`
-instead of the shared hook.
+`router.push("/")` outside sign-in, on a component calling `streamCoach`
+instead of the shared hook, and if the bubble ever stops being mounted globally.
 
 Activity labels live in `lib/tool-labels.ts` — one map for the browser and the
 server loop, because the two copies had drifted twenty tools apart.

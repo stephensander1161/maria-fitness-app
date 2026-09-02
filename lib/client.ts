@@ -58,7 +58,10 @@ export type CoachEvent =
 
 /** Consume the coach's SSE stream as an async iterable of events. */
 export async function* streamCoach(
-  body: { message: string } | { kickoff: true } | { opinion: "train" | "plan" | "progress" },
+  body:
+    | { message: string; page?: string }
+    | { kickoff: true }
+    | { opinion: "train" | "plan" | "progress" },
   opts: { signal?: AbortSignal } = {},
 ): AsyncGenerator<CoachEvent> {
   const res = await fetch("/api/chat", {
