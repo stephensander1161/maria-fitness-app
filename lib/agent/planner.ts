@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { exercises, weighIns, type Profile } from "@/lib/db/schema";
 import { owns } from "@/lib/templates";
 import { complaintSummary } from "@/lib/tools/swaps";
+import { equipmentToday } from "@/lib/tools/phases";
 import { env } from "@/lib/env";
 import { DAY_NAMES } from "@/lib/date";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
@@ -166,7 +167,9 @@ async function profileBrief(p: Profile): Promise<string> {
 
 /** Only movements she can actually perform, so slugs cannot be invented. */
 async function catalogue(p: Profile): Promise<string> {
-  const owned = p.equipment.length ? p.equipment : ["bodyweight"];
+  // What she has *this week*, which is a hotel room often enough to matter.
+  const kit = equipmentToday(p, profileToday(p)).equipment;
+  const owned = kit.length ? kit : ["bodyweight"];
   const rows = await db
     .select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,

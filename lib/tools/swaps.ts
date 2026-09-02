@@ -5,6 +5,7 @@ import { complaints, exercises, planDays, planExercises, plans, profiles } from 
 import { dayIndex, weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { owns } from "@/lib/templates";
+import { equipmentToday } from "./phases";
 import { defineTool } from "./define";
 
 /**
@@ -31,7 +32,8 @@ async function candidatesFor(
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
   if (!profile) return { error: "Profile not found." } as const;
 
-  const owned = profile.equipment.length ? profile.equipment : ["bodyweight"];
+  const kit = equipmentToday(profile, await todayForProfile(profileId)).equipment;
+  const owned = kit.length ? kit : ["bodyweight"];
   const open = await db.select({ region: complaints.region, provokedBySlug: complaints.provokedBySlug })
     .from(complaints)
     .where(and(eq(complaints.profileId, profileId), isNull(complaints.resolvedOn)));

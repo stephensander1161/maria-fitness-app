@@ -10,6 +10,7 @@ import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
 import { cycleSignal } from "@/lib/tools/cycle-tools";
+import { phaseSignal } from "@/lib/tools/phases";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
@@ -78,8 +79,8 @@ export async function* runCoach(
   ]);
   const system = buildSystem(
     profile,
-    [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, milestones, hurts,
-      recomp && `IMPORTANT: ${recomp}`]
+    [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
+      milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
   );
 

@@ -5,6 +5,7 @@ import { profileToday } from "@/lib/profile";
 import { pickableExercises, todayView } from "@/lib/views";
 import { todayTargets } from "@/lib/tools/progression-targets";
 import { PlanSetupInvite } from "@/components/plan-setup";
+import { equipmentToday } from "@/lib/tools/phases";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function TrainPage() {
   const her = profileToday(profile);
   const [view, pickable, targets] = await Promise.all([
     todayView(profile.id, profile.units, her),
-    pickableExercises(profile.equipment),
+    pickableExercises(equipmentToday(profile, her).equipment),
     // Worked out, not guessed: double progression and the 2-for-2 rule over
     // what she actually logged. The screen shows the number; nobody has to
     // ask the coach for it.

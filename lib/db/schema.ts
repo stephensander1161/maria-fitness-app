@@ -90,6 +90,23 @@ export const profiles = pgTable("profiles", {
    *  "use the configured ceiling". It can only tighten the env limit, never
    *  exceed it — see lib/limits.ts effectiveDailyLimit. */
   dailyBudgetMicros: bigint("daily_budget_micros", { mode: "number" }),
+  /**
+   * A planned break from the deficit, eating at maintenance, until this date.
+   *
+   * Its value is mostly psychological and the app should say so: the pooled
+   * evidence has diet breaks roughly matching continuous dieting for body
+   * composition. What they change is whether a fortnight at maintenance is
+   * "a planned break" or "I fell off", and that difference decides whether
+   * there is a week fifteen.
+   */
+  maintenanceUntil: date("maintenance_until"),
+  /**
+   * What she has to train with *this week* — a hotel gym, a suitcase, her
+   * sister's spare room. Overrides `equipment` until the date passes, so a
+   * travel week is a different plan rather than four missed sessions.
+   */
+  tempEquipment: jsonb("temp_equipment").$type<string[]>(),
+  tempEquipmentUntil: date("temp_equipment_until"),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**

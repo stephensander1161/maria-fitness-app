@@ -18,6 +18,7 @@ import * as checkIn from "./check-in";
 import * as corrections from "./corrections";
 import * as swaps from "./swaps";
 import * as cycle from "./cycle-tools";
+import * as phases from "./phases";
 import * as deload from "./deload-tools";
 import * as setup from "./setup";
 import * as transcript from "./transcript";
@@ -54,6 +55,10 @@ const all: Tool[] = [
   corrections.forgetConversation,
   deload.checkProgressionStatus,
   deload.scheduleDeload,
+  phases.startMaintenancePhase,
+  phases.endMaintenancePhase,
+  phases.setEquipmentOverride,
+  phases.clearEquipmentOverride,
   cycle.logCycleEvent,
   cycle.getCycleStatus,
   swaps.suggestSubstitutes,
