@@ -23,7 +23,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
   const [adding, setAdding] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const { items, missing, unknownFor } = pantry;
+  const { items, missing, unknownFor, prepped } = pantry;
 
   async function run(tool: string, input: Record<string, unknown>, fallback: string) {
     setBusy(true);
@@ -59,7 +59,13 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
         </span>
       </button>
 
-      {!open && (
+      {!open && prepped.length > 0 && (
+        <p className="mt-1 text-[12px] text-beat">
+          {prepped.map((p) => `${p.portionsLeft} × ${p.title}`).join(", ")} in the fridge
+        </p>
+      )}
+
+      {!open && prepped.length === 0 && (
         <p className="mt-1 text-[12px] text-faint">
           {items.length === 0
             ? "Tick things off the shopping list with “Got these” and they land here."
@@ -70,6 +76,32 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
       {open && (
         <div className="mt-4 space-y-4">
           {error && <p role="alert" className="text-[13px] text-miss">{error}</p>}
+
+          {prepped.length > 0 && (
+            <div className="rounded-xl border border-beat/30 bg-beat-soft p-3.5">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-beat">
+                Already cooked
+              </p>
+              <ul className="space-y-1">
+                {prepped.map((p) => (
+                  <li key={p.title} className="flex items-baseline justify-between gap-3 text-[13px]">
+                    <span>
+                      {p.title}
+                      {p.pastItsDate && <span className="ml-2 text-[11px] text-hold">past its date</span>}
+                    </span>
+                    <span className="shrink-0 tabular text-muted">
+                      {p.portionsLeft} left
+                      {p.caloriesPerPortion !== null && ` · ${p.caloriesPerPortion} kcal`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-muted">
+                Tell your coach &ldquo;I had a portion of the {prepped[0].title.toLowerCase()}&rdquo; and it logs
+                with the real figures.
+              </p>
+            </div>
+          )}
 
           {missing.length > 0 && (
             <div className="rounded-xl border border-hold/30 bg-hold-soft p-3.5">

@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans, setLogs,
-  workouts,
+  exercises, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
+  preppedPortions, setLogs, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
@@ -486,6 +486,9 @@ export async function pantryNeeds(
 export type PantryView = Awaited<ReturnType<typeof pantryView>>;
 
 export async function pantryView(profileId: string, foodUnits: Units, asOf: ISODate) {
+  const prepped = await db.select().from(preppedPortions)
+    .where(and(eq(preppedPortions.profileId, profileId), gt(preppedPortions.portionsLeft, 0)))
+    .orderBy(asc(preppedPortions.keepsUntil));
   const stock = await pantryStock(profileId);
   const { needs, hasPlan } = await pantryNeeds(profileId, asOf);
   const lines = compareStock(needs, stock);
@@ -515,5 +518,12 @@ export async function pantryView(profileId: string, foodUnits: Units, asOf: ISOD
         status: l.status,
       })),
     unknownFor: lines.filter((l) => l.status === "unknown").length,
+    /** Already cooked — the answer to "what's for dinner" more often than not. */
+    prepped: prepped.map((p) => ({
+      title: p.title,
+      portionsLeft: p.portionsLeft,
+      caloriesPerPortion: p.caloriesPerPortion,
+      pastItsDate: p.keepsUntil !== null && p.keepsUntil < asOf,
+    })),
   };
 }

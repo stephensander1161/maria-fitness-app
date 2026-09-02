@@ -122,6 +122,39 @@ export const profiles = pgTable("profiles", {
 });
 
 /**
+ * What she cooked in bulk and has left.
+ *
+ * The missing object between an ingredient and a meal. Meal plans fail for a
+ * boring reason — seven cooking evenings — and the fix people actually use is
+ * cooking twice and eating six times. Without somewhere to put "there are four
+ * portions of the chilli in the fridge", the app cannot see that, so it keeps
+ * asking her to cook and keeps building shopping lists for food she already
+ * has cooked.
+ *
+ * It also produces the best data in the app: a portion logged from here has
+ * exact macros, where a meal described in words has none.
+ */
+export const preppedPortions = pgTable(
+  "prepped_portions",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    portionsTotal: integer("portions_total").notNull(),
+    portionsLeft: integer("portions_left").notNull(),
+    caloriesPerPortion: integer("calories_per_portion"),
+    proteinPerPortion: integer("protein_per_portion"),
+    cookedOn: date("cooked_on").notNull(),
+    /** Food safety, not a guess she has to make at the fridge door. */
+    keepsUntil: date("keeps_until"),
+    /** The planned meal it came from, when it came from one. */
+    mealId: uuid("meal_id").references(() => meals.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("prepped_portions_profile").on(t.profileId, t.portionsLeft)],
+);
+
+/**
  * Her cycle, as a symptom record — not a prescription engine.
  *
  * Two jobs, and only two. It annotates the weight trend, so a kilo and a half
@@ -837,4 +870,5 @@ export type PantryItem = typeof pantryItems.$inferSelect;
 export type ShoppingExtra = typeof shoppingExtras.$inferSelect;
 export type Complaint = typeof complaints.$inferSelect;
 export type CycleEvent = typeof cycleEvents.$inferSelect;
+export type PreppedPortion = typeof preppedPortions.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;

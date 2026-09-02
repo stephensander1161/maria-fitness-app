@@ -11,6 +11,7 @@ import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
 import { cycleSignal } from "@/lib/tools/cycle-tools";
 import { phaseSignal } from "@/lib/tools/phases";
+import { preppedSummary } from "@/lib/tools/batch-cooking";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
@@ -68,7 +69,7 @@ export async function* runCoach(
   // nothing — so it asks her to retype the session she just finished, which is
   // the exact failure todaySnapshot exists to prevent.
   const her = profileToday(profile);
-  const [snapshot, plan, milestones, recomp, weight, hurts, cycle] = await Promise.all([
+  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge] = await Promise.all([
     todaySnapshot(profile.id, profile.units, her),
     planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
@@ -76,11 +77,12 @@ export async function* runCoach(
     weightSignal(profile.id, profile.units, her),
     complaintSummary(profile.id),
     cycleSignal(profile.id, her),
+    preppedSummary(profile.id, her),
   ]);
   const system = buildSystem(
     profile,
     [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
-      milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
+      fridge, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
   );
 

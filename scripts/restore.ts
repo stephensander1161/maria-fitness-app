@@ -13,7 +13,8 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
   complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
-  pantryItems, photos, planDays, planExercises, plans, profiles, setLogs, shoppingExtras,
+  pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles, setLogs,
+  shoppingExtras,
   usageDaily, weighIns, workouts,
 } from "@/lib/db/schema";
 
@@ -22,7 +23,7 @@ const TABLES = {
   profiles, weighIns, measurements, goals, photos, complaints, cycleEvents,
   plans, planDays, planExercises,
   workouts, setLogs,
-  mealPlans, meals, mealLogs, pantryItems, shoppingExtras,
+  mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
   messages, feedback, factViews, usageDaily,
 };
 

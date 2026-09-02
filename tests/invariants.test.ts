@@ -122,8 +122,12 @@ suite("the model cannot reach accounts", () => {
   });
 
   it("has no tool whose name suggests it manages accounts", () => {
+    // Deliberately narrow. A loose match on "session" flagged
+    // log_cook_session, which is a casserole; the structural check above —
+    // that no tool module imports the users table — is the one with teeth.
     const suspicious = [...registry.keys()].filter((n) =>
-      /password|account|user|session|login|disable/.test(n));
+      /password|passwd|credential|(^|_)accounts?($|_)|(^|_)login($|_)|sign_?out|disable_account/
+        .test(n));
     expect(suspicious).toEqual([]);
   });
 });

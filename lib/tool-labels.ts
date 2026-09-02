@@ -35,6 +35,8 @@ export const TOOL_LABELS: Record<string, string> = {
   set_nutrition_targets: "updating your targets",
   get_meal_plan: "checking your meals", swap_meal: "swapping that meal",
   get_meal_recipe: "writing out the recipe",
+  log_cook_session: "noting what you cooked", list_prepped_portions: "checking the fridge",
+  eat_prepped_portion: "logging that portion", adjust_prepped_portion: "updating the count",
   log_meal: "logging your meal", update_meal_log: "correcting that entry",
   clear_meal_logs: "clearing that day's food", get_day_nutrition: "totalling today's food",
   get_fact: "finding something worth knowing",
