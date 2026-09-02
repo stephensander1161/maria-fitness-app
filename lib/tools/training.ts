@@ -362,6 +362,8 @@ export const logSet = defineTool({
     reps: z.number(),
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight movements"),
     rpe: z.number().nullable().optional().describe("1–10 perceived effort, if she mentions it"),
+    rir: z.number().nullable().optional()
+      .describe("Reps in reserve — how many more she could have done. Record it whenever she says ('two left', 'that was everything'). Leave it out rather than guessing: unknown is not zero, and zero means she went to failure."),
     date: z.string().optional(),
     clientKey: z.string().optional().describe(
       "Supplied by the app for retry safety. Leave this out.",
@@ -392,6 +394,9 @@ export const logSet = defineTool({
         workoutId: w.id, exerciseId: ex.id, setNumber: n + 1, reps: input.reps,
         weightKg,
         rpe: input.rpe ?? null,
+        // "That was everything" is rir 0; saying nothing is null. The
+        // difference is the whole value of the field.
+        rir: input.rir ?? null,
         clientKey: input.clientKey ?? null,
       }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
       return { n, inserted };
@@ -698,6 +703,7 @@ export const correctSet = defineTool({
     reps: z.number().optional(),
     weight: z.number().nullable().optional().describe("Her units. Pass null for bodyweight."),
     rpe: z.number().nullable().optional(),
+    rir: z.number().nullable().optional().describe("Reps in reserve"),
     moveToExerciseSlug: z.string().optional()
       .describe("She logged it against the wrong movement — move it to this one"),
   }),
@@ -726,6 +732,7 @@ export const correctSet = defineTool({
         ? {}
         : { weightKg: input.weight === null ? null : weightIn(input.weight, units) }),
       ...(input.rpe === undefined ? {} : { rpe: input.rpe }),
+      ...(input.rir === undefined ? {} : { rir: input.rir }),
       ...(exerciseId === row.exerciseId ? {} : { exerciseId }),
     };
     if (Object.keys(patch).length === 0) {

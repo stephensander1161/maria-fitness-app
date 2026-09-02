@@ -440,6 +440,13 @@ export const setLogs = pgTable(
     exerciseId: uuid("exercise_id").notNull().references(() => exercises.id, { onDelete: "restrict" }),
     setNumber: integer("set_number").notNull(),
     reps: integer("reps").notNull(),
+    /**
+     * Reps in reserve: how many more she could have done. One tap, and it is
+     * what turns "3×8 @ 40kg" from a number into a signal — the same set at
+     * 4 left and at 0 left are different training. Null means she did not say,
+     * which is not the same as zero and must never be read as failure.
+     */
+    rir: integer("rir"),
     /** Null for bodyweight movements. */
     weightKg: real("weight_kg"),
     /** Rate of perceived exertion, 1–10. Optional but powers auto-progression. */

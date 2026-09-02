@@ -3,15 +3,21 @@ import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { profileToday } from "@/lib/profile";
 import { pickableExercises, todayView } from "@/lib/views";
+import { todayTargets } from "@/lib/tools/progression-targets";
 import { PlanSetupInvite } from "@/components/plan-setup";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrainPage() {
   const profile = await requireOnboarded();
-  const [view, pickable] = await Promise.all([
-    todayView(profile.id, profile.units, profileToday(profile)),
+  const her = profileToday(profile);
+  const [view, pickable, targets] = await Promise.all([
+    todayView(profile.id, profile.units, her),
     pickableExercises(profile.equipment),
+    // Worked out, not guessed: double progression and the 2-for-2 rule over
+    // what she actually logged. The screen shows the number; nobody has to
+    // ask the coach for it.
+    todayTargets(profile.id, profile.units, her),
   ]);
 
   // Once, unless she asks for it again: the invitation goes when she has been
@@ -41,7 +47,7 @@ export default async function TrainPage() {
         </div>
         <AiOpinion page="train" label="session" />
       </header>
-      <TrainClient view={view} pickable={pickable} />
+      <TrainClient view={view} pickable={pickable} targets={targets} />
     </>
   );
 }

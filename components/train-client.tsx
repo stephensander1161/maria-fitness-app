@@ -24,12 +24,23 @@ const TONE = {
 
 const NO_PENDING: PendingSet[] = [];
 
+/** What lib/progression-math worked out for one movement. */
+export type NextTarget = {
+  slug: string;
+  target: { sets: number; reps: number; weight: number | null; unit: string };
+  change: "up" | "reps" | "hold" | "down" | "first-time";
+  why: string;
+  warmup: { weight: number | null; reps: number; unit: string }[];
+};
+
 export function TrainClient({
   view,
   pickable,
+  targets = [],
 }: {
   view: TodayView;
   pickable: { group: string; items: PickableExercise[] }[];
+  targets?: NextTarget[];
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -137,6 +148,7 @@ export function TrainClient({
           key={ex.slug}
           exercise={ex}
           unit={view.unit}
+          next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
           onLogged={(r) => {
@@ -234,9 +246,9 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 }
 
 function ExerciseCard({
-  exercise, unit, result, pending, onLogged, onRetryPending, onRemoved,
+  exercise, unit, next, result, pending, onLogged, onRetryPending, onRemoved,
 }: {
-  exercise: TodayExercise; unit: string;
+  exercise: TodayExercise; unit: string; next?: NextTarget;
   result?: LogResult; pending: PendingSet[];
   onLogged: (r: LogResult | null) => void;
   onRetryPending: () => void;
@@ -283,14 +295,14 @@ function ExerciseCard({
     }
   }
 
-  async function logSet() {
+  async function logSet(rir?: number) {
     setSaving(true);
     setError(null);
     // Her tap is the gesture iOS requires before the rest beep can ever sound.
     unlockAudio();
     try {
       const outcome = await logSetOrQueue<LogResult>(
-        setInput(exercise.slug, reps, exercise.bodyweight ? null : weight),
+        setInput(exercise.slug, reps, exercise.bodyweight ? null : weight, rir),
       );
       onLogged(outcome.result);
       // A good call is also the moment to drain anything stuck from earlier.
@@ -309,10 +321,18 @@ function ExerciseCard({
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         <div className="min-w-0">
           <h2 className="truncate text-[17px] font-semibold">{exercise.name}</h2>
+          {/* The computed target where there is one — worked out from what she
+              actually logged, not re-derived by the model each week. Labelled
+              as a target, because a target read as an achievement is a bug
+              this app has had before. */}
           <p className="mt-0.5 text-[13px] text-muted tabular">
-            Target {exercise.targetSets}×{exercise.targetReps}
-            {exercise.targetWeight !== null && ` @ ${exercise.targetWeight}${unit}`}
+            Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
+            {(next ? next.target.weight : exercise.targetWeight) !== null &&
+              ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
           </p>
+          {next && next.change === "up" && (
+            <p className="mt-1 text-[12px] text-beat">Up from last time</p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
@@ -466,8 +486,32 @@ function ExerciseCard({
                   className={exercise.bodyweight ? "col-span-2" : ""}
                 />
             </div>
+            {/* One tap, one question: how many were left in the tank. It is
+                the only fatigue signal available without a wearable, and it is
+                what turns "3×8 @ 40" into something the progression maths can
+                read. Skipping it logs the set with no answer — which is
+                recorded as unknown, never as zero. */}
+            {!exercise.bodyweight && (
+              <div className="flex items-center gap-1.5">
+                <span className="mr-0.5 shrink-0 text-[11px] uppercase tracking-wide text-faint">
+                  Left in tank
+                </span>
+                {[0, 1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => logSet(n)}
+                    disabled={saving}
+                    aria-label={`Log set ${setCount + 1} with ${n === 3 ? "3 or more" : n} reps left`}
+                    className="min-w-11 flex-1 rounded-lg border border-edge py-2.5 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+                  >
+                    {n === 3 ? "3+" : n}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <button
-              onClick={logSet}
+              onClick={() => logSet()}
               disabled={saving}
               className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink active:opacity-80 disabled:opacity-50"
             >

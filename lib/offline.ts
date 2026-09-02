@@ -25,6 +25,8 @@ export type PendingSetInput = {
   exerciseSlug: string;
   reps: number;
   weight: number | null;
+  /** How many she had left. Omitted when she did not say — never sent as 0. */
+  rir?: number;
   /** Pinned when she performed the set — a set queued at 11pm must not flush
    *  onto tomorrow's workout. */
   date: ISODate;
@@ -180,10 +182,13 @@ export const setInput = (
   exerciseSlug: string,
   reps: number,
   weight: number | null,
+  /** Reps in reserve. Undefined means she did not say, which is not zero. */
+  rir?: number | null,
 ): PendingSetInput => ({
   exerciseSlug,
   reps,
   weight,
+  ...(rir === undefined || rir === null ? {} : { rir }),
   date: today(deviceZone()),
   clientKey: crypto.randomUUID(),
 });

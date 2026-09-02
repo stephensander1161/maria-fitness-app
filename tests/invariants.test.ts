@@ -188,3 +188,17 @@ suite("pages that read the database are dynamic", () => {
     expect(offenders, `these would be statically cached: ${offenders.join(", ")}`).toEqual([]);
   });
 });
+
+suite("the persona is a template literal, so it must survive being one", () => {
+  it("contains no unescaped backticks or interpolations", () => {
+    // A backtick pasted into the persona — writing `get_next_targets` in
+    // markdown, say — ends the template literal and breaks the build. Cheap to
+    // do, and the build error points at a line of prose rather than at code.
+    const src = fs.readFileSync("lib/agent/system.ts", "utf8");
+    const start = src.indexOf("const PERSONA = `") + "const PERSONA = `".length;
+    const end = src.indexOf("`;", start);
+    const persona = src.slice(start, end);
+    expect(persona).not.toMatch(/`/);
+    expect(persona).not.toMatch(/\$\{/);
+  });
+});

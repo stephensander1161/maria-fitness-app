@@ -39,6 +39,7 @@ export const TOOL_LABELS: Record<string, string> = {
   log_measurement: "saving your measurement", get_measurements: "checking your measurements",
   get_measuring_guide: "pulling up the measuring guide",
   get_exercise_progression: "tracking your progression",
+  get_next_targets: "working out your weights", estimate_one_rep_max: "estimating your max",
   add_exercise_to_day: "adding that to your day",
   remove_exercise_from_day: "taking that off your day",
   list_templates: "looking through the templates", suggest_template: "finding you a template",

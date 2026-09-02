@@ -10,6 +10,7 @@ import * as budget from "./budget";
 import * as boost from "./boost";
 import * as templates from "./templates";
 import * as progression from "./progression";
+import * as nextTargets from "./progression-targets";
 import * as foodTools from "./foods";
 import * as photos from "./photos";
 import * as pantry from "./pantry";
@@ -68,6 +69,8 @@ const all: Tool[] = [
   shopping.sendShoppingListToInstacart,
   training.deleteSet,
   training.correctSet,
+  nextTargets.getNextTargets,
+  nextTargets.estimateOneRepMax,
   training.getPlan,
   profile.getProfile,
   training.getWeekReview,
