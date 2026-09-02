@@ -53,6 +53,12 @@ export function authorizeUrl(req: Request, pending: Pending): string {
 }
 
 export function statesMatch(a: string, b: string): boolean {
+  // Two empty strings are equal, and that is exactly the case this must not
+  // accept: a missing cookie and a missing query parameter would otherwise
+  // "match" and wave the callback through. The route checks for both before
+  // calling this, but a comparison used as a security check should not depend
+  // on its callers remembering to.
+  if (!a || !b) return false;
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
@@ -92,14 +98,35 @@ export async function exchangeCode(
   const { id_token } = (await res.json()) as { id_token?: string };
   if (!id_token) throw new Error("Google returned no id_token");
 
-  const payload = JSON.parse(
-    Buffer.from(id_token.split(".")[1] ?? "", "base64url").toString("utf8"),
-  ) as {
-    sub?: string; email?: string; email_verified?: boolean | string;
-    name?: string; aud?: string; iss?: string; exp?: number;
-  };
+  return identityFrom(id_token, process.env.GOOGLE_CLIENT_ID);
+}
 
-  if (payload.aud !== process.env.GOOGLE_CLIENT_ID) throw new Error("id_token audience mismatch");
+export type IdTokenClaims = {
+  sub?: string; email?: string; email_verified?: boolean | string;
+  name?: string; aud?: string; iss?: string; exp?: number;
+};
+
+/**
+ * The claim checks, pulled out so they can be tested without a network.
+ *
+ * The token arrived over TLS from Google's token endpoint, authenticated with
+ * our client secret, so the signature does not need re-verifying. Everything
+ * else does: an `aud` for a different client is a token minted for someone
+ * else's app, and an unverified email is the whole attack — anyone can put an
+ * address they do not own into an unverified profile.
+ */
+export function identityFrom(idToken: string, expectedAudience: string | undefined): GoogleIdentity {
+  let payload: IdTokenClaims;
+  try {
+    payload = JSON.parse(
+      Buffer.from(idToken.split(".")[1] ?? "", "base64url").toString("utf8"),
+    ) as IdTokenClaims;
+  } catch {
+    throw new Error("id_token payload is not readable");
+  }
+
+  if (!expectedAudience) throw new Error("no client id configured to check the audience against");
+  if (payload.aud !== expectedAudience) throw new Error("id_token audience mismatch");
   if (payload.iss !== "https://accounts.google.com" && payload.iss !== "accounts.google.com") {
     throw new Error("id_token issuer mismatch");
   }

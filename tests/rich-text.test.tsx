@@ -30,3 +30,68 @@ describe("coach output links", () => {
     expect(html).toContain("<strong");
   });
 });
+
+/**
+ * The app's whole XSS boundary. Coach output is model text that has been
+ * anywhere near a tool result, a food name, or something she typed — so the
+ * rule is that it becomes React nodes and never HTML.
+ */
+describe("what a link can never be", () => {
+  const schemes = [
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "file:///etc/passwd",
+    "//evil.test/phish",
+    "http://insecure.test",
+  ];
+
+  it("never renders a link for anything but https", () => {
+    for (const url of schemes) {
+      const html = render(`Try ${url} now`);
+      expect(html, url).not.toContain("<a ");
+    }
+  });
+
+  it("never renders a markdown link for anything but https", () => {
+    for (const url of schemes) {
+      const html = render(`[click me](${url})`);
+      expect(html, url).not.toContain("<a ");
+    }
+  });
+
+  it("escapes markup rather than rendering it", () => {
+    const html = render('<img src=x onerror="alert(1)"> and <script>alert(2)</script>');
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("<script");
+    expect(html).toContain("&lt;");
+  });
+
+  it("does not let a label smuggle markup into a real link", () => {
+    const html = render('[<img src=x onerror=alert(1)>](https://example.com)');
+    expect(html).toContain('href="https://example.com"');
+    expect(html).not.toContain("<img");
+  });
+});
+
+describe("the boundary holds because nothing else renders HTML", () => {
+  it("no file in the app uses dangerouslySetInnerHTML", async () => {
+    // SECURITY.md's claim, checked. rich-text.tsx builds React nodes on
+    // purpose; the moment anything anywhere reaches for innerHTML, coach
+    // output has a second, unguarded path to the DOM.
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const walk = (dir: string, out: string[] = []): string[] => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full, out);
+        else if (/\.(ts|tsx)$/.test(e.name)) out.push(full);
+      }
+      return out;
+    };
+    const offenders = [...walk("components"), ...walk("app"), ...walk("lib")]
+      .filter((f) => /dangerouslySetInnerHTML/.test(fs.readFileSync(f, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+});
