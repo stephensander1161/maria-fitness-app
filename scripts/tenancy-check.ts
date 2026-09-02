@@ -18,7 +18,9 @@
  */
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { mealPlans, meals, mealLogs, goals, photos, profiles, users } from "@/lib/db/schema";
+import {
+  mealPlans, meals, mealLogs, goals, photos, preppedPortions, profiles, users,
+} from "@/lib/db/schema";
 import { registry, runTool } from "@/lib/tools";
 import { instantiateMealPlan, pickMealTemplate, pickWorkoutTemplate, instantiateWorkoutPlan } from "@/lib/templates";
 import { weekStart, today } from "@/lib/date";
@@ -51,6 +53,7 @@ async function makeAccount(email: string, name: string, weightKg: number): Promi
   await runTool("submit_feedback", { kind: "idea", body: `${name}-feedback-marker`, path: "/" }, ctx);
   await runTool("set_goal", { kind: "weight", targetValue: weightKg - 5, title: `${name}-goal-marker` }, ctx);
   await runTool("log_measurement", { measurements: [{ site: "waist", value: 70 + weightKg / 10 }] }, ctx);
+  await runTool("log_cook_session", { title: `${name}-batch-marker`, portions: 4, caloriesPerPortion: 500 }, ctx);
   return { userId: u.id, profileId: p.id, name, markers: [name, `${name}-lunch-marker`, `${name}-feedback-marker`, `${name}-goal-marker`, p.id, u.id] };
 }
 
@@ -61,7 +64,12 @@ async function idsOf(profileId: string) {
   const [log] = await db.select({ id: mealLogs.id }).from(mealLogs).where(eq(mealLogs.profileId, profileId)).limit(1);
   const [goal] = await db.select({ id: goals.id }).from(goals).where(eq(goals.profileId, profileId)).limit(1);
   const [photo] = await db.select({ id: photos.id }).from(photos).where(eq(photos.profileId, profileId)).limit(1);
-  return { mealId: mealRows[0]?.id, logId: log?.id, goalId: goal?.id, photoId: photo?.id };
+  const [prepped] = await db.select({ id: preppedPortions.id }).from(preppedPortions)
+    .where(eq(preppedPortions.profileId, profileId)).limit(1);
+  return {
+    mealId: mealRows[0]?.id, logId: log?.id, goalId: goal?.id, photoId: photo?.id,
+    preppedId: prepped?.id,
+  };
 }
 
 /** Tools that only read, with inputs that satisfy their schemas. */
@@ -69,7 +77,9 @@ const READS: Record<string, Record<string, unknown>> = {
   get_profile: {}, get_weight_history: {}, list_goals: {}, get_plan: {}, get_week_review: {},
   get_meal_plan: {}, get_day_nutrition: {}, get_nutrition_trend: {}, get_recent_meals: {},
   get_shopping_list: {}, get_measurements: {}, get_exercise_progression: {}, list_progress_photos: {},
-  get_pantry: {},
+  get_pantry: {}, list_prepped_portions: {}, list_complaints: {}, get_cycle_status: {},
+  get_weekly_volume: {}, check_progression_status: {}, run_check_in: {},
+  get_next_targets: {}, export_transcript: { days: 1 },
   get_coach_usage: {}, list_feedback: {}, get_boost: {}, suggest_meals: {}, suggest_exercises: {},
   get_exercise_history: { slug: "goblet-squat" }, find_recipes: { ingredient: "chicken" },
   search_exercises: { query: "squat" }, list_templates: {}, suggest_template: {},
@@ -132,6 +142,17 @@ async function main() {
       ["log_meal", { slot: "dinner", description: "x", mealId: bIds.mealId }],
       ["remove_meal_log", { logId: bIds.logId }],
       ["achieve_goal", { goalId: bIds.goalId }],
+      // Everything added since: each of these takes a row id, and `set_logs`,
+      // `meals` and `prepped_portions` carry no profile column of their own —
+      // ownership is one or two joins away, which is exactly where it gets
+      // forgotten.
+      ["update_meal_log", { logId: bIds.logId, calories: 1 }],
+      ["update_goal", { goalId: bIds.goalId, title: "hijacked" }],
+      ["remove_goal", { goalId: bIds.goalId }],
+      ["remove_planned_meal", { mealId: bIds.mealId }],
+      ["log_cook_session", { title: "hijacked", portions: 1, mealId: bIds.mealId }],
+      ["eat_prepped_portion", { id: bIds.preppedId, slot: "lunch" }],
+      ["adjust_prepped_portion", { id: bIds.preppedId, discard: true }],
     ];
     for (const [tool, input] of attempts) {
       if (Object.values(input).some((v) => v === undefined)) { failures.push(`${tool}: could not find a B row to try`); continue; }
@@ -142,7 +163,20 @@ async function main() {
       catch { continue; }
       if (out?.ok !== false) failures.push(`${tool}: accepted B's id from A (${JSON.stringify(out).slice(0, 80)})`);
     }
-    // The hijack attempt must have left B's meal alone.
+    // The hijack attempts must have left B's rows alone.
+    if (bIds.preppedId) {
+      const [row] = await db.select({ portionsLeft: preppedPortions.portionsLeft })
+        .from(preppedPortions).where(eq(preppedPortions.id, bIds.preppedId));
+      if (!row) failures.push("prepped portion: A deleted one of B's");
+      else if (row.portionsLeft !== 4) failures.push(`prepped portion: A moved B's count to ${row.portionsLeft}`);
+    }
+    if (bIds.goalId) {
+      const [row] = await db.select({ title: goals.title }).from(goals).where(eq(goals.id, bIds.goalId));
+      if (!row) failures.push("goal: A deleted one of B's");
+      else if (row.title === "hijacked") failures.push("update_goal: B's milestone was rewritten by A");
+    }
+
+
     if (bIds.mealId) {
       const [m] = await db.select({ title: meals.title }).from(meals).where(eq(meals.id, bIds.mealId));
       if (m?.title === "hijacked") failures.push("swap_meal: B's meal was rewritten by A");
