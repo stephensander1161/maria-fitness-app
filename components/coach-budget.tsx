@@ -95,7 +95,7 @@ export function CoachBudget({ usage }: { usage: Usage }) {
               );
             })}
           </div>
-          {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
           <p className="mt-3 text-[12px] leading-relaxed text-faint">
             {money(ceilingMicros)} a day is the most this app will ever spend, set on the
             server. You can lower it here, not raise it.

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { action } from "@/lib/client";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 type Evidence = { headline: string; detail?: string };
 type Boost = {
@@ -27,7 +27,7 @@ export function Boost({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     action<Boost>("get_boost").then(setBoost).catch(() => setFailed(true));
   }, []);
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   return (
     <div
@@ -56,9 +56,20 @@ export function Boost({ onClose }: { onClose: () => void }) {
         />
       ))}
 
-      <div className="relative z-10 w-full max-w-sm text-center">
+      <div ref={panel} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full max-w-sm text-center">
         {failed ? (
-          <p className="text-[15px] text-muted">Couldn&apos;t load that right now.</p>
+          <>
+            <p className="text-[15px] text-muted">Couldn&apos;t load that right now.</p>
+            {/* The failure branch had no way out of its own, and tapping the
+                content dismissed the sheet — so the only discoverable exit was
+                an accident. */}
+            <button
+              onClick={onClose}
+              className="mt-4 rounded-full border border-line px-5 py-2.5 text-[14px] text-muted"
+            >
+              Close
+            </button>
+          </>
         ) : !boost ? (
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2].map((i) => (

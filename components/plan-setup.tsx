@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 /**
  * The guided setup: a handful of taps, then a real week and real meals.
@@ -142,7 +142,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
   // back, no abort, no Close button while building, backdrop taps ignored —
   // a dropped signal meant up to two minutes on a bouncing-dot screen with no
   // way out but force-quitting, and no idea whether the plan had been written.
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -279,7 +279,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
       aria-label="Set up your plan"
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm"
     >
-      <div
+      <div ref={panel}
         onClick={(e) => e.stopPropagation()}
         className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
         data-no-pull-to-refresh=""
@@ -305,7 +305,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
             <div className="space-y-4">{steps[step].body}</div>
 
             {error && (
-              <p className="mt-4 rounded-xl border border-miss/40 bg-miss-soft px-3 py-2 text-[13px] text-miss">
+              <p role="alert" className="mt-4 rounded-xl border border-miss/40 bg-miss-soft px-3 py-2 text-[13px] text-miss">
                 {error}
               </p>
             )}

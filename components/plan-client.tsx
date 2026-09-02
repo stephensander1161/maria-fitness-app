@@ -188,7 +188,7 @@ function MealRow({ meal }: { meal: Meal }) {
           )}
 
           {error && (
-            <p className="rounded-lg border border-miss/40 bg-miss-soft px-2.5 py-1.5 text-miss">{error}</p>
+            <p role="alert" className="rounded-lg border border-miss/40 bg-miss-soft px-2.5 py-1.5 text-miss">{error}</p>
           )}
 
           {recipe && recipe.ingredients.length > 0 && (

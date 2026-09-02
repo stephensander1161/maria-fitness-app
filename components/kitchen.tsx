@@ -69,7 +69,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
 
       {open && (
         <div className="mt-4 space-y-4">
-          {error && <p className="text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="text-[13px] text-miss">{error}</p>}
 
           {missing.length > 0 && (
             <div className="rounded-xl border border-hold/30 bg-hold-soft p-3.5">
@@ -87,6 +87,15 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
                 ))}
               </ul>
             </div>
+          )}
+
+          {items.length === 0 && (
+            // The guidance used to be gated on !open, so opening the panel to
+            // find out how to fill it removed the instructions for filling it.
+            <p className="text-[13px] leading-relaxed text-muted">
+              Nothing in your kitchen yet. Tick things off the shopping list and tap
+              &ldquo;Got these&rdquo;, or add something below — meals take from it as you log them.
+            </p>
           )}
 
           {items.length > 0 && (
@@ -151,7 +160,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
               ) : (
                 <button
                   onClick={() => setConfirmClear(true)}
-                  className="text-[12px] text-faint underline underline-offset-2"
+                  className="-my-2 px-2 py-2 text-[12px] text-faint underline underline-offset-2"
                 >
                   Start fresh
                 </button>
@@ -167,7 +176,8 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
               value={adding}
               onChange={(e) => setAdding(e.target.value)}
               placeholder="Add — e.g. 500g rice, 2 tins tomatoes"
-              className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[14px] placeholder:text-faint focus:border-accent focus:outline-none"
+              aria-label="Add something to your kitchen"
+              className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-3.5 py-2.5 text-[14px] placeholder:text-faint focus:border-accent focus:outline-none"
             />
             <button
               type="submit"
@@ -207,7 +217,7 @@ function ItemEditor({
         onChange={(e) => setValue(e.target.value)}
         placeholder="how much"
         aria-label={`How much ${item.item}`}
-        className="w-24 rounded-lg border border-line bg-base px-2.5 py-2 text-[14px] tabular focus:border-accent focus:outline-none"
+        className="w-24 rounded-lg border border-edge bg-base px-2.5 py-2 text-[14px] tabular focus:border-accent focus:outline-none"
       />
       {item.unit && <span className="text-[12px] text-faint">{item.unit}</span>}
       <button

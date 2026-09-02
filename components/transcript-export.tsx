@@ -100,7 +100,7 @@ export function TranscriptExport() {
         {done && <span className="text-[12px] text-beat">{done}</span>}
       </div>
 
-      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
     </section>
   );
 }

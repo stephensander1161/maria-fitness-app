@@ -45,7 +45,7 @@ export function LoginForm({ google }: { google: boolean }) {
               navigation, and the state cookie has to ride along with it. */}
           <a
             href="/api/auth/google"
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-line bg-surface py-3.5 text-[15px] font-medium active:bg-raised"
+            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-edge bg-surface py-3.5 text-[15px] font-medium active:bg-raised"
           >
             <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden>
               <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
@@ -73,7 +73,7 @@ export function LoginForm({ google }: { google: boolean }) {
         autoComplete="username"
         inputMode="email"
         autoFocus
-        className="w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-center text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-xl border border-edge bg-surface px-4 py-3.5 text-center text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
       />
       <input
         type="password"
@@ -81,7 +81,7 @@ export function LoginForm({ google }: { google: boolean }) {
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
         autoComplete="current-password"
-        className="w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-center text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-xl border border-edge bg-surface px-4 py-3.5 text-center text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
       />
       <button
         type="submit"
@@ -90,7 +90,7 @@ export function LoginForm({ google }: { google: boolean }) {
       >
         {busy ? "Checking…" : "Enter"}
       </button>
-        {error && <p className="text-center text-[13px] text-miss">{error}</p>}
+        {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}
       </form>
     </div>
   );

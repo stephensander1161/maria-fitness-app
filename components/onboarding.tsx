@@ -235,7 +235,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
       )}
 
       {error && (
-        <p className="mt-4 rounded-xl border border-miss/40 bg-miss-soft px-4 py-3 text-center text-[13px] text-miss">
+        <p role="alert" className="mt-4 rounded-xl border border-miss/40 bg-miss-soft px-4 py-3 text-center text-[13px] text-miss">
           {error}
         </p>
       )}

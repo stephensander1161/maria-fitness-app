@@ -65,7 +65,7 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
           Nothing logged yet. Add food with the calculator below, or just tell your coach.
         </p>
 
-      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
       {usuals.length > 0 && (
         <div className="mt-4">
@@ -170,7 +170,7 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
         ))}
       </ul>
 
-      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
       {usuals.length > 0 && (
         <div className="mt-4">

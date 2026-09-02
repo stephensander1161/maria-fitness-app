@@ -7,10 +7,21 @@
   --color-base: #0b0e13;
   --color-surface: #141920;
   --color-raised: #1c232c;
-  --color-line: #28313c;
+  /* Dividers and card edges. Decorative: it separates regions, it never
+     carries information on its own. */
+  --color-line: #333d4a;
+  /* The boundary of a *control* — an unticked checkbox, a set not yet logged,
+     an input she has to find. 3:1 on every surface, because at #28313c an
+     unticked box was 1.31:1 on a card: invisible in a bright gym, which is
+     exactly where the "how many sets left" glance happens. */
+  --color-edge: #626d7a;
   --color-text: #e9eef4;
   --color-muted: #8b98a8;
-  --color-faint: #5c6875;
+  /* 4.5:1 on raised, the darkest thing it sits on. It was #5c6875 — 2.76:1 —
+     and it carries the inactive tab labels, every placeholder, and the
+     calorie target she eats against. Small text, so no large-text exemption
+     and no excuse. */
+  --color-faint: #8590a0;
 
   --color-accent: #ff6a45;
   --color-accent-soft: #3a1d16;

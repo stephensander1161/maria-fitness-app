@@ -58,7 +58,7 @@ export function ThreadMessages({
       )}
 
       {error && (
-        <div className="rounded-xl border border-miss/40 bg-miss-soft px-3 py-2 text-sm text-miss">
+        <div role="alert" className="rounded-xl border border-miss/40 bg-miss-soft px-3 py-2 text-sm text-miss">
           {error}
         </div>
       )}
@@ -91,9 +91,10 @@ export function Composer({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? "Tell your coach anything…"}
+          aria-label="Message your coach"
           disabled={busy}
           autoFocus={autoFocus}
-          className="min-w-0 flex-1 rounded-full border border-line bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60"
+          className="min-w-0 flex-1 rounded-full border border-edge bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60"
         />
         <button
           type="submit"

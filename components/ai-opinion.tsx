@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCoachThread } from "@/lib/use-coach-thread";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 import { Composer, ThreadMessages } from "./coach-thread";
 
 /**
@@ -60,13 +60,12 @@ function Sheet({
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, streaming, activity]);
-
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   return (
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`The coach on your ${label}`}
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm">
-      <div onClick={(e) => e.stopPropagation()}
+      <div ref={panel} onClick={(e) => e.stopPropagation()}
         className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line bg-surface"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.

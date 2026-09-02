@@ -191,7 +191,10 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setLingering(null)}
               data-no-pull-to-refresh=""
-              aria-label="Dismiss"
+              // No aria-label: it would replace the fact with the word
+              // "Dismiss", and the fact is recorded as seen and never shown
+              // again — so a screen reader user would simply never get it.
+              title="Dismiss"
               className="block w-full rounded-2xl border border-line bg-surface px-4 py-3 text-left"
             >
               <p className="text-[10px] uppercase tracking-wide text-accent">Did you know</p>

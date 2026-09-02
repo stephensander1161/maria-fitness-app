@@ -198,7 +198,19 @@ export function ShoppingList({
     }
   }
 
-  if (total === 0) return null;
+  // Not `return null`: a card that disappears is indistinguishable from a card
+  // that is broken, and she never learns the feature exists.
+  if (total === 0) {
+    return (
+      <section className="card mb-3 p-5">
+        <h2 className="text-[15px] font-semibold">Shopping list</h2>
+        <p className="mt-1 text-[12px] leading-relaxed text-faint">
+          Nothing to buy yet — this fills in from the week&rsquo;s meals. Ask your coach to plan
+          them and everything they need shows up here, grouped by aisle.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="card mb-3 p-5">
@@ -243,7 +255,7 @@ export function ShoppingList({
             </button>
             <button
               onClick={() => setAll(selected.length !== total)}
-              className="ml-auto text-[12px] text-faint underline underline-offset-2"
+              className="-my-2 ml-auto px-2 py-2 text-[12px] text-faint underline underline-offset-2"
             >
               {selected.length === total ? "Clear all" : "Select all"}
             </button>
@@ -256,6 +268,16 @@ export function ShoppingList({
             </p>
           )}
           {cart && (
+            <div className="relative">
+              <button
+                onClick={() => setCart(null)}
+                aria-label="Dismiss"
+                className="absolute right-2 top-2 grid size-8 place-items-center text-beat/70"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
             <a
               href={cart}
               target="_blank"
@@ -264,8 +286,9 @@ export function ShoppingList({
             >
               Your cart is ready on Instacart — open it to pick a store and check out. The link works for a week.
             </a>
+            </div>
           )}
-          {error && <p className="text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="text-[13px] text-miss">{error}</p>}
 
           {aisles.map((a) => (
             <div key={a.aisle}>
@@ -282,7 +305,7 @@ export function ShoppingList({
                       >
                         <span
                           className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border ${
-                            on ? "border-accent bg-accent text-ink" : "border-line"
+                            on ? "border-accent bg-accent text-ink" : "border-edge"
                           }`}
                         >
                           {on && (

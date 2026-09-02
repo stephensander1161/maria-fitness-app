@@ -90,8 +90,9 @@ export function IngredientSearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search an ingredient — chicken, oats, eggs…"
+          aria-label="Search an ingredient"
           enterKeyHint="search"
-          className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
+          className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
         />
         {query && (
           <button
@@ -106,7 +107,7 @@ export function IngredientSearch() {
         )}
       </div>
 
-      {shownError && <p className="mb-3 text-[13px] text-miss">{shownError}</p>}
+      {shownError && <p role="alert" className="mb-3 text-[13px] text-miss">{shownError}</p>}
 
       {short && (
         <p className="card p-5 text-[13px] leading-relaxed text-muted">

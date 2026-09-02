@@ -97,7 +97,7 @@ export function AddExercise({
         </div>
       )}
 
-      {error && <p className="text-center text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}
 
       <div className="grid grid-cols-2 gap-2">
         <button

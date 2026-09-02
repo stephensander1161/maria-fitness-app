@@ -61,7 +61,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-[15px] font-semibold">Measurements</h2>
         {!open && (
-          <button onClick={() => setOpen(true)} className="text-[13px] text-accent">
+          <button onClick={() => setOpen(true)} className="-my-2 px-3 py-2 text-[13px] text-accent">
             {sites.length ? "Add" : "Start"}
           </button>
         )}
@@ -133,6 +133,10 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
                     value={values[site.key] ?? ""}
                     onChange={(e) => setValues((v) => ({ ...v, [site.key]: e.target.value }))}
                     placeholder={unit}
+                    // Four identical "in, text field" announcements in a row is
+                    // four numbers saved against the wrong four sites. The site
+                    // name is in a sibling button, so it has to be said here.
+                    aria-label={`${site.label} in ${unit}`}
                     className="w-24 rounded-lg border border-line bg-surface px-3 py-2 text-center text-[15px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
                   />
                 </div>
@@ -160,7 +164,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
-          {error && <p className="mt-2 text-center text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="mt-2 text-center text-[13px] text-miss">{error}</p>}
         </div>
       )}
     </section>

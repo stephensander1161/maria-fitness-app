@@ -117,7 +117,7 @@ export function Ideas({
             : "Movements you can actually perform with your equipment."}
       </p>
 
-      {error && <p className="text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="text-[13px] text-miss">{error}</p>}
 
       {kind === "meals"
         ? meals.map((m, i) => (
@@ -236,7 +236,7 @@ function MealCard({
               </button>
             </div>
           )}
-          {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
         </div>
       )}
     </div>
@@ -312,7 +312,7 @@ function MoveCard({ idea, week, onDone }: { idea: MoveIdea; week: WeekView; onDo
             </button>
           </div>
         )}
-        {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+        {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
       </div>
     </div>
   );

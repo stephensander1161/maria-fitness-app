@@ -171,7 +171,7 @@ export function TrainClient({
                   key={label}
                   disabled={totalLogged === 0 || finishing}
                   onClick={() => finish(i + 1)}
-                  className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted active:bg-line disabled:opacity-30"
+                  className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted active:bg-line disabled:opacity-60"
                 >
                   {label}
                 </button>
@@ -179,7 +179,7 @@ export function TrainClient({
             </div>
           </>
         )}
-        {error && <p className="mt-3 text-center text-[13px] text-miss">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
       </div>
     </div>
   );
@@ -385,7 +385,7 @@ function ExerciseCard({
                   ? "border border-dashed border-accent bg-accent-soft text-accent"
                   : s
                     ? "bg-accent text-ink"
-                    : "border border-dashed border-line text-faint"
+                    : "border border-dashed border-edge text-faint"
               }`}
             >
               {s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—"}
@@ -473,7 +473,7 @@ function ExerciseCard({
             >
               {saving ? "Saving…" : `Log set ${setCount + 1}`}
             </button>
-            {error && <p className="text-center text-[13px] text-miss">{error}</p>}
+            {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}
           </div>
         )}
       </div>

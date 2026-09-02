@@ -85,7 +85,7 @@ export function WeighIn({
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
-      {error && <p className="text-center text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}
     </section>
   );
 }

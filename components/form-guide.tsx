@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { action } from "@/lib/client";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 import { ExerciseFigure } from "./exercise-figure";
 
 type Guide = {
@@ -40,7 +40,7 @@ export function FormGuide({
       .then((g) => (g?.error ? setFailed(true) : setGuide(g)))
       .catch(() => setFailed(true));
   }, [slug]);
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   return (
     <div
@@ -50,7 +50,7 @@ export function FormGuide({
       aria-label={`How to do ${name}`}
       className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm"
     >
-      <div
+      <div ref={panel}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
         // This sheet scrolls inside itself, so the page-level pull gesture
@@ -99,6 +99,11 @@ export function FormGuide({
               <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-faint">
                 How to do it
               </h3>
+              {guide.formCues.length === 0 && (
+                <p className="text-[13px] text-muted">
+                  No cues written for this one yet — ask your coach and it&rsquo;ll talk you through it.
+                </p>
+              )}
               <ol className="space-y-2.5">
                 {guide.formCues.map((cue, i) => (
                   <li key={i} className="flex gap-3">

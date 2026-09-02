@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 import { Composer, ThreadMessages } from "./coach-thread";
 import { Boost } from "./boost";
 import { FeedbackGlyph, FeedbackSheet } from "./feedback";
@@ -61,6 +61,7 @@ function CoachSheet({
     // showing — "log that set" should tick the set off underneath.
     onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); },
   });
+  const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
@@ -69,8 +70,7 @@ function CoachSheet({
   const kicked = useRef(false);
   /** The screen whose contents the coach has already been given. */
   const context = useRef<string | null>(null);
-
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -85,6 +85,7 @@ function CoachSheet({
         const data = await res.json();
         if (cancelled) return;
         setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
+        setLoaded(true);
         if (data.messages.length === 0 && !kicked.current) {
           kicked.current = true;
           void stream({ kickoff: true });
@@ -93,6 +94,7 @@ function CoachSheet({
         // This used to fail in total silence: the fetch rejected, nothing was
         // caught, and she got an empty screen with her history apparently gone.
         if (cancelled) return;
+        setLoaded(true);
         setLoadFailed(true);
       }
     })();
@@ -115,6 +117,7 @@ function CoachSheet({
       className="fixed inset-0 z-[80] flex flex-col justify-end bg-ink/70 backdrop-blur-sm"
     >
       <div
+        ref={panel}
         onClick={(e) => e.stopPropagation()}
         className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base"
         data-no-pull-to-refresh=""
@@ -154,6 +157,16 @@ function CoachSheet({
         {/* The scroll container. The composer sits outside it, which is the
             whole reason the last message is never hidden underneath. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {!loaded && !loadFailed && messages.length === 0 && !busy && (
+            // Without this the sheet opened to a header, nothing, and a text
+            // box — which reads as the whole conversation having gone.
+            <div className="flex justify-center gap-1.5 py-10">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="size-1.5 animate-bounce rounded-full bg-accent"
+                  style={{ animationDelay: `${i * 120}ms` }} />
+              ))}
+            </div>
+          )}
           <ThreadMessages
             messages={messages}
             streaming={streaming}

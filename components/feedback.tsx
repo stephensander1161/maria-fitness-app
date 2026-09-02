@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import { useEscape } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 type Kind = "idea" | "bug" | "confusing";
 type Item = { kind: Kind; request: string; status: string; reply: string | null; submitted: string };
@@ -84,8 +84,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
       .catch(() => { if (!cancelled) setPast([]); });
     return () => { cancelled = true; };
   }, []);
-
-  useEscape(onClose);
+  const panel = useDialog(onClose);
 
   async function submit() {
     if (!body.trim()) return;
@@ -108,7 +107,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 backdrop-blur-sm"
       onClick={onClose} role="dialog" aria-modal="true" aria-label="Send feedback">
-      <div
+      <div ref={panel}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
         // This sheet scrolls inside itself, so the page-level pull gesture
@@ -153,7 +152,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
             >
               {saving ? "Sending…" : "Send"}
             </button>
-          {error && <p className="mt-2 text-center text-[13px] text-miss">{error}</p>}
+          {error && <p role="alert" className="mt-2 text-center text-[13px] text-miss">{error}</p>}
           </>
         )}
 

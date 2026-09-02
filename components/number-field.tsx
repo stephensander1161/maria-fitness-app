@@ -64,7 +64,7 @@ export function NumberField({
       {label && (
         <p className="mb-1.5 text-center text-[11px] uppercase tracking-wide text-faint">{label}</p>
       )}
-      <div className="flex items-center rounded-xl border border-line bg-surface focus-within:border-accent">
+      <div className="flex items-center rounded-xl border border-edge bg-surface focus-within:border-accent">
         <button
           type="button"
           onClick={() => nudge(-step)}
@@ -87,7 +87,7 @@ export function NumberField({
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
           inputMode={decimals ? "decimal" : "numeric"}
           enterKeyHint="done"
-          aria-label={label}
+          aria-label={label ?? "Value"}
           className="w-full min-w-0 bg-transparent py-3 text-center text-xl font-semibold tabular outline-none"
         />
 

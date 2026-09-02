@@ -165,7 +165,7 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
           onChange={(e) => setQuery(e.target.value)}
           placeholder={example}
           enterKeyHint="search"
-          className="min-w-0 flex-1 rounded-xl border border-line bg-base px-4 py-3 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
+          className="min-w-0 flex-1 rounded-xl border border-edge bg-base px-4 py-3 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
         />
         <button
           type="submit"
@@ -363,7 +363,7 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
               </button>
             ))}
           </div>
-          {logError && <p className="mt-2 text-[13px] text-miss">{logError}</p>}
+          {logError && <p role="alert" className="mt-2 text-[13px] text-miss">{logError}</p>}
         </div>
       )}
     </section>

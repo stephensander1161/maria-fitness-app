@@ -52,7 +52,7 @@ export function UnitsSettings({ units, foodUnits }: { units: Units; foodUnits: U
           : <>Set separately. <button onClick={() => save({ foodUnits: "same" })} className="underline">Follow the scale again</button></>}
       </p>
 
-      {error && <p className="mt-2 text-[13px] text-miss">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
     </section>
   );
 }

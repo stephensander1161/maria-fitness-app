@@ -135,7 +135,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
       />
 
       {error && (
-        <p className="mb-3 rounded-lg border border-miss/30 bg-miss-soft px-3 py-2 text-[12px] text-miss">
+        <p role="alert" className="mb-3 rounded-lg border border-miss/30 bg-miss-soft px-3 py-2 text-[12px] text-miss">
           {error}
         </p>
       )}

@@ -63,7 +63,8 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
       <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1">
         {([["moves", "Movements"], ["food", "Food"], ["know", "Worth knowing"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`rounded-full py-2 text-[13px] font-medium transition-colors ${
+            aria-pressed={tab === k}
+            className={`rounded-full py-2.5 text-[13px] font-medium transition-colors ${
               tab === k ? "bg-accent text-ink" : "text-muted"
             }`}>
             {label}
@@ -79,7 +80,8 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search movements, muscles, equipment…"
-            className="mb-3 w-full rounded-xl border border-line bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
+            aria-label="Search movements, muscles or equipment"
+            className="mb-3 w-full rounded-xl border border-edge bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
           />
           <div className="no-scrollbar -mx-4 mb-3 flex gap-2 overflow-x-auto px-4">
             {CATEGORIES.map((c) => (
@@ -137,6 +139,12 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
           )}
         </>
       ) : tab === "know" ? (
+        facts.length === 0 ? (
+          <p className="card p-5 text-[13px] leading-relaxed text-muted">
+            The fact library hasn&rsquo;t been loaded on this deployment yet. Pull down on any screen
+            and your coach will still find you something worth knowing.
+          </p>
+        ) : (
         <div className="space-y-5">
           {byCategory.map(([cat, items]) => (
             <section key={cat}>
@@ -154,6 +162,7 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
             </section>
           ))}
         </div>
+        )
       ) : null}
     </>
   );

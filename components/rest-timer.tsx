@@ -201,11 +201,19 @@ export function RestTimerBar({
             <p className="truncate text-[13px] text-muted">{rest.name}</p>
           </div>
 
+          {/* Not a live region. This repaints four times a second, and
+              announcing it queued ninety uninterruptible "one twenty-nine, one
+              twenty-eight…" updates that blocked everything else for the whole
+              rest — materially worse than saying nothing. The one moment worth
+              announcing is when it is over, below. */}
           <span
-            aria-live="polite"
+            aria-hidden={!over}
             className={`shrink-0 text-2xl font-semibold tabular ${over ? "text-beat" : "text-text"}`}
           >
             {over ? "Go" : clock(ms)}
+          </span>
+          <span className="sr-only" role="status">
+            {over ? `Rest over for ${rest.name}` : ""}
           </span>
 
           {!over && (

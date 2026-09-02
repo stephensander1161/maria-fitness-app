@@ -216,6 +216,29 @@ instead of the shared hook, and if the bubble ever stops being mounted globally.
 Activity labels live in `lib/tool-labels.ts` — one map for the browser and the
 server loop, because the two copies had drifted twenty tools apart.
 
+## What a screen owes her
+
+- **A dialog behaves like one.** `useDialog()` — Escape, a real focus trap,
+  focus restored to whatever opened it. `aria-modal="true"` over a sheet you
+  can Tab out of is worse than no dialog: it tells a screen reader the page
+  behind is inert while she edits it blind.
+- **A failure is announced, not just coloured.** Error text carries
+  `role="alert"`. Twenty-one error paragraphs were rendered to nobody.
+- **`--color-line` is decorative; `--color-edge` is a control's outline** and
+  clears 3:1 on every surface. An unticked checkbox and a set not yet logged
+  are information, and at 1.31:1 they were invisible in a bright gym.
+- **Never `aria-live` a value that repaints.** The rest timer queued ~360
+  announcements per rest, blocking everything else for the whole rest.
+- **An empty state is not `return null`.** A card that disappears is
+  indistinguishable from one that is broken, and she never learns the feature
+  exists.
+- Every route has `error.tsx` above it. One Neon blip used to replace a tab
+  with Next's unstyled white page — no tab bar, no way back, and in a
+  standalone PWA no browser chrome either.
+
+`tests/accessibility.test.ts` enforces the first four, including the contrast
+ratios, computed from the tokens rather than eyeballed.
+
 ## Accounts
 
 `users` holds accounts; `profiles` holds training data, one per account. The

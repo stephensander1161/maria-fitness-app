@@ -175,9 +175,18 @@ export default async function ProgressPage() {
           <ul className="space-y-2.5">
             {milestones.map((m) => (
               <li key={m.id} className="flex items-start gap-3">
-                <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px] ${
-                  m.achievedAt ? "border-beat bg-beat text-ink" : "border-line text-transparent"
-                }`}>✓</span>
+                {/* The tick used to render in both states, transparent when
+                    unachieved — so a milestone she has not hit announced as
+                    "✓ Squat bodyweight". */}
+                <span
+                  aria-hidden={!m.achievedAt}
+                  aria-label={m.achievedAt ? "Achieved" : undefined}
+                  className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px] ${
+                    m.achievedAt ? "border-beat bg-beat text-ink" : "border-line text-transparent"
+                  }`}
+                >
+                  {m.achievedAt ? "✓" : ""}
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className={`text-[15px] ${m.achievedAt ? "text-muted line-through" : ""}`}>{m.title}</p>
                   <p className="text-[12px] text-faint">
