@@ -296,6 +296,14 @@ describe("the OAuth state check", () => {
   it("returns false on a length mismatch instead of throwing", () => {
     expect(statesMatch("short", "considerably longer")).toBe(false);
     expect(statesMatch("", "x")).toBe(false);
-    expect(statesMatch("", "")).toBe(true);
+  });
+
+  it("refuses two empty states rather than calling them equal", () => {
+    // This used to assert true, which is what timingSafeEqual does with two
+    // empty buffers — and it is the one pair that must not match, because a
+    // missing cookie and a missing query parameter are both "". The callback
+    // rejects those before it gets here, so this was never reachable; a
+    // comparison used as a security check should not rely on that.
+    expect(statesMatch("", "")).toBe(false);
   });
 });
