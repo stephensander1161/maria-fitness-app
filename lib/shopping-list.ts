@@ -97,30 +97,7 @@ export async function shoppingListFor(
   // is a more specific hit. When the label contains the item ("garlic bread"
   // contains "garlic"), a longer label is a *worse* hit — that is how garlic
   // ended up filed as a frozen ready meal.
-  const aisleFor = (item: string): string => {
-    const q = item.toLowerCase().trim();
-    let best: { category: string; rank: number; length: number } | null = null;
-
-    for (const f of library) {
-      for (const label of [f.name, ...f.aliases]) {
-        const l = label.toLowerCase().trim();
-        let rank: number;
-        if (l === q) rank = 0;
-        else if (q.includes(l)) rank = 1;
-        else if (l.includes(q)) rank = 2;
-        else continue;
-
-        const better =
-          !best ||
-          rank < best.rank ||
-          // Within a rank: longest label when the item contains it, shortest
-          // when it contains the item.
-          (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
-        if (better) best = { category: f.category, rank, length: l.length };
-      }
-    }
-    return best ? AISLES[best.category] ?? "Other" : "Other";
-  };
+  const aisleFor = (item: string): string => aisleForItem(item, library);
 
   const grouped = new Map<string, ShoppingItem[]>();
   for (const item of items) {
@@ -137,3 +114,45 @@ export async function shoppingListFor(
   };
 }
 
+/**
+ * Which aisle an item belongs in, ranked against the food library.
+ *
+ * Rank, do not just match. Direction matters: when the shopping item contains
+ * the label ("chicken breast" contains "chicken") a longer label is a more
+ * specific hit; when the label contains the item ("garlic bread" contains
+ * "garlic") a longer label is a *worse* hit — which is how garlic came to be
+ * filed as a frozen ready meal.
+ */
+export function aisleForItem(
+  item: string,
+  library: { name: string; category: string; aliases: string[] }[],
+): string {
+  const q = item.toLowerCase().trim();
+  // Every label contains the empty string, so an empty item would match the
+  // whole library and be filed under whichever label happened to be shortest.
+  // aggregateIngredients drops empty items before they get here; a function
+  // this small should not depend on that.
+  if (q === "") return "Other";
+
+  let best: { category: string; rank: number; length: number } | null = null;
+
+  for (const f of library) {
+    for (const label of [f.name, ...f.aliases]) {
+      const l = label.toLowerCase().trim();
+      let rank: number;
+      if (l === q) rank = 0;
+      else if (q.includes(l)) rank = 1;
+      else if (l.includes(q)) rank = 2;
+      else continue;
+
+      const better =
+        !best ||
+        rank < best.rank ||
+        // Within a rank: longest label when the item contains it, shortest
+        // when it contains the item.
+        (rank === best.rank && (rank === 1 ? l.length > best.length : l.length < best.length));
+      if (better) best = { category: f.category, rank, length: l.length };
+    }
+  }
+  return best ? AISLES[best.category] ?? "Other" : "Other";
+}

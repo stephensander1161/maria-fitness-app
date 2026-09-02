@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { toLineItems } from "@/lib/instacart";
 import { aggregateIngredients, shoppingListText } from "@/lib/shopping";
 
@@ -71,5 +71,92 @@ describe("shopping list as text", () => {
       "FRUIT & VEG\n• 2 onions\n• spinach\n\n" +
       "MEAT & FISH\n• 1.1 lb chicken breast",
     );
+  });
+});
+
+/**
+ * The egress itself. This is one of only two places her data leaves the
+ * server, and none of it — the key handling, what actually goes in the body,
+ * the failure paths — had a test.
+ */
+describe("sending the list", () => {
+  const item = (o: Partial<{ item: string; amount: number | null; unit: string | null; fromMeals: number }>) =>
+    ({ item: "chicken breast", amount: 500, unit: "g", fromMeals: 2, ...o });
+
+  const withEnv = async <T>(vars: Record<string, string>, run: () => Promise<T>): Promise<T> => {
+    const before = { ...process.env };
+    Object.assign(process.env, vars);
+    try { return await run(); } finally { process.env = before; }
+  };
+
+  it("refuses to send anything when no key is configured", async () => {
+    const { createShoppingListPage } = await import("@/lib/instacart");
+    await withEnv({ INSTACART_API_KEY: "" }, async () => {
+      await expect(createShoppingListPage({ title: "x", items: [item({})] }))
+        .rejects.toThrow(/INSTACART_API_KEY/);
+    });
+  });
+
+  it("sends only names and quantities, and never her body data", async () => {
+    const { createShoppingListPage } = await import("@/lib/instacart");
+    let sent: { url: string; init: RequestInit } | null = null;
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      sent = { url, init };
+      return new Response(JSON.stringify({ products_link_url: "https://instacart.test/l/1" }),
+        { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+
+    const url = await withEnv({ INSTACART_API_KEY: "k-123", INSTACART_ENV: "development" }, () =>
+      createShoppingListPage({ title: "Groceries", items: [item({}), item({ item: "oats", unit: null, amount: null })] }));
+
+    expect(url).toBe("https://instacart.test/l/1");
+    const body = JSON.parse(String(sent!.init.body));
+    expect(body.line_items.map((l: { name: string }) => l.name)).toEqual(["chicken breast", "oats"]);
+    // The whole payload, checked for anything that is not a grocery.
+    const raw = String(sent!.init.body);
+    for (const leak of ["weight", "kcal", "protein", "goal", "birth", "email"]) {
+      expect(raw.toLowerCase(), leak).not.toContain(leak);
+    }
+    // And the key travels in the header, never in the body or the URL.
+    expect(raw).not.toContain("k-123");
+    expect(sent!.url).not.toContain("k-123");
+    expect((sent!.init.headers as Record<string, string>).Authorization).toBe("Bearer k-123");
+    vi.unstubAllGlobals();
+  });
+
+  it("uses the development host only when told to", async () => {
+    const { createShoppingListPage } = await import("@/lib/instacart");
+    const hosts: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      hosts.push(url);
+      return new Response(JSON.stringify({ products_link_url: "https://x.test/1" }), { status: 200 });
+    });
+    await withEnv({ INSTACART_API_KEY: "k", INSTACART_ENV: "development" }, () =>
+      createShoppingListPage({ title: "x", items: [item({})] }));
+    await withEnv({ INSTACART_API_KEY: "k", INSTACART_ENV: "production" }, () =>
+      createShoppingListPage({ title: "x", items: [item({})] }));
+    expect(hosts[0]).toContain("connect.dev.instacart.tools");
+    expect(hosts[1]).toContain("connect.instacart.com");
+    vi.unstubAllGlobals();
+  });
+
+  it("throws with the status and a trimmed body when Instacart refuses", async () => {
+    const { createShoppingListPage } = await import("@/lib/instacart");
+    vi.stubGlobal("fetch", async () => new Response("line_items[0].unit is invalid", { status: 422 }));
+    await withEnv({ INSTACART_API_KEY: "k" }, async () => {
+      await expect(createShoppingListPage({ title: "x", items: [item({})] }))
+        .rejects.toThrow(/422.*line_items/);
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("throws rather than returning an empty link", async () => {
+    const { createShoppingListPage } = await import("@/lib/instacart");
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({}), { status: 200 }));
+    await withEnv({ INSTACART_API_KEY: "k" }, async () => {
+      await expect(createShoppingListPage({ title: "x", items: [item({})] }))
+        .rejects.toThrow(/no link/);
+    });
+    vi.unstubAllGlobals();
   });
 });
