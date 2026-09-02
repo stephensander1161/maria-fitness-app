@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { prettyDate } from "@/lib/date";
 import { shoppingListText } from "@/lib/shopping";
@@ -70,6 +71,7 @@ export function ShoppingList({
    *  only ever say no. */
   instacart: boolean;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   // v2: ticks used to mean "got it, cross it off". They now mean "include it",
   // which is the opposite, so the old key must not be read.
@@ -186,6 +188,9 @@ export function ShoppingList({
       );
       if (!r.ok) throw new Error(r.error ?? "That didn't save.");
       setStocked(r.added);
+      // The Kitchen card is directly below this one. Without a refresh she was
+      // told eight items were in her kitchen while it still read "empty".
+      router.refresh();
     } catch (err) {
       setError(actionMessage(err, "Couldn't put that into your kitchen."));
     } finally {

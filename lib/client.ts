@@ -26,6 +26,17 @@ export class ActionError extends Error {
 }
 
 /** Thin wrapper over /api/action — the browser's door into the tool registry. */
+/**
+ * Long enough for a planner call behind a slow connection, short enough that
+ * she is not left looking at "Saving…" forever.
+ *
+ * Captive-portal gym wifi is the case that forces this: the socket opens, the
+ * request goes nowhere, and fetch neither resolves nor rejects. Without a
+ * deadline the button says "Saving…" until she force-quits, the error path
+ * never runs, and the offline queue never engages because nothing rejected.
+ */
+const ACTION_TIMEOUT_MS = 20_000;
+
 export async function action<T = unknown>(tool: string, input: Record<string, unknown> = {}): Promise<T> {
   let res: Response;
   try {
@@ -33,11 +44,15 @@ export async function action<T = unknown>(tool: string, input: Record<string, un
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tool, input }),
+      signal: AbortSignal.timeout(ACTION_TIMEOUT_MS),
     });
-  } catch {
+  } catch (err) {
     // fetch only rejects when the request never completed — that is the
-    // signal-dropped case, and the one the offline queue exists for.
-    throw new ActionError("No connection", null);
+    // signal-dropped case, and the one the offline queue exists for. A timeout
+    // is the same thing from her point of view, and must be retriable for the
+    // same reason.
+    const timedOut = err instanceof DOMException && err.name === "TimeoutError";
+    throw new ActionError(timedOut ? "That took too long" : "No connection", null);
   }
 
   // A gateway or a login redirect can answer with something that isn't JSON;
@@ -70,6 +85,17 @@ export async function* streamCoach(
     body: JSON.stringify(body),
     signal: opts.signal,
   });
+
+  // The spend cap, the rate limiter and an expired session all answer with
+  // JSON, which *has* a body — so checking only for a body meant the SSE
+  // parser found no frames, yielded nothing, exited cleanly, and the caller
+  // counted the turn as delivered. She hit her daily budget, asked a question,
+  // watched the dots stop, and was told nothing at all. On the one screen this
+  // app is built around, on the most predictable event in the system.
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? `Coach unavailable (${res.status})`);
+  }
   if (!res.body) throw new Error("No response stream");
 
   const reader = res.body.getReader();

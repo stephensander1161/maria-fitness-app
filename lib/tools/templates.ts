@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealPlans, mealTemplates, profiles, workoutTemplates } from "@/lib/db/schema";
@@ -67,12 +67,15 @@ export const applyTemplate = defineTool({
         .where(eq(mealTemplates.slug, input.mealSlug)).limit(1);
       if (!t) return { ok: false, error: `No meal template '${input.mealSlug}'.` };
       // Keep whatever targets she is already working to; only the meals change.
-      const [existing] = await db.select().from(mealPlans)
-        .where(eq(mealPlans.profileId, profile.id)).limit(1);
+      // This week's targets, or failing that the most recent — not whichever
+      // row Postgres happened to return, which with no filter and no ordering
+      // was typically the oldest. In October that meant scaling every portion
+      // to January's target, silently, hundreds of calories a day under.
+      const targets = await currentTargets(profile.id, week);
       await instantiateMealPlan(
         profile.id, t, week,
-        existing?.calorieTarget ?? t.baseCalories,
-        existing?.proteinTargetG ?? t.baseProteinG,
+        targets?.calorieTarget ?? t.baseCalories,
+        targets?.proteinTargetG ?? t.baseProteinG,
       );
       applied.push(t.name);
     }
@@ -80,6 +83,17 @@ export const applyTemplate = defineTool({
     return { ok: true, applied, weekStart: week };
   },
 });
+
+/** This week's nutrition targets, falling back to the most recent week's. */
+async function currentTargets(profileId: string, week: string) {
+  const [thisWeek] = await db.select().from(mealPlans)
+    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
+  if (thisWeek) return thisWeek;
+  const [recent] = await db.select().from(mealPlans)
+    .where(eq(mealPlans.profileId, profileId))
+    .orderBy(desc(mealPlans.weekStart)).limit(1);
+  return recent ?? null;
+}
 
 export const suggestTemplate = defineTool({
   name: "suggest_template",
@@ -90,12 +104,11 @@ export const suggestTemplate = defineTool({
     const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
     if (!profile) return { error: "Profile not found." };
 
-    const [existing] = await db.select().from(mealPlans)
-      .where(eq(mealPlans.profileId, profile.id)).limit(1);
+    const targets = await currentTargets(profile.id, weekStart(await todayForProfile(ctx.profileId)));
 
     const [training, meal] = await Promise.all([
       pickWorkoutTemplate(profile),
-      pickMealTemplate(profile, existing?.calorieTarget ?? 1600),
+      pickMealTemplate(profile, targets?.calorieTarget ?? 1600),
     ]);
 
     return {

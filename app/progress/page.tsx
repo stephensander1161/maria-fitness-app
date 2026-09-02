@@ -38,7 +38,7 @@ export default async function ProgressPage() {
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
     weekReview(profile.id, u),
-    currentStreak(profile.id),
+    currentStreak(profile.id, her),
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
     runTool("get_coach_usage", {}, { profileId: profile.id }),

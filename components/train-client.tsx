@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { action } from "@/lib/client";
+import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
 import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
@@ -268,12 +268,18 @@ function ExerciseCard({
 
   async function removeFromToday() {
     setRemoving(true);
+    setError(null);
     try {
       await action("remove_exercise_from_day", { slug: exercise.slug });
       onRemoved();
+      setConfirmRemove(false);
+    } catch (err) {
+      // The confirm bar used to close in a `finally` whatever happened: she
+      // tapped Remove, the bar vanished, the exercise stayed, and nothing ever
+      // said why.
+      setError(actionMessage(err, "Couldn't take that off today."));
     } finally {
       setRemoving(false);
-      setConfirmRemove(false);
     }
   }
 

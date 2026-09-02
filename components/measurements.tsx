@@ -17,10 +17,25 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
   const tracked = new Map(sites.map((s) => [s.site, s]));
 
   async function save() {
-    const entries = Object.entries(values)
-      .map(([site, raw]) => ({ site, value: Number(raw) }))
+    // `32.5"`, `32,5`, `32 in` — a tape measure gets read out loud, not typed
+    // like a form field. Strip what she plausibly types rather than dropping
+    // the reading on the floor.
+    const parse = (raw: string) => Number(raw.trim().replace(/["'\s]|in$|cm$/gi, "").replace(",", "."));
+    const typed = Object.entries(values).filter(([, raw]) => raw.trim() !== "");
+    const entries = typed
+      .map(([site, raw]) => ({ site, value: parse(raw) }))
       .filter((e) => e.value > 0 && Number.isFinite(e.value));
-    if (entries.length === 0) return;
+
+    if (entries.length === 0) {
+      // It used to return silently: she measured herself with a tape, tapped
+      // Save, and nothing happened and nothing said why.
+      setError(typed.length === 0
+        ? "Nothing to save yet — type a measurement first."
+        : "That didn't look like a number. Try just the digits, like 32.5.");
+      return;
+    }
+    // Reported *after* the save, or the reset below would wipe it.
+    const dropped = typed.length - entries.length;
 
     setSaving(true);
     setError(null);
@@ -28,6 +43,9 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
       await action("log_measurement", { measurements: entries });
       setValues({});
       setOpen(false);
+      if (dropped > 0) {
+        setError(`Saved ${entries.length}. ${dropped} didn't look like a number and ${dropped === 1 ? "was" : "were"} left out.`);
+      }
       router.refresh();
     } catch (err) {
       // She has just measured herself with a tape. Losing that silently means

@@ -410,8 +410,19 @@ export async function weekReview(
   };
 }
 
-/** Consecutive days ending today (or yesterday) with a completed workout. */
-export async function currentStreak(profileId: string): Promise<number> {
+/**
+ * Consecutive days ending today or yesterday with a completed workout.
+ *
+ * "Ending today or yesterday" is the whole point and it was missing: the count
+ * started at the most recent workout whenever that was, so someone who trained
+ * five days running in July was still being shown "5d" — and told it by the
+ * coach — three weeks after she last trained. Praise for something that is not
+ * happening is worse than no praise; she knows.
+ *
+ * `asOf` is her today. On the server's clock a Denver evening is already
+ * tomorrow, which would break a live streak at 5pm.
+ */
+export async function currentStreak(profileId: string, asOf: ISODate = today()): Promise<number> {
   const rows = await db
     .select({ date: workouts.date })
     .from(workouts)
@@ -419,6 +430,9 @@ export async function currentStreak(profileId: string): Promise<number> {
     .orderBy(desc(workouts.date));
   const days = [...new Set(rows.map((r) => r.date))];
   if (days.length === 0) return 0;
+  // Today still counts as unbroken until it is over, so yesterday is the
+  // oldest date a live streak can end on.
+  if (days[0] !== asOf && days[0] !== addDays(asOf, -1)) return 0;
 
   let streak = 0;
   let cursor = days[0];
@@ -437,6 +451,9 @@ export async function currentStreak(profileId: string): Promise<number> {
 export async function todaySnapshot(
   profileId: string,
   units: Units,
+  /** Her today. The bare default is only correct for a caller that overrides
+   *  it — the prompt's state block is the one place that must never rely on
+   *  the server's clock, because the model reads it as fact. */
   date: ISODate = today(),
 ): Promise<string> {
   const [workout] = await db
@@ -848,22 +865,37 @@ export type NutritionDay = {
   date: ISODate;
   /** False when she logged nothing. Not the same as a zero-calorie day. */
   logged: boolean;
+  /**
+   * The sum of the entries that carried a figure — a **floor**, not a total.
+   * "Leftovers" and "dinner at Mum's" are real meals logged with no numbers,
+   * and adding them in as zero is the same bug as counting an unlogged day as
+   * zero, one level down. `caloriesComplete` says which kind of number this is.
+   */
   calories: number | null;
   proteinG: number | null;
   entries: number;
+  /** Entries that carried a calorie figure. */
+  entriesCounted: number;
+  /** True when every entry that day carried figures, so the sum is a total. */
+  caloriesComplete: boolean;
 };
 
 export type NutritionTrend = {
   days: NutritionDay[];
   /** Days with at least one entry, out of the window. */
   daysLogged: number;
+  /**
+   * Days where every entry carried figures. Only these can be averaged or
+   * compared to a target — the others are floors.
+   */
+  daysCounted: number;
   windowDays: number;
   calorieTarget: number | null;
   proteinTargetG: number | null;
   /** Averages across logged days only — see the note below. */
   avgCalories: number | null;
   avgProteinG: number | null;
-  /** Logged days that came in at or under the calorie target. */
+  /** Fully-counted days that came in at or under the calorie target. */
   daysOnTarget: number;
   trend: "on-track" | "over" | "under-logged" | "no-data";
   headline: string;
@@ -902,12 +934,15 @@ export async function nutritionTrend(
   for (let i = 0; i < windowDays; i++) {
     const date = addDays(start, i);
     const forDay = rows.filter((r) => r.date === date);
+    const counted = forDay.filter((r) => r.calories !== null);
     days.push({
       date,
       logged: forDay.length > 0,
-      calories: forDay.length ? forDay.reduce((n, r) => n + (r.calories ?? 0), 0) : null,
+      calories: forDay.length ? counted.reduce((n, r) => n + (r.calories ?? 0), 0) : null,
       proteinG: forDay.length ? forDay.reduce((n, r) => n + (r.proteinG ?? 0), 0) : null,
       entries: forDay.length,
+      entriesCounted: counted.length,
+      caloriesComplete: forDay.length > 0 && counted.length === forDay.length,
     });
   }
 
@@ -927,37 +962,53 @@ export function summariseNutrition(
   const loggedDays = days.filter((d) => d.logged);
   const daysLogged = loggedDays.length;
 
-  // Averaged across logged days only. Including unlogged days as zero invents
-  // a deficit she never ran, and the app would congratulate her for forgetting.
+  // Averaged across days that were fully counted — not merely days with an
+  // entry. Including unlogged days as zero invents a deficit she never ran;
+  // including a day of "leftovers, a coffee, dinner at Mum's" as 0 kcal is the
+  // same invention with a logged day's authority behind it.
+  const countedDays = days.filter((d) => d.caloriesComplete);
+  const daysCounted = countedDays.length;
   const avg = (pick: (d: NutritionDay) => number | null) =>
-    daysLogged === 0
+    daysCounted === 0
       ? null
-      : Math.round(loggedDays.reduce((n, d) => n + (pick(d) ?? 0), 0) / daysLogged);
+      : Math.round(countedDays.reduce((n, d) => n + (pick(d) ?? 0), 0) / daysCounted);
 
   const avgCalories = avg((d) => d.calories);
   const daysOnTarget = calorieTarget === null
     ? 0
-    : loggedDays.filter((d) => (d.calories ?? 0) <= calorieTarget).length;
+    : countedDays.filter((d) => (d.calories ?? 0) <= calorieTarget).length;
 
+  const partial = daysLogged - daysCounted;
+  const caveat = partial > 0
+    ? ` ${partial} more day${partial === 1 ? " has" : "s have"} food logged without figures, so ${partial === 1 ? "it is" : "they are"} not in that average.`
+    : "";
   const against =
-    `Averaging ${avgCalories} kcal on the ${daysLogged} days logged, against a ` +
-    `${calorieTarget} target — ${daysOnTarget} of those days came in at or under it.`;
+    `Averaging ${avgCalories} kcal on the ${daysCounted} days where everything was counted, against a ` +
+    `${calorieTarget} target — ${daysOnTarget} of those days came in at or under it.${caveat}`;
 
   let trend: NutritionTrend["trend"];
   let headline: string;
   if (daysLogged === 0) {
     trend = "no-data";
     headline = `Nothing logged in the last ${windowDays} days.`;
-  } else if (daysLogged < windowDays / 2) {
+  } else if (daysCounted === 0) {
+    // Food logged every day, no figures on any of it. There is plenty here —
+    // it just cannot be added up.
+    trend = "under-logged";
+    headline =
+      `Food is logged on ${daysLogged} of the last ${windowDays} days but none of it carries ` +
+      `calorie figures, so there is nothing here to judge the eating by.`;
+  } else if (daysCounted < windowDays / 2) {
     // Too sparse to say anything about her eating. Saying it anyway is how an
     // app tells someone they are doing badly at something it cannot see.
     trend = "under-logged";
     headline =
-      `Only ${daysLogged} of the last ${windowDays} days have any food logged, ` +
+      `Only ${daysCounted} of the last ${windowDays} days are fully counted` +
+      `${partial > 0 ? ` (${partial} more have food logged without figures)` : ""}, ` +
       `so there is not enough here to judge how the eating is going.`;
   } else if (calorieTarget === null) {
     trend = "on-track";
-    headline = `Averaging ${avgCalories} kcal across ${daysLogged} logged days. No calorie target set yet.`;
+    headline = `Averaging ${avgCalories} kcal across ${daysCounted} fully counted days. No calorie target set yet.${caveat}`;
   } else if (avgCalories !== null && avgCalories > calorieTarget * 1.05) {
     trend = "over";
     headline = against;
@@ -967,7 +1018,7 @@ export function summariseNutrition(
   }
 
   return {
-    days, daysLogged, windowDays, calorieTarget, proteinTargetG,
+    days, daysLogged, daysCounted, windowDays, calorieTarget, proteinTargetG,
     avgCalories, avgProteinG: avg((d) => d.proteinG), daysOnTarget, trend, headline,
   };
 }

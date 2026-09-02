@@ -99,7 +99,7 @@ export async function buildPageContext(
   // progress
   const [review, streak, sites, progression, eating] = await Promise.all([
     weekReview(profileId, u),
-    currentStreak(profileId),
+    currentStreak(profileId, profileToday(profile)),
     measurementProgress(profileId, u),
     exerciseProgression(profileId, u, { asOf: profileToday(profile) }),
     nutritionTrend(profileId, 14, profileToday(profile)),

@@ -513,9 +513,19 @@ export const mealLogs = pgTable(
     /** Nullable because most logs are described in words, and a sentence does
         not carry a fibre figure. Only the calculator can fill this honestly. */
     fibreG: integer("fibre_g"),
+    /**
+     * Idempotency, same reason as set_logs: a request that succeeds while the
+     * response is lost is the normal shape of a dropped connection, and the
+     * retry used to log the meal twice — and, for a planned meal, empty the
+     * kitchen twice with it.
+     */
+    clientKey: text("client_key"),
     createdAt: createdAt(),
   },
-  (t) => [index("meal_logs_profile_date").on(t.profileId, t.date)],
+  (t) => [
+    index("meal_logs_profile_date").on(t.profileId, t.date),
+    uniqueIndex("meal_logs_client_key").on(t.clientKey),
+  ],
 );
 
 /**

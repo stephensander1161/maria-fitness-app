@@ -38,7 +38,27 @@ export async function loadHistory(profileId: string): Promise<Anthropic.MessageP
     content: r.content as Anthropic.ContentBlockParam[],
   })) satisfies Anthropic.MessageParam[];
 
-  return trimToValidStart(elidePayloads(ordered));
+  return trimToValidEnd(trimToValidStart(elidePayloads(ordered)));
+}
+
+/**
+ * Drop a trailing assistant turn whose tool calls were never answered.
+ *
+ * Between saving the assistant message and saving the tool results sits the
+ * tool run itself — which can be a 45-second planner call inside a function
+ * capped at 60 seconds. Killed in there, the transcript ends with a `tool_use`
+ * and no `tool_result`, and the API rejects *every* subsequent turn with
+ * "tool_use ids were found without tool_result blocks".
+ *
+ * That is unrecoverable from inside the app: she is left with a coach that
+ * errors on every message, forever, and no way to clear it. Dropping the
+ * orphan costs one turn of context and fixes it.
+ */
+function trimToValidEnd(list: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const last = list.at(-1);
+  if (!last || last.role !== "assistant" || typeof last.content === "string") return list;
+  const dangling = last.content.some((b) => typeof b === "object" && b.type === "tool_use");
+  return dangling ? list.slice(0, -1) : list;
 }
 
 const MAX_BLOCK_CHARS = 800;
@@ -135,3 +155,6 @@ export async function hasHistory(profileId: string): Promise<boolean> {
     .limit(1);
   return row !== undefined;
 }
+
+/** Window-shaping internals, exercised directly by tests/history.test.ts. */
+export const __test = { trimToValidStart, trimToValidEnd, elidePayloads };

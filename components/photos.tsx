@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action } from "@/lib/client";
 import { daysBetween, prettyDate, today } from "@/lib/date";
+import { deviceZone } from "@/lib/offline";
 import type { PhotoPose, ProgressPhoto } from "@/lib/photos";
 
 /**
@@ -61,7 +62,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
     setError(null);
     setBusy(true);
     try {
-      setDraft({ ...(await shrink(file)), pose: null, date: today() });
+      setDraft({ ...(await shrink(file)), pose: null, date: today(deviceZone()) });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that photo.");
     } finally {

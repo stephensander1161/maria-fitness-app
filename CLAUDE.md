@@ -106,6 +106,13 @@ were a measurement. It has now been caught four separate times:
   `null` from `toGrams` rather than a plausible number.
 - Chia and flaxseed carried total carbohydrate where every other row carries
   available carbohydrate, so their fibre was counted twice.
+- **A meal logged in words carries no calorie figure either.** "Leftovers",
+  "dinner at Mum's" — real entries, no numbers, and they were summed as zero.
+  The day counted as logged, averaged 0 kcal in, and every one of them was
+  reported as a day at or under target: the coach congratulated her on a
+  deficit she never ran. `NutritionDay` now carries `entriesCounted` and
+  `caloriesComplete`, `summariseNutrition` averages only fully-counted days,
+  and the UI writes "≥1150" the way it already wrote "≥12g" for fibre.
 - The kitchen holds four states that a boolean would flatten into two: an
   amount, `null` for "she has some, nobody counted it", `0` for known to be
   out, and no row at all for never bought. Only *out*, *short* and *missing*

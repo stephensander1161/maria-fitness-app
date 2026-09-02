@@ -6,7 +6,25 @@ import { summariseNutrition, type NutritionDay } from "@/lib/progress";
  * conclusion drawn from a day she simply did not log.
  */
 const day = (date: string, calories: number | null, proteinG: number | null = null): NutritionDay => ({
-  date, logged: calories !== null, calories, proteinG, entries: calories === null ? 0 : 1,
+  date, logged: calories !== null, calories, proteinG,
+  entries: calories === null ? 0 : 1,
+  entriesCounted: calories === null ? 0 : 1,
+  caloriesComplete: calories !== null,
+});
+
+/**
+ * A day she logged food on with no figures on any of it — "leftovers",
+ * "dinner at Mum's". Logged, but not a total, and emphatically not a zero.
+ */
+const uncounted = (date: string, entries = 2): NutritionDay => ({
+  date, logged: true, calories: 0, proteinG: 0,
+  entries, entriesCounted: 0, caloriesComplete: false,
+});
+
+/** Some of the day counted, some not: the sum is a floor. */
+const partial = (date: string, counted: number): NutritionDay => ({
+  date, logged: true, calories: counted, proteinG: null,
+  entries: 3, entriesCounted: 2, caloriesComplete: false,
 });
 
 const window = (values: (number | null)[]) =>
@@ -16,7 +34,7 @@ suite("reading a fortnight of eating", () => {
   // The bug this exists to prevent. Averaging unlogged days as zero invents a
   // deficit she never ran, and the app would congratulate her for forgetting
   // to log.
-  it("averages logged days only, never counting an unlogged day as zero", () => {
+  it("averages counted days only, never counting an unlogged day as zero", () => {
     const r = summariseNutrition(window([1500, null, 1500, null, 1500, null, 1500, 1500]), 1600, 120);
     expect(r.avgCalories).toBe(1500);
     expect(r.daysLogged).toBe(5);
@@ -71,5 +89,63 @@ suite("reading a fortnight of eating", () => {
     expect(r.days).toHaveLength(4);
     expect(r.days.filter((d) => !d.logged)).toHaveLength(2);
     expect(r.windowDays).toBe(4);
+  });
+});
+
+/**
+ * The second half of the same bug, one level down. An unlogged day is not a
+ * zero-calorie day — and neither is a day of "leftovers, a coffee, dinner at
+ * Mum's", which is three real entries carrying no figures at all.
+ *
+ * Counted as zeros they averaged in, dragged the mean down, and every one of
+ * them was reported as a day at or under target. The coach then congratulated
+ * her on a deficit she never ran and could not explain why the scale had not
+ * moved.
+ */
+suite("food logged in words is not zero calories", () => {
+  it("keeps a figureless day out of the average entirely", () => {
+    const days = [
+      day("2026-08-01", 1500), day("2026-08-02", 1500), day("2026-08-03", 1500),
+      day("2026-08-04", 1500), day("2026-08-05", 1500), day("2026-08-06", 1500),
+      uncounted("2026-08-07"), uncounted("2026-08-08"),
+    ];
+    const r = summariseNutrition(days, 1600, 120);
+    expect(r.avgCalories).toBe(1500);
+    expect(r.daysCounted).toBe(6);
+    expect(r.daysLogged).toBe(8);
+  });
+
+  it("never reports a figureless day as under target", () => {
+    const days = [
+      day("2026-08-01", 1500), day("2026-08-02", 1500), day("2026-08-03", 1500),
+      day("2026-08-04", 1500), uncounted("2026-08-05"), uncounted("2026-08-06"),
+      uncounted("2026-08-07"), uncounted("2026-08-08"),
+    ];
+    const r = summariseNutrition(days, 1600, 120);
+    // Four, not eight: the zeros used to sail under the target as successes.
+    expect(r.daysOnTarget).toBe(4);
+  });
+
+  it("says so when food is logged every day but none of it is counted", () => {
+    const r = summariseNutrition(
+      ["01", "02", "03", "04"].map((d) => uncounted(`2026-08-${d}`)), 1600, 120,
+    );
+    expect(r.trend).toBe("under-logged");
+    expect(r.avgCalories).toBeNull();
+    expect(r.headline).toContain("none of it carries");
+    // Emphatically not "you averaged 0 kcal".
+    expect(r.headline).not.toMatch(/\b0 kcal/);
+  });
+
+  it("counts a partly-counted day as not counted, and says how many", () => {
+    const days = [
+      day("2026-08-01", 1500), day("2026-08-02", 1500), day("2026-08-03", 1500),
+      partial("2026-08-04", 900), partial("2026-08-05", 800),
+      day("2026-08-06", 1500), day("2026-08-07", 1500), day("2026-08-08", 1500),
+    ];
+    const r = summariseNutrition(days, 1600, 120);
+    expect(r.avgCalories).toBe(1500);
+    expect(r.daysCounted).toBe(6);
+    expect(r.headline).toContain("2 more days have food logged without figures");
   });
 });

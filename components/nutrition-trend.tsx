@@ -49,15 +49,29 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
           />
         )}
         {trend.days.map((d) => {
-          const over = target !== null && (d.calories ?? 0) > target;
+          const over = target !== null && d.caloriesComplete && (d.calories ?? 0) > target;
           return (
             <div key={d.date} className="group relative flex-1">
-              {d.logged ? (
+              {d.logged && d.caloriesComplete ? (
                 <div
                   className={`w-full rounded-sm ${over ? "bg-miss/70" : "bg-accent/70"}`}
                   style={{ height: `${Math.max(3, ((d.calories ?? 0) / ceiling) * 96)}px` }}
                   title={`${d.date}: ${d.calories} kcal`}
                 />
+              ) : d.logged ? (
+                // Logged, but with no figures on some of it. Drawn as the floor
+                // it is — a solid part up to what was counted, dashed above —
+                // rather than as a short bar that says she barely ate.
+                <div
+                  className="flex w-full flex-col justify-end rounded-sm border border-dashed border-line"
+                  style={{ height: "96px" }}
+                  title={`${d.date}: at least ${d.calories} kcal, some entries not counted`}
+                >
+                  <div
+                    className="w-full rounded-sm bg-accent/35"
+                    style={{ height: `${Math.max(3, ((d.calories ?? 0) / ceiling) * 96)}px` }}
+                  />
+                </div>
               ) : (
                 // Empty, not short: we do not know what she ate, and a small
                 // bar would say she barely ate.
@@ -73,7 +87,11 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
       </div>
 
       <div className="mt-3 flex divide-x divide-line">
-        <Stat label="Days logged" value={`${trend.daysLogged}/${trend.windowDays}`} />
+        <Stat
+          label="Days counted"
+          value={`${trend.daysCounted}/${trend.windowDays}`}
+          sub={trend.daysLogged > trend.daysCounted ? `${trend.daysLogged} logged` : undefined}
+        />
         <Stat
           label="Avg kcal"
           value={trend.avgCalories === null ? "—" : trend.avgCalories.toString()}
@@ -87,7 +105,8 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
       </div>
 
       <p className="mt-2 text-[11px] text-faint">
-        Averages cover the days with food logged. Dashed bars are days with nothing logged.
+        Averages cover only the days where every entry carried figures. A dashed bar is a day with
+        nothing logged, or one where some of what she ate has no numbers on it.
       </p>
     </section>
   );
@@ -95,7 +114,11 @@ export function NutritionTrendCard({ trend }: { trend: NutritionTrend }) {
 
 function describeDays(trend: NutritionTrend): string {
   const days = trend.days
-    .map((d) => `${prettyDate(d.date)} ${d.logged ? `${d.calories} kcal` : "not logged"}`)
+    .map((d) => {
+      if (!d.logged) return `${prettyDate(d.date)} not logged`;
+      // "0 kcal" for a day she logged three meals is the whole bug, spoken.
+      return `${prettyDate(d.date)} ${d.caloriesComplete ? "" : "at least "}${d.calories} kcal`;
+    })
     .join(", ");
   const target = trend.calorieTarget === null ? "" : ` Target ${trend.calorieTarget} kcal a day.`;
   return `Calories by day, last ${trend.windowDays} days: ${days}.${target}`;

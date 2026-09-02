@@ -50,14 +50,20 @@ export function PlanSetupInvite({ defaults }: { defaults: SetupDefaults }) {
   const [open, setOpen] = useState(false);
   const [dismissing, setDismissing] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   async function notNow() {
     setDismissing(true);
+    setError(null);
     try {
       await action("skip_plan_setup");
+      router.refresh();
     } catch {
-      // Not worth a message: the worst case is the invitation coming back.
+      // It used to leave `dismissing` set forever, so offline the button greyed
+      // out permanently and the invitation stayed — dismissed and undismissable.
+      setError("Couldn't save that just now — it'll ask again.");
+      setDismissing(false);
     }
-    router.refresh();
   }
 
   return (
@@ -83,6 +89,7 @@ export function PlanSetupInvite({ defaults }: { defaults: SetupDefaults }) {
             Not now
           </button>
         </div>
+        {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
       </section>
       {open && <PlanSetupSheet defaults={defaults} onClose={() => setOpen(false)} />}
     </>
@@ -131,7 +138,11 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
   const [cooking, setCooking] = useState<SetupDefaults["cookingSkill"]>(defaults.cookingSkill);
   const [notes, setNotes] = useState("");
 
-  useEscape(stage === null ? onClose : () => {});
+  // Escapable at every stage. It used to trap her: two model calls back to
+  // back, no abort, no Close button while building, backdrop taps ignored —
+  // a dropped signal meant up to two minutes on a bouncing-dot screen with no
+  // way out but force-quitting, and no idea whether the plan had been written.
+  useEscape(onClose);
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -144,6 +155,8 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
   async function build() {
     setError(null);
     setStage("training");
+    // action() carries its own deadline, so a stalled request surfaces as an
+    // error here rather than as a spinner she cannot leave.
     try {
       const r = await action<{
         ok: boolean; planError?: string; calorieTarget: number | null; proteinTargetG: number | null;
@@ -260,7 +273,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
 
   return (
     <div
-      onClick={stage === null ? onClose : undefined}
+      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Set up your plan"
@@ -268,7 +281,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
+        className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
         data-no-pull-to-refresh=""
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
       >
@@ -317,7 +330,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
         )}
 
         {(stage === "training" || stage === "meals") && (
-          <Building stage={stage} />
+          <Building stage={stage} onClose={onClose} />
         )}
 
         {stage === "done" && (
@@ -343,9 +356,15 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
   );
 }
 
-function Building({ stage }: { stage: "training" | "meals" }) {
+function Building({ stage, onClose }: { stage: "training" | "meals"; onClose: () => void }) {
   return (
     <div className="py-10 text-center">
+      <button
+        onClick={onClose}
+        className="absolute right-5 top-4 -m-2 p-2 text-[13px] text-muted"
+      >
+        Close
+      </button>
       <div className="flex justify-center gap-1.5">
         {[0, 1, 2].map((i) => (
           <span key={i} className="size-2 animate-bounce rounded-full bg-accent"
@@ -359,6 +378,11 @@ function Building({ stage }: { stage: "training" | "meals" }) {
         {stage === "training"
           ? "Your coach is picking movements from the library that fit your days, your kit and anything you're working around."
           : "Seven days of meals inside your calorie and protein targets, around what you'll actually cook."}
+      </p>
+      {/* Closing does not cancel the work — say so, rather than leaving her to
+          wonder whether she has just half-built a plan. */}
+      <p className="mx-auto mt-3 max-w-xs text-[11px] leading-relaxed text-faint">
+        You can close this — it carries on, and the plan will be there when it&rsquo;s done.
       </p>
     </div>
   );

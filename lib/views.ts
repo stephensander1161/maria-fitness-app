@@ -256,8 +256,10 @@ export async function mealWeekView(
  * the coach guesses at what a given day contains — and a guess it states as
  * fact is worse than no answer.
  */
-export async function planSummary(profileId: string, units: Units): Promise<string> {
-  const week = await weekView(profileId, units);
+export async function planSummary(
+  profileId: string, units: Units, asOf: ISODate = today(),
+): Promise<string> {
+  const week = await weekView(profileId, units, weekStart(asOf), asOf);
   if (!week.exists) return "This week's training plan: none yet.";
 
   const days = week.days
@@ -324,6 +326,10 @@ export async function pickableExercises(
 }
 
 export type DayFoodView = {
+  /** How many entries carried a calorie figure, and whether all of them did. */
+  caloriesKnownFor: number;
+  caloriesUnknownFor: number;
+  caloriesComplete: boolean;
   date: ISODate;
   logged: {
     id: string; slot: string; description: string;
@@ -356,13 +362,20 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
 
   const fibre = fibreForDay(rows);
+  // A meal described in words carries no figures, so the day's total is a
+  // floor — exactly like fibre, one column over. Counting those entries as
+  // zero made the card confidently understate what she ate.
+  const counted = rows.filter((r) => r.calories !== null);
   return {
     date,
     logged: rows.map((r) => ({
       id: r.id, slot: r.slot, description: r.description,
       calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
     })),
-    calories: rows.reduce((n, r) => n + (r.calories ?? 0), 0),
+    calories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
+    caloriesKnownFor: counted.length,
+    caloriesUnknownFor: rows.length - counted.length,
+    caloriesComplete: rows.length > 0 && counted.length === rows.length,
     proteinG: rows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
     calorieTarget: plan?.calorieTarget ?? null,
     proteinTargetG: plan?.proteinTargetG ?? null,

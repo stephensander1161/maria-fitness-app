@@ -21,6 +21,12 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
   async function logAgain(m: RecentMeal) {
     const key = `${m.slot}::${m.description}`;
     setLogging(key);
+    // Cleared before the attempt: a failure from ten minutes ago sitting under
+    // a successful log describes a problem that no longer exists.
+    setError(null);
+    // Minted once per tap and reused by a retry, so a response lost on the way
+    // back cannot log her breakfast twice.
+    const clientKey = crypto.randomUUID();
     try {
       await action("log_meal", {
         slot: m.slot,
@@ -28,6 +34,7 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
         ...(m.calories !== null && { calories: m.calories }),
         ...(m.proteinG !== null && { proteinG: m.proteinG }),
         ...(m.fibreG !== null && { fibreG: m.fibreG }),
+        clientKey,
       });
       router.refresh();
     } catch (err) {
@@ -87,7 +94,11 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
     );
   }
 
-  const overCalories = day.calorieTarget !== null && day.calories > day.calorieTarget;
+  // Only a fully-counted day can be over target. A day whose lunch was typed
+  // in words is a floor, and colouring a floor "over" — or, worse, leaving it
+  // green at 900 when three meals carry no figures — is a claim we cannot make.
+  const overCalories =
+    day.calorieTarget !== null && day.caloriesComplete && day.calories > day.calorieTarget;
 
   return (
     <section className="card mb-3 p-5">
@@ -96,11 +107,16 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
       <div className="flex divide-x divide-line">
         <Stat
           label="Calories"
-          value={day.calories.toString()}
+          value={`${day.caloriesComplete ? "" : "≥"}${day.calories}`}
           of={day.calorieTarget}
           tone={overCalories ? "over" : "on"}
         />
-        <Stat label="Protein" value={`${day.proteinG}g`} of={day.proteinTargetG} suffix="g" />
+        <Stat
+          label="Protein"
+          value={`${day.caloriesComplete ? "" : "≥"}${day.proteinG}g`}
+          of={day.proteinTargetG}
+          suffix="g"
+        />
         <Stat
           label="Fibre"
           // A total built from entries that carry no figure is a floor, not a
@@ -112,7 +128,15 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
         />
       </div>
 
-      {!day.fibreComplete && day.logged.length > 0 && (
+      {day.caloriesUnknownFor > 0 && (
+        <p className="mt-2 text-[11px] leading-relaxed text-faint">
+          {day.caloriesUnknownFor} {day.caloriesUnknownFor === 1 ? "entry has" : "entries have"} no
+          figures, so these are floors, not totals — the dashes below are the ones missing. Tell your
+          coach roughly what was in them and it&rsquo;ll fill them in.
+        </p>
+      )}
+
+      {day.caloriesUnknownFor === 0 && !day.fibreComplete && day.logged.length > 0 && (
         <p className="mt-2 text-[11px] leading-relaxed text-faint">
           Fibre counts only what was looked up by name — anything described in words isn&rsquo;t in that total.
         </p>

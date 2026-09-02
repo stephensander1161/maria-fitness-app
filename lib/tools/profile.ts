@@ -74,7 +74,12 @@ export const updateProfile = defineTool({
     height: z.number().optional().describe("Inches if imperial, centimetres if metric"),
     currentWeight: z.number().optional().describe("Also recorded as today's weigh-in"),
     goalWeight: z.number().optional(),
-    goalDate: z.string().optional().describe("YYYY-MM-DD target date for the goal weight"),
+    goalDate: z.string().nullable().optional()
+      .describe("YYYY-MM-DD target date for the goal weight. Pass null to drop the deadline."),
+    startWeight: z.number().optional()
+      .describe("What she actually started at, if the number on file is wrong. Separate from currentWeight, which logs a weigh-in for today."),
+    timezone: z.string().optional()
+      .describe("IANA zone, e.g. 'America/Vancouver'. Set it when she says she has moved — every date in the app is computed in it."),
     motivation: z.string().optional().describe("Why this matters to her, in her own words"),
     activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]).optional(),
     experience: z.enum(["beginner", "returning", "intermediate", "advanced"]).optional(),
@@ -102,7 +107,12 @@ export const updateProfile = defineTool({
     if (input.age !== undefined) patch.birthYear = new Date().getFullYear() - input.age;
     if (input.sex !== undefined) patch.sex = input.sex;
     if (input.height !== undefined) patch.heightCm = u === "imperial" ? inToCm(input.height) : input.height;
+    // currentWeight seeds the start weight only if there isn't one; startWeight
+    // corrects it outright. Without the second, a typo at onboarding was
+    // permanent, and every "X down from where you started" inherited it.
     if (input.currentWeight !== undefined) patch.startWeightKg = p.startWeightKg ?? weightIn(input.currentWeight, u);
+    if (input.startWeight !== undefined) patch.startWeightKg = weightIn(input.startWeight, u);
+    if (input.timezone !== undefined) patch.timezone = input.timezone;
     if (input.goalWeight !== undefined) patch.goalWeightKg = weightIn(input.goalWeight, u);
     if (input.goalDate !== undefined) patch.goalDate = input.goalDate;
     if (input.motivation !== undefined) patch.motivation = input.motivation;

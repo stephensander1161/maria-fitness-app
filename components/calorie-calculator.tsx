@@ -60,16 +60,23 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
   const [recipeBusy, setRecipeBusy] = useState(false);
   const [openRecipe, setOpenRecipe] = useState<number | null>(null);
 
+  const [recipeError, setRecipeError] = useState<string | null>(null);
+
   async function findRecipes(ingredient: string) {
     setRecipeBusy(true);
     setOpenRecipe(null);
+    setRecipeError(null);
     try {
       const r = await action<{ recipes: Recipe[] }>("find_recipes", { ingredient });
       setRecipes(r.recipes);
       setRecipesFor(ingredient);
-    } catch {
+    } catch (err) {
+      // A failed lookup used to render as "nothing in your plan or the recipe
+      // library uses that" — a confident statement about her food, produced by
+      // a dropped connection.
       setRecipes([]);
-      setRecipesFor(ingredient);
+      setRecipesFor(null);
+      setRecipeError(actionMessage(err, "Couldn't look for recipes just now."));
     } finally {
       setRecipeBusy(false);
     }
@@ -105,7 +112,9 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
   function add() {
     if (!result?.found || result.kcal === undefined) return;
     setBasket((b) => [...b, {
-      label: `${result.portion ?? `${result.grams}g`} ${result.food}`,
+      // Without the fallback this wrote "undefinedg chicken" into the basket,
+      // and that label becomes the description on the meal log.
+      label: `${result.portion ?? (result.grams === undefined ? "" : `${result.grams}g`)} ${result.food}`.trim(),
       grams: result.grams ?? 0,
       kcal: result.kcal ?? 0,
       proteinG: result.proteinG ?? 0,
@@ -185,16 +194,24 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
                   actually trying to hit, and burying them in a macro list makes
                   them as easy to skim past as the ones she isn't tracking. */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Macro label="Protein" value={`${result.proteinG}g`} strong />
+                <Macro
+                  label="Protein"
+                  value={result.proteinG === undefined || result.proteinG === null ? "—" : `${result.proteinG}g`}
+                  strong
+                />
                 <Macro
                   label="Fibre"
                   value={result.fibreG === null || result.fibreG === undefined ? "—" : `${result.fibreG}g`}
                   strong
                 />
               </div>
-              <p className="mt-2 text-[12px] text-faint tabular">
-                {result.carbsG}g carbs · {result.fatG}g fat
-              </p>
+              {/* A macro nobody knows is a dash, never "undefinedg" beside a
+                  confident calorie figure. */}
+              {(result.carbsG !== undefined || result.fatG !== undefined) && (
+                <p className="mt-2 text-[12px] text-faint tabular">
+                  {result.carbsG ?? "—"}g carbs · {result.fatG ?? "—"}g fat
+                </p>
+              )}
 
               {result.assumed100g && (
                 <p className="mt-2 text-[11px] text-faint">
@@ -233,6 +250,10 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
             <p className="text-[13px] text-muted">{result.error}</p>
           )}
         </div>
+      )}
+
+      {recipeError && (
+        <p role="alert" className="mt-3 text-[13px] text-miss">{recipeError}</p>
       )}
 
       {recipesFor && (

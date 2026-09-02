@@ -167,7 +167,7 @@ export async function logSetOrQueue<T>(input: PendingSetInput): Promise<LogSetOu
  * tomorrow, offline or not: exactly the bug lib/date.ts was written to
  * prevent, reintroduced on the client side of the same feature.
  */
-const deviceZone = (): string => {
+export const deviceZone = (): string => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
@@ -234,6 +234,16 @@ async function drain(): Promise<FlushResult> {
         setClaim(next.id, undefined);
         break;
       }
+      // 429 and 408 are the queue draining faster than the server will take
+      // it, not a rejection: keep them and try again on the next flush. They
+      // used to be dropped as "a real 4xx", so a dead-zone session of eight
+      // sets could hit the per-minute limit on replay and lose the overflow
+      // silently — the dots on the Train screen simply had fewer filled.
+      if (status === 429 || status === 408) {
+        setClaim(next.id, undefined);
+        break;
+      }
+
       // A real 4xx. Replaying it will never succeed, so stop carrying it.
       drop(next.id);
       dropped++;

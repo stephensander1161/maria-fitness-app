@@ -39,7 +39,7 @@ async function findEvidence(ctx: ToolContext, asOf: ISODate): Promise<Evidence[]
   const u = profile.units;
   const out: Evidence[] = [];
 
-  const streak = await currentStreak(ctx.profileId);
+  const streak = await currentStreak(ctx.profileId, await todayForProfile(ctx.profileId));
   if (streak >= 2) {
     out.push({
       headline: `${streak} days in a row`,

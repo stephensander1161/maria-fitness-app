@@ -57,12 +57,17 @@ export async function* runCoach(
   opts: { silent?: boolean; source?: "app" | "eval"; save?: string } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
+  // Her today, not the server's. She trains at 7pm in Denver, the server is
+  // already on tomorrow, and the block would tell the coach she has logged
+  // nothing — so it asks her to retype the session she just finished, which is
+  // the exact failure todaySnapshot exists to prevent.
+  const her = profileToday(profile);
   const [snapshot, plan, milestones, recomp, weight] = await Promise.all([
-    todaySnapshot(profile.id, profile.units),
-    planSummary(profile.id, profile.units),
+    todaySnapshot(profile.id, profile.units, her),
+    planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
     recompositionSignal(profile.id, profile.units),
-    weightSignal(profile.id, profile.units, profileToday(profile)),
+    weightSignal(profile.id, profile.units, her),
   ]);
   const system = buildSystem(
     profile,

@@ -18,6 +18,7 @@ import { cmToIn } from "@/lib/units";
 import { desc } from "drizzle-orm";
 import { compareStock, normaliseItem } from "@/lib/pantry";
 import { shoppingListFor } from "@/lib/shopping-list";
+import { audit } from "@/lib/audit";
 import { consumeForMeal } from "./pantry";
 import { defineTool } from "./define";
 
@@ -236,6 +237,9 @@ export const logMeal = defineTool({
       .describe("Only when you actually know it — from lookup_food, not a guess. Omitting it is correct and expected; a wrong figure here is worse than none."),
     mealId: z.string().optional().describe("If she ate the planned meal, pass its id"),
     date: z.string().optional(),
+    clientKey: z.string().optional().describe(
+      "Supplied by the app for retry safety. Leave this out.",
+    ),
   }),
   handler: async (input, ctx) => {
     const date = input.date ?? (await todayForProfile(ctx.profileId));
@@ -244,13 +248,31 @@ export const logMeal = defineTool({
     if (input.mealId && !planned) {
       return { ok: false, error: "That mealId is not in her plan — log it without mealId, or call get_meal_plan for the right one" };
     }
-    await db.insert(mealLogs).values({
+    // Same idempotency as log_set: a response lost on a dropped connection is
+    // the normal shape of a gym basement, and the retry used to log the meal a
+    // second time — and empty the kitchen a second time with it.
+    const [row] = await db.insert(mealLogs).values({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,
       calories: input.calories ?? null, proteinG: input.proteinG ?? null,
       carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
       fibreG: input.fibreG ?? null,
-    });
+      clientKey: input.clientKey ?? null,
+    }).onConflictDoNothing({ target: mealLogs.clientKey }).returning();
+
+    if (!row) {
+      // Her own retry landing twice. Report the day as it stands rather than
+      // an error — from her side the first attempt simply worked.
+      const rows = await db.select({ calories: mealLogs.calories })
+        .from(mealLogs)
+        .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+      const known = rows.filter((r) => r.calories !== null);
+      return {
+        ok: true, duplicate: true, date,
+        todayCalories: known.reduce((n, r) => n + (r.calories ?? 0), 0),
+        caloriesAreComplete: known.length === rows.length,
+      };
+    }
 
     // Eating a planned meal empties part of the kitchen. Only for a planned
     // meal: a sentence she typed carries no ingredient list, and guessing what
@@ -263,9 +285,14 @@ export const logMeal = defineTool({
     }).from(mealLogs)
       .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
 
+    // Floors, not totals: an entry logged in words carries no figure, and
+    // adding it in as zero is the same bug as counting an unlogged day as zero.
+    const counted = dayRows.filter((r) => r.calories !== null);
     const totals = {
-      calories: dayRows.reduce((n, r) => n + (r.calories ?? 0), 0),
+      calories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
       protein: dayRows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+      knownFor: counted.length,
+      unknownFor: dayRows.length - counted.length,
     };
     const fibre = fibreForDay(dayRows);
 
@@ -274,7 +301,12 @@ export const logMeal = defineTool({
 
     return {
       ok: true, date,
+      logId: row.id,
       todayCalories: totals.calories, todayProteinG: totals.protein,
+      // Never state todayCalories as her intake when this is false — it is a
+      // floor. Say "at least X, and N entries have no figures".
+      caloriesAreComplete: totals.unknownFor === 0,
+      caloriesUnknownForItems: totals.unknownFor,
       calorieTarget: plan?.calorieTarget ?? null,
       proteinTargetG: plan?.proteinTargetG ?? null,
       caloriesRemaining: plan ? plan.calorieTarget - totals.calories : null,
@@ -294,7 +326,8 @@ export const logMeal = defineTool({
 
 export const getDayNutrition = defineTool({
   name: "get_day_nutrition",
-  description: "Everything she logged eating on a date, with totals against the day's targets.",
+  description:
+    "Everything she logged eating on a date, with totals against the day's targets and the id of each entry so it can be corrected or removed. `calories` is a floor whenever `caloriesAreComplete` is false — some of what she ate was described in words and carries no figures, so say 'at least' rather than reading it as her intake.",
   input: z.object({ date: z.string().optional() }),
   handler: async (input, ctx) => {
     const date = input.date ?? (await todayForProfile(ctx.profileId));
@@ -303,17 +336,25 @@ export const getDayNutrition = defineTool({
       .orderBy(mealLogs.createdAt);
     const [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
-    const calories = rows.reduce((n, r) => n + (r.calories ?? 0), 0);
+    const counted = rows.filter((r) => r.calories !== null);
+    const calories = counted.reduce((n, r) => n + (r.calories ?? 0), 0);
     const protein = rows.reduce((n, r) => n + (r.proteinG ?? 0), 0);
     const fibre = fibreForDay(rows);
     return {
       date,
       logged: rows.map((r) => ({
+        // The id remove_meal_log and update_meal_log need. Without it the tool
+        // existed and was unreachable: its own description said to call this
+        // first for the id, and this did not return one.
+        logId: r.id,
         slot: r.slot, description: r.description,
         calories: r.calories, proteinG: r.proteinG,
         carbsG: r.carbsG, fatG: r.fatG, fibreG: r.fibreG,
       })),
       calories, proteinG: protein,
+      caloriesAreComplete: counted.length === rows.length,
+      caloriesKnownForItems: counted.length,
+      caloriesUnknownForItems: rows.length - counted.length,
       calorieTarget: plan?.calorieTarget ?? null, proteinTargetG: plan?.proteinTargetG ?? null,
       // See log_meal: a null fibreG means we do not know, not zero. Treating
       // the sum as her day's fibre under-reports every meal she typed in words.
@@ -414,6 +455,84 @@ async function describeIntent(profileId: string, calorieTarget: number) {
     }),
   };
 }
+
+export const updateMealLog = defineTool({
+  name: "update_meal_log",
+  description:
+    "Corrects something she already logged eating — the calories, the protein, or what it was. Use it when she says a figure was off ('that curry was more like 800') rather than logging a second entry, which leaves the day wrong in a different way. Call get_day_nutrition for the logId. Only the fields you pass change; leave the rest out.",
+  input: z.object({
+    logId: z.string().describe("From get_day_nutrition or log_meal"),
+    description: z.string().optional(),
+    calories: z.number().nullable().optional(),
+    proteinG: z.number().nullable().optional(),
+    carbsG: z.number().nullable().optional(),
+    fatG: z.number().nullable().optional(),
+    fibreG: z.number().nullable().optional()
+      .describe("Only when actually known. Pass null to say we do not know, which is not zero."),
+  }),
+  handler: async (input, ctx) => {
+    const [row] = await db.select().from(mealLogs)
+      .where(and(eq(mealLogs.id, input.logId), eq(mealLogs.profileId, ctx.profileId)))
+      .limit(1);
+    if (!row) return { ok: false, error: "No entry with that id — call get_day_nutrition for the day's ids." };
+
+    // Undefined means "leave alone"; null means "we do not know", which is a
+    // value this app carries deliberately and must be writable.
+    const patch = {
+      ...(input.description === undefined ? {} : { description: input.description }),
+      ...(input.calories === undefined ? {} : { calories: input.calories }),
+      ...(input.proteinG === undefined ? {} : { proteinG: input.proteinG }),
+      ...(input.carbsG === undefined ? {} : { carbsG: input.carbsG }),
+      ...(input.fatG === undefined ? {} : { fatG: input.fatG }),
+      ...(input.fibreG === undefined ? {} : { fibreG: input.fibreG }),
+    };
+    if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to change." };
+
+    const [updated] = await db.update(mealLogs).set(patch)
+      .where(eq(mealLogs.id, row.id)).returning();
+
+    const dayRows = await db.select({ calories: mealLogs.calories })
+      .from(mealLogs)
+      .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, row.date)));
+    const counted = dayRows.filter((r) => r.calories !== null);
+
+    return {
+      ok: true,
+      date: row.date,
+      was: { description: row.description, calories: row.calories, proteinG: row.proteinG },
+      now: { description: updated.description, calories: updated.calories, proteinG: updated.proteinG },
+      todayCalories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
+      caloriesAreComplete: counted.length === dayRows.length,
+    };
+  },
+});
+
+export const clearMealLogs = defineTool({
+  name: "clear_meal_logs",
+  description:
+    "Removes everything she logged eating on a day, or one slot of it — 'wipe yesterday, I was testing', 'take breakfast off, I logged it twice'. It is her record and hers to reset; say what was removed and offer to put it back. Only the food log is touched: her meal plan and her kitchen are untouched.",
+  input: z.object({
+    date: z.string().optional().describe("YYYY-MM-DD; defaults to today"),
+    slot: slotEnum.optional().describe("Only this meal of the day"),
+  }),
+  handler: async (input, ctx) => {
+    const date = input.date ?? (await todayForProfile(ctx.profileId));
+    const where = [eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)];
+    if (input.slot) where.push(eq(mealLogs.slot, input.slot));
+
+    const rows = await db.select({ id: mealLogs.id, description: mealLogs.description })
+      .from(mealLogs).where(and(...where));
+    if (rows.length === 0) {
+      return { ok: false, error: `Nothing logged for ${date}${input.slot ? ` at ${input.slot}` : ""}.` };
+    }
+
+    await db.delete(mealLogs).where(and(...where));
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "meal_logs", date, slot: input.slot ?? null, items: rows.length },
+    });
+    return { ok: true, date, removed: rows.length, slot: input.slot ?? null };
+  },
+});
 
 export const getNutritionTrend = defineTool({
   name: "get_nutrition_trend",

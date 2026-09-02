@@ -298,26 +298,43 @@ export const adjustPlanDay = defineTool({
  *  the fast-log UI so both land in the same session row. */
 // `date` is required: both callers compute it in her timezone, and a default
 // in the server's would silently open a session on the wrong day.
+/**
+ * Today's session, created once.
+ *
+ * "Log three sets of eight" is three parallel log_set calls, and a plain
+ * read-then-insert let all three miss each other and create three workout
+ * rows. todayView takes the most recent one, so two of her three sets went
+ * into the database and vanished from the screen — and the week review counted
+ * the day three times. The advisory lock further down solved the same race for
+ * set *numbering* one level too low to help here.
+ *
+ * The lock is per profile and per day, so two people (or two days) never wait
+ * on each other, and it is released with the transaction.
+ */
 export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
-  const [open] = await db.select().from(workouts)
-    .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
-    .orderBy(desc(workouts.startedAt)).limit(1);
-  if (open) return open;
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${ctx.profileId}:${date}`}))`);
 
-  const week = weekStart(date);
-  const [plan] = await db.select({ id: plans.id }).from(plans)
-    .where(and(eq(plans.profileId, ctx.profileId), eq(plans.weekStart, week))).limit(1);
-  let planDay: { id: string; title: string } | undefined;
-  if (plan) {
-    [planDay] = await db.select({ id: planDays.id, title: planDays.title }).from(planDays)
-      .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dayIndex(date)))).limit(1);
-  }
-  const [created] = await db.insert(workouts).values({
-    profileId: ctx.profileId, date,
-    planDayId: planDay?.id ?? null,
-    title: planDay?.title ?? "Freestyle session",
-  }).returning();
-  return created;
+    const [open] = await tx.select().from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
+      .orderBy(desc(workouts.startedAt)).limit(1);
+    if (open) return open;
+
+    const week = weekStart(date);
+    const [plan] = await tx.select({ id: plans.id }).from(plans)
+      .where(and(eq(plans.profileId, ctx.profileId), eq(plans.weekStart, week))).limit(1);
+    let planDay: { id: string; title: string } | undefined;
+    if (plan) {
+      [planDay] = await tx.select({ id: planDays.id, title: planDays.title }).from(planDays)
+        .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dayIndex(date)))).limit(1);
+    }
+    const [created] = await tx.insert(workouts).values({
+      profileId: ctx.profileId, date,
+      planDayId: planDay?.id ?? null,
+      title: planDay?.title ?? "Freestyle session",
+    }).returning();
+    return created;
+  });
 }
 
 export const startWorkout = defineTool({
@@ -426,8 +443,15 @@ export const finishWorkout = defineTool({
       .orderBy(desc(workouts.startedAt)).limit(1);
     if (!w) return { ok: false, error: "No workout logged for that date." };
 
+    // Only what she actually said this time. Calling finish twice — "brutal,
+    // maybe a 2", then "right, I'm done" — used to blank the feeling that
+    // drives next week's adjustment, silently.
     await db.update(workouts)
-      .set({ completedAt: new Date(), feeling: input.feeling ?? null, notes: input.notes ?? null })
+      .set({
+        completedAt: new Date(),
+        ...(input.feeling === undefined ? {} : { feeling: input.feeling }),
+        ...(input.notes === undefined ? {} : { notes: input.notes }),
+      })
       .where(eq(workouts.id, w.id));
 
     const logged = await db.select({
@@ -590,5 +614,141 @@ export const removeExerciseFromDay = defineTool({
       return { ok: false, error: `${ex.name} isn't scheduled on ${DAY_NAMES[found.dow]}.` };
     }
     return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow] };
+  },
+});
+
+/**
+ * The set she just logged, or a named one, scoped to her.
+ *
+ * Every correction tool goes through here: `set_logs` has no profile column —
+ * ownership is two joins away through `workouts` — so a bare id from the model
+ * must never reach an update or a delete.
+ */
+async function herSet(
+  profileId: string,
+  where: { exerciseSlug?: string; setNumber?: number; date?: ISODate },
+) {
+  const conditions = [eq(workouts.profileId, profileId)];
+  if (where.date) conditions.push(eq(workouts.date, where.date));
+  if (where.exerciseSlug) conditions.push(eq(exercises.slug, where.exerciseSlug));
+  if (where.setNumber !== undefined) conditions.push(eq(setLogs.setNumber, where.setNumber));
+
+  const [row] = await db
+    .select({
+      id: setLogs.id, setNumber: setLogs.setNumber, reps: setLogs.reps,
+      weightKg: setLogs.weightKg, rpe: setLogs.rpe, loggedAt: setLogs.loggedAt,
+      workoutId: setLogs.workoutId, exerciseId: setLogs.exerciseId,
+      name: exercises.name, slug: exercises.slug, date: workouts.date,
+    })
+    .from(setLogs)
+    .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
+    .where(and(...conditions))
+    // Newest first, so "undo that" with nothing else said means the last one.
+    .orderBy(desc(workouts.date), desc(setLogs.loggedAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export const deleteSet = defineTool({
+  name: "delete_set",
+  description:
+    "Removes a logged set — a mistake, a double tap, or a set she did not actually finish. With nothing but the movement it takes the most recent one; name setNumber to pick a specific one, or date for an earlier day. Use it the moment she says she got it wrong: a set she did not do skews the comparison to last time, her progression and her milestones until it is gone.",
+  input: z.object({
+    exerciseSlug: z.string().optional().describe("Omit to remove the very last set she logged"),
+    setNumber: z.number().optional(),
+    date: z.string().optional().describe("YYYY-MM-DD; defaults to the most recent day with one"),
+  }),
+  handler: async (input, ctx) => {
+    const row = await herSet(ctx.profileId, input);
+    if (!row) return { ok: false, error: "No set matching that — call get_exercise_history for what is logged." };
+
+    await db.delete(setLogs).where(eq(setLogs.id, row.id));
+
+    // Renumber what is left, or the next set she logs collides with a gap and
+    // "set 3" stops meaning the third set of the session.
+    const rest = await db.select({ id: setLogs.id })
+      .from(setLogs)
+      .where(and(eq(setLogs.workoutId, row.workoutId), eq(setLogs.exerciseId, row.exerciseId)))
+      .orderBy(setLogs.setNumber, setLogs.loggedAt);
+    for (const [i, s] of rest.entries()) {
+      await db.update(setLogs).set({ setNumber: i + 1 }).where(eq(setLogs.id, s.id));
+    }
+
+    const units = await unitsOf(ctx);
+    return {
+      ok: true,
+      removed: {
+        exercise: row.name, setNumber: row.setNumber, reps: row.reps,
+        weight: weightOut(row.weightKg, units), unit: weightLabel(units), date: row.date,
+      },
+      setsLeftForThatExercise: rest.length,
+    };
+  },
+});
+
+export const correctSet = defineTool({
+  name: "correct_set",
+  description:
+    "Changes a set she already logged — the weight, the reps, how hard it was, or which movement it was against. With nothing but the movement it corrects the most recent one. Use it when she says the number was wrong rather than logging a second set, which would leave the session wrong in a different way.",
+  input: z.object({
+    exerciseSlug: z.string().optional().describe("Which movement's set to correct; omit for her last set"),
+    setNumber: z.number().optional(),
+    date: z.string().optional(),
+    reps: z.number().optional(),
+    weight: z.number().nullable().optional().describe("Her units. Pass null for bodyweight."),
+    rpe: z.number().nullable().optional(),
+    moveToExerciseSlug: z.string().optional()
+      .describe("She logged it against the wrong movement — move it to this one"),
+  }),
+  handler: async (input, ctx) => {
+    const row = await herSet(ctx.profileId, {
+      exerciseSlug: input.exerciseSlug, setNumber: input.setNumber, date: input.date,
+    });
+    if (!row) return { ok: false, error: "No set matching that — call get_exercise_history for what is logged." };
+
+    let exerciseId = row.exerciseId;
+    let name = row.name;
+    if (input.moveToExerciseSlug && input.moveToExerciseSlug !== row.slug) {
+      const [to] = await db.select().from(exercises)
+        .where(eq(exercises.slug, input.moveToExerciseSlug)).limit(1);
+      if (!to) return { ok: false, error: `Unknown slug '${input.moveToExerciseSlug}'. Use search_exercises.` };
+      exerciseId = to.id;
+      name = to.name;
+    }
+
+    const units = await unitsOf(ctx);
+    // Only what she corrected. Everything else keeps the value it had, or a
+    // correction to the weight would quietly blank the reps.
+    const patch = {
+      ...(input.reps === undefined ? {} : { reps: input.reps }),
+      ...(input.weight === undefined
+        ? {}
+        : { weightKg: input.weight === null ? null : weightIn(input.weight, units) }),
+      ...(input.rpe === undefined ? {} : { rpe: input.rpe }),
+      ...(exerciseId === row.exerciseId ? {} : { exerciseId }),
+    };
+    if (Object.keys(patch).length === 0) {
+      return { ok: false, error: "Nothing to change — pass reps, weight, rpe or moveToExerciseSlug." };
+    }
+
+    const [updated] = await db.update(setLogs).set(patch)
+      .where(eq(setLogs.id, row.id)).returning();
+
+    return {
+      ok: true,
+      exercise: name,
+      setNumber: updated.setNumber,
+      was: {
+        reps: row.reps, weight: weightOut(row.weightKg, units),
+        exercise: row.name,
+      },
+      now: {
+        reps: updated.reps, weight: weightOut(updated.weightKg, units),
+        exercise: name,
+      },
+      unit: weightLabel(units),
+      date: row.date,
+    };
   },
 });

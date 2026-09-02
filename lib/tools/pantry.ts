@@ -16,13 +16,21 @@ import { defineTool } from "./define";
 /**
  * Write a set of computed rows back. Amount null is a real value here — "she
  * has some, we do not know how much" — so it is written, not skipped.
+ *
+ * Read-modify-write, and deliberately serialised: the whole kitchen is read,
+ * the arithmetic happens in JS, and the result is upserted. Two of these in
+ * one parallel tool batch — "I made the chicken thing and picked up more
+ * rice" is a consume and a restock at once — both read the same starting
+ * stock and the second overwrote the first. The lock is per profile, so the
+ * pair queue up instead.
  */
 export async function writeStock(
   profileId: string,
   rows: { item: string; unit: string | null; amount: number | null }[],
+  tx: Pick<typeof db, "insert"> = db,
 ) {
   if (rows.length === 0) return;
-  await db.insert(pantryItems)
+  await tx.insert(pantryItems)
     .values(rows.map((r) => ({
       profileId,
       item: normaliseItem(r.item),
@@ -45,10 +53,26 @@ export async function writeStock(
  */
 export async function consumeForMeal(profileId: string, ingredients: string[]) {
   if (ingredients.length === 0) return { touched: 0 };
-  const stock = await pantryStock(profileId);
-  const changes = applyConsumption(stock, ingredients);
-  await writeStock(profileId, changes);
-  return { touched: changes.length };
+  return withKitchenLock(profileId, async () => {
+    const stock = await pantryStock(profileId);
+    const changes = applyConsumption(stock, ingredients);
+    await writeStock(profileId, changes);
+    return { touched: changes.length };
+  });
+}
+
+/**
+ * Serialise everything that reads the kitchen and writes it back.
+ *
+ * The tool loop runs calls in parallel; without this a consume and a restock
+ * fired together both read the same shelves and the later write threw the
+ * other away, leaving the shopping list quietly wrong.
+ */
+export async function withKitchenLock<T>(profileId: string, run: () => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`pantry:${profileId}`}))`);
+    return run();
+  });
 }
 
 /**
@@ -119,9 +143,12 @@ export const addToPantry = defineTool({
     items: z.array(itemInput).min(1),
   }),
   handler: async (input, ctx) => {
-    const stock = await pantryStock(ctx.profileId);
-    const rows = applyRestock(stock, input.items.map(readItem));
-    await writeStock(ctx.profileId, rows);
+    const rows = await withKitchenLock(ctx.profileId, async () => {
+      const stock = await pantryStock(ctx.profileId);
+      const computed = applyRestock(stock, input.items.map(readItem));
+      await writeStock(ctx.profileId, computed);
+      return computed;
+    });
     const fu = await foodUnitsFor(ctx.profileId);
     return {
       ok: true,
@@ -246,8 +273,11 @@ export const markShoppingBought = defineTool({
       return { ok: false, error: wanted ? "None of those are on this week's list." : "The list is empty." };
     }
 
-    const rows = applyRestock(await pantryStock(ctx.profileId), bought);
-    await writeStock(ctx.profileId, rows);
+    const rows = await withKitchenLock(ctx.profileId, async () => {
+      const computed = applyRestock(await pantryStock(ctx.profileId), bought);
+      await writeStock(ctx.profileId, computed);
+      return computed;
+    });
     const fu = await foodUnitsFor(ctx.profileId);
 
     return {
