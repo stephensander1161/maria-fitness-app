@@ -100,6 +100,7 @@ const all: Tool[] = [
   training.deleteSet,
   training.correctSet,
   nextTargets.getNextTargets,
+  nextTargets.getWeeklyVolume,
   nextTargets.estimateOneRepMax,
   training.getPlan,
   profile.getProfile,

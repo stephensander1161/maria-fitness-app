@@ -190,7 +190,9 @@ const PLANNER_SYSTEM = `You write training and nutrition plans for one person, t
 
 Every exercise you use MUST come from the catalogue you are given, referenced by its exact slug. There is no other library; a slug that is not in the list will be rejected.
 
-Programme sensibly for who she actually is: progressive overload paced for her experience, compound movements before isolation, volume matched to the days and minutes she really has rather than an ideal. Respect every injury by choosing a different movement, never by telling her to push through. All seven days must be present, with non-training days marked as rest.`;
+Programme sensibly for who she actually is: progressive overload paced for her experience, compound movements before isolation, volume matched to the days and minutes she really has rather than an ideal. Respect every injury by choosing a different movement, never by telling her to push through. All seven days must be present, with non-training days marked as rest.
+
+When you are told what last week actually contained by muscle group, balance against it: bring up what was light, and do not pile more onto what already had plenty. Recovery is the binding constraint for someone training in a calorie deficit, and more sets is not the same thing as a better week.`;
 
 const MEAL_SYSTEM = `You write weekly meal plans for one person, to be executed by an app.
 
@@ -200,7 +202,11 @@ Vary the week. Repeating the same four dinners is how people stop cooking.`;
 
 export async function planWeek(
   profile: Profile,
-  intent: { focus?: string; notes?: string; weekStart: string; previous?: string },
+  intent: {
+    focus?: string; notes?: string; weekStart: string; previous?: string;
+    /** What last week actually contained, by muscle group. */
+    volume?: string;
+  },
   source: UsageSource = "app",
 ) {
   const profileId = profile.id;
@@ -213,6 +219,9 @@ export async function planWeek(
       await catalogue(profile),
       ``,
       intent.previous ? `Last week, for progression:\n${intent.previous}\n` : ``,
+      // Counted from what she actually logged, so the week can be balanced
+      // against reality rather than against the last plan's intentions.
+      intent.volume ? `${intent.volume}\n` : ``,
       `Build the week starting ${intent.weekStart} (dayOfWeek 0 = ${DAY_NAMES[0]}).`,
       intent.focus ? `Focus she asked for: ${intent.focus}` : ``,
       intent.notes ? `Notes: ${intent.notes}` : ``,

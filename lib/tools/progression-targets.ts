@@ -1,15 +1,16 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
-import { dayIndex, weekStart } from "@/lib/date";
+import { addDays, dayIndex, weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { weightLabel, weightOut, type Units } from "@/lib/units";
 import {
   estimate1RM, loadStepKg, nextPrescription, sessionBest, warmupRamp, type Session,
 } from "@/lib/progression-math";
+import { volumeBrief, weeklyVolume } from "@/lib/volume";
 import { defineTool } from "./define";
 
 /**
@@ -200,6 +201,47 @@ export const estimateOneRepMax = defineTool({
     };
   },
 });
+
+export const getWeeklyVolume = defineTool({
+  name: "get_weekly_volume",
+  description:
+    "Hard sets per muscle group over a week, against what a beginner in a deficit actually needs. Use it to spot a week that is out of balance — shoulders getting three times what legs got — and before building a new one. Present it to her as balance, never as a target to hit: these are population ranges with huge individual spread, and turning them into a score to max out is how a sensible week becomes junk volume and a sore back.",
+  input: z.object({
+    weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
+  }),
+  handler: async (input, ctx) => {
+    const her = await todayForProfile(ctx.profileId);
+    const week = input.weekStart ?? weekStart(her);
+    const volume = await volumeForWeek(ctx.profileId, week);
+
+    return {
+      weekStart: week,
+      groups: volume.groups.map((g) => ({
+        group: g.group, sets: g.sets, status: g.status,
+        needsAtLeast: g.enough, plentyAt: g.plenty,
+      })),
+      // Said rather than hidden: sets of grip work, neck work and conditioning
+      // are real work that no landmark describes.
+      setsNoLandmarkCovers: volume.unmapped,
+      summary: volumeBrief(volume),
+    };
+  },
+});
+
+/** Hard sets by group for a week, from what she actually logged. */
+export async function volumeForWeek(profileId: string, week: string) {
+  const rows = await db
+    .select({ muscles: exercises.primaryMuscles })
+    .from(setLogs)
+    .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
+    .where(and(
+      eq(workouts.profileId, profileId),
+      gte(workouts.date, week),
+      lte(workouts.date, addDays(week, 6)),
+    ));
+  return weeklyVolume(rows);
+}
 
 /** Shared with the Train screen, which shows targets and warm-ups inline. */
 export async function todayTargets(profileId: string, units: Units, date: string) {

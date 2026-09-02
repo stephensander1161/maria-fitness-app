@@ -51,7 +51,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_measuring_guide: "pulling up the measuring guide",
   get_exercise_progression: "tracking your progression",
   check_progression_status: "seeing what's still moving", schedule_deload: "planning a lighter week",
-  get_next_targets: "working out your weights", estimate_one_rep_max: "estimating your max",
+  get_next_targets: "working out your weights", get_weekly_volume: "adding up your week", estimate_one_rep_max: "estimating your max",
   suggest_substitutes: "finding you an alternative",
   substitute_exercise: "swapping that movement",
   log_complaint: "noting where it hurts", resolve_complaint: "marking that settled",

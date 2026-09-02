@@ -10,6 +10,8 @@ import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from 
 import { planWeek, resolveSlugs } from "@/lib/agent/planner";
 import { weekView } from "@/lib/views";
 import { profileToday, todayForProfile } from "@/lib/profile";
+import { volumeBrief } from "@/lib/volume";
+import { volumeForWeek } from "./progression-targets";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
@@ -117,9 +119,14 @@ export const createWeeklyPlan = defineTool({
           .join("\n")
       : undefined;
 
+    // What she actually did last week, by muscle group — the planner has no
+    // other numeric check on balance, and a week where shoulders get twenty
+    // sets and legs get four is one nothing would otherwise notice.
+    const volume = volumeBrief(await volumeForWeek(ctx.profileId, addDays(week, -7)));
+
     let drafted;
     try {
-      drafted = await planWeek(profile, { ...input, weekStart: week, previous });
+      drafted = await planWeek(profile, { ...input, weekStart: week, previous, volume });
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : "Planning failed." };
     }
