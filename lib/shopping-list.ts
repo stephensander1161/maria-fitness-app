@@ -13,6 +13,28 @@ import { weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { aggregateIngredients, type ShoppingItem } from "@/lib/shopping";
 
+/**
+ * The food library, cached per process.
+ *
+ * It is seeded reference data that changes when someone runs a seed script,
+ * and the Plan screen loads it twice per render — once for the list, once for
+ * the kitchen — then again on every coach turn that touches food. Four hundred
+ * rows is not much, but fetching them on every one of those was work nobody
+ * needed. Five minutes is short enough that a reseed shows up without a
+ * redeploy.
+ */
+let _labels: { at: number; rows: { name: string; category: string; aliases: string[] }[] } | null = null;
+const LABELS_TTL_MS = 5 * 60 * 1000;
+
+async function foodLabels() {
+  if (_labels && Date.now() - _labels.at < LABELS_TTL_MS) return _labels.rows;
+  const rows = await db.select({
+    name: foods.name, category: foods.category, aliases: foods.aliases,
+  }).from(foods);
+  _labels = { at: Date.now(), rows };
+  return rows;
+}
+
 /** Supermarket order, roughly. Anything unmatched falls to the end. */
 const AISLES: Record<string, string> = {
   vegetable: "Fruit & veg", fruit: "Fruit & veg",
@@ -68,9 +90,7 @@ export async function shoppingListFor(
 
   // Aisle comes from the food library, so it is the same categorisation the
   // calculator uses rather than a second list to keep in step.
-  const library = await db.select({
-    name: foods.name, category: foods.category, aliases: foods.aliases,
-  }).from(foods);
+  const library = await foodLabels();
 
   // Rank, do not just match. Direction matters: when the shopping item
   // contains the label ("chicken breast" contains "chicken"), a longer label

@@ -5,7 +5,7 @@ import { profiles, weighIns } from "@/lib/db/schema";
 import { nutritionTargets } from "@/lib/nutrition";
 import { cmToIn } from "@/lib/units";
 import { weekStart } from "@/lib/date";
-import { todayForProfile } from "@/lib/profile";
+import { todayForProfile, ageFrom } from "@/lib/profile";
 import { desc } from "drizzle-orm";
 import { createWeeklyPlan } from "./training";
 import { defineTool } from "./define";
@@ -85,7 +85,7 @@ export const runPlanSetup = defineTool({
 
     // Targets need her body, and a profile part-way through onboarding may not
     // have one yet. Say so rather than returning numbers built on defaults.
-    const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+    const age = ageFrom(profile.birthYear, await todayForProfile(ctx.profileId));
     const targets =
       weightKg !== null && profile.heightCm !== null && age !== null && changes.daysPerWeek !== null
         ? nutritionTargets({

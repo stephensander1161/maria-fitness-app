@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { DAY_NAMES, dayIndex, weekStart } from "@/lib/date";
 import type { Profile } from "@/lib/db/schema";
 import { heightLabel, weightLabel, weightOut } from "@/lib/units";
-import { missingForPlan, profileToday } from "@/lib/profile";
+import { missingForPlan, profileToday, ageFrom } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
 
 /**
@@ -135,7 +135,7 @@ Her body and her kitchen are two separate settings, and the state block names bo
 
 export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlockParam[] {
   const u = profile.units;
-  const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+  const age = ageFrom(profile.birthYear, profileToday(profile));
 
   const missing = missingForPlan(profile);
 

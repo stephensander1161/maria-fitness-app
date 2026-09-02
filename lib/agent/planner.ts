@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { ageFrom, profileToday } from "@/lib/profile";
 import { z } from "zod";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -135,7 +136,7 @@ async function profileBrief(p: Profile): Promise<string> {
   // decides the app is not listening.
   const hurts = await complaintSummary(p.id);
   const u = p.units;
-  const age = p.birthYear ? new Date().getFullYear() - p.birthYear : null;
+  const age = ageFrom(p.birthYear, profileToday(p));
   // Her current weight, not the one she signed up at. Months in, the start
   // weight is history, and a planner told only that would set targets for
   // someone she no longer is.

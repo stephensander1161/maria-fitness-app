@@ -87,3 +87,15 @@ export async function foodUnitsFor(profileId: string): Promise<Units> {
   if (!p) throw new Error(`No profile ${profileId} — cannot choose units for it.`);
   return foodUnitsOf(p);
 }
+
+/**
+ * Her age in years, from the year she was born.
+ *
+ * One implementation because there were four, each doing
+ * `new Date().getFullYear() - birthYear` — which drifts by up to a year
+ * depending on whether her birthday has passed, and reads the server's year.
+ * Approximate by construction: the app stores a birth *year*, so this is the
+ * best it can do, and every caller should get the same approximation.
+ */
+export const ageFrom = (birthYear: number | null, asOf: ISODate): number | null =>
+  birthYear === null ? null : Number(asOf.slice(0, 4)) - birthYear;

@@ -9,7 +9,7 @@ import { nutritionTrend } from "@/lib/progress";
 import { pantryStock, recentMeals } from "@/lib/views";
 import { type ShoppingItem } from "@/lib/shopping";
 import { instacartConfigured } from "@/lib/instacart";
-import { foodUnitsFor, todayForProfile } from "@/lib/profile";
+import { foodUnitsFor, todayForProfile, ageFrom } from "@/lib/profile";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
@@ -458,7 +458,7 @@ async function describeIntent(profileId: string, calorieTarget: number) {
   const { maintenanceCalories } = nutritionTargets({
     weightKg: currentKg,
     heightIn: cmToIn(profile.heightCm),
-    age: new Date().getFullYear() - profile.birthYear,
+    age: ageFrom(profile.birthYear, await todayForProfile(profileId)) ?? 30,
     sex: profile.sex,
     daysPerWeek: profile.daysPerWeek ?? 3,
     units: "imperial",

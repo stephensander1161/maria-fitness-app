@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { goals, profiles, weighIns } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
-import { missingForPlan, profileToday, todayForProfile } from "@/lib/profile";
+import { missingForPlan, profileToday, todayForProfile, ageFrom } from "@/lib/profile";
 import { weightTrend } from "@/lib/trend";
 import { foodUnitsOf } from "@/lib/food-units";
 import { defineTool, type ToolContext } from "./define";
@@ -34,7 +34,7 @@ export const getProfile = defineTool({
     const u = p.units;
     return {
       name: p.name,
-      age: p.birthYear ? new Date().getFullYear() - p.birthYear : null,
+      age: ageFrom(p.birthYear, await todayForProfile(ctx.profileId)),
       sex: p.sex,
       height: heightLabel(p.heightCm, u),
       // Body and kitchen are separate preferences. `units` is the scale and
@@ -104,7 +104,9 @@ export const updateProfile = defineTool({
 
     const patch: Partial<typeof profiles.$inferInsert> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.age !== undefined) patch.birthYear = new Date().getFullYear() - input.age;
+    if (input.age !== undefined) {
+      patch.birthYear = Number((await todayForProfile(ctx.profileId)).slice(0, 4)) - input.age;
+    }
     if (input.sex !== undefined) patch.sex = input.sex;
     if (input.height !== undefined) patch.heightCm = u === "imperial" ? inToCm(input.height) : input.height;
     // currentWeight seeds the start weight only if there isn't one; startWeight

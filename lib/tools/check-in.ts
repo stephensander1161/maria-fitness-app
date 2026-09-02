@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, profiles, weighIns } from "@/lib/db/schema";
 import { addDays, weekStart } from "@/lib/date";
-import { todayForProfile } from "@/lib/profile";
+import { todayForProfile, ageFrom } from "@/lib/profile";
 import { cmToIn, weightLabel, weightOut } from "@/lib/units";
 import { estimateExpenditure, proposeTarget } from "@/lib/expenditure";
 import { nutritionTargets, CALORIE_FLOOR } from "@/lib/nutrition";
@@ -94,7 +94,7 @@ export const runCheckIn = defineTool({
       };
     }
 
-    const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+    const age = ageFrom(profile.birthYear, asOf);
     if (weightKg === null || profile.heightCm === null || age === null) {
       return { ok: false, error: "Her height, age or weight is missing, so the floor cannot be computed." };
     }
@@ -159,7 +159,7 @@ export const setNutritionTargets = defineTool({
       .from(weighIns).where(eq(weighIns.profileId, ctx.profileId))
       .orderBy(desc(weighIns.date)).limit(1);
     const weightKg = latest?.weightKg ?? profile.startWeightKg;
-    const age = profile.birthYear ? new Date().getFullYear() - profile.birthYear : null;
+    const age = ageFrom(profile.birthYear, asOf);
 
     // The floor is enforced here rather than in the caller, so no prompt and
     // no screen can talk it lower.

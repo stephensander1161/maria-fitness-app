@@ -235,3 +235,23 @@ suite("every mutation goes through the tool registry", () => {
     expect(offenders, `components must not touch the database: ${offenders.join(", ")}`).toEqual([]);
   });
 });
+
+suite("one implementation of her age", () => {
+  it("nothing computes age from the server's calendar year", () => {
+    // Four places did `new Date().getFullYear() - birthYear`, which drifts by
+    // up to a year depending on whether her birthday has passed and reads the
+    // server's year rather than hers. ageFrom is the one approximation, and
+    // every caller now gets the same one.
+    const offenders: string[] = [];
+    for (const file of [...walk("lib"), ...walk("app")]) {
+      if (file === "lib/profile.ts") continue;
+      const src = read(file);
+      for (const [i, line] of src.split("\n").entries()) {
+        if (/new Date\(\)\.getFullYear\(\)/.test(line) && !/^\s*(\*|\/\/)/.test(line)) {
+          offenders.push(`${file}:${i + 1}`);
+        }
+      }
+    }
+    expect(offenders, `use ageFrom(): ${offenders.join(", ")}`).toEqual([]);
+  });
+});
