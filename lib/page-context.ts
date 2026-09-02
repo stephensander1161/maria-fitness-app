@@ -179,43 +179,61 @@ export const dayName = (i: number) => DAY_NAMES[i];
  * Returns null where there is nothing worth saying — an unknown path, or a
  * screen whose contents the coach already has in its state block.
  */
+export type Screen =
+  | { kind: "opinion"; page: OpinionPage; label: string }
+  | { kind: "library"; label: string }
+  | { kind: "movement"; slug: string };
+
+/**
+ * Which screen a path names — and nothing else.
+ *
+ * Pure and total on purpose: this is the only thing standing between a
+ * client-supplied string and text the model treats as fact. It matches an
+ * exact set of paths, and the one variable part is a slug constrained to
+ * `[a-z0-9-]` which is then looked up by equality. Nothing from the path is
+ * ever interpolated into the prompt.
+ */
+export function screenFor(path: string): Screen | null {
+  const clean = path.split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
+
+  if (clean === "/train") return { kind: "opinion", page: "train", label: "today's workout" };
+  if (clean === "/plan") return { kind: "opinion", page: "plan", label: "this week's plan" };
+  if (clean === "/progress") return { kind: "opinion", page: "progress", label: "her progress" };
+  if (clean === "/learn") return { kind: "library", label: "the movement library" };
+
+  const move = clean.match(/^\/learn\/([a-z0-9-]+)$/);
+  return move ? { kind: "movement", slug: move[1] } : null;
+}
+
 export async function contextForPath(
   profileId: string,
   path: string,
 ): Promise<{ label: string; context: string } | null> {
-  const clean = path.split("?")[0].replace(/\/$/, "") || "/";
+  const screen = screenFor(path);
+  if (!screen) return null;
 
-  if (clean === "/train") {
-    return { label: "today's workout", context: await buildPageContext(profileId, "train") };
+  if (screen.kind === "opinion") {
+    return { label: screen.label, context: await buildPageContext(profileId, screen.page) };
   }
-  if (clean === "/plan") {
-    return { label: "this week's plan", context: await buildPageContext(profileId, "plan") };
-  }
-  if (clean === "/progress") {
-    return { label: "her progress", context: await buildPageContext(profileId, "progress") };
-  }
-  if (clean === "/learn") {
-    return { label: "the movement library", context: "She is browsing the movement library." };
+  if (screen.kind === "library") {
+    return { label: screen.label, context: "She is browsing the movement library." };
   }
 
-  const move = clean.match(/^\/learn\/([a-z0-9-]+)$/);
-  if (move) {
-    // Looked up by exact slug, so the path cannot smuggle text into the prompt.
-    const [ex] = await db.select({
-      name: exercises.name, category: exercises.category,
-      muscles: exercises.primaryMuscles, equipment: exercises.equipment,
-      safetyNote: exercises.safetyNote,
-    }).from(exercises).where(eq(exercises.slug, move[1])).limit(1);
-    if (!ex) return null;
-    return {
-      label: `the ${ex.name} page`,
-      context: [
-        `She is reading the guide for ${ex.name} (slug: ${move[1]}).`,
-        `Works ${ex.muscles.join(", ")}. Equipment: ${ex.equipment.join(", ") || "none"}.`,
-        ex.safetyNote ? `Safety note on the page: ${ex.safetyNote}` : "",
-      ].filter(Boolean).join("\n"),
-    };
-  }
+  // Looked up by exact slug, and every word in the block below comes from the
+  // row that came back — never from the path.
+  const [ex] = await db.select({
+    name: exercises.name, category: exercises.category,
+    muscles: exercises.primaryMuscles, equipment: exercises.equipment,
+    safetyNote: exercises.safetyNote,
+  }).from(exercises).where(eq(exercises.slug, screen.slug)).limit(1);
+  if (!ex) return null;
 
-  return null;
+  return {
+    label: `the ${ex.name} page`,
+    context: [
+      `She is reading the guide for ${ex.name}.`,
+      `Works ${ex.muscles.join(", ")}. Equipment: ${ex.equipment.join(", ") || "none"}.`,
+      ex.safetyNote ? `Safety note on the page: ${ex.safetyNote}` : "",
+    ].filter(Boolean).join("\n"),
+  };
 }

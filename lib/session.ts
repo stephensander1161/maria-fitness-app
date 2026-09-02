@@ -23,12 +23,29 @@ export async function currentUser(): Promise<User | null> {
   if (!session) return null;
 
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
-  if (!user || user.disabledAt) return null;
+  return accountAccepts(user ?? null, session) ? user : null;
+}
 
-  // Revocation: anything issued before the account's cutoff is dead.
-  if (session.issuedAt < user.sessionsValidFrom.getTime()) return null;
-
-  return user;
+/**
+ * The half of the check the edge cannot do.
+ *
+ * Middleware verifies the signature and the expiry, because it has no
+ * database. Whether the account still exists, is still enabled, and has not
+ * been signed out everywhere since the token was issued is decided here — and
+ * both layers are load-bearing, so this is pure and tested rather than four
+ * lines nobody has ever exercised.
+ */
+export function accountAccepts(
+  user: { disabledAt: Date | null; sessionsValidFrom: Date } | null,
+  session: { issuedAt: number },
+): boolean {
+  if (!user) return false;
+  // Disabled means disabled from this moment, including for a token that is
+  // otherwise perfectly valid and unexpired.
+  if (user.disabledAt) return false;
+  // "Sign out everywhere" is a cutoff, not a list: anything issued before it
+  // is dead, which is what makes revocation work without tracking tokens.
+  return session.issuedAt >= user.sessionsValidFrom.getTime();
 }
 
 /** For server components. Sends her to sign in rather than rendering an empty shell. */

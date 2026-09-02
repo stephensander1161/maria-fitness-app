@@ -37,3 +37,24 @@ export async function pickUnseenFact(
   await db.insert(factViews).values({ profileId, factId: row.id, shownOn: asOf });
   return { category: row.category, text: row.text, source: row.source };
 }
+
+/**
+ * Today's fact, and the same one all day.
+ *
+ * The card sits at the bottom of every screen, so this has to be idempotent:
+ * picking a new one per render would burn the whole library in an afternoon
+ * and mark every one of them seen, which is the one thing the seen-tracking
+ * exists to prevent. One a day, recorded once, returned unchanged until
+ * tomorrow.
+ */
+export async function factForDay(profileId: string, asOf: ISODate): Promise<PickedFact | null> {
+  const [already] = await db
+    .select({ category: facts.category, text: facts.text, source: facts.source })
+    .from(factViews)
+    .innerJoin(facts, eq(factViews.factId, facts.id))
+    .where(and(eq(factViews.profileId, profileId), eq(factViews.shownOn, asOf)))
+    .limit(1);
+  if (already) return already;
+
+  return pickUnseenFact(profileId, asOf);
+}

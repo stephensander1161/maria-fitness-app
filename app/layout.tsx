@@ -5,6 +5,7 @@ import { Feedback } from "@/components/feedback";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { CoachBubbleGate } from "@/components/coach-bubble-gate";
+import { DailyFact } from "@/components/daily-fact";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-dvh bg-base text-text">
         <PullToRefresh>
-          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4">{children}</main>
+          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4">
+            {children}
+            <DailyFact />
+          </main>
         </PullToRefresh>
         <CoachBubbleGate />
         <Feedback />
