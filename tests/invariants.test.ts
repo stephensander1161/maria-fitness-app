@@ -202,3 +202,36 @@ suite("the persona is a template literal, so it must survive being one", () => {
     expect(persona).not.toMatch(/\$\{/);
   });
 });
+
+suite("every mutation goes through the tool registry", () => {
+  it("no API route or page writes to the database directly", () => {
+    // The headline rule of this project, and /api/onboard broke it for months
+    // — which is *why* the coach could never change her timezone or her start
+    // weight: both had a writer that was not a tool, so no tool grew one.
+    // The auth routes are the one exception, and it is the inverse of a
+    // loophole: `users` is deliberately out of the model's reach, so a tool
+    // for stamping lastLoginAt would be a tool for changing a password. Those
+    // writes must touch `users` and nothing else.
+    const AUTH = /^app\/api\/(login|auth)\//;
+
+    const offenders: string[] = [];
+    for (const file of walk("app")) {
+      const src = read(file);
+      const writes = [...src.matchAll(/\bdb\s*\n?\s*\.\s*(insert|update|delete)\s*\(\s*(\w+)/g)];
+      for (const m of writes) {
+        const table = m[2];
+        if (AUTH.test(file) && table === "users") continue;
+        offenders.push(`${file}: db.${m[1]}(${table})`);
+      }
+    }
+    expect(
+      offenders,
+      `these write outside lib/tools: ${offenders.join(", ")}. Call runTool instead.`,
+    ).toEqual([]);
+  });
+
+  it("no component writes to the database at all", () => {
+    const offenders = walk("components").filter((f) => /from "@\/lib\/db"/.test(read(f)));
+    expect(offenders, `components must not touch the database: ${offenders.join(", ")}`).toEqual([]);
+  });
+});

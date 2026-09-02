@@ -1,10 +1,7 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { profiles, weighIns } from "@/lib/db/schema";
 import { currentUser } from "@/lib/session";
 import { getProfile, profileToday } from "@/lib/profile";
-import { inToCm, weightIn } from "@/lib/units";
+import { weightIn } from "@/lib/units";
 import { nutritionTargets } from "@/lib/nutrition";
 import { runTool } from "@/lib/tools";
 import { weekStart } from "@/lib/date";
@@ -67,15 +64,19 @@ export async function POST(req: Request) {
 
   const currentKg = weightIn(input.currentWeight, u);
 
-  await db.update(profiles).set({
+  // Through the registry, like every other write in this app. This route was
+  // the only exception, and it was the *cause* of two capability gaps: while
+  // profiles.timezone and startWeightKg had a writer that was not a tool, the
+  // coach could never change either.
+  const ctx = { profileId: profile.id };
+  await runTool("update_profile", {
     name: input.name,
-    birthYear: new Date().getFullYear() - input.age,
+    age: input.age,
     sex: input.sex,
-    heightCm: u === "imperial" ? inToCm(input.heightIn) : input.heightIn,
-    startWeightKg: currentKg,
-    goalWeightKg: weightIn(input.goalWeight, u),
-    goalDate: input.goalDate ?? null,
-    motivation: input.motivation ?? null,
+    height: input.heightIn,
+    goalWeight: input.goalWeight,
+    goalDate: input.goalDate,
+    motivation: input.motivation,
     experience: input.experience,
     daysPerWeek: input.daysPerWeek,
     sessionMinutes: input.sessionMinutes,
@@ -84,17 +85,16 @@ export async function POST(req: Request) {
     dietaryRestrictions: input.dietaryRestrictions,
     dislikedFoods: input.dislikedFoods,
     units: u,
-    foodUnits: input.foodUnits ?? null,
-    timezone: input.timezone ?? null,
-    onboardedAt: new Date(),
-  }).where(eq(profiles.id, profile.id));
+    foodUnits: input.foodUnits ?? undefined,
+    timezone: input.timezone,
+    startWeight: input.currentWeight,
+    markOnboarded: true,
+  }, ctx);
 
   // Her starting weight is also her first data point, or the progress chart
   // begins empty on day one.
   const today = profileToday({ timezone: input.timezone ?? null });
-  await db.insert(weighIns)
-    .values({ profileId: profile.id, date: today, weightKg: currentKg })
-    .onConflictDoUpdate({ target: [weighIns.profileId, weighIns.date], set: { weightKg: currentKg } });
+  await runTool("log_weight", { weight: input.currentWeight, date: today }, ctx);
 
   await audit("onboarding.completed", { req, detail: { userId: user.id } });
 
@@ -108,7 +108,6 @@ export async function POST(req: Request) {
     daysPerWeek: input.daysPerWeek,
     units: u,
   });
-  const ctx = { profileId: profile.id };
 
   const week = weekStart(today);
   const fresh = await getProfile(user.id); // re-read: the update above is what selection matches on

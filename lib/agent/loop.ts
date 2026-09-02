@@ -12,6 +12,9 @@ import { complaintSummary } from "@/lib/tools/swaps";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
+  /** Her message is in the transcript. Sent before the first model call, so
+   *  the browser knows whether a later failure means it was lost or kept. */
+  | { type: "accepted" }
   | { type: "text"; text: string }
   | { type: "tool"; name: string; status: "running" | "done" }
   | { type: "done" }
@@ -92,7 +95,13 @@ export async function* runCoach(
 
   // A silent turn is a system nudge (e.g. the daily check-in), not something
   // she typed — keep it out of the visible transcript but in the model's context.
-  if (!opts.silent) await saveMessage(profile.id, "user", savedContent);
+  if (!opts.silent) {
+    await saveMessage(profile.id, "user", savedContent);
+    // Said out loud: the client used to put her words back in the box after any
+    // failure, including one that happened *after* this line — so she sent it
+    // again and the conversation held it twice.
+    yield { type: "accepted" };
+  }
 
   try {
     let emittedText = false;

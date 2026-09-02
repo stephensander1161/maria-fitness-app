@@ -80,5 +80,10 @@ export async function todayForProfile(profileId: string): Promise<ISODate> {
 export async function foodUnitsFor(profileId: string): Promise<Units> {
   const [p] = await db.select({ units: profiles.units, foodUnits: profiles.foodUnits }).from(profiles)
     .where(eq(profiles.id, profileId)).limit(1);
-  return p ? foodUnitsOf(p) : "imperial";
+  // A missing profile used to fall through to imperial, which would quietly
+  // relabel every gram in her kitchen as an ounce. Every caller of this has a
+  // profile id that came from a session, so no profile means something is
+  // wrong upstream and it should say so rather than pick a unit system.
+  if (!p) throw new Error(`No profile ${profileId} — cannot choose units for it.`);
+  return foodUnitsOf(p);
 }

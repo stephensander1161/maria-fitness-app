@@ -42,10 +42,12 @@ export function useCoachThread(
     let acc = "";
     let failed = false;
     let usedTools = false;
+    let accepted = false;
     try {
       for await (const event of streamCoach(body, opts)) {
         const e: CoachEvent = event;
-        if (e.type === "text") { acc += e.text; setStreaming(acc); setActivity(null); }
+        if (e.type === "accepted") { accepted = true; }
+        else if (e.type === "text") { acc += e.text; setStreaming(acc); setActivity(null); }
         else if (e.type === "tool") {
           if (e.status === "running") usedTools = true;
           setActivity(e.status === "running" ? TOOL_LABELS[e.name] ?? "working" : null);
@@ -63,7 +65,10 @@ export function useCoachThread(
     setStreaming("");
     setActivity(null);
     setBusy(false);
-    const delivered = acc.trim().length > 0 || !failed;
+    // "Delivered" now means the server has it, not that it answered. A turn
+    // that failed mid-stream is still in her transcript, and putting her words
+    // back in the box would have her send them twice.
+    const delivered = accepted || acc.trim().length > 0 || !failed;
     // A turn that called tools has changed something the surrounding screen is
     // showing — the caller decides whether that means reloading it.
     onTurnEnd.current?.({ usedTools, delivered });

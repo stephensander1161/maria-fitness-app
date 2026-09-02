@@ -66,6 +66,7 @@ export async function action<T = unknown>(tool: string, input: Record<string, un
 }
 
 export type CoachEvent =
+  | { type: "accepted" }
   | { type: "text"; text: string }
   | { type: "tool"; name: string; status: "running" | "done" }
   | { type: "done" }

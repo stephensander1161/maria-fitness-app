@@ -68,8 +68,6 @@ function CoachSheet({
   const [feedback, setFeedback] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
-  /** The screen whose contents the coach has already been given. */
-  const context = useRef<string | null>(null);
   const panel = useDialog(onClose);
 
   useEffect(() => {
@@ -101,12 +99,13 @@ function CoachSheet({
     return () => { cancelled = true; };
   }, [setMessages, stream, reloadKey]);
 
-  /** Her message, plus the screen she sent it from the first time she does. */
-  const say = (text: string) => {
-    const page = context.current === path ? undefined : path;
-    context.current = path;
-    return send(text, page);
-  };
+  /**
+   * Her message, with the screen she sent it from — every time, not just the
+   * first. Sending it once meant "why is the bench slipping?" was answered
+   * from the progression list and the follow-up "and the squat?" had nothing
+   * to answer from, so the coach either guessed or re-ran the tools.
+   */
+  const say = (text: string) => send(text, path);
 
   return (
     <div
