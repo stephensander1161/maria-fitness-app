@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { goals, profiles, weighIns } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
-import { missingForPlan, profileToday } from "@/lib/profile";
+import { missingForPlan, profileToday, todayForProfile } from "@/lib/profile";
+import { weightTrend } from "@/lib/trend";
 import { foodUnitsOf } from "@/lib/food-units";
 import { defineTool, type ToolContext } from "./define";
 
@@ -175,7 +176,7 @@ export const logWeight = defineTool({
 export const getWeightHistory = defineTool({
   name: "get_weight_history",
   description:
-    "Her weigh-in history, newest first, with the trend. Use before commenting on progress so you are talking about real numbers rather than guessing.",
+    "Her weigh-in history, newest first, with the smoothed trend. Read `trend` and `weeklyChange`, not the last reading: a day's weight moves on water, food and where she is in her cycle, and calling that a gain is wrong about half the time. When `trendConfidence` is 'low' there is not enough recent data to say which way it is going — say that instead of picking a direction.",
   input: z.object({ limit: z.number().optional().describe("Default 30") }),
   handler: async (input, ctx) => {
     const p = await profileOf(ctx);
@@ -186,8 +187,20 @@ export const getWeightHistory = defineTool({
       .orderBy(desc(weighIns.date))
       .limit(input.limit ?? 30);
     const u = p.units;
+    const t = weightTrend(
+      rows.map((r) => ({ date: r.date, weightKg: r.weightKg })),
+      await todayForProfile(ctx.profileId),
+    );
     return {
       unit: weightLabel(u),
+      trend: t.trendKg === null ? null : weightOut(t.trendKg, u),
+      // Null unless the data supports it — see lib/trend.ts. A number here is
+      // read as a fact about her body.
+      weeklyChange: t.weeklyChangeKg === null ? null : weightOut(t.weeklyChangeKg, u),
+      trendConfidence: t.confidence,
+      weighInsLast14Days: t.weighInsLast14Days,
+      daysSinceLastWeighIn: t.daysSinceLastWeighIn,
+      latestReading: t.latestRawKg === null ? null : weightOut(t.latestRawKg, u),
       entries: rows.map((r) => ({ date: r.date, weight: weightOut(r.weightKg, u), note: r.note })),
       startWeight: weightOut(p.startWeightKg, u),
       goalWeight: weightOut(p.goalWeightKg, u),

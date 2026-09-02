@@ -6,6 +6,7 @@ import {
 import { addDays, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
+import { trendSeries, weightTrend } from "@/lib/trend";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
  *  3×10@40 against 4×6@50. Bodyweight sets fall back to total reps. */
@@ -550,6 +551,49 @@ export async function measurementProgress(
 /** Below this, a waist change is as likely to be how the tape was held. */
 const MIN_RECOMP_DAYS = 14;
 
+/**
+ * Her weight, as the coach should state it: the trend, and how much of one
+ * there is. Goes into the volatile state block, where the model believes it
+ * completely — so when the data cannot support a direction this says so
+ * rather than naming one.
+ */
+export async function weightSignal(
+  profileId: string,
+  units: Units,
+  asOf: ISODate,
+): Promise<string> {
+  const rows = await db
+    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, profileId))
+    .orderBy(desc(weighIns.date))
+    .limit(120);
+
+  const t = weightTrend(rows, asOf);
+  const unit = weightLabel(units);
+  const fmt = (kg: number) => `${weightOut(kg, units)}${unit}`;
+
+  if (t.confidence === "none") return "Weight: nothing logged yet.";
+
+  const last = `Last weigh-in ${fmt(t.latestRawKg!)} on ${t.latestDate}` +
+    (t.daysSinceLastWeighIn && t.daysSinceLastWeighIn > 3
+      ? ` (${t.daysSinceLastWeighIn} days ago)`
+      : "");
+
+  if (t.confidence === "low") {
+    return `Weight: trend ${fmt(t.trendKg!)}. ${last}. Only ${t.weighInsLast14Days} weigh-in`
+      + `${t.weighInsLast14Days === 1 ? "" : "s"} in the last fortnight, which is too few to state`
+      + ` a direction — do not tell her she is up or down, and do not read the last reading as progress.`;
+  }
+
+  const change = t.weeklyChangeKg!;
+  const direction = Math.abs(change) < 0.1
+    ? "level over the last week"
+    : `${change < 0 ? "down" : "up"} ${fmt(Math.abs(change))} over the last week`;
+  return `Weight: trend ${fmt(t.trendKg!)}, ${direction} (from ${t.weighInsLast14Days} weigh-ins`
+    + ` in the last fortnight). ${last}. Talk about the trend, not the last reading.`;
+}
+
 export async function recompositionSignal(
   profileId: string,
   units: Units,
@@ -576,7 +620,11 @@ export async function recompositionSignal(
   const inWindow = weights.filter((w) => waist.firstDate !== null && w.date >= waist.firstDate);
   if (inWindow.length < 2) return null;
 
-  const weightChangeKg = inWindow[inWindow.length - 1].weightKg - inWindow[0].weightKg;
+  // Trend to trend, not reading to reading: two noisy endpoints can show a
+  // kilo of "change" that is water, and this claim goes into the prompt marked
+  // IMPORTANT — an encouraging sentence built on noise is still a false one.
+  const trend = trendSeries(inWindow);
+  const weightChangeKg = trend[trend.length - 1].trend - trend[0].trend;
   const stalled = Math.abs(weightChangeKg) < 0.7; // under ~1.5 lb either way
 
   if (!stalled) return null;

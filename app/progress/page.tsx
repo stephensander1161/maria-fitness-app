@@ -9,6 +9,7 @@ import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate } from "@/lib/date";
+import { weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
@@ -45,8 +46,14 @@ export default async function ProgressPage() {
     nutritionTrend(profile.id, 14, her),
   ]);
 
-  const latest = history[0]?.weightKg ?? profile.startWeightKg;
+  // The trend, not this morning's reading: a day's weight moves on water,
+  // food and where she is in her cycle, and reading that as progress — in
+  // either direction — is wrong about half the time.
+  const trend = weightTrend(history.map((h) => ({ date: h.date, weightKg: h.weightKg })), her);
+  const latest = trend.trendKg ?? history[0]?.weightKg ?? profile.startWeightKg;
   const current = weightOut(latest, u);
+  const rawLatest = weightOut(history[0]?.weightKg ?? null, u);
+  const weekly = weightOut(trend.weeklyChangeKg, u);
   const start = weightOut(profile.startWeightKg, u);
   const goal = weightOut(profile.goalWeightKg, u);
   const lost = start !== null && current !== null ? Math.round((start - current) * 10) / 10 : null;
@@ -72,15 +79,30 @@ export default async function ProgressPage() {
       <section className="card mb-3 p-5">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-faint">Current</p>
+            <p className="text-[11px] uppercase tracking-wide text-faint">
+              {trend.confidence === "none" ? "Current" : "Trend"}
+            </p>
             <p className="text-4xl font-bold tabular">
               {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
             </p>
+            {rawLatest !== null && trend.confidence !== "none" && (
+              <p className="mt-0.5 text-[12px] text-faint tabular">
+                last weigh-in {rawLatest} {unit}
+              </p>
+            )}
           </div>
           <div className="text-right">
             {lost !== null && lost !== 0 && (
               <p className={`text-lg font-semibold tabular ${lost > 0 ? "text-beat" : "text-muted"}`}>
                 {lost > 0 ? "−" : "+"}{Math.abs(lost)} {unit}
+              </p>
+            )}
+            {/* Deliberately silent when the data cannot support a direction:
+                a fortnightly weigher would otherwise be told she gained half a
+                kilo because she happened to weigh in bloated. */}
+            {weekly !== null && (
+              <p className="text-[12px] text-muted tabular">
+                {weekly === 0 ? "level" : `${weekly < 0 ? "−" : "+"}${Math.abs(weekly)} ${unit}`} this week
               </p>
             )}
             <p className="text-[12px] text-faint">
@@ -89,6 +111,13 @@ export default async function ProgressPage() {
           </div>
         </div>
 
+        {trend.confidence === "low" && trend.weighInsLast14Days > 0 && (
+          <p className="mt-3 text-[12px] leading-relaxed text-faint">
+            {trend.weighInsLast14Days} weigh-in{trend.weighInsLast14Days === 1 ? "" : "s"} in the last
+            fortnight — a few more and the trend can say which way it&rsquo;s going.
+          </p>
+        )}
+
         {pct !== null && (
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-raised">
             <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
@@ -96,7 +125,11 @@ export default async function ProgressPage() {
         )}
 
         <div className="mt-4">
-          <Sparkline points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)} goal={goal} />
+          <Sparkline
+            points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
+            trend={trend.series.map((p) => weightOut(p.trend, u)!)}
+            goal={goal}
+          />
         </div>
       </section>
 

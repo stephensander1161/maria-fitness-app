@@ -120,6 +120,21 @@ nulls as zeros always fails in the direction that reads as *her* failure —
 under-reported fibre, an invented deficit, a day she "barely ate". That is the
 worst possible direction for this particular app to be wrong in.
 
+## Weight is a trend, not a reading
+
+`lib/trend.ts`. Everything that talks about her weight over time talks about
+the EWMA, ten-day half-life, α derived from the *gap* between weigh-ins so a
+fortnight away does not let a stale reading keep its full weight. Raw numbers
+are still hers and still shown — dots behind the line on the sparkline, "last
+weigh-in" under the trend — but no screen and no sentence reads a single
+morning as progress.
+
+The second half is refusing to answer. `weeklyChangeKg` is **null** unless
+there are five weigh-ins in the last fortnight and one in the last three days;
+`confidence` says which. A fortnightly weigher told she gained half a kilo
+because she happened to weigh in bloated is the exact failure this app is
+built not to have.
+
 ## Context injected into the prompt
 
 `lib/agent/loop.ts` assembles a volatile state block (today's logged sets, the
