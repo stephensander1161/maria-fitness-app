@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, measurements, planDays, plans, profiles, setLogs, weighIns, workouts,
 } from "@/lib/db/schema";
-import { addDays, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
+import { addDays, dayIndex, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
@@ -306,7 +306,15 @@ export type WeekReview = {
   weekStart: ISODate;
   planned: number;
   completed: number;
+  /**
+   * Planned days with nothing logged against them *and the week not over*.
+   * Named "still to do" everywhere it is shown, because a count of failures is
+   * not what gets someone back in the gym on Thursday — and until Sunday
+   * night, a day she has not done yet is not a day she missed.
+   */
   missedDays: string[];
+  /** True once the week is over and they really are missed. */
+  weekOver: boolean;
   totalVolumeKg: number;
   totalSets: number;
   /** Exercises where this week beat, matched, or fell short of the week before. */
@@ -327,6 +335,8 @@ export async function weekReview(
   profileId: string,
   units: Units,
   week: ISODate = weekStart(),
+  /** Her today — decides which planned days have actually passed. */
+  asOf: ISODate = today(),
 ): Promise<WeekReview> {
   const weekEnd = addDays(week, 6);
   const prevWeek = addDays(week, -7);
@@ -364,8 +374,13 @@ export async function weekReview(
   // on title alone let one "Full body" session tick off both of them.
   const doneIds = new Set(done.map((w) => w.planDayId).filter((id): id is string => id !== null));
   const freeformTitles = new Set(done.filter((w) => w.planDayId === null).map((w) => w.title));
+  // Only days that have actually passed. Wednesday's session is not missed on
+  // Tuesday, and a screen that says it is has told her she is behind on
+  // something she is not behind on.
+  const todayIndex = asOf >= week && asOf <= weekEnd ? dayIndex(asOf) : 7;
   const missedDays = plannedDays
     .filter((d) => !doneIds.has(d.id) && !freeformTitles.has(d.title))
+    .filter((d) => d.dayOfWeek < todayIndex)
     .map((d) => d.title);
 
   // Compare each exercise trained this week against its previous outing.
@@ -401,6 +416,7 @@ export async function weekReview(
     planned: plannedDays.length,
     completed: done.length,
     missedDays,
+    weekOver: asOf > weekEnd,
     totalVolumeKg: totals?.volume ?? 0,
     totalSets: totals?.sets ?? 0,
     beat: comparisons.filter((c) => c.status === "beat").map((c) => c.headline),
@@ -807,7 +823,7 @@ export async function exerciseProgression(
           sets: sets.length,
           reps: sets.reduce((n, s) => n + s.reps, 0),
           topSet: weightOut(Math.max(...sets.map((s) => s.weightKg ?? 0)) || null, units),
-          volume: Math.round(volumeKg * (units === "imperial" ? 2.20462 : 1)),
+          volume: Math.round(units === "imperial" ? kgToLb(volumeKg) : volumeKg),
           e1rm: Math.round(e1rm(best.weightKg, best.reps) * 10) / 10,
         };
       });

@@ -98,7 +98,7 @@ export async function buildPageContext(
 
   // progress
   const [review, streak, sites, progression, eating] = await Promise.all([
-    weekReview(profileId, u),
+    weekReview(profileId, u, weekStart(profileToday(profile)), profileToday(profile)),
     currentStreak(profileId, profileToday(profile)),
     measurementProgress(profileId, u),
     exerciseProgression(profileId, u, { asOf: profileToday(profile) }),
@@ -145,7 +145,9 @@ export async function buildPageContext(
         ? " Do not infer anything about her eating from this — there is not enough logged."
         : ""),
     `This week: ${review.completed} of ${review.planned} sessions, ${review.totalSets} sets, ${streak}-day streak.`,
-    review.missedDays.length ? `Still to do this week: ${review.missedDays.join(", ")}.` : "",
+    review.missedDays.length
+      ? `${review.weekOver ? "Not done last week" : "Still to do this week"}: ${review.missedDays.join(", ")}.`
+      : "",
     sites.length
       ? `Measurements: ${sites.map((s) => `${s.label} ${s.current}${lengthLabel(u)}${s.changeTotal !== null ? ` (${s.changeTotal > 0 ? "+" : ""}${s.changeTotal} total)` : ""}`).join("; ")}.`
       : "No measurements yet.",

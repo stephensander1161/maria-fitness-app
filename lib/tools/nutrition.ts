@@ -79,16 +79,21 @@ export const createMealPlan = defineTool({
       },
     }).returning();
 
-    await db.delete(meals).where(eq(meals.mealPlanId, plan.id));
-    if (drafted.meals.length) {
-      await db.insert(meals).values(drafted.meals.map((m, i) => ({
-        mealPlanId: plan.id, dayOfWeek: m.dayOfWeek, slot: m.slot, title: m.title,
-        calories: m.calories, proteinG: m.proteinG,
-        carbsG: m.carbsG ?? null, fatG: m.fatG ?? null,
-        ingredients: m.ingredients ?? [], steps: m.steps ?? [],
-        prepMinutes: m.prepMinutes ?? null, sortOrder: i,
-      })));
-    }
+    // One transaction: a half-written week is a plan row with no meals, which
+    // renders as "no meal plan" while the targets say otherwise, and the
+    // error the tool returns does not put the old meals back.
+    await db.transaction(async (tx) => {
+      await tx.delete(meals).where(eq(meals.mealPlanId, plan.id));
+      if (drafted.meals.length) {
+        await tx.insert(meals).values(drafted.meals.map((m, i) => ({
+          mealPlanId: plan.id, dayOfWeek: m.dayOfWeek, slot: m.slot, title: m.title,
+          calories: m.calories, proteinG: m.proteinG,
+          carbsG: m.carbsG ?? null, fatG: m.fatG ?? null,
+          ingredients: m.ingredients ?? [], steps: m.steps ?? [],
+          prepMinutes: m.prepMinutes ?? null, sortOrder: i,
+        })));
+      }
+    });
 
     return {
       ok: true,

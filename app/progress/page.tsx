@@ -8,7 +8,7 @@ import {
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { WeighIn } from "@/components/weigh-in";
-import { prettyDate } from "@/lib/date";
+import { prettyDate, weekStart } from "@/lib/date";
 import { weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
 import { SignOut } from "@/components/sign-out";
@@ -38,7 +38,7 @@ export default async function ProgressPage() {
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
-    weekReview(profile.id, u),
+    weekReview(profile.id, u, weekStart(her), her),
     currentStreak(profile.id, her),
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
@@ -159,7 +159,7 @@ export default async function ProgressPage() {
         )}
         {review.missedDays.length > 0 && (
           <p className="mt-3 rounded-xl border border-hold/30 bg-hold-soft px-3 py-2 text-[13px] text-hold">
-            Still to do this week: {review.missedDays.join(", ")}
+            {review.weekOver ? "Not done last week" : "Still to do this week"}: {review.missedDays.join(", ")}
           </p>
         )}
         {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (

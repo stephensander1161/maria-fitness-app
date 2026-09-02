@@ -5,7 +5,7 @@ import {
   exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart, type ISODate } from "@/lib/date";
-import { weightIn, weightLabel, weightOut } from "@/lib/units";
+import { weightIn, weightLabel, weightOut, kgToLb, type Units } from "@/lib/units";
 import { compareToPrevious, exerciseHistory, lastTimeTargets, weekReview } from "@/lib/progress";
 import { planWeek, resolveSlugs } from "@/lib/agent/planner";
 import { weekView } from "@/lib/views";
@@ -138,34 +138,52 @@ export const createWeeklyPlan = defineTool({
       })
       .returning();
 
-    await db.delete(planDays).where(eq(planDays.planId, plan.id)); // cascades
+    // One transaction. Half a rebuild leaves her with a plan row and no days —
+    // a week that renders as empty — and the tool returning an error does not
+    // put the old one back.
+    await db.transaction(async (tx) => {
+      await tx.delete(planDays).where(eq(planDays.planId, plan.id)); // cascades
 
-    for (const day of drafted.days) {
-      const isRest = day.isRest ?? (day.exercises?.length ?? 0) === 0;
-      const [pd] = await db.insert(planDays).values({
-        planId: plan.id,
-        dayOfWeek: day.dayOfWeek,
-        // Derived when the planner leaves it out, rather than failing the week.
-        title: day.title ?? day.focus ?? (isRest ? "Rest" : "Training"),
-        focus: day.focus ?? null,
-        isRest,
-        notes: day.notes ?? null,
-      }).returning();
+      for (const day of drafted.days) {
+        const isRest = day.isRest ?? (day.exercises?.length ?? 0) === 0;
+        const [pd] = await tx.insert(planDays).values({
+          planId: plan.id,
+          dayOfWeek: day.dayOfWeek,
+          // Derived when the planner leaves it out, rather than failing the week.
+          title: day.title ?? day.focus ?? (isRest ? "Rest" : "Training"),
+          focus: day.focus ?? null,
+          isRest,
+          notes: day.notes ?? null,
+        }).returning();
 
-      const list = day.exercises ?? [];
-      if (list.length) {
-        await db.insert(planExercises).values(list.map((e, i) => ({
-          planDayId: pd.id,
-          exerciseId: bySlug.get(e.slug)!,
-          sortOrder: i,
-          targetSets: e.sets,
-          targetReps: e.reps,
-          targetWeightKg: e.weight === null || e.weight === undefined ? null : weightIn(e.weight, profile.units),
-          restSeconds: e.restSeconds ?? 90,
-          notes: e.notes ?? null,
-        })));
+        // Re-link the sessions she already did that day. planDayId is set null
+        // when the old day is deleted, and the week review then falls back to
+        // matching on title — so rebuilding a week mid-week made Monday and
+        // Tuesday, which she trained, come back as days she missed. The coach
+        // opening a turn by naming sessions she did not miss is the single
+        // worst thing this app can get wrong.
+        await tx.update(workouts)
+          .set({ planDayId: pd.id })
+          .where(and(
+            eq(workouts.profileId, ctx.profileId),
+            eq(workouts.date, addDays(week, day.dayOfWeek)),
+          ));
+
+        const list = day.exercises ?? [];
+        if (list.length) {
+          await tx.insert(planExercises).values(list.map((e, i) => ({
+            planDayId: pd.id,
+            exerciseId: bySlug.get(e.slug)!,
+            sortOrder: i,
+            targetSets: e.sets,
+            targetReps: e.reps,
+            targetWeightKg: e.weight === null || e.weight === undefined ? null : weightIn(e.weight, profile.units),
+            restSeconds: e.restSeconds ?? 90,
+            notes: e.notes ?? null,
+          })));
+        }
       }
-    }
+    });
 
     return {
       ok: true,
@@ -472,7 +490,7 @@ export const finishWorkout = defineTool({
     return {
       ok: true, date, title: w.title,
       totalSets: logged.length,
-      totalVolume: Math.round(logged.reduce((n, l) => n + (l.weightKg ?? 0) * l.reps, 0) * (units === "imperial" ? 2.20462 : 1)),
+      totalVolume: volumeIn(logged.reduce((n, l) => n + (l.weightKg ?? 0) * l.reps, 0), units),
       unit: weightLabel(units),
       beat: comparisons.filter((c) => c.status === "beat").map((c) => c.headline),
       matched: comparisons.filter((c) => c.status === "matched").map((c) => c.headline),
@@ -497,7 +515,7 @@ export const getExerciseHistory = defineTool({
       trend: cmp.status, summary: cmp.headline,
       sessions: history.map((h) => ({
         date: h.date, totalReps: h.totalReps,
-        volume: Math.round(h.volumeKg * (units === "imperial" ? 2.20462 : 1)),
+        volume: volumeIn(h.volumeKg, units),
         sets: h.sets.map((s) => ({ reps: s.reps, weight: weightOut(s.weightKg, units), rpe: s.rpe })),
       })),
     };
@@ -507,21 +525,29 @@ export const getExerciseHistory = defineTool({
 export const getWeekReview = defineTool({
   name: "get_week_review",
   description:
-    "The honest weekly report: sessions completed vs planned, which planned days were missed, total volume, which lifts improved, which went backwards, and the weight trend. Use this for check-ins, and always name the misses as well as the wins.",
+    "The honest weekly report: sessions completed vs planned, total volume, which lifts improved, which went backwards, and the weight trend. Use it for check-ins, and name what went well as well as what did not. `missedDays` only ever lists days that have already passed — while the week is still running they are days still to do, and `weekOver` says which it is. Calling Wednesday's session missed on Tuesday tells her she is behind on something she is not behind on.",
   input: z.object({ weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week") }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const r = await weekReview(ctx.profileId, units, input.weekStart ?? weekStart(await todayForProfile(ctx.profileId)));
+    const her = await todayForProfile(ctx.profileId);
+    const r = await weekReview(ctx.profileId, units, input.weekStart ?? weekStart(her), her);
     return {
       ...r,
-      totalVolume: Math.round(r.totalVolumeKg * (units === "imperial" ? 2.20462 : 1)),
+      totalVolume: volumeIn(r.totalVolumeKg, units),
       weightChange: weightOut(r.weightChangeKg, units),
       weightChangeMeans: "latest weigh-in this week vs the last one before the week began; null when either side is missing",
+      missedDaysMeans: r.weekOver
+        ? "planned days that were not trained — the week is over"
+        : "planned days already past with nothing logged; the rest of the week is still ahead of her",
       latestWeight: weightOut(r.latestWeightKg, units),
       unit: weightLabel(units),
     };
   },
 });
+
+/** Volume in her units. The bare 2.20462 literal was in five places. */
+const volumeIn = (kg: number, units: Units) =>
+  Math.round(units === "imperial" ? kgToLb(kg) : kg);
 
 /** Resolve the plan day for a date (or an explicit weekday) in one place. */
 async function planDayFor(

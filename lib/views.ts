@@ -5,7 +5,7 @@ import {
   workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
-import { weightLabel, weightOut, type Units } from "@/lib/units";
+import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
 import { shoppingListFor } from "@/lib/shopping-list";
@@ -115,7 +115,7 @@ export async function todayView(profileId: string, units: Units, date = today())
           .reverse()
           .map((h) => ({
             date: h.date,
-            volume: Math.round(h.volumeKg * (units === "imperial" ? 2.20462 : 1)),
+            volume: Math.round(units === "imperial" ? kgToLb(h.volumeKg) : h.volumeKg),
             topSet: h.bestSet?.weightKg == null ? null : weightOut(h.bestSet.weightKg, units),
             reps: h.totalReps,
           })),
