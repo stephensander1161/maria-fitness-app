@@ -137,6 +137,34 @@ nulls as zeros always fails in the direction that reads as *her* failure —
 under-reported fibre, an invented deficit, a day she "barely ate". That is the
 worst possible direction for this particular app to be wrong in.
 
+## What she burns is measured, not predicted
+
+`lib/expenditure.ts`. Mifflin-St Jeor set her first target and was wrong on day
+one — it is a population regression, not her — and it drifts as she loses
+weight. The check-in measures instead:
+
+    TDEE ≈ mean counted intake − (weight slope × 7700 kcal/kg)
+
+The weight side is a **least-squares slope** over her weigh-ins, not the
+difference between two of them and not the trend's endpoints: raw endpoints
+are a coin flip on water, and a moving average lags by design — measuring
+through the trend under-read a real 1775 kcal expenditure as 1607, which would
+have cut her target by 170 kcal for nothing.
+
+Four rails, and they matter more than the estimate:
+
+1. **Under-logging can never lower her target.** Under half the window counted,
+   or fewer than seven counted days, and it refuses outright.
+2. **Never below what she burns at rest.** Enforced inside
+   `set_nutrition_targets`, so no prompt and no screen can talk it lower.
+   Sustained low energy availability costs bone density and menstrual function.
+3. **Rate capped** at ~0.75% of body weight a week.
+4. **Smoothed** 30% toward the measurement, so one heavy week does not whip
+   the target around.
+
+It only ever *proposes*. Accepting is a separate call, because an app that
+silently moves the number she eats to is one she stops trusting.
+
 ## Weight is a trend, not a reading
 
 `lib/trend.ts`. Everything that talks about her weight over time talks about

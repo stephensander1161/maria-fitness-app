@@ -19,6 +19,8 @@ export const TOOL_LABELS: Record<string, string> = {
   delete_set: "taking that set off", correct_set: "correcting that set",
   finish_workout: "wrapping up", get_exercise_history: "looking up your history",
   get_week_review: "reviewing your week", create_meal_plan: "planning your meals",
+  run_check_in: "working out what you actually burn",
+  set_nutrition_targets: "updating your targets",
   get_meal_plan: "checking your meals", swap_meal: "swapping that meal",
   get_meal_recipe: "writing out the recipe",
   log_meal: "logging your meal", update_meal_log: "correcting that entry",

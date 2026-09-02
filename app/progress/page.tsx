@@ -15,6 +15,7 @@ import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
 import { PlanSetupButton } from "@/components/plan-setup";
+import { CheckIn } from "@/components/check-in";
 import { TranscriptExport } from "@/components/transcript-export";
 import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
@@ -134,6 +135,7 @@ export default async function ProgressPage() {
       </section>
 
       <NutritionTrendCard trend={eating} />
+      <CheckIn />
 
       <Measurements sites={sites} unit={lengthLabel(u)} />
 
