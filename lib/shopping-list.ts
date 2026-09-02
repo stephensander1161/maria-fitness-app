@@ -6,9 +6,9 @@
  * screen all shop from this same list. It lives outside lib/tools/ so that
  * none of them has to import another.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { foods, mealPlans, meals } from "@/lib/db/schema";
+import { foods, mealPlans, meals, shoppingExtras } from "@/lib/db/schema";
 import { weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { aggregateIngredients, type ShoppingItem } from "@/lib/shopping";
@@ -39,14 +39,32 @@ export async function shoppingListFor(
   const week = input.weekStart ?? weekStart(await todayForProfile(profileId));
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
-  if (!plan) return { exists: false, weekStart: week };
 
-  const rows = await db.select().from(meals).where(eq(meals.mealPlanId, plan.id));
+  const rows = plan
+    ? await db.select().from(meals).where(eq(meals.mealPlanId, plan.id))
+    : [];
   const wanted = input.fromDayOfWeek === undefined
     ? rows
     : rows.filter((m) => m.dayOfWeek >= input.fromDayOfWeek!);
 
-  const items = aggregateIngredients(wanted.flatMap((m) => m.ingredients));
+  // Things no meal asked for — coffee, loo roll — added by hand, either for
+  // this week or standing. Aggregated with the rest so they add up the same
+  // way and reach Instacart with everything else.
+  const extras = await db.select({ item: shoppingExtras.item })
+    .from(shoppingExtras)
+    .where(and(
+      eq(shoppingExtras.profileId, profileId),
+      or(isNull(shoppingExtras.weekStart), eq(shoppingExtras.weekStart, week)),
+    ));
+
+  const items = aggregateIngredients([
+    ...wanted.flatMap((m) => m.ingredients),
+    ...extras.map((e) => e.item),
+  ]);
+
+  // No plan and nothing added by hand is genuinely no list. No plan but "add
+  // coffee" is a list of one, and dropping it would make the tool look broken.
+  if (!plan && items.length === 0) return { exists: false, weekStart: week };
 
   // Aisle comes from the food library, so it is the same categorisation the
   // calculator uses rather than a second list to keep in step.

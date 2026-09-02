@@ -228,6 +228,21 @@ itself, and the screen makes a second call to `create_meal_plan`. **Two planner
 calls in one request blow the 60-second function limit** — she ends up on a
 spinner with half a plan.
 
+## Everything can be undone
+
+Almost every table could be written to and not corrected, so the coach's
+honest answer to "delete that, it was a mistake" was no — and a coach that
+refuses a reasonable request about her own data is one she stops asking.
+`lib/tools/corrections.ts` holds the undo half: sets, sessions, weigh-ins,
+measurements, meals, milestones, photos, whole date ranges, and the
+conversation itself.
+
+Rules for anything that destroys data: scope it to her profile **in the query
+itself**, call `audit()`, and lead the description with what it *does* — a
+delete tool that opens with "Permanently removes…" reads as a refusal, which
+is how `set_coach_budget` came to answer "I don't have control over that"
+while holding the tool.
+
 ## The coach is not a place
 
 There is no Coach tab. `components/coach-bubble.tsx` floats on every screen

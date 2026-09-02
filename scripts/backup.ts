@@ -17,8 +17,8 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
   factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
-  pantryItems, photos, planDays, planExercises, plans, profiles, setLogs, usageDaily,
-  weighIns, workouts,
+  pantryItems, photos, planDays, planExercises, plans, profiles, setLogs, shoppingExtras,
+  usageDaily, weighIns, workouts,
 } from "@/lib/db/schema";
 
 // Order matters for restore: parents before children.
@@ -26,7 +26,7 @@ const TABLES = {
   profiles, weighIns, measurements, goals, photos,
   plans, planDays, planExercises,
   workouts, setLogs,
-  mealPlans, meals, mealLogs, pantryItems,
+  mealPlans, meals, mealLogs, pantryItems, shoppingExtras,
   messages, feedback, factViews, usageDaily,
 } as const;
 

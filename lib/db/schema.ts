@@ -105,6 +105,26 @@ export const profiles = pgTable("profiles", {
 });
 
 /**
+ * Things to buy that no meal asked for — coffee, loo roll, her husband's
+ * cereal. The shopping list is generated from the week's meals, so without
+ * this "add coffee to the list" was a flat refusal, and the Instacart cart
+ * went out missing half the shop.
+ */
+export const shoppingExtras = pgTable(
+  "shopping_extras",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** Free text, as she said it: "coffee", "2 tins tomatoes". */
+    item: text("item").notNull(),
+    /** Null keeps it on every week's list until she takes it off. */
+    weekStart: date("week_start"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("shopping_extras_profile").on(t.profileId, t.weekStart)],
+);
+
+/**
  * What is actually in her kitchen.
  *
  * The point is to know when something runs out: planned meals take from it as
@@ -726,4 +746,5 @@ export type Measurement = typeof measurements.$inferSelect;
 export type Photo = typeof photos.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;
 export type PantryItem = typeof pantryItems.$inferSelect;
+export type ShoppingExtra = typeof shoppingExtras.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;
