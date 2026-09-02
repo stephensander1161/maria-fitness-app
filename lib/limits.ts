@@ -66,6 +66,12 @@ export async function recordUsage(
   pricing?: Pricing,
   profileId?: string,
 ) {
+  // Eval spend is explicitly nobody's — the schema says so, and the ceiling
+  // deliberately ignores it. Attributing it to the throwaway profile the
+  // harness creates meant the row cascaded away when that profile was deleted
+  // at the end of the run: the money was spent, and the ledger showed $0.00.
+  const owner = source === "eval" ? null : profileId;
+
   if (source === "app" && !profileId) {
     // Not fatal — the spend is real and must still be recorded — but it means
     // some path is spending without an owner, and todaySpend counts these
@@ -75,7 +81,7 @@ export async function recordUsage(
   const row = {
     date: today(),
     source,
-    profileId: profileId ?? null,
+    profileId: owner ?? null,
     requests: 1,
     inputTokens: usage.input_tokens ?? 0,
     outputTokens: usage.output_tokens ?? 0,

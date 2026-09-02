@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { PRICING } from "@/lib/agent/model";
 import { LIMITS, clientIp, costMicros } from "@/lib/limits";
@@ -265,5 +266,21 @@ describe("identifying the caller for rate limiting", () => {
   it("bounds the length so a huge header cannot bloat the bucket key", () => {
     const long = "9".repeat(5000);
     expect(clientIp(req({ "x-real-ip": long }).valueOf() as Request).length).toBeLessThanOrEqual(45);
+  });
+});
+
+/**
+ * Spend that vanishes from the ledger is worse than spend that is merely
+ * unattributed: `todaySpend` reads the ledger, and the daily cap is computed
+ * from what it finds.
+ */
+describe("eval spend belongs to nobody, on purpose", () => {
+  it("is recorded unattributed, so deleting the probe profile cannot erase it", () => {
+    // The eval harness creates a throwaway profile and deletes it at the end.
+    // usage_daily.profileId cascades, so attributing eval usage to that profile
+    // meant the row went with it — the run reported $0.0000 for a run that had
+    // just spent real money.
+    const src = fs.readFileSync("lib/limits.ts", "utf8");
+    expect(src).toMatch(/source === "eval" \? null : profileId/);
   });
 });
