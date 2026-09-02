@@ -29,7 +29,7 @@ export const TOOL_LABELS: Record<string, string> = {
   suggest_meals: "looking for something different", suggest_exercises: "finding you options",
   get_shopping_list: "building your shopping list",
   get_pantry: "checking your kitchen", add_to_pantry: "putting the shopping away",
-  set_pantry_item: "updating your kitchen", remove_pantry_item: "clearing that off the shelf",
+  set_pantry_item: "updating your kitchen", clear_pantry: "clearing your kitchen", remove_pantry_item: "clearing that off the shelf",
   mark_shopping_bought: "putting the shopping away",
   run_plan_setup: "setting up your plan", skip_plan_setup: "putting that away",
   send_shopping_list_to_instacart: "sending your list to Instacart",

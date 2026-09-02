@@ -2,22 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
-import { Composer, Suggestions, ThreadMessages } from "./coach-thread";
+import { Composer, ThreadMessages } from "./coach-thread";
 import { Boost } from "./boost";
 import { FeedbackGlyph, FeedbackSheet } from "./feedback";
-
-const OPENERS = [
-  "What am I doing today?",
-  "How did last week go?",
-  "I want to change my plan",
-  "What should I eat today?",
-];
 
 export function Coach({ initialName }: { initialName: string | null }) {
   const {
     messages, setMessages, streaming, activity, busy, error, input, setInput, stream, send,
   } = useCoachThread();
-  const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
@@ -42,7 +34,6 @@ export function Coach({ initialName }: { initialName: string | null }) {
         const data = await res.json();
         if (cancelled) return;
         setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
-        setLoaded(true);
         if (data.messages.length === 0 && !kicked.current) {
           kicked.current = true;
           void stream({ kickoff: true });
@@ -52,7 +43,6 @@ export function Coach({ initialName }: { initialName: string | null }) {
         // fetch rejected, nothing was caught, and she got "Hey, Maria" over an
         // empty screen with her history apparently gone. Say so instead.
         if (cancelled) return;
-        setLoaded(true);
         setLoadFailed(true);
       }
     })();
@@ -114,12 +104,6 @@ export function Coach({ initialName }: { initialName: string | null }) {
         )}
         <div ref={bottom} />
       </div>
-
-      {loaded && messages.length > 0 && !busy && (
-        <div className="-mx-4 mt-4 px-4">
-          <Suggestions items={OPENERS} onPick={send} busy={busy} />
-        </div>
-      )}
 
       {/* Keeps the last message and the openers clear of the fixed composer. */}
       <div className="h-16" aria-hidden="true" />

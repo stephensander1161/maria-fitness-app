@@ -51,6 +51,7 @@ const all: Tool[] = [
   nutrition.getMealPlan,
   nutrition.getMealRecipe,
   pantry.getPantry,
+  pantry.clearPantry,
   pantry.addToPantry,
   pantry.setPantryItem,
   pantry.removePantryItem,

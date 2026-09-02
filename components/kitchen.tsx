@@ -21,6 +21,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const { items, missing, unknownFor } = pantry;
 
@@ -124,6 +125,38 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {items.length > 0 && (
+            <div className="flex items-center justify-end gap-2">
+              {confirmClear ? (
+                <>
+                  <span className="mr-auto text-[12px] text-muted">
+                    Empty the whole kitchen? Everything goes back on the shopping list.
+                  </span>
+                  <button
+                    onClick={() => setConfirmClear(false)}
+                    className="rounded-lg border border-line px-3 py-2 text-[12px] text-muted"
+                  >
+                    Keep it
+                  </button>
+                  <button
+                    onClick={() => { setConfirmClear(false); void run("clear_pantry", {}, "Couldn't clear that."); }}
+                    disabled={busy}
+                    className="rounded-lg border border-miss/50 bg-miss-soft px-3 py-2 text-[12px] text-miss disabled:opacity-40"
+                  >
+                    Empty it
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="text-[12px] text-faint underline underline-offset-2"
+                >
+                  Start fresh
+                </button>
+              )}
+            </div>
           )}
 
           <form

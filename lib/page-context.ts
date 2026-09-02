@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { profiles } from "@/lib/db/schema";
+import { exercises, profiles } from "@/lib/db/schema";
 import {
   currentStreak, exerciseProgression, nutritionTrend, weekReview, measurementProgress,
 } from "@/lib/progress";
@@ -165,3 +165,55 @@ export const OPINION_PROMPT: Record<OpinionPage, string> = {
 };
 
 export const dayName = (i: number) => DAY_NAMES[i];
+
+/**
+ * What she is looking at, from the path she is on.
+ *
+ * The browser says *which* screen; the server reads what is on it. That
+ * division is the whole security of this: a client that could author the
+ * context could put words in the app's mouth, and the coach believes this
+ * block completely.
+ *
+ * Returns null where there is nothing worth saying — an unknown path, or a
+ * screen whose contents the coach already has in its state block.
+ */
+export async function contextForPath(
+  profileId: string,
+  path: string,
+): Promise<{ label: string; context: string } | null> {
+  const clean = path.split("?")[0].replace(/\/$/, "") || "/";
+
+  if (clean === "/train") {
+    return { label: "today's workout", context: await buildPageContext(profileId, "train") };
+  }
+  if (clean === "/plan") {
+    return { label: "this week's plan", context: await buildPageContext(profileId, "plan") };
+  }
+  if (clean === "/progress") {
+    return { label: "her progress", context: await buildPageContext(profileId, "progress") };
+  }
+  if (clean === "/learn") {
+    return { label: "the movement library", context: "She is browsing the movement library." };
+  }
+
+  const move = clean.match(/^\/learn\/([a-z0-9-]+)$/);
+  if (move) {
+    // Looked up by exact slug, so the path cannot smuggle text into the prompt.
+    const [ex] = await db.select({
+      name: exercises.name, category: exercises.category,
+      muscles: exercises.primaryMuscles, equipment: exercises.equipment,
+      safetyNote: exercises.safetyNote,
+    }).from(exercises).where(eq(exercises.slug, move[1])).limit(1);
+    if (!ex) return null;
+    return {
+      label: `the ${ex.name} page`,
+      context: [
+        `She is reading the guide for ${ex.name} (slug: ${move[1]}).`,
+        `Works ${ex.muscles.join(", ")}. Equipment: ${ex.equipment.join(", ") || "none"}.`,
+        ex.safetyNote ? `Safety note on the page: ${ex.safetyNote}` : "",
+      ].filter(Boolean).join("\n"),
+    };
+  }
+
+  return null;
+}

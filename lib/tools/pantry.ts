@@ -9,6 +9,7 @@ import {
 } from "@/lib/pantry";
 import { pantryNeeds, pantryStock } from "@/lib/views";
 import { shoppingListFor } from "@/lib/shopping-list";
+import { audit } from "@/lib/audit";
 import { parseIngredientLine } from "@/lib/shopping";
 import { defineTool } from "./define";
 
@@ -177,6 +178,48 @@ export const removePantryItem = defineTool({
       inArray(pantryItems.id, wanted.map((r) => r.id)),
     ));
     return { ok: true, removed: item, lines: wanted.length };
+  },
+});
+
+export const clearPantry = defineTool({
+  name: "clear_pantry",
+  description:
+    "Empties her kitchen list, or removes several items at once when `items` is given. Use it when she wants to start the kitchen fresh or has cleared the cupboards out — it is her list and hers to reset, so do it when she asks and tell her what it removed. Nothing else is touched: her meal plan, her shopping list and everything she has logged are untouched, and the shopping list simply goes back to asking for everything the week needs.",
+  input: z.object({
+    items: z.array(z.string()).optional()
+      .describe("Only these, by name. Omit to empty the kitchen entirely."),
+  }),
+  handler: async (input, ctx) => {
+    const rows = await db.select({ id: pantryItems.id, item: pantryItems.item })
+      .from(pantryItems).where(eq(pantryItems.profileId, ctx.profileId));
+    if (rows.length === 0) return { ok: true, removed: 0, hint: "Her kitchen list was already empty." };
+
+    const wanted = input.items
+      ? (() => {
+          const names = new Set(input.items.map(normaliseItem));
+          return rows.filter((r) => names.has(normaliseItem(r.item)));
+        })()
+      : rows;
+    if (wanted.length === 0) return { ok: false, error: "None of those are in her kitchen." };
+
+    await db.delete(pantryItems).where(and(
+      eq(pantryItems.profileId, ctx.profileId),
+      inArray(pantryItems.id, wanted.map((r) => r.id)),
+    ));
+
+    // Deleting her data is audited wherever it happens. Count only — what she
+    // keeps in her kitchen stays out of the log.
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "pantry", items: wanted.length },
+    });
+
+    return {
+      ok: true,
+      removed: wanted.length,
+      hint: wanted.length === rows.length
+        ? "The kitchen is empty. Everything the week's meals need is back on her shopping list."
+        : `${rows.length - wanted.length} items left in her kitchen.`,
+    };
   },
 });
 
