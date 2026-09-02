@@ -292,6 +292,21 @@ server loop, because the two copies had drifted twenty tools apart.
 `tests/accessibility.test.ts` enforces the first four, including the contrast
 ratios, computed from the tokens rather than eyeballed.
 
+## Three voices, one set of rules
+
+`profiles.coach_tone` picks the register — encouraging, plain, or gym-floor —
+and `VOICE` in `lib/agent/system.ts` swaps that section of the persona. It
+sits inside the cached half, so it stays cacheable and changing it invalidates
+the cache exactly once.
+
+A voice may change how something is said. It may not change **what is true**:
+the non-negotiables, whether a number is reported honestly, whether pain is
+worked around, whether a bad week is treated as a character flaw. A blunt
+coach says "that was down on last week, here's why"; it never says "no
+excuses". `tests/system-prompt.test.ts` asserts every tone still carries the
+non-negotiables and that no voice licenses shaming her — the fun voice to
+write is exactly the one that quietly turns into shame.
+
 ## Accounts
 
 `users` holds accounts; `profiles` holds training data, one per account. The

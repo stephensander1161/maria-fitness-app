@@ -91,6 +91,8 @@ export const updateProfile = defineTool({
     dietaryRestrictions: z.array(z.string()).optional(),
     dislikedFoods: z.array(z.string()).optional(),
     cookingSkill: z.enum(["minimal", "comfortable", "keen"]).optional(),
+    coachTone: z.enum(["encouraging", "plain", "hype"]).optional()
+      .describe("How she wants you to talk: 'encouraging' warm and steady, 'plain' direct and short, 'hype' loud gym-floor energy. Change it the moment she reacts to your tone — 'stop being so chirpy', 'you're a bit flat' — rather than adjusting on your own and drifting back."),
     units: z.enum(["imperial", "metric"]).optional()
       .describe("Body units: lb and feet/inches, or kg and cm"),
     foodUnits: z.enum(["imperial", "metric", "same"]).optional()
@@ -115,6 +117,7 @@ export const updateProfile = defineTool({
     if (input.currentWeight !== undefined) patch.startWeightKg = p.startWeightKg ?? weightIn(input.currentWeight, u);
     if (input.startWeight !== undefined) patch.startWeightKg = weightIn(input.startWeight, u);
     if (input.timezone !== undefined) patch.timezone = input.timezone;
+    if (input.coachTone !== undefined) patch.coachTone = input.coachTone;
     if (input.goalWeight !== undefined) patch.goalWeightKg = weightIn(input.goalWeight, u);
     if (input.goalDate !== undefined) patch.goalDate = input.goalDate;
     if (input.motivation !== undefined) patch.motivation = input.motivation;

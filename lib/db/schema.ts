@@ -77,6 +77,13 @@ export const profiles = pgTable("profiles", {
   dietaryRestrictions: jsonb("dietary_restrictions").$type<string[]>().default([]).notNull(),
   dislikedFoods: jsonb("disliked_foods").$type<string[]>().default([]).notNull(),
   cookingSkill: text("cooking_skill", { enum: ["minimal", "comfortable", "keen"] }),
+  /**
+   * How the coach talks. Voice only: every rule it works to is the same in
+   * all three, because the difference between an encouraging coach and a
+   * blunt one is register, not whether it tells her the truth.
+   */
+  coachTone: text("coach_tone", { enum: ["encouraging", "plain", "hype"] })
+    .default("plain").notNull(),
   /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
   /** How her food is measured — portions, ingredients, oven temperatures.

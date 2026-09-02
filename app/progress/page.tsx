@@ -14,6 +14,7 @@ import { profileToday } from "@/lib/profile";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
+import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
 import { CheckIn } from "@/components/check-in";
 import { TranscriptExport } from "@/components/transcript-export";
@@ -214,6 +215,7 @@ export default async function ProgressPage() {
           cookingSkill: profile.cookingSkill,
         }}
       />
+      <CoachTone tone={profile.coachTone} />
       <UnitsSettings units={u} foodUnits={profile.foodUnits} />
       <TranscriptExport />
       <CoachBudget usage={usage as Usage} />
