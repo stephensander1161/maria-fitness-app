@@ -17,6 +17,7 @@ import * as pantry from "./pantry";
 import * as checkIn from "./check-in";
 import * as corrections from "./corrections";
 import * as swaps from "./swaps";
+import * as deload from "./deload-tools";
 import * as setup from "./setup";
 import * as transcript from "./transcript";
 import * as shopping from "./shopping";
@@ -50,6 +51,8 @@ const all: Tool[] = [
   corrections.deleteProgressPhotos,
   corrections.clearRange,
   corrections.forgetConversation,
+  deload.checkProgressionStatus,
+  deload.scheduleDeload,
   swaps.suggestSubstitutes,
   swaps.substituteExercise,
   swaps.logComplaint,
