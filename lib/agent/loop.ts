@@ -9,6 +9,7 @@ import { profileToday } from "@/lib/profile";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
+import { cycleSignal } from "@/lib/tools/cycle-tools";
 import type { Profile } from "@/lib/db/schema";
 
 export type CoachEvent =
@@ -66,17 +67,19 @@ export async function* runCoach(
   // nothing — so it asks her to retype the session she just finished, which is
   // the exact failure todaySnapshot exists to prevent.
   const her = profileToday(profile);
-  const [snapshot, plan, milestones, recomp, weight, hurts] = await Promise.all([
+  const [snapshot, plan, milestones, recomp, weight, hurts, cycle] = await Promise.all([
     todaySnapshot(profile.id, profile.units, her),
     planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
     recompositionSignal(profile.id, profile.units),
     weightSignal(profile.id, profile.units, her),
     complaintSummary(profile.id),
+    cycleSignal(profile.id, her),
   ]);
   const system = buildSystem(
     profile,
-    [snapshot, plan, weight, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
+    [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, milestones, hurts,
+      recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
   );
 

@@ -105,6 +105,37 @@ export const profiles = pgTable("profiles", {
 });
 
 /**
+ * Her cycle, as a symptom record — not a prescription engine.
+ *
+ * Two jobs, and only two. It annotates the weight trend, so a kilo and a half
+ * of luteal fluid is explained rather than read as a gain — which is the
+ * single most common way this kind of app tells a woman she has failed at
+ * something she has not. And it lets *her* decide to move a session when she
+ * feels rough.
+ *
+ * It deliberately does **not** drive training. The apps that prescribe by
+ * phase — lift heavy in the follicular, back off in the luteal — are ahead of
+ * the evidence: the umbrella reviews find no reliable effect of cycle phase on
+ * strength performance or adaptation, and telling a beginner she is fragile on
+ * a schedule is a real cost for a benefit nobody has demonstrated. Performance
+ * tracks how she feels, which is why symptoms are what this stores.
+ */
+export const cycleEvents = pgTable(
+  "cycle_events",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    kind: text("kind", { enum: ["period_start", "period_end", "symptom"] }).notNull(),
+    /** Free text, hers: "cramps", "wiped out", "everything hurts". */
+    symptoms: jsonb("symptoms").$type<string[]>().default([]).notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("cycle_events_profile_date").on(t.profileId, t.date)],
+);
+
+/**
  * Something that hurts, in her words.
  *
  * A returning lifter's most likely reason to quit is a knee or a shoulder that
@@ -571,6 +602,16 @@ export const mealLogs = pgTable(
         not carry a fibre figure. Only the calculator can fill this honestly. */
     fibreG: integer("fibre_g"),
     /**
+     * How the figures were arrived at. A restaurant meal is a guess with a
+     * range around it, and saying so is what keeps her logging on the days
+     * tracking usually breaks — which are the days the expenditure engine
+     * most needs data for.
+     */
+    confidence: text("confidence", { enum: ["library", "estimated", "range"] }),
+    /** Set only for `range`: the honest bounds around `calories`. */
+    caloriesLow: integer("calories_low"),
+    caloriesHigh: integer("calories_high"),
+    /**
      * Idempotency, same reason as set_logs: a request that succeeds while the
      * response is lost is the normal shape of a dropped connection, and the
      * retry used to log the meal twice — and, for a planned meal, empty the
@@ -778,4 +819,5 @@ export type Feedback = typeof feedback.$inferSelect;
 export type PantryItem = typeof pantryItems.$inferSelect;
 export type ShoppingExtra = typeof shoppingExtras.$inferSelect;
 export type Complaint = typeof complaints.$inferSelect;
+export type CycleEvent = typeof cycleEvents.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;

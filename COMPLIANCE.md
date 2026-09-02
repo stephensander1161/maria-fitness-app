@@ -116,10 +116,19 @@ already there.
 
 ### Health data she volunteers
 
-Beyond weight, measurements and food, the app now stores what she reports as
+Beyond weight, measurements and food, the app stores what she reports as
 hurting (`complaints`: a body region in her own words, a 0-10 severity, and the
-movement that provoked it). It exists so the plan stops prescribing the thing
-that aggravates it, and it is used for exactly that.
+movement that provoked it) and, if she chooses to log it, her cycle
+(`cycle_events`: period start and end, and symptoms in her words). Both exist
+for narrow, stated purposes and are used for those only — the complaint log so
+the plan stops prescribing the thing that aggravates it, the cycle log so a
+fluid rise on the scale is explained rather than reported as a gain, and so she
+can decide to move a session.
+
+The cycle data is the most sensitive thing in this database after the progress
+photos. It is never used to prescribe training by phase — that is ahead of the
+evidence — and the coach is instructed never to raise the subject unless she
+does.
 
 - It never leaves the server except to Anthropic, in the same channel as the
   rest of the coaching context, and never to Instacart.

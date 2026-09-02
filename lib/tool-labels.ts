@@ -10,6 +10,7 @@
  */
 export const TOOL_LABELS: Record<string, string> = {
   get_profile: "reading your profile", update_profile: "saving your details",
+  log_cycle_event: "noting that down", get_cycle_status: "checking where you are in your cycle",
   log_weight: "logging your weigh-in", get_weight_history: "checking your weight trend",
   remove_weigh_in: "removing that weigh-in", delete_workout: "removing that session",
   remove_measurement: "removing that measurement",

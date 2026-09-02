@@ -230,7 +230,7 @@ export const getMealRecipe = defineTool({
 export const logMeal = defineTool({
   name: "log_meal",
   description:
-    "Record what she actually ate, planned or not. Estimate calories and protein when she describes food in words. Returns the day's running totals against target — no judgement, just the numbers.",
+    "Record what she actually ate, planned or not. Estimate calories and protein when she describes food in words. For a restaurant meal, a takeaway or anything you genuinely cannot pin down, pass caloriesLow and caloriesHigh instead of pretending to a single number — the midpoint is logged, the range travels with it, and she is told it is an estimate. That is what keeps her logging on the days tracking usually breaks. Returns the day's running totals against target — no judgement, just the numbers.",
   input: z.object({
     slot: slotEnum,
     description: z.string(),
@@ -240,6 +240,9 @@ export const logMeal = defineTool({
     fatG: z.number().optional(),
     fibreG: z.number().optional()
       .describe("Only when you actually know it — from lookup_food, not a guess. Omitting it is correct and expected; a wrong figure here is worse than none."),
+    caloriesLow: z.number().optional()
+      .describe("Lower bound for a meal you cannot pin down — a restaurant plate, a friend's cooking. Pass the upper bound too."),
+    caloriesHigh: z.number().optional(),
     mealId: z.string().optional().describe("If she ate the planned meal, pass its id"),
     date: z.string().optional(),
     clientKey: z.string().optional().describe(
@@ -259,9 +262,21 @@ export const logMeal = defineTool({
     const [row] = await db.insert(mealLogs).values({
       profileId: ctx.profileId, date, slot: input.slot, mealId: input.mealId ?? null,
       description: input.description,
-      calories: input.calories ?? null, proteinG: input.proteinG ?? null,
+      // A range logs its midpoint — the honest single number when the truth is
+      // "somewhere between" — and keeps the bounds so nothing downstream
+      // presents it as precise.
+      calories: input.calories
+        ?? (input.caloriesLow !== undefined && input.caloriesHigh !== undefined
+          ? Math.round((input.caloriesLow + input.caloriesHigh) / 2)
+          : null),
+      proteinG: input.proteinG ?? null,
       carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
       fibreG: input.fibreG ?? null,
+      confidence: input.caloriesLow !== undefined && input.caloriesHigh !== undefined
+        ? "range"
+        : input.calories !== undefined ? "estimated" : null,
+      caloriesLow: input.caloriesLow ?? null,
+      caloriesHigh: input.caloriesHigh ?? null,
       clientKey: input.clientKey ?? null,
     }).onConflictDoNothing({ target: mealLogs.clientKey }).returning();
 
@@ -325,6 +340,9 @@ export const logMeal = defineTool({
       fibreUnknownForItems: fibre.unknownFor,
       /** Ingredients taken out of her kitchen by logging this, if any. */
       pantryLinesUpdated: kitchen?.touched ?? 0,
+      loggedAs: row.confidence === "range"
+        ? `${row.caloriesLow}–${row.caloriesHigh} kcal, logged at the midpoint`
+        : undefined,
     };
   },
 });
