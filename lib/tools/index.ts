@@ -14,6 +14,7 @@ import * as foodTools from "./foods";
 import * as photos from "./photos";
 import * as pantry from "./pantry";
 import * as setup from "./setup";
+import * as transcript from "./transcript";
 import * as shopping from "./shopping";
 
 /**
@@ -58,6 +59,7 @@ const all: Tool[] = [
   pantry.markShoppingBought,
   setup.runPlanSetup,
   setup.skipPlanSetup,
+  transcript.exportTranscript,
   nutrition.getNutritionTrend,
   ideas.suggestExercises,
   ideas.suggestMeals,
@@ -78,6 +80,7 @@ const all: Tool[] = [
   nutrition.logMeal,
   training.logSet,
   profile.logWeight,
+  foodTools.searchIngredient,
   foodTools.searchFoodLibrary,
   training.searchExercises,
   budget.setCoachBudget,

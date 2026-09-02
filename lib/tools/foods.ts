@@ -8,7 +8,10 @@ import { MODEL, PRICING } from "@/lib/agent/model";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { matchScore, parsePortion, toGrams } from "@/lib/portion";
 import { foodUnitsFor } from "@/lib/profile";
-import { foodLines, gramsLabel } from "@/lib/food-units";
+import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
+import { normaliseItem } from "@/lib/pantry";
+import { pantryStock } from "@/lib/views";
+import { DAY_NAMES } from "@/lib/date";
 import { defineTool, type ToolContext } from "./define";
 
 /**
@@ -75,6 +78,80 @@ export const lookupFood = defineTool({
       return { found: false, error: `Nothing in the library matches "${portion.query}".` };
     }
     return estimate(input.query, ctx);
+  },
+});
+
+export const searchIngredient = defineTool({
+  name: "search_ingredient",
+  description:
+    "Everything about one ingredient at once: what it is (calories and macros), whether it is in her kitchen and how much, which of this week's planned meals use it, and what else she could make with it. Use it for 'do I have any chicken?', 'what can I do with these eggs?', 'is rice worth it?' — one call instead of four. Amounts come back in her food units, and a kitchen line that says 'some' means nobody has counted it, which is not the same as having none.",
+  input: z.object({
+    ingredient: z.string().describe("A food, e.g. 'chicken breast' or 'eggs'"),
+  }),
+  handler: async (input, ctx) => {
+    const term = input.ingredient.trim();
+    if (!term) return { query: term, error: "Nothing to look up." };
+
+    const fu = await foodUnitsFor(ctx.profileId);
+    const name = normaliseItem(term);
+
+    const [matches, stock, planned, recipes] = await Promise.all([
+      searchFoods(term, 4),
+      pantryStock(ctx.profileId),
+      // This week's meals that call for it, so she can see what it is *for*
+      // before deciding whether to buy or bin it.
+      db.select({
+        id: meals.id, title: meals.title, slot: meals.slot, dayOfWeek: meals.dayOfWeek,
+        calories: meals.calories, proteinG: meals.proteinG, weekStart: mealPlans.weekStart,
+      })
+        .from(meals)
+        .innerJoin(mealPlans, eq(meals.mealPlanId, mealPlans.id))
+        .where(and(
+          eq(mealPlans.profileId, ctx.profileId),
+          sql`${meals.ingredients}::text ilike ${`%${term.toLowerCase()}%`}`,
+        ))
+        .orderBy(meals.dayOfWeek)
+        .limit(8),
+      findRecipes.handler({ ingredient: term, limit: 4 }, ctx) as Promise<{
+        recipes: { title: string; slot: string; onHerPlan: boolean; calories: number; proteinG: number; prepMinutes: number | null }[];
+      }>,
+    ]);
+
+    const best = matches[0];
+    const mine = stock.filter((s) => normaliseItem(s.item) === name || normaliseItem(s.item).includes(name));
+
+    return {
+      query: term,
+      foodUnits: fu,
+      food: best
+        ? {
+            name: best.name,
+            category: best.category,
+            per100g: {
+              kcal: best.kcal, proteinG: best.proteinG, carbsG: best.carbsG,
+              fatG: best.fatG, fibreG: best.fibreG,
+            },
+            naturalUnit: best.unitGrams ? `${best.unitLabel} ≈ ${gramsLabel(best.unitGrams, fu)}` : null,
+            alsoCalled: matches.slice(1, 4).map((m) => m.name),
+          }
+        : null,
+      inKitchen: mine.map((s) => ({
+        item: s.item,
+        // Three states, never flattened: an amount, uncounted, or out.
+        amount: s.amount === null ? null : quantityLabel(s.amount, s.unit, fu),
+        counted: s.amount !== null,
+        out: s.amount === 0,
+      })),
+      /** Empty means it is not in the kitchen list at all — not that she is out. */
+      inKitchenMeaning: mine.length === 0
+        ? "Nothing by that name is in her kitchen list. That is not the same as being out — she may simply never have logged it."
+        : undefined,
+      plannedThisWeek: planned.map((m) => ({
+        mealId: m.id, dayName: DAY_NAMES[m.dayOfWeek], slot: m.slot, title: m.title,
+        calories: m.calories, proteinG: m.proteinG, weekStart: m.weekStart,
+      })),
+      couldMake: recipes.recipes.filter((r) => !r.onHerPlan).slice(0, 4),
+    };
   },
 });
 

@@ -14,6 +14,7 @@ import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
 import { PlanSetupButton } from "@/components/plan-setup";
+import { TranscriptExport } from "@/components/transcript-export";
 import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
 import { runTool } from "@/lib/tools";
@@ -170,6 +171,7 @@ export default async function ProgressPage() {
         }}
       />
       <UnitsSettings units={u} foodUnits={profile.foodUnits} />
+      <TranscriptExport />
       <CoachBudget usage={usage as Usage} />
 
       <SignOut />

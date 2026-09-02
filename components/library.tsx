@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ExerciseFigure } from "./exercise-figure";
+import { IngredientSearch } from "./ingredient-search";
 
 type Item = { slug: string; name: string; category: string; primaryMuscles: string[]; equipment: string[] };
 type FactItem = { id: string; category: string; text: string; source: string | null };
@@ -19,7 +20,7 @@ const FACT_LABELS: Record<string, string> = {
 };
 
 export function Library({ exercises, facts }: { exercises: Item[]; facts: FactItem[] }) {
-  const [tab, setTab] = useState<"moves" | "know">("moves");
+  const [tab, setTab] = useState<"moves" | "food" | "know">("moves");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("all");
 
@@ -59,8 +60,8 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1">
-        {([["moves", "Movements"], ["know", "Worth knowing"]] as const).map(([k, label]) => (
+      <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1">
+        {([["moves", "Movements"], ["food", "Food"], ["know", "Worth knowing"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`rounded-full py-2 text-[13px] font-medium transition-colors ${
               tab === k ? "bg-accent text-ink" : "text-muted"
@@ -69,6 +70,8 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
           </button>
         ))}
       </div>
+
+      {tab === "food" && <IngredientSearch />}
 
       {tab === "moves" ? (
         <>
@@ -133,7 +136,7 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
             </div>
           )}
         </>
-      ) : (
+      ) : tab === "know" ? (
         <div className="space-y-5">
           {byCategory.map(([cat, items]) => (
             <section key={cat}>
@@ -151,7 +154,7 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
             </section>
           ))}
         </div>
-      )}
+      ) : null}
     </>
   );
 }

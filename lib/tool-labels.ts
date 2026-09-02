@@ -24,6 +24,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_fact: "finding something worth knowing",
   lookup_food: "looking up the macros", find_recipes: "finding recipes",
   search_food_library: "searching the food library",
+  search_ingredient: "looking that ingredient up",
   get_nutrition_trend: "reviewing how you've been eating",
   get_recent_meals: "finding your usuals", remove_meal_log: "removing that entry",
   suggest_meals: "looking for something different", suggest_exercises: "finding you options",
@@ -44,6 +45,7 @@ export const TOOL_LABELS: Record<string, string> = {
   delete_progress_photo: "deleting that photo",
   get_boost: "finding you a boost", get_coach_usage: "checking your coach usage",
   set_coach_budget: "updating your spend limit",
+  export_transcript: "writing out your conversation",
   submit_feedback: "passing that on", list_feedback: "reading your feedback",
 };
 
