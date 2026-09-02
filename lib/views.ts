@@ -154,12 +154,19 @@ export type WeekView = {
   }[];
 };
 
-export async function weekView(profileId: string, units: Units, week = weekStart()): Promise<WeekView> {
+/**
+ * `asOf` is her today, not the server's. Only the caller knows her timezone,
+ * and "which day of this week is today" is the one thing on this screen that
+ * a server-side date gets wrong for a user who is ahead of it.
+ */
+export async function weekView(
+  profileId: string, units: Units, week = weekStart(), asOf: ISODate = today(),
+): Promise<WeekView> {
   const [plan] = await db.select().from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
   if (!plan) {
     return { weekStart: week, exists: false, title: "", rationale: null,
-      todayIndex: dayIndex(), unit: weightLabel(units), days: [] };
+      todayIndex: dayIndex(asOf), unit: weightLabel(units), days: [] };
   }
 
   const days = await db.select().from(planDays)
@@ -181,7 +188,7 @@ export async function weekView(profileId: string, units: Units, week = weekStart
     : [];
   return {
     weekStart: week, exists: true, title: plan.title, rationale: plan.rationale,
-    todayIndex: dayIndex(), unit: weightLabel(units),
+    todayIndex: dayIndex(asOf), unit: weightLabel(units),
     days: days.map((d) => ({
       dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek], title: d.title,
       focus: d.focus, isRest: d.isRest, notes: d.notes,
@@ -208,11 +215,13 @@ export type MealWeekView = {
 };
 
 /** `foodUnits` is her kitchen preference, not her body one — see lib/food-units.ts. */
-export async function mealWeekView(profileId: string, foodUnits: Units, week = weekStart()): Promise<MealWeekView> {
+export async function mealWeekView(
+  profileId: string, foodUnits: Units, week = weekStart(), asOf: ISODate = today(),
+): Promise<MealWeekView> {
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
   if (!plan) {
-    return { exists: false, weekStart: week, todayIndex: dayIndex(), foodUnits,
+    return { exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
       calorieTarget: 0, proteinTargetG: 0, rationale: null, days: [] };
   }
 
@@ -220,7 +229,7 @@ export async function mealWeekView(profileId: string, foodUnits: Units, week = w
     .where(eq(meals.mealPlanId, plan.id)).orderBy(asc(meals.dayOfWeek), asc(meals.sortOrder));
 
   return {
-    exists: true, weekStart: week, todayIndex: dayIndex(), foodUnits,
+    exists: true, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
     calorieTarget: plan.calorieTarget, proteinTargetG: plan.proteinTargetG,
     rationale: plan.rationale,
     days: DAY_NAMES.map((dayName, dow) => {

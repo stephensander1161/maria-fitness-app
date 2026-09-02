@@ -17,8 +17,8 @@ export default async function PlanPage() {
   const her = profileToday(profile);
 
   const [week, mealWeek, dayFood, usuals, mealIdeas, moveIdeas, shopping] = await Promise.all([
-    weekView(profile.id, profile.units),
-    mealWeekView(profile.id, foodUnitsOf(profile)),
+    weekView(profile.id, profile.units, weekStart(her), her),
+    mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
     dayFoodView(profile.id, her),
     recentMeals(profile.id, { from: her }),
     // Seeded here so the ideas tab opens with something in it. Both are

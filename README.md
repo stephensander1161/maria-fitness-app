@@ -42,6 +42,11 @@ lib/
 **Writes always go through the tool registry. Reads go through `lib/views.ts`.**
 Keeping that seam clean is what stops the agent and the UI from drifting apart.
 
+The chat is not a place, it is a component. Anywhere there is something to ask
+about — a movement in the library, an empty week, the coach's read on a screen
+— `<AskCoach>` puts the conversation there, in the same transcript the Coach
+tab shows. Nothing links back to the Coach tab to ask a question.
+
 ## Data model notes
 
 - Weights are stored in kilograms, all lengths (height and tape measurements)

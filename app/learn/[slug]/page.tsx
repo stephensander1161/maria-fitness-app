@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ExerciseFigure } from "@/components/exercise-figure";
+import { AskCoach } from "@/components/ask-coach";
 import { exercises } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -86,9 +87,19 @@ export default async function ExercisePage({ params }: { params: Promise<{ slug:
         </Section>
       )}
 
-      <Link href="/" className="mt-2 block rounded-xl border border-line bg-surface py-3.5 text-center text-[14px] text-muted">
-        Ask your coach about this movement
-      </Link>
+      {/* Right here, not on the Coach tab — leaving the page to ask about it
+          means arriving at a chat without the thing you were reading. */}
+      <AskCoach
+        title={`Ask your coach about the ${ex.name.toLowerCase()}`}
+        hint="Saved to your conversation"
+        placeholder={`Ask about the ${ex.name.toLowerCase()}…`}
+        suggestions={[
+          `How do I know I'm doing the ${ex.name.toLowerCase()} right?`,
+          `Should I be doing the ${ex.name.toLowerCase()}?`,
+          `Add the ${ex.name.toLowerCase()} to my plan`,
+          "What weight should I start with?",
+        ]}
+      />
     </>
   );
 }

@@ -1,0 +1,46 @@
+/**
+ * What to show her while a tool runs — "logging your set", not `log_set`.
+ *
+ * One map, imported by every surface that streams the coach: the chat, the
+ * inline threads, and the server loop. It lived in two places before, and the
+ * server's copy had quietly fallen twenty tools behind the browser's.
+ *
+ * tests/tool-coverage.test.ts fails the build if a registered tool is missing
+ * from here, because the fallback is a spinner that says nothing.
+ */
+export const TOOL_LABELS: Record<string, string> = {
+  get_profile: "reading your profile", update_profile: "saving your details",
+  log_weight: "logging your weigh-in", get_weight_history: "checking your weight trend",
+  set_goal: "setting a milestone", list_goals: "reviewing your goals",
+  achieve_goal: "marking a milestone hit", search_exercises: "searching exercises",
+  get_exercise_guide: "pulling up the form guide", create_weekly_plan: "building your week",
+  get_plan: "checking your plan", adjust_plan_day: "adjusting your plan",
+  start_workout: "starting your session", log_set: "logging your set",
+  finish_workout: "wrapping up", get_exercise_history: "looking up your history",
+  get_week_review: "reviewing your week", create_meal_plan: "planning your meals",
+  get_meal_plan: "checking your meals", swap_meal: "swapping that meal",
+  get_meal_recipe: "writing out the recipe",
+  log_meal: "logging your meal", get_day_nutrition: "totalling today's food",
+  get_fact: "finding something worth knowing",
+  lookup_food: "looking up the macros", find_recipes: "finding recipes",
+  search_food_library: "searching the food library",
+  get_nutrition_trend: "reviewing how you've been eating",
+  get_recent_meals: "finding your usuals", remove_meal_log: "removing that entry",
+  suggest_meals: "looking for something different", suggest_exercises: "finding you options",
+  get_shopping_list: "building your shopping list",
+  send_shopping_list_to_instacart: "sending your list to Instacart",
+  log_measurement: "saving your measurement", get_measurements: "checking your measurements",
+  get_measuring_guide: "pulling up the measuring guide",
+  get_exercise_progression: "tracking your progression",
+  add_exercise_to_day: "adding that to your day",
+  remove_exercise_from_day: "taking that off your day",
+  list_templates: "looking through the templates", suggest_template: "finding you a template",
+  apply_template: "setting up your plan",
+  add_progress_photo: "saving your photo", list_progress_photos: "finding your photos",
+  delete_progress_photo: "deleting that photo",
+  get_boost: "finding you a boost", get_coach_usage: "checking your coach usage",
+  set_coach_budget: "updating your spend limit",
+  submit_feedback: "passing that on", list_feedback: "reading your feedback",
+};
+
+export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");

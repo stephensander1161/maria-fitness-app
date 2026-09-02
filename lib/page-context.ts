@@ -8,7 +8,7 @@ import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
-import { DAY_NAMES } from "@/lib/date";
+import { DAY_NAMES, weekStart } from "@/lib/date";
 
 export type OpinionPage = "train" | "plan" | "progress";
 
@@ -54,9 +54,9 @@ export async function buildPageContext(
 
   if (page === "plan") {
     const [week, mealWeek, dayFood] = await Promise.all([
-      weekView(profileId, u),
-      mealWeekView(profileId, foodUnitsOf(profile)),
-      dayFoodView(profileId),
+      weekView(profileId, u, weekStart(profileToday(profile)), profileToday(profile)),
+      mealWeekView(profileId, foodUnitsOf(profile), weekStart(profileToday(profile)), profileToday(profile)),
+      dayFoodView(profileId, profileToday(profile)),
     ]);
     const training = week.exists
       ? week.days.map((d) =>

@@ -253,6 +253,51 @@ export async function planMeals(
   return { ...result, shortfalls };
 }
 
+const RECIPE_SYSTEM = `You write the recipe for a single meal in someone's meal plan, to be executed by an app.
+
+The meal already exists — its name, its calories and its protein are fixed and are not yours to change. Your job is only to say what goes in it and how to make it, so that a person standing in their kitchen can cook it without guessing.
+
+Ingredients are one per line with an amount, and together they must plausibly add up to the calories and protein given. Steps are short and in order, five or six at most. Respect every dietary restriction and disliked food, and match her cooking confidence — if it is minimal, that means assembly and shortcuts, not knife skills.`;
+
+export const recipeDraft = z.object({
+  ingredients: z.array(z.string())
+    .describe('One ingredient per line with its amount, e.g. "150g chicken breast"'),
+  steps: z.array(z.string()).describe("Short method steps in order"),
+  prepMinutes: z.number().optional().describe("Realistic hands-on time"),
+});
+
+/**
+ * Fill in a planned meal that arrived without a recipe.
+ *
+ * The week planner writes twenty-eight meals in one call and sometimes lands
+ * a few of them as a title and a macro line with nothing to cook from. Rather
+ * than showing her an empty panel and asking her to go and ask for it, the
+ * screen asks for it — once — and the answer is saved onto the meal, so the
+ * second look costs nothing.
+ */
+export async function writeRecipe(
+  profile: Profile,
+  meal: { title: string; slot: string; calories: number; proteinG: number; prepMinutes: number | null },
+  source: UsageSource = "app",
+) {
+  return draft(
+    "emit_recipe", "Emit the ingredients and method for this one meal.", recipeDraft,
+    RECIPE_SYSTEM,
+    [
+      await profileBrief(profile),
+      ``,
+      `Meal: ${meal.title} (${meal.slot}). It must come to about ${meal.calories} kcal and ${meal.proteinG}g protein`
+        + `${meal.prepMinutes ? `, in around ${meal.prepMinutes} minutes` : ""}.`,
+      ``,
+      // Stored metric like the rest of the food data; the app rewrites measures
+      // for her kitchen on the way out, so the planner never needs to know.
+      `Write ingredient amounts and oven temperatures in metric (g, ml, °C) — the app shows them in her units.`,
+    ].join("\n"),
+    source,
+    profile.id,
+  );
+}
+
 /** Resolve slugs, reporting any the planner invented despite the catalogue. */
 export async function resolveSlugs(slugs: string[]) {
   if (slugs.length === 0) return { bySlug: new Map<string, string>(), unknown: [] as string[] };

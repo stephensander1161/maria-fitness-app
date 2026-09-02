@@ -79,6 +79,13 @@ table has no tools, if the UI calls something outside the registry, or if a tool
 is hidden from the model without justification. Those tests are verified to
 actually fail when violated — don't weaken them to get a feature through.
 
+A screen may fire a model call by itself — the meal panel asks for a recipe the
+week planner left blank — but only through a tool, and only once: the tool
+writes the answer back with a conditional update (`where jsonb_array_length(
+steps) = 0`), so a second tap cannot overwrite a recipe she is already reading
+and the next open costs nothing. A screen that spends money every time it is
+opened is a screen that quietly empties her allowance.
+
 `uiOnly` takes the *reason*, not a boolean, and its allowlist is hard-coded in
 the test. The only current entry is `add_progress_photo`, because the model
 cannot produce a resized JPEG. "The UI does it" is not a reason — that is true
@@ -119,6 +126,23 @@ reported "6×8 @ 60lb" for a session ending in three sets at 95, and the coach
 correctly-but-wrongly told her she hadn't hit her milestone. If you add to that
 block, it must be exactly true, in her units, and labelled for what it is —
 planned targets read as achievements unless you say otherwise.
+
+## Asking the coach happens where the question is
+
+No screen sends her to the Coach tab to ask something. Every "ask about this"
+is an inline thread on the screen she is already on — `<AskCoach>` for a panel,
+`useCoachThread()` for the streaming state, `ThreadMessages`/`Composer` for the
+markup. It is all one conversation: an inline turn posts to the same transcript
+and is there on the Coach tab afterwards.
+
+Links to `/` were how this broke. She lost the page she was reading, landed in
+a chat with no idea what she had been about to ask, and mostly stopped asking.
+`tests/inline-coach.test.ts` fails the build on a new `href="/"`, on a
+`router.push("/")` outside sign-in, and on a component calling `streamCoach`
+instead of the shared hook.
+
+Activity labels live in `lib/tool-labels.ts` — one map for the browser and the
+server loop, because the two copies had drifted twenty tools apart.
 
 ## Accounts
 
@@ -172,7 +196,9 @@ document is worse than none, because it gets believed.
   nothing), so a planner call during a turn does not spend a second message
   from her allowance. The planner had `recordUsage` without a gate: spend went
   onto the ledger with nothing reading it back, and `/api/action` reaches every
-  registered tool, two of which plan a week with Sonnet.
+  registered tool, three of which call the planner model — two plan a week,
+  and `get_meal_recipe` writes a single recipe, fired automatically by the
+  meal screen the first time she opens a meal that has none.
 - `/api/action` is rate-limited per profile (`checkActionAllowed`). It has the
   same reach as the chat route and must never again have less protection.
 - If `COACH_MODEL` changes, `PRICING` in `lib/agent/model.ts` must change with

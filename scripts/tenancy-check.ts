@@ -115,6 +115,9 @@ async function main() {
     const bIds = await idsOf(b.profileId);
     const attempts: [string, Record<string, unknown>][] = [
       ["swap_meal", { mealId: bIds.mealId, title: "hijacked", calories: 1, proteinG: 1 }],
+      // Reads B's meal *and* writes to it, and a leak here would also spend
+      // her money drafting the recipe.
+      ["get_meal_recipe", { mealId: bIds.mealId }],
       ["log_meal", { slot: "dinner", description: "x", mealId: bIds.mealId }],
       ["remove_meal_log", { logId: bIds.logId }],
       ["achieve_goal", { goalId: bIds.goalId }],

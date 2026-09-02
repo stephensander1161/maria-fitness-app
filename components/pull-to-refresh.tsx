@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { action } from "@/lib/client";
 
 type Fact = { category: string; fact: string; source: string | null };
@@ -21,19 +21,28 @@ const MAX_PULL = 140;
  * prefetching one on every render would burn through the library showing her
  * nothing. Pulling is the moment she has actually asked for something to read.
  *
- * Once she lets go, the fact stays on screen as a card until she taps it or a
- * dozen seconds pass. It used to vanish with the indicator — a sentence she had
- * started reading, gone the moment her thumb lifted — and every fact shown is
- * recorded as seen, so one that vanished was also one she would never get back.
+ * Once she lets go, the fact settles into the top of the page as an ordinary
+ * card. It used to vanish with the indicator — a sentence she had started
+ * reading, gone the moment her thumb lifted — and every fact shown is recorded
+ * as seen, so one that vanished was also one she would never get back.
+ *
+ * It sits *in the page*, not over it: floating meant it followed her down the
+ * screen and covered whatever she scrolled to. Here it scrolls away like
+ * everything else, and it is gone when she leaves the page.
  */
-const LINGER_MS = 12_000;
 export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [fact, setFact] = useState<Fact | null>(null);
-  /** The fact after release — the card she can actually finish reading. */
-  const [lingering, setLingering] = useState<Fact | null>(null);
+  /**
+   * The fact after release — the card she can actually finish reading, tagged
+   * with the page it was pulled on. A fact belongs to that pull, not to the
+   * app: carried onto the next screen it would be a card she never asked for
+   * there.
+   */
+  const [lingering, setLingering] = useState<{ fact: Fact; path: string } | null>(null);
   // Kept in state, not a ref: the transition depends on it at render time,
   // and reading a ref there is exactly what React 19 forbids.
   const [dragging, setDragging] = useState(false);
@@ -52,7 +61,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       const f = await action<Fact>("get_fact");
       if (awaited.current) {
         awaited.current = false;
-        setLingering(f);
+        setLingering({ fact: f, path: pathname });
       } else {
         loaded.current = f;
         setFact(f);
@@ -62,13 +71,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       // reloads, it just does it quietly.
       awaited.current = false;
     }
-  }, []);
-
-  useEffect(() => {
-    if (!lingering) return;
-    const t = window.setTimeout(() => setLingering(null), LINGER_MS);
-    return () => window.clearTimeout(t);
-  }, [lingering]);
+  }, [pathname]);
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
@@ -114,7 +117,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       // Whatever was in the indicator moves to the card; if the fetch is still
       // in flight, the card gets it on arrival instead.
       const settle = () => {
-        if (loaded.current) setLingering(loaded.current);
+        if (loaded.current) setLingering({ fact: loaded.current, path: pathname });
         else if (asked.current) awaited.current = true;
         loaded.current = null;
         asked.current = false;
@@ -148,10 +151,11 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("touchcancel", onEnd);
     };
-  }, [loadFact, refreshing, router]);
+  }, [loadFact, pathname, refreshing, router]);
 
   const offset = refreshing ? THRESHOLD : pull;
   const ready = pull >= THRESHOLD;
+  const settled = lingering && lingering.path === pathname ? lingering.fact : null;
 
   return (
     <>
@@ -176,32 +180,28 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {lingering && (
-        <div
-          className="pointer-events-none fixed inset-x-0 top-0 z-40 px-4"
-          style={{ paddingTop: "max(env(safe-area-inset-top), 0.75rem)" }}
-        >
-          <button
-            onClick={() => setLingering(null)}
-            data-no-pull-to-refresh=""
-            aria-label="Dismiss"
-            className="pointer-events-auto mx-auto block w-full max-w-lg rounded-2xl border border-line bg-surface/95 px-4 py-3 text-left shadow-lg shadow-ink/40 backdrop-blur-xl"
-          >
-            <p className="text-[10px] uppercase tracking-wide text-accent">Did you know</p>
-            <p className="mt-1 text-[13px] leading-snug text-text">{lingering.fact}</p>
-            {lingering.source && (
-              <p className="mt-1 text-[11px] text-faint">{lingering.source}</p>
-            )}
-          </button>
-        </div>
-      )}
-
       <div
         style={{
           transform: `translateY(${offset}px)`,
           transition: dragging ? "none" : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
+        {settled && (
+          <div className="mx-auto w-full max-w-lg px-4 pt-4">
+            <button
+              onClick={() => setLingering(null)}
+              data-no-pull-to-refresh=""
+              aria-label="Dismiss"
+              className="block w-full rounded-2xl border border-line bg-surface px-4 py-3 text-left"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-accent">Did you know</p>
+              <p className="mt-1 text-[13px] leading-snug text-text">{settled.fact}</p>
+              {settled.source && (
+                <p className="mt-1 text-[11px] text-faint">{settled.source}</p>
+              )}
+            </button>
+          </div>
+        )}
         {children}
       </div>
     </>

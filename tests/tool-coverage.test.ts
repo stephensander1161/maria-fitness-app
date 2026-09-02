@@ -130,12 +130,13 @@ suite("tool registry", () => {
 });
 
 suite("every tool says what it is doing", () => {
-  // The coach shows LABELS[name] while a tool runs, falling back to "working".
+  // Every surface shows TOOL_LABELS[name] while a tool runs, falling back to
+  // "working".
   // Twenty-one tools had drifted onto that fallback without anyone noticing,
   // so she watched a generic spinner for most of what the coach actually does.
   it("gives every registered tool an activity label", () => {
-    const src = fs.readFileSync(path.join(process.cwd(), "components/coach.tsx"), "utf8");
-    const block = src.slice(src.indexOf("const LABELS"));
+    const src = fs.readFileSync(path.join(process.cwd(), "lib/tool-labels.ts"), "utf8");
+    const block = src.slice(src.indexOf("TOOL_LABELS"));
     // Not anchored to line start: labels are packed several to a line.
     const labelled = new Set([...block.matchAll(/(\w+):\s*"/g)].map((m) => m[1]));
 

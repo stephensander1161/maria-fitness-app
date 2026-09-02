@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { foods, mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
-import { planMeals } from "@/lib/agent/planner";
+import { planMeals, writeRecipe } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
 import { nutritionTrend } from "@/lib/progress";
@@ -29,12 +29,12 @@ const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
  * id. Every tool that takes a meal id resolves it through here.
  */
 async function herMeal(profileId: string, mealId: string) {
-  const [row] = await db.select({ id: meals.id })
+  const [row] = await db.select()
     .from(meals)
     .innerJoin(mealPlans, eq(meals.mealPlanId, mealPlans.id))
     .where(and(eq(meals.id, mealId), eq(mealPlans.profileId, profileId)))
     .limit(1);
-  return row ?? null;
+  return row?.meals ?? null;
 }
 
 export const createMealPlan = defineTool({
@@ -165,6 +165,56 @@ export const swapMeal = defineTool({
     }).where(eq(meals.id, mine.id)).returning();
     if (!row) return { ok: false, error: "Meal not found" };
     return { ok: true, title: row.title };
+  },
+});
+
+export const getMealRecipe = defineTool({
+  name: "get_meal_recipe",
+  description:
+    "The ingredients and method for one planned meal, in her measures. If the meal was planned without a recipe, this writes one to fit its calories and protein and saves it onto the meal, so asking again is free. Use it when she wants to know how to make something in her plan.",
+  input: z.object({
+    mealId: z.string().describe("From get_meal_plan"),
+  }),
+  handler: async (input, ctx) => {
+    const meal = await herMeal(ctx.profileId, input.mealId);
+    if (!meal) return { ok: false, error: "Meal not found — call get_meal_plan for current meal ids" };
+
+    const fu = await foodUnitsFor(ctx.profileId);
+    const out = (m: typeof meal, written: boolean) => ({
+      ok: true as const, written, mealId: m.id, title: m.title,
+      calories: m.calories, proteinG: m.proteinG, prepMinutes: m.prepMinutes,
+      ingredients: foodLines(m.ingredients, fu), steps: foodLines(m.steps, fu),
+    });
+
+    if (meal.ingredients.length > 0 && meal.steps.length > 0) return out(meal, false);
+
+    const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    if (!profile) return { ok: false, error: "Profile not found." };
+
+    let drafted;
+    try {
+      drafted = await writeRecipe(profile, meal);
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "Could not write that recipe." };
+    }
+
+    // Only ever fills a blank. Two taps in quick succession both draft, but the
+    // first to land is the one that is kept — the second cannot overwrite a
+    // recipe she is already reading, and neither can this quietly replace a
+    // recipe the planner or a swap wrote.
+    await db.update(meals)
+      .set({
+        ingredients: drafted.ingredients,
+        steps: drafted.steps,
+        prepMinutes: meal.prepMinutes ?? drafted.prepMinutes ?? null,
+      })
+      .where(and(
+        eq(meals.id, meal.id),
+        sql`jsonb_array_length(${meals.steps}) = 0 or jsonb_array_length(${meals.ingredients}) = 0`,
+      ));
+
+    const saved = await herMeal(ctx.profileId, meal.id);
+    return out(saved ?? meal, true);
   },
 });
 

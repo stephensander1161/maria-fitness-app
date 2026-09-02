@@ -21,35 +21,9 @@ let _client: Anthropic | undefined;
 const anthropic = (): Anthropic =>
   (_client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }));
 
-/** Friendly labels so the UI can say "checking your history" rather than
- *  leaking tool names at her. */
-const TOOL_LABELS: Record<string, string> = {
-  get_profile: "reading your profile",
-  update_profile: "saving your details",
-  log_weight: "logging your weigh-in",
-  get_weight_history: "checking your weight trend",
-  set_goal: "setting a milestone",
-  list_goals: "reviewing your goals",
-  achieve_goal: "marking a milestone hit",
-  search_exercises: "searching exercises",
-  get_exercise_guide: "pulling up the form guide",
-  create_weekly_plan: "building your week",
-  get_plan: "checking your plan",
-  adjust_plan_day: "adjusting your plan",
-  start_workout: "starting your session",
-  log_set: "logging your set",
-  finish_workout: "wrapping up your session",
-  get_exercise_history: "looking up your history",
-  get_week_review: "reviewing your week",
-  create_meal_plan: "planning your meals",
-  get_meal_plan: "checking your meal plan",
-  swap_meal: "swapping that meal",
-  log_meal: "logging your meal",
-  get_day_nutrition: "totalling today's food",
-  get_fact: "finding something worth knowing",
-};
-
-export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");
+// Activity labels live in lib/tool-labels.ts — one map, shared with the
+// browser, so the two cannot drift apart again.
+export { toolLabel } from "@/lib/tool-labels";
 
 /**
  * A second cache breakpoint at the end of the replayed history. The persona

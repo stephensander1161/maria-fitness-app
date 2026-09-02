@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { action } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
+import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
 import { FormGuide } from "./form-guide";
 import {
@@ -110,7 +110,16 @@ export function TrainClient({
         <Empty
           title="No workout planned"
           body="Ask your coach to build your week — it takes about a minute."
-          cta
+        />
+        <AskCoach
+          title="Ask your coach"
+          hint="It builds the week here"
+          placeholder="Tell your coach what you want…"
+          suggestions={[
+            "Build my week",
+            "I've only got three days this week",
+            "What should I do today?",
+          ]}
         />
         {view.hasPlan && <AddExercise groups={pickable} />}
       </div>
@@ -476,16 +485,11 @@ function ExerciseCard({
 }
 
 
-function Empty({ title, body, cta }: { title: string; body: string; cta?: boolean }) {
+function Empty({ title, body }: { title: string; body: string }) {
   return (
     <div className="card mt-6 p-8 text-center">
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="mx-auto mt-2 max-w-xs text-sm text-muted">{body}</p>
-      {cta && (
-        <Link href="/" className="mt-5 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-ink">
-          Talk to your coach
-        </Link>
-      )}
     </div>
   );
 }
