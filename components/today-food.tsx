@@ -277,22 +277,25 @@ function ProteinField({
   }
 
   return (
-    <div className="relative">
+    // Under the field, not inside it. Sitting in the input's right-hand
+    // padding, the button ran into the placeholder on a narrow phone — half a
+    // grid column is not much room for a number and a word.
+    <div>
       <input
         value={value}
         onChange={(e) => { onChange(e.target.value); setFailed(false); }}
         inputMode="numeric"
         placeholder="protein g"
         aria-label="Protein in grams"
-        className="w-full rounded-lg border border-edge bg-base py-2 pl-3 pr-16 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
       />
       <button
         type="button"
         onClick={estimate}
         disabled={busy || !describes.trim()}
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-accent disabled:opacity-30"
+        className="mt-1 px-1 text-[11px] font-medium text-accent underline underline-offset-2 disabled:no-underline disabled:opacity-30"
       >
-        {busy ? "…" : failed ? "no match" : "estimate"}
+        {busy ? "working it out…" : failed ? "no match — type it" : "estimate it"}
       </button>
     </div>
   );
