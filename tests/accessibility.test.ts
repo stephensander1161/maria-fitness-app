@@ -128,8 +128,15 @@ suite("it works with a mouse too", () => {
   it("can refresh without a touch gesture", () => {
     // pull-to-refresh binds touch events only, and every page is
     // force-dynamic — so on a desktop there was no way to reload a screen
-    // from inside the app at all.
-    expect(read("components/side-nav.tsx")).toMatch(/router\.refresh\(\)/);
+    // from inside the app at all. It used to be a button in the sidebar,
+    // which is the app asking her to do its job; now returning to the tab is
+    // the signal. What matters either way is that a mouse-only user has a
+    // path to fresh data that is not a gesture they cannot make.
+    const onFocus = read("components/refresh-on-focus.tsx");
+    expect(onFocus).toMatch(/router\.refresh\(\)/);
+    expect(onFocus).toMatch(/visibilitychange/);
+    // And it is actually mounted, or the whole thing is a file nobody runs.
+    expect(read("app/layout.tsx")).toMatch(/<RefreshOnFocus\s*\/>/);
   });
 });
 
