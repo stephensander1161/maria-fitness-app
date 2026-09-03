@@ -5,7 +5,8 @@ import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
 import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
-import { TranscriptExport } from "@/components/transcript-export";
+import { AiOpinion } from "@/components/ai-opinion";
+import { EraseData } from "@/components/erase-data";
 import { currentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -25,30 +26,63 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight">{user?.name ?? profile.name}</h1>
-        <p className="mt-0.5 text-[13px] text-muted">Your coach, your units, your account.</p>
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold tracking-tight">{user?.name ?? profile.name}</h1>
+          <p className="mt-0.5 text-[13px] text-muted">Your coach, your units, your account.</p>
+        </div>
+        <AiOpinion page="progress" label="your setup" />
       </header>
 
-      <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
-        <CoachTone tone={profile.coachTone} />
-        <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
-        <CoachBudget usage={usage as Usage} />
-        <PlanSetupButton
-          defaults={{
-            daysPerWeek: profile.daysPerWeek,
-            sessionMinutes: profile.sessionMinutes,
-            equipment: profile.equipment,
-            injuries: profile.injuries,
-            dietaryRestrictions: profile.dietaryRestrictions,
-            dislikedFoods: profile.dislikedFoods,
-            cookingSkill: profile.cookingSkill,
-          }}
-        />
-        <TranscriptExport />
+      {/*
+        One column, grouped, and narrower than the page.
+        Settings are read down, not scanned across: two columns of cards that
+        are each a different height gave every one of them a ragged edge and
+        no order at all. The measure is the same reason an article is not
+        full-bleed.
+      */}
+      <div className="max-w-xl">
+        <Group title="Your coach">
+          <CoachTone tone={profile.coachTone} />
+          <CoachBudget usage={usage as Usage} />
+        </Group>
+
+        <Group title="How things are shown">
+          <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
+        </Group>
+
+        <Group title="Your plan">
+          <PlanSetupButton
+            defaults={{
+              daysPerWeek: profile.daysPerWeek,
+              sessionMinutes: profile.sessionMinutes,
+              equipment: profile.equipment,
+              injuries: profile.injuries,
+              dietaryRestrictions: profile.dietaryRestrictions,
+              dislikedFoods: profile.dislikedFoods,
+              cookingSkill: profile.cookingSkill,
+            }}
+          />
+        </Group>
+
+        <Group title="Your account">
+          {/* Last, and the only thing here that cannot be undone. */}
+          <EraseData />
+        </Group>
       </div>
 
-      <SignOut />
+      <div className="max-w-xl">
+        <SignOut />
+      </div>
     </>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-6">
+      <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-widest text-faint">{title}</h2>
+      {children}
+    </section>
   );
 }

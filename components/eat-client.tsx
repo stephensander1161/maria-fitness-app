@@ -2,7 +2,6 @@
 
 import { TodayFood } from "./today-food";
 import { CalorieCalculator } from "./calorie-calculator";
-import { AskCoach } from "./ask-coach";
 import type { DayFoodView, MealWeekView, RecentMeal } from "@/lib/views";
 import { MealRow } from "./meal-row";
 
@@ -57,17 +56,6 @@ export function EatClient({
       </section>
 
       <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
-
-      <AskCoach
-        title="Ask your coach"
-        hint="About today's food"
-        placeholder="Ask about anything you ate…"
-        suggestions={[
-          "What should I have for dinner?",
-          "Am I on track today?",
-          "I'm short on protein — what's quick?",
-        ]}
-      />
     </div>
   );
 }

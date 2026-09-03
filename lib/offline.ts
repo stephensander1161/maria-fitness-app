@@ -177,19 +177,27 @@ export const deviceZone = (): string => {
   }
 };
 
-/** Build the input for a set performed right now. */
+/**
+ * Build the input for a set she performed.
+ *
+ * The date is pinned here rather than left to the server, so a set queued at
+ * 11pm cannot flush onto tomorrow's workout — and so that a card open on
+ * yesterday files its correction against yesterday. Defaults to her device's
+ * today, which is the case that matters.
+ */
 export const setInput = (
   exerciseSlug: string,
   reps: number,
   weight: number | null,
   /** Reps in reserve. Undefined means she did not say, which is not zero. */
   rir?: number | null,
+  date?: ISODate,
 ): PendingSetInput => ({
   exerciseSlug,
   reps,
   weight,
   ...(rir === undefined || rir === null ? {} : { rir }),
-  date: today(deviceZone()),
+  date: date ?? today(deviceZone()),
   clientKey: crypto.randomUUID(),
 });
 

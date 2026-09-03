@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ShoppingList, type ShoppingAisle } from "@/components/shopping-list";
 import { Kitchen } from "@/components/kitchen";
-import { AskCoach } from "@/components/ask-coach";
+import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { pantryView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
@@ -41,9 +41,12 @@ export default async function KitchenPage({
 
   return (
     <>
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
-        <p className="mt-0.5 text-[13px] text-muted">Week of {prettyDate(weekStart(her))}</p>
+      <header className="mb-5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
+          <p className="mt-0.5 text-[13px] text-muted">Week of {prettyDate(weekStart(her))}</p>
+        </div>
+        <AiOpinion page="plan" label="the list and your kitchen" />
       </header>
 
       <div className="mb-4 flex gap-6 border-b border-line">
@@ -76,16 +79,6 @@ export default async function KitchenPage({
         <Kitchen pantry={pantry} expanded />
       )}
 
-      <AskCoach
-        title="Ask your coach"
-        hint={on === "shopping" ? "About the list" : "About your kitchen"}
-        placeholder={on === "shopping" ? "Ask about the list…" : "Tell it what you have in…"}
-        suggestions={
-          on === "shopping"
-            ? ["What can I drop from this list?", "I'm not cooking Thursday", "Cheapest way to hit my protein"]
-            : ["I've got two tins of chickpeas", "What can I make with what I have?", "I'm out of rice"]
-        }
-      />
     </>
   );
 }

@@ -2,8 +2,9 @@ import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
-  goals, mealLogs, mealPlans, meals, measurements, messages, photos, planDays, planExercises,
-  plans, setLogs, shoppingExtras, weighIns, workouts,
+  complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements,
+  messages, pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
+  setLogs, shoppingExtras, weighIns, workouts,
 } from "@/lib/db/schema";
 import { audit } from "@/lib/audit";
 import { weekStart } from "@/lib/date";
@@ -407,6 +408,108 @@ export const forgetConversation = defineTool({
       ok: true,
       removed: removed.length,
       note: "Her training and food data are untouched — this was the conversation only.",
+    };
+  },
+});
+
+
+/**
+ * Every profile-scoped table, in one place.
+ *
+ * Listing them out rather than leaning on the cascade from `profiles`: the
+ * profile row has to survive, because it is what the account points at. Each
+ * one is deleted by profile id in the query itself — the standing rule for
+ * anything that destroys data.
+ *
+ * Two are deliberately absent. `usage_daily` is the spend ledger, and wiping
+ * it would turn "clear my data" into a way to reset the daily budget and keep
+ * spending. `audit_log` survives a reset by design; a record that can erase
+ * its own history is not a record.
+ */
+const OWNED = [
+  { table: setLogs, via: "workout" as const },
+  { table: workouts, via: "profile" as const },
+  { table: plans, via: "profile" as const },
+  { table: mealPlans, via: "profile" as const },
+  { table: mealLogs, via: "profile" as const },
+  { table: weighIns, via: "profile" as const },
+  { table: measurements, via: "profile" as const },
+  { table: photos, via: "profile" as const },
+  { table: goals, via: "profile" as const },
+  { table: pantryItems, via: "profile" as const },
+  { table: preppedPortions, via: "profile" as const },
+  { table: shoppingExtras, via: "profile" as const },
+  { table: complaints, via: "profile" as const },
+  { table: cycleEvents, via: "profile" as const },
+  { table: factViews, via: "profile" as const },
+  { table: feedback, via: "profile" as const },
+  { table: messages, via: "profile" as const },
+];
+
+export const eraseAllData = defineTool({
+  name: "erase_all_my_data",
+  description:
+    "Clears everything she has ever logged and returns the app to the state it was in before she signed up — training, food, weigh-ins, measurements, photos, plans, the kitchen and the whole conversation. Her account and password survive, so she can sign back in and start over. This cannot be undone and there is no backup she can reach, so say that plainly and get a clear yes before calling it. It requires the literal confirmation string, which she has to give.",
+  input: z.object({
+    confirm: z.literal("erase everything").describe(
+      "Exactly 'erase everything'. Ask her to say it; do not supply it yourself.",
+    ),
+  }),
+  handler: async (_input, ctx) => {
+    // Scoped in the query itself, every time — the profile row survives
+    // because the account points at it, so the cascade cannot be relied on.
+    let removed = 0;
+    for (const { table, via } of OWNED) {
+      const rows = via === "workout"
+        ? await db.delete(table).where(
+            inArray(
+              // set_logs has no profile column; ownership is a join away.
+              setLogs.workoutId,
+              db.select({ id: workouts.id }).from(workouts).where(eq(workouts.profileId, ctx.profileId)),
+            ),
+          ).returning({ id: table.id })
+        : await db.delete(table).where(eq(table.profileId, ctx.profileId)).returning({ id: table.id });
+      removed += rows.length;
+    }
+
+    // Back to a blank intake. Onboarding re-asks everything it sets, so this
+    // only has to clear the fields that decide whether she has been through
+    // it — and the ones that would otherwise be quietly wrong for a person
+    // starting again.
+    await db.update(profiles).set({
+      onboardedAt: null,
+      planSetupAt: null,
+      planSetupSkippedAt: null,
+      birthYear: null,
+      sex: null,
+      heightCm: null,
+      startWeightKg: null,
+      goalWeightKg: null,
+      goalDate: null,
+      motivation: null,
+      activityLevel: null,
+      experience: null,
+      daysPerWeek: null,
+      sessionMinutes: null,
+      cookingSkill: null,
+      equipment: [],
+      injuries: [],
+      dietaryRestrictions: [],
+      dislikedFoods: [],
+      maintenanceUntil: null,
+      tempEquipment: null,
+      tempEquipmentUntil: null,
+    }).where(eq(profiles.id, ctx.profileId));
+
+    // Recorded after the wipe, in the one log a reset does not touch.
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "everything", rows: removed },
+    });
+
+    return {
+      ok: true,
+      rowsRemoved: removed,
+      note: "Everything is gone and the app is back to its first run. Your account and password are untouched.",
     };
   },
 });

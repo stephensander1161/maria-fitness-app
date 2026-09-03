@@ -8,7 +8,6 @@ import { PlanSetupInvite } from "@/components/plan-setup";
 import { equipmentToday } from "@/lib/tools/phases";
 import { DayTitle } from "@/components/day-title";
 import { addDays, dayIndex, prettyDate } from "@/lib/date";
-import { PlannedDay } from "@/components/planned-day";
 import { DayNav } from "@/components/day-nav";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +16,14 @@ export const dynamic = "force-dynamic";
  * Today's session — or another day's, when she steps off it.
  *
  * `?d=` moves the screen a day at a time: forward to arrange tomorrow, back to
- * see how a session actually went. Only today gets the logging cards. Logging
- * a set records it against *today* whatever screen it was tapped on, so
- * offering the same controls on Thursday would file Thursday's work under
- * Wednesday — the same class of bug as reading the server's date instead of
- * hers.
+ * see how a session actually went. Every day gets the same cards — a movement
+ * is a movement, and one UI for today with a list of names for every other day
+ * was two things to build and one of them permanently behind.
+ *
+ * What the day changes is what gets written. Each card files its sets against
+ * the day on screen rather than against her today, which is the whole reason
+ * the date is stated at the top: a screen showing Thursday while the buttons
+ * write to Wednesday is the most confusing thing this app could do.
  */
 export default async function TrainPage({
   searchParams,
@@ -71,33 +73,24 @@ export default async function TrainPage({
         today={her}
         label={prettyDate(on)}
         isToday={isToday}
-      />
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-medium uppercase tracking-wide text-accent">{view.dayName}</p>
-          {view.hasPlan && isToday ? (
-            <DayTitle title={view.title} dayOfWeek={dayIndex(her)} focus={view.focus} />
-          ) : (
-            <>
-              <h1 className="truncate text-2xl font-bold tracking-tight">{view.title}</h1>
-              {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
-            </>
-          )}
-        </div>
-        <AiOpinion page="train" label="session" />
-      </header>
-      {isToday ? (
-        <TrainClient view={view} pickable={pickable} targets={targets} />
-      ) : (
-        <section className="card p-4">
-          <PlannedDay
-            view={view}
-            pickable={pickable}
-            dayOfWeek={dayIndex(on)}
-            past={on < her}
-          />
-        </section>
-      )}
+        actions={<AiOpinion page="train" label="session" />}
+      >
+        <p className="text-[13px] font-medium uppercase tracking-wide text-accent">{view.dayName}</p>
+        {view.hasPlan ? (
+          <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} />
+        ) : (
+          <>
+            <h1 className="truncate text-2xl font-bold tracking-tight">{view.title}</h1>
+            {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
+          </>
+        )}
+      </DayNav>
+
+      {/* The same cards on every day. A movement is a movement; having one UI
+          for today and a list of names for every other day was two things to
+          build and one of them permanently behind. What the day changes is
+          what can be done on it, which the cards decide for themselves. */}
+      <TrainClient view={view} pickable={pickable} targets={targets} date={on} isToday={isToday} />
     </>
   );
 }

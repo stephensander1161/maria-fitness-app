@@ -198,6 +198,11 @@ export function screenFor(path: string): Screen | null {
 
   if (clean === "/train") return { kind: "opinion", page: "train", label: "today's workout" };
   if (clean === "/plan") return { kind: "opinion", page: "plan", label: "this week's plan" };
+  // Eat and Kitchen are both about food this week, which is what the plan
+  // context already assembles — planned meals, and what she has actually
+  // eaten today, kept apart from each other.
+  if (clean === "/eat") return { kind: "opinion", page: "plan", label: "today's food" };
+  if (clean === "/kitchen") return { kind: "opinion", page: "plan", label: "the shopping and the kitchen" };
   if (clean === "/progress") return { kind: "opinion", page: "progress", label: "her progress" };
   if (clean === "/learn") return { kind: "library", label: "the movement library" };
 

@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       const send = (event: CoachEvent) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       try {
-        for await (const event of runCoach(profile, text, { silent, save })) send(event);
+        for await (const event of runCoach(profile, text, { silent, save, speakingTo: user.name })) send(event);
       } catch (err) {
         send({ type: "error", message: err instanceof Error ? err.message : "Coach failed" });
       } finally {

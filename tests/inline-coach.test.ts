@@ -42,8 +42,14 @@ suite("asking the coach never means leaving the screen", () => {
   it("no screen navigates to the Coach tab in code", () => {
     // Signing in and finishing onboarding land her on the home screen, which
     // redirects to today's session. That is arriving, not being sent away
-    // mid-question.
-    const ARRIVALS = ["components/login-form.tsx", "components/onboarding.tsx"];
+    // mid-question — and so is erasing everything, which puts the profile
+    // back to its first run and must not leave her on a settings page built
+    // from data that no longer exists.
+    const ARRIVALS = [
+      "components/login-form.tsx",
+      "components/onboarding.tsx",
+      "components/erase-data.tsx",
+    ];
     const offenders = screens
       .filter((f) => !ARRIVALS.includes(f))
       .filter((f) => /(push|replace)\(\s*"\/"\s*\)/.test(read(f)));
@@ -54,10 +60,22 @@ suite("asking the coach never means leaving the screen", () => {
   });
 
   it("the coach reaches every screen", () => {
-    // A bubble in the root layout, not a destination. If this ever stops being
-    // rendered globally, asking about the screen she is on means leaving it.
-    const layout = read("app/layout.tsx");
-    expect(layout).toMatch(/CoachBubbleGate/);
+    // This used to assert a bubble in the root layout. The bubble is gone —
+    // two coach entry points on one page is one too many, and the bubble was
+    // the one that knew less about the screen it floated over. The invariant
+    // it existed for is unchanged and is what is checked here: from any
+    // screen, asking about that screen must not mean leaving it.
+    const pages = fs.readdirSync("app", { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !["api", "login", "welcome"].includes(e.name))
+      .map((e) => path.join("app", e.name, "page.tsx"))
+      .filter((f) => fs.existsSync(f));
+
+    expect(pages.length).toBeGreaterThan(4);
+    const mute = pages.filter((f) => !/\bAiOpinion\b|\bAskCoach\b/.test(read(f)));
+    expect(
+      mute,
+      `these screens have no way to reach the coach from them: ${mute.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("every surface that streams the coach goes through the shared thread", () => {

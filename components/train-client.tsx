@@ -12,6 +12,7 @@ import { SessionDone } from "./session-done";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
+import type { ISODate } from "@/lib/date";
 import { askToNotify, unlockAudio } from "@/components/rest-timer";
 import { useRest } from "@/components/rest-provider";
 import type { PickableExercise, TodayExercise, TodayView } from "@/lib/views";
@@ -40,10 +41,24 @@ export function TrainClient({
   view,
   pickable,
   targets = [],
+  date,
+  isToday = true,
 }: {
   view: TodayView;
   pickable: { group: string; items: PickableExercise[] }[];
   targets?: NextTarget[];
+  /** The day on screen. Every write from these cards is filed against it. */
+  date?: string;
+  /**
+   * Whether that day is her today.
+   *
+   * The cards are the same on every day — a movement is a movement, and
+   * having one UI for today and a list of names for every other day was two
+   * things to build and one of them always behind. What changes is what can
+   * be done: a session cannot be finished on a day that has not happened, and
+   * a set cannot be logged into the future.
+   */
+  isToday?: boolean;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -131,7 +146,7 @@ export function TrainClient({
     return (
       <div className="space-y-4">
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
-        <AddExercise groups={pickable} />
+        <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />
       </div>
     );
   }
@@ -152,7 +167,7 @@ export function TrainClient({
             "What should I do today?",
           ]}
         />
-        {view.hasPlan && <AddExercise groups={pickable} />}
+        {view.hasPlan && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }
@@ -173,6 +188,8 @@ export function TrainClient({
           exercise={ex}
           unit={view.unit}
           pickable={pickable}
+          date={date}
+          canLog={isToday || (date !== undefined && date < todayOnDevice())}
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
@@ -196,7 +213,7 @@ export function TrainClient({
       ))}
       </div>
 
-      <AddExercise groups={pickable} />
+      <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />
 
       {/*
         Finishing is offered when there is a session to finish, not while she
@@ -208,7 +225,7 @@ export function TrainClient({
       {/* Nothing logged and nothing finished is nothing to say — the cards
           above are the instruction, and a card whose only content is "get
           going" is furniture. */}
-      <div className={totalLogged === 0 && !view.completed ? "hidden" : "card p-4"}>
+      <div className={!isToday || (totalLogged === 0 && !view.completed) ? "hidden" : "card p-4"}>
         {view.completed && outstanding.length === 0 ? (
           <div className="text-center">
             <p className="text-[15px] font-semibold text-beat">Session done</p>
@@ -272,6 +289,16 @@ export function TrainClient({
       )}
     </div>
   );
+}
+
+/** Her device's today, for deciding whether a screen's day is in the past. */
+const todayOnDevice = () => new Date().toLocaleDateString("en-CA");
+
+/** 0=Monday, from a YYYY-MM-DD. Undefined when the caller means today. */
+function dayOfWeekOf(date?: string): number | undefined {
+  if (!date) return undefined;
+  const d = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return (d + 6) % 7;
 }
 
 /**
@@ -349,11 +376,12 @@ function PendingBanner({ count, onRetry }: { count: number; onRetry: () => void 
  * she has been doing V-ups and the app has been calling them sit-ups.
  */
 function ChangeMovement({
-  exercise, pickable, setCount, onDone, onCancel,
+  exercise, pickable, setCount, date, onDone, onCancel,
 }: {
   exercise: TodayExercise;
   pickable: { group: string; items: PickableExercise[] }[];
   setCount: number;
+  date?: string;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -367,7 +395,9 @@ function ChangeMovement({
     setBusy(true);
     setError(null);
     try {
-      await action("change_exercise", { slug: exercise.slug, toSlug: slug });
+      await action("change_exercise", {
+        slug: exercise.slug, toSlug: slug, ...(date === undefined ? {} : { date }),
+      });
       onDone();
     } catch (err) {
       setError(actionMessage(err, "Couldn't change that — try again."));
@@ -405,10 +435,12 @@ function ChangeMovement({
 }
 
 function SetEditor({
-  slug, setNumber, set, unit, bodyweight, onDone, onCancel,
+  slug, setNumber, set, unit, bodyweight, date, onDone, onCancel,
 }: {
   slug: string;
   setNumber: number;
+  /** Which day's set this is. */
+  date?: string;
   set: { reps: number; weight: number | null };
   unit: string;
   bodyweight: boolean;
@@ -430,10 +462,11 @@ function SetEditor({
     setError(null);
     try {
       if (kind === "delete") {
-        await action("delete_set", { exerciseSlug: slug, setNumber });
+        await action("delete_set", { exerciseSlug: slug, setNumber, ...(date === undefined ? {} : { date }) });
       } else {
         await action("correct_set", {
           exerciseSlug: slug, setNumber, reps,
+          ...(date === undefined ? {} : { date }),
           ...(loaded ? { weight } : {}),
         });
       }
@@ -498,10 +531,15 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 }
 
 export function ExerciseCard({
-  exercise, unit, next, result, pending, pickable, onLogged, onRetryPending, onRemoved,
+  exercise, unit, next, result, pending, pickable, date, canLog = true,
+  onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: { group: string; items: PickableExercise[] }[];
+  /** The day this card writes to. Undefined means her today. */
+  date?: string;
+  /** False on a day that has not happened yet — nothing to record there. */
+  canLog?: boolean;
   result?: LogResult; pending: PendingSet[];
   onLogged: (r: LogResult | null, finishedExercise: boolean) => void;
   onRetryPending: () => void;
@@ -574,9 +612,13 @@ export function ExerciseCard({
       // it *is* deleting them. Said plainly in the confirm above, because this
       // is the one remove on this screen that loses work she did.
       if (exercise.extra) {
-        await action("remove_logged_exercise", { exerciseSlug: exercise.slug });
+        await action("remove_logged_exercise", {
+          exerciseSlug: exercise.slug, ...(date === undefined ? {} : { date }),
+        });
       } else {
-        await action("remove_exercise_from_day", { slug: exercise.slug });
+        await action("remove_exercise_from_day", {
+        slug: exercise.slug, ...(dayOfWeekOf(date) === undefined ? {} : { dayOfWeek: dayOfWeekOf(date) }),
+      });
       }
       onRemoved();
       setConfirmRemove(false);
@@ -599,7 +641,7 @@ export function ExerciseCard({
     askToNotify();
     try {
       const outcome = await logSetOrQueue<LogResult>(
-        setInput(exercise.slug, reps, loaded ? weight : null, rir),
+        setInput(exercise.slug, reps, loaded ? weight : null, rir, date as ISODate | undefined),
       );
       // Whether that was the last set she planned for this movement.
       onLogged(outcome.result, exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets);
@@ -624,9 +666,9 @@ export function ExerciseCard({
           nothing. The controls to the right keep their own jobs.
         */}
         <button
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-          aria-label={`${open ? "Hide" : "Show"} the set counter for ${exercise.name}`}
+          onClick={() => canLog && setOpen(!open)}
+          aria-expanded={canLog ? open : undefined}
+          aria-label={canLog ? `${open ? "Hide" : "Show"} the set counter for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
         >
           <h2 className="truncate text-[17px] font-semibold">{exercise.name}</h2>
@@ -665,6 +707,7 @@ export function ExerciseCard({
             you have to be told about in a line of grey text is not one — and
             that line was the app apologising for its own layout.
           */}
+          {canLog && (
           <button
             onClick={() => setOpen(!open)}
             aria-expanded={open}
@@ -678,6 +721,7 @@ export function ExerciseCard({
               {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M12 5v14M5 12h14" />}
             </svg>
           </button>
+          )}
           <button
             onClick={() => setGuideOpen(true)}
             aria-label={`How to do ${exercise.name}`}
@@ -740,6 +784,7 @@ export function ExerciseCard({
           exercise={exercise}
           pickable={pickable}
           setCount={setCount}
+          date={date}
           onDone={() => { setChanging(false); onRemoved(); }}
           onCancel={() => setChanging(false)}
         />
@@ -802,6 +847,7 @@ export function ExerciseCard({
         <SetEditor
           slug={exercise.slug}
           setNumber={editingSet}
+          date={date}
           set={done[editingSet - 1]}
           unit={unit}
           bodyweight={exercise.bodyweight}

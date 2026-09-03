@@ -4,7 +4,6 @@ import { TabBar } from "@/components/tab-bar";
 import { Feedback } from "@/components/feedback";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
-import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
 import { RestBar, RestProvider } from "@/components/rest-provider";
@@ -75,7 +74,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         </RestProvider>
         <RefreshOnFocus />
-        <CoachBubbleGate />
         <Feedback />
         <InstallApp />
         <TabBar />

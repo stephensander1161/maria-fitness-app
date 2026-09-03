@@ -1,20 +1,23 @@
 import Link from "next/link";
 
 /**
- * A day at a time, and no doubt about which one you are on.
+ * The day on screen, with a way either side of it.
  *
- * Not decoration. Everything this app records is filed against *her* today, so
- * a screen showing Thursday while the buttons write to Wednesday is the most
- * confusing thing it could do — the rule is that the date is stated whenever
- * it is not today, in the same place, every time.
+ * An earlier version turned the whole strip amber when the day was not today,
+ * which read as a warning about something being wrong — it is not; looking at
+ * Thursday is a perfectly ordinary thing to do. The date itself is the signal:
+ * "Today" when it is, the day and date when it is not.
  *
- * One control rather than four scattered ones: the date sits between its own
- * arrows, and the way back is a labelled button that says where it goes,
- * because an unlabelled chevron and a bare word "Today" next to each other are
- * two things that look like the same thing and are not.
+ * The way back points where today actually is — forward when she is reading a
+ * past session, backward when she is arranging a future one — and sits on that
+ * side of the date. An arrow that points the wrong way is worse than no arrow.
+ *
+ * It still matters that she knows: everything logged from these cards is filed
+ * against the day on screen, which is why the day is stated rather than
+ * implied.
  */
 export function DayNav({
-  base, param, prev, next, today, label, isToday,
+  base, param, prev, next, today, label, isToday, actions, children,
 }: {
   base: string;
   param: string;
@@ -23,51 +26,63 @@ export function DayNav({
   today: string;
   label: string;
   isToday: boolean;
+  /** Pinned to the right of the date row — the coach buttons, in practice. */
+  actions?: React.ReactNode;
+  /** The day's own heading, centred under the date it belongs to. */
+  children?: React.ReactNode;
 }) {
+  const behind = !isToday && label < today; // reading the past; today is ahead
+  const jump = (
+    <Link
+      href={`${base}?${param}=${today}`}
+      scroll={false}
+      className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-semibold text-accent transition-colors hover:bg-accent-soft"
+    >
+      {!behind && <Chevron dir="left" />}
+      Today
+      {behind && <Chevron dir="right" />}
+    </Link>
+  );
+
   return (
-    <div className="mb-4 flex items-center gap-2">
-      <div
-        className={`flex flex-1 items-center overflow-hidden rounded-xl border ${
-          isToday ? "border-line bg-surface" : "border-hold/50 bg-hold-soft"
-        }`}
+    <header className="mb-5">
+      <div className="flex items-center gap-1">
+      <Link
+        href={`${base}?${param}=${prev}`}
+        scroll={false}
+        aria-label="The day before"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
       >
-        <Link
-          href={`${base}?${param}=${prev}`}
-          scroll={false}
-          aria-label="The day before"
-          className="grid size-10 shrink-0 place-items-center text-muted transition-colors hover:bg-raised"
-        >
-          <Chevron dir="left" />
-        </Link>
+        <Chevron dir="left" />
+      </Link>
 
-        <p className={`min-w-0 flex-1 truncate px-2 text-center text-[14px] font-semibold ${
-          isToday ? "text-text" : "text-hold"
-        }`}>
-          {label}
-          {isToday && <span className="ml-2 text-[11px] font-medium uppercase tracking-wide text-accent">Today</span>}
-        </p>
+      {!isToday && !behind && jump}
 
-        <Link
-          href={`${base}?${param}=${next}`}
-          scroll={false}
-          aria-label="The day after"
-          className="grid size-10 shrink-0 place-items-center text-muted transition-colors hover:bg-raised"
-        >
-          <Chevron dir="right" />
-        </Link>
+      <p className={`min-w-0 flex-1 truncate text-center text-[13px] font-medium ${
+        isToday ? "text-faint" : "text-text"
+      }`}>
+        {isToday ? "Today" : label}
+      </p>
+
+      {!isToday && behind && jump}
+
+      <Link
+        href={`${base}?${param}=${next}`}
+        scroll={false}
+        aria-label="The day after"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
+      >
+        <Chevron dir="right" />
+      </Link>
+
+      {actions && <div className="ml-1 shrink-0">{actions}</div>}
       </div>
 
-      {!isToday && (
-        <Link
-          href={`${base}?${param}=${today}`}
-          scroll={false}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2.5 text-[13px] font-semibold text-ink"
-        >
-          Today
-          <Chevron dir="right" />
-        </Link>
-      )}
-    </div>
+      {/* The day's heading under the day it belongs to, centred on it. Two
+          separate blocks — a date strip and then a left-aligned title — were
+          two headers for one screen. */}
+      {children && <div className="mt-1 text-center">{children}</div>}
+    </header>
   );
 }
 

@@ -114,6 +114,7 @@ const all: Tool[] = [
   training.deleteSet,
   training.correctSet,
   training.removeLoggedExercise,
+  corrections.eraseAllData,
   nextTargets.getNextTargets,
   nextTargets.getWeeklyVolume,
   nextTargets.estimateOneRepMax,

@@ -196,7 +196,17 @@ When a number is down you say it straight and go to the fix in the same breath. 
 
 export type CoachTone = "encouraging" | "plain" | "hype";
 
-export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlockParam[] {
+export function buildSystem(
+  profile: Profile,
+  extra?: string,
+  /**
+   * The account holder's name, when it differs from the profile's. The
+   * profile is the training record; this is the person reading the answer,
+   * and greeting them by the name on the record is how the coach came to say
+   * "Hey Maria" to Stephen.
+   */
+  speakingTo?: string | null,
+): Anthropic.TextBlockParam[] {
   const u = profile.units;
   const age = ageFrom(profile.birthYear, profileToday(profile));
 
@@ -220,6 +230,9 @@ export function buildSystem(profile: Profile, extra?: string): Anthropic.TextBlo
     ``,
     `Her profile:`,
     `- Name: ${profile.name ?? "unknown"}`,
+    ...(speakingTo && speakingTo !== profile.name
+      ? [`- YOU ARE TALKING TO ${speakingTo}, who looks after this profile. Address them as ${speakingTo}, never as ${profile.name ?? "the profile name"}.`]
+      : []),
     `- Age: ${age ?? "unknown"}   Sex: ${profile.sex ?? "unknown"}   Height: ${heightLabel(profile.heightCm, u)}`,
     `- Start weight: ${fmt(profile.startWeightKg, u)}   Goal: ${fmt(profile.goalWeightKg, u)}${profile.goalDate ? ` by ${profile.goalDate}` : ""}`,
     `- Why: ${profile.motivation ?? "not stated yet"}`,

@@ -6,101 +6,54 @@ import { action, actionMessage } from "@/lib/client";
 /**
  * Take the conversation away with you.
  *
- * Copy first, download second, and deliberately in that order: the reason this
- * exists is that when the coach says something wrong, the fix starts with
- * someone reading exactly what it said — and pasting into a message is the
- * shortest path from her phone to that. The file is for keeping.
+ * It exists because when the coach says something wrong, the fix starts with
+ * someone reading exactly what it said.
  */
-export function TranscriptExport() {
-  const [busy, setBusy] = useState<"copy" | "file" | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+export function TranscriptDownload() {
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [days, setDays] = useState(3);
-
-  async function fetchText() {
-    return action<{ ok: boolean; text: string; filename: string; messages: number }>(
-      "export_transcript", { days },
-    );
-  }
-
-  async function copy() {
-    setBusy("copy");
-    setError(null);
-    try {
-      const r = await fetchText();
-      await navigator.clipboard.writeText(r.text);
-      setDone(`Copied ${r.messages} messages`);
-      setTimeout(() => setDone(null), 3000);
-    } catch (err) {
-      setError(actionMessage(err, "Couldn't copy that."));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function download() {
-    setBusy("file");
+    setBusy(true);
     setError(null);
     try {
-      const r = await fetchText();
+      const r = await action<{ text: string; filename: string }>("export_transcript", { days: 30 });
       // Built and revoked here rather than held: a blob URL keeps the whole
       // transcript alive in memory for as long as it exists.
-      const url = URL.createObjectURL(new Blob([r.text], { type: "text/plain" }));
+      const url = URL.createObjectURL(new Blob([r.text], { type: "text/markdown" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = r.filename;
+      a.download = r.filename.replace(/\.txt$/, ".md");
       a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      setDone(`${r.messages} messages`);
-      setTimeout(() => setDone(null), 3000);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      setError(actionMessage(err, "Couldn't save that."));
+      // Nothing was lost and nothing changed — but a button that does nothing
+      // when tapped is the failure this app keeps having, so it says so.
+      setError(actionMessage(err, "Couldn't build the transcript."));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
   return (
-    <section className="card mb-3 p-5">
-      <h2 className="text-[15px] font-semibold">Your conversation</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        Every message with the time it was said, and the name of each thing your coach did. Useful
-        when it gets something wrong and someone needs to see exactly what happened.
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {[1, 3, 7, 30].map((d) => (
-          <button
-            key={d}
-            onClick={() => setDays(d)}
-            className={`rounded-full border px-3 py-1.5 text-[12px] ${
-              days === d ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"
-            }`}
-          >
-            {d === 1 ? "Today" : `${d} days`}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          onClick={copy}
-          disabled={busy !== null}
-          className="rounded-full border border-line px-4 py-2 text-[13px] text-accent disabled:opacity-40"
-        >
-          {busy === "copy" ? "Copying…" : "Copy"}
-        </button>
-        <button
-          onClick={download}
-          disabled={busy !== null}
-          className="rounded-full border border-line px-4 py-2 text-[13px] text-muted disabled:opacity-40"
-        >
-          {busy === "file" ? "Saving…" : "Download"}
-        </button>
-        {done && <span className="text-[12px] text-beat">{done}</span>}
-      </div>
-
-      {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
-    </section>
+    <span className="relative">
+      <button
+        onClick={download}
+        disabled={busy}
+        aria-label="Download this conversation"
+        title="Download this conversation"
+        className="grid size-8 place-items-center rounded-full text-faint transition-colors hover:bg-raised hover:text-muted disabled:opacity-40"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14" />
+        </svg>
+      </button>
+      {error && (
+        <p role="alert" className="absolute right-0 top-9 z-10 w-48 rounded-lg border border-miss/40 bg-miss-soft px-2 py-1.5 text-[11px] text-miss">
+          {error}
+        </p>
+      )}
+    </span>
   );
 }

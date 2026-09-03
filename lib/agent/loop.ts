@@ -61,7 +61,16 @@ function markCachePoint(history: Anthropic.MessageParam[]): Anthropic.MessagePar
 export async function* runCoach(
   profile: Profile,
   userText: string,
-  opts: { silent?: boolean; source?: "app" | "eval"; save?: string } = {},
+  opts: {
+    silent?: boolean; source?: "app" | "eval"; save?: string;
+    /**
+     * Who is holding the phone. The profile is *what is being worked on*; the
+     * account is *who you are*, and the coach was greeting whoever signed in
+     * by the name on the profile. One is a training record, the other is a
+     * person being spoken to.
+     */
+    speakingTo?: string | null;
+  } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
   // Her today, not the server's. She trains at 7pm in Denver, the server is
@@ -84,6 +93,7 @@ export async function* runCoach(
     [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
       fridge, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
+    opts.speakingTo ?? null,
   );
 
   const history = await loadHistory(profile.id);

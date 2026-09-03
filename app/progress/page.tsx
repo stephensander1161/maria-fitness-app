@@ -105,6 +105,67 @@ export default async function ProgressPage() {
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
       {/*
+        The week's detail and the milestones, beside the numbers rather than
+        under them. Both were cards of their own and both were mostly one line
+        — "still to do this week" and "no milestones yet" do not each need a
+        heading, a border, and a screenful of scroll between them.
+      */}
+      <section className="card mb-3 grid gap-x-6 gap-y-4 p-5 md:grid-cols-2">
+        <div>
+          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">This week</h2>
+          {review.missedDays.length > 0 && (
+            <p className="mb-2 rounded-xl border border-hold/30 bg-hold-soft px-3 py-2 text-[13px] text-hold">
+              {review.weekOver ? "Not done last week" : "Still to do"}: {review.missedDays.join(", ")}
+            </p>
+          )}
+          {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
+          {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
+          {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
+            <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
+          )}
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Milestones</h2>
+          {milestones.length === 0 ? (
+            <p className="text-[13px] leading-relaxed text-faint">
+              None yet. Ask your coach to set a few — they make the big goal feel reachable.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {milestones.map((m) => (
+                <li key={m.id} className="flex items-start gap-2.5">
+                  {/* The tick used to render in both states, transparent when
+                      unachieved — so a milestone she has not hit announced as
+                      "✓ Squat bodyweight". */}
+                  <span
+                    aria-hidden={!m.achievedAt}
+                    aria-label={m.achievedAt ? "Achieved" : undefined}
+                    className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${
+                      m.achievedAt ? "border-beat bg-beat text-ink" : "border-edge text-transparent"
+                    }`}
+                  >
+                    {m.achievedAt ? "✓" : ""}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[13px] leading-snug ${m.achievedAt ? "text-muted line-through" : ""}`}>
+                      {m.title}
+                    </p>
+                    <p className="text-[11px] text-faint">
+                      {m.achievedAt
+                        ? `Hit ${prettyDate(m.achievedAt.toISOString().slice(0, 10))}`
+                        : m.targetDate ? `By ${prettyDate(m.targetDate)}` : m.kind}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+
+      {/*
         Two explicit columns on a desktop, not a flowed one.
         A multi-column *flow* reshuffles everything below the cursor when a
         card expands — and half of these expand. Two independent columns only
@@ -175,64 +236,6 @@ export default async function ProgressPage() {
       <NutritionTrendCard trend={eating} />
       <Progression items={progression} unit={weightLabel(u)} />
 
-      {/*
-        The week and the milestones are one question asked over two spans —
-        "am I moving" this week, and "am I moving" overall. They were two
-        cards with a gap between them, and the second one was below the fold.
-      */}
-      <section className="card mb-3 p-5">
-        <h2 className="mb-3 text-[15px] font-semibold">This week</h2>
-        {review.beat.length > 0 && (
-          <List tone="beat" title="Moved up" items={review.beat} />
-        )}
-        {review.missed.length > 0 && (
-          <List tone="miss" title="Came up short" items={review.missed} />
-        )}
-        {review.missedDays.length > 0 && (
-          <p className="mt-3 rounded-xl border border-hold/30 bg-hold-soft px-3 py-2 text-[13px] text-hold">
-            {review.weekOver ? "Not done last week" : "Still to do this week"}: {review.missedDays.join(", ")}
-          </p>
-        )}
-        {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
-          <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
-        )}
-
-        <div className="mt-5 border-t border-line pt-4">
-          <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-faint">Milestones</h3>
-        {milestones.length === 0 ? (
-          <p className="text-[13px] text-faint">
-            No milestones yet. Ask your coach to set a few — they make the big goal feel reachable.
-          </p>
-        ) : (
-          <ul className="space-y-2.5">
-            {milestones.map((m) => (
-              <li key={m.id} className="flex items-start gap-3">
-                {/* The tick used to render in both states, transparent when
-                    unachieved — so a milestone she has not hit announced as
-                    "✓ Squat bodyweight". */}
-                <span
-                  aria-hidden={!m.achievedAt}
-                  aria-label={m.achievedAt ? "Achieved" : undefined}
-                  className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px] ${
-                    m.achievedAt ? "border-beat bg-beat text-ink" : "border-line text-transparent"
-                  }`}
-                >
-                  {m.achievedAt ? "✓" : ""}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-[15px] ${m.achievedAt ? "text-muted line-through" : ""}`}>{m.title}</p>
-                  <p className="text-[12px] text-faint">
-                    {m.achievedAt
-                      ? `Hit ${prettyDate(m.achievedAt.toISOString().slice(0, 10))}`
-                      : m.targetDate ? `By ${prettyDate(m.targetDate)}` : m.kind}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        </div>
-      </section>
 
 
       </div>

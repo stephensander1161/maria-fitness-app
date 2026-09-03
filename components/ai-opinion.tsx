@@ -1,52 +1,81 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCoachThread } from "@/lib/use-coach-thread";
 import { useDialog } from "@/lib/use-dialog";
 import { Composer, ThreadMessages } from "./coach-thread";
+import { TranscriptDownload } from "./transcript-export";
 
 /**
- * "Get my coach's read" — the coach's take on whatever screen she is on.
+ * The coach, in the corner of the screen she is on.
+ *
+ * Two buttons that open the same sheet, because there are two things people
+ * want from a coach and only one of them was on offer. "Coach's read" asks it
+ * to look at the screen and say something; the speech bubble beside it opens
+ * the same sheet with the cursor in the box, for someone who does not want an
+ * opinion — they want to say "log four sets of V-ups" and get on with it.
+ * Waiting through a paragraph first is a tax on the more common request.
  *
  * The page's data is assembled on the server from the request, so the browser
- * never authors what the coach is told. It streams into a sheet rather than
- * navigating to the chat, because the point is to read it against the numbers
- * she is already looking at — and she can answer it right there, in the same
- * conversation she would find on the Coach tab.
+ * never authors what the coach is told. Both modes carry it: the read has it
+ * because it was asked about this screen, and the ask has it because a
+ * question typed on the Eat screen is a question about today's food.
+ *
+ * This replaced a floating bubble on every screen. Two coach entry points on
+ * one page is one too many, and the bubble was the one that knew less.
  */
 export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"; label: string }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<"read" | "ask" | null>(null);
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-raised active:bg-raised"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
-          <circle cx="12" cy="12" r="3.5" />
-        </svg>
-        Coach&apos;s read
-      </button>
-      {open && <Sheet page={page} label={label} onClose={() => setOpen(false)} />}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          onClick={() => setOpen("read")}
+          className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-raised active:bg-raised"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
+            <circle cx="12" cy="12" r="3.5" />
+          </svg>
+          Coach&apos;s read
+        </button>
+        <button
+          onClick={() => setOpen("ask")}
+          aria-label="Ask your coach"
+          className="grid size-8 place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-raised hover:text-accent active:bg-raised"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" />
+          </svg>
+        </button>
+      </div>
+      {open && <Sheet page={page} label={label} mode={open} onClose={() => setOpen(null)} />}
     </>
   );
 }
 
 function Sheet({
-  page, label, onClose,
-}: { page: "train" | "plan" | "progress"; label: string; onClose: () => void }) {
+  page, label, mode, onClose,
+}: {
+  page: "train" | "plan" | "progress";
+  label: string;
+  mode: "read" | "ask";
+  onClose: () => void;
+}) {
   const router = useRouter();
+  const path = usePathname();
   const {
     messages, streaming, activity, busy, error, input, setInput, stream, send,
   } = useCoachThread({ onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); } });
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(mode === "ask");
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (mode !== "read") return;
     // A subscription to a stream, with cleanup — which is what effects are for.
     // Closing the sheet mid-answer aborts the request rather than leaving it
     // running and writing into a component that is gone.
@@ -55,7 +84,7 @@ function Sheet({
     void stream({ opinion: page }, { signal: controller.signal })
       .then(() => { if (live) setOpened(true); });
     return () => { live = false; controller.abort(); };
-  }, [page, stream]);
+  }, [mode, page, stream]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -72,18 +101,37 @@ function Sheet({
         data-no-pull-to-refresh=""
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}>
         <div className="flex items-baseline justify-between px-5 pb-3 pt-5">
-          <h2 className="text-[17px] font-semibold">On your {label}</h2>
-          <button onClick={onClose} className="-my-2 px-2 py-2 text-[13px] text-muted">Close</button>
+          <h2 className="text-[17px] font-semibold">
+            {mode === "read" ? `On your ${label}` : "Your coach"}
+          </h2>
+          <div className="flex items-center gap-1">
+            {/* The transcript, where the transcript is. It was a card on the
+                settings screen with its own heading, a paragraph and four
+                range buttons, for something anyone wanting it is already
+                looking at. */}
+            <TranscriptDownload />
+            <button onClick={onClose} className="-my-2 px-2 py-2 text-[13px] text-muted">Close</button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5">
           {messages.length === 0 && !streaming && !error ? (
-            <div className="flex justify-center gap-1.5 py-10">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="size-1.5 animate-bounce rounded-full bg-accent"
-                  style={{ animationDelay: `${i * 120}ms` }} />
-              ))}
-            </div>
+            mode === "ask" ? (
+              // A clean box, not an empty room. It already knows what screen
+              // she came from, so say so rather than making her repeat it.
+              <p className="py-8 text-center text-[13px] leading-relaxed text-faint">
+                Ask for anything, or tell it what to log.
+                <br />
+                It can see {label}.
+              </p>
+            ) : (
+              <div className="flex justify-center gap-1.5 py-10">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="size-1.5 animate-bounce rounded-full bg-accent"
+                    style={{ animationDelay: `${i * 120}ms` }} />
+                ))}
+              </div>
+            )
           ) : (
             <ThreadMessages
               messages={messages}
@@ -102,9 +150,11 @@ function Sheet({
           <Composer
             value={input}
             onChange={setInput}
-            onSubmit={send}
+            // The path, not the contents: the server reads the screen. Same
+            // rule as everywhere else — the client never authors context.
+            onSubmit={(text) => send(text, path)}
             busy={busy || !opened}
-            placeholder="Say something back…"
+            placeholder={mode === "ask" ? "Ask, or tell it what to log…" : "Say something back…"}
           />
         </div>
       </div>
