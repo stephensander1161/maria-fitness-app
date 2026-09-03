@@ -33,19 +33,23 @@ export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"
       <div className="flex shrink-0 items-center gap-1.5">
         <button
           onClick={() => setOpen("read")}
-          className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-raised active:bg-raised"
+          aria-label="Get your coach's read on this screen"
+          // The label is the first thing to give way: two icons fit any phone,
+          // and on the Progress header the pill was wide enough to push the
+          // second button off the edge of the screen.
+          className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2 py-1.5 text-[12px] text-accent transition-colors hover:bg-raised active:bg-raised sm:px-3"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
             <circle cx="12" cy="12" r="3.5" />
           </svg>
-          Coach&apos;s read
+          <span className="hidden sm:inline">Coach&apos;s read</span>
         </button>
         <button
           onClick={() => setOpen("ask")}
           aria-label="Ask your coach"
-          className="grid size-8 place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-raised hover:text-accent active:bg-raised"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-raised hover:text-accent active:bg-raised"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -145,7 +149,14 @@ function Sheet({
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`The coach on your ${label}`}
       className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm">
       <div ref={panel} onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface"
+        // A real height, not a maximum.
+        //
+        // With max-h the sheet was only as tall as its content, so on a phone
+        // the composer floated wherever the answer happened to end and moved
+        // under her thumb as the reply streamed in. A fixed height makes this
+        // the flex column it is meant to be: header, a scroller that owns the
+        // overflow, and the composer pinned outside it.
+        className="flex h-[86dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line md:h-[min(44rem,86dvh)] md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""
@@ -195,8 +206,9 @@ function Sheet({
         </div>
 
         {/* Answer it here. It used to say "carry on with it on the Coach tab",
-            which meant losing the numbers the answer was about. */}
-        <div className="px-5 pt-3">
+            which meant losing the numbers the answer was about. Outside the
+            scroller, so the newest message can never sit behind it. */}
+        <div className="shrink-0 border-t border-line/60 px-5 pt-3">
           <Composer
             value={input}
             onChange={setInput}

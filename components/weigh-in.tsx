@@ -88,8 +88,10 @@ export function WeighIn({
             {Math.abs(done.changeSinceStart)}{done.logged.unit} since you started
           </p>
         )}
+        {/* It said "Change it" and then dropped back to the quiet row, which
+            reads as a button that did nothing. It opens the stepper. */}
         <button
-          onClick={() => setDone(null)}
+          onClick={() => { setValue(done.logged.weight); setDone(null); setOpen(true); }}
           className="mt-3 text-[12px] text-faint underline underline-offset-2 hover:text-muted"
         >
           Change it

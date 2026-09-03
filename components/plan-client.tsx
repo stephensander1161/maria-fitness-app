@@ -215,11 +215,14 @@ function WeekStrip({
   href: (day: number) => string;
 }) {
   return (
-    /* Scrolls only where it has to. At md it is a seven-column grid that
-       fits, and leaving the overflow on painted a scrollbar under the header
-       for a row that never moves. */
-    <div className="mb-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-x-visible md:px-0">
-      <div className="flex gap-2 md:grid md:grid-cols-7">
+    /* Seven columns at every width, and no scroller.
+       Chips with a minimum width and a scroll fallback ran a few pixels past
+       the edge of a phone, which bought a horizontal scrollbar under the tabs
+       for a row that has exactly seven things in it and always will. Seven
+       equal columns fit on the narrowest screen worth supporting; the type
+       and the padding give way instead. */
+    <div className="mb-4">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {days.map((d) => {
           const isToday = d.dayOfWeek === today;
           const isOn = d.dayOfWeek === selected;
@@ -230,16 +233,20 @@ function WeekStrip({
               scroll={false}
               aria-current={isOn ? "page" : undefined}
               aria-label={`${d.dayName}${isToday ? ", today" : ""}`}
-              className={`min-w-[3.5rem] flex-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
+              className={`min-w-0 rounded-xl border px-0.5 py-2 text-center transition-colors sm:px-2 sm:py-2.5 ${
                 isOn ? "border-accent bg-accent-soft" : "border-edge bg-surface hover:bg-raised"
               }`}
             >
-              <span className={`block text-[10px] font-semibold uppercase tracking-wide ${
+              {/* "Today" does not fit in a seventh of a phone; the marker
+                  does the same job in the space there is. */}
+              <span className={`block truncate text-[10px] font-semibold uppercase tracking-tight ${
                 isToday ? "text-accent" : "text-faint"
               }`}>
-                {isToday ? "Today" : d.dayName.slice(0, 3)}
+                {d.dayName.slice(0, 3)}
+                {isToday && <span aria-hidden> ·</span>}
+                {isToday && <span className="sr-only">, today</span>}
               </span>
-              <span className={`mt-1 block text-[15px] font-semibold tabular ${
+              <span className={`mt-0.5 block truncate text-[14px] font-semibold tabular sm:text-[15px] ${
                 d.quiet ? "text-faint" : isOn ? "text-accent" : "text-text"
               }`}>
                 {d.note}

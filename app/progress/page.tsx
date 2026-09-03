@@ -64,42 +64,44 @@ export default async function ProgressPage() {
 
   return (
     <>
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <div className="min-w-0">
+      <header className="mb-5">
+        <div className="flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
-          {/*
-            The week's three numbers, at the top where they are read first.
-            They were the head of a card near the bottom of the screen, which
-            is the wrong place for the only line that answers "how am I
-            doing" without any interpretation at all.
-          */}
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px] text-muted tabular">
-            <span>
-              <span className="font-semibold text-text">{review.completed}</span>
-              <span className="text-faint">/{review.planned || "—"}</span> sessions
-            </span>
-            <span className="text-line">·</span>
-            <span><span className="font-semibold text-text">{review.totalSets}</span> sets</span>
-            <span className="text-line">·</span>
-            <span><span className="font-semibold text-text">{streak}</span>-day streak</span>
-          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* The settings moved to their own screen; a phone has no sidebar
+                to reach it from, and this is the screen they used to live
+                on. */}
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              className="grid size-8 place-items-center rounded-full border border-line text-muted md:hidden"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="3.2" />
+                <path d="M4.5 12a7.5 7.5 0 0 1 .1-1.2l-2-1.5 2-3.4 2.3.9a7.5 7.5 0 0 1 2.1-1.2L9.4 3h4.2l.4 2.6c.8.3 1.5.7 2.1 1.2l2.3-.9 2 3.4-2 1.5c0 .4.1.8.1 1.2s0 .8-.1 1.2l2 1.5-2 3.4-2.3-.9c-.6.5-1.3.9-2.1 1.2l-.4 2.6H9.4l-.4-2.6a7.5 7.5 0 0 1-2.1-1.2l-2.3.9-2-3.4 2-1.5c0-.4-.1-.8-.1-1.2Z" />
+              </svg>
+            </Link>
+            <AiOpinion page="progress" label="progress" />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* The settings moved to their own screen; a phone has no sidebar to
-              reach it from, and this is the screen they used to live on. */}
-          <Link
-            href="/settings"
-            aria-label="Settings"
-            className="grid size-9 place-items-center rounded-full border border-line text-muted md:hidden"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="12" cy="12" r="3.2" />
-              <path d="M4.5 12a7.5 7.5 0 0 1 .1-1.2l-2-1.5 2-3.4 2.3.9a7.5 7.5 0 0 1 2.1-1.2L9.4 3h4.2l.4 2.6c.8.3 1.5.7 2.1 1.2l2.3-.9 2 3.4-2 1.5c0 .4.1.8.1 1.2s0 .8-.1 1.2l2 1.5-2 3.4-2.3-.9c-.6.5-1.3.9-2.1 1.2l-.4 2.6H9.4l-.4-2.6a7.5 7.5 0 0 1-2.1-1.2l-2.3.9-2-3.4 2-1.5c0-.4-.1-.8-.1-1.2Z" />
-            </svg>
-          </Link>
-          <AiOpinion page="progress" label="progress" />
-        </div>
+
+        {/*
+          The week's three numbers under the title rather than beside it. On a
+          phone they were sharing a row with the coach buttons, which pushed
+          them onto three ragged lines and ran the last button off the edge of
+          the screen.
+        */}
+        <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px] text-muted tabular">
+          <span>
+            <span className="font-semibold text-text">{review.completed}</span>
+            <span className="text-faint">/{review.planned || "—"}</span> sessions
+          </span>
+          <span className="text-line">·</span>
+          <span><span className="font-semibold text-text">{review.totalSets}</span> sets</span>
+          <span className="text-line">·</span>
+          <span><span className="font-semibold text-text">{streak}</span>-day streak</span>
+        </p>
       </header>
 
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />

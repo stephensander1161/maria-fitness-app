@@ -13,6 +13,7 @@ import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 import { streakWeeks, titleFor } from "@/lib/titles";
+import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 
 /**
  * Read models for the screens. Pages render from these; mutations always go
@@ -28,13 +29,18 @@ import { streakWeeks, titleFor } from "@/lib/titles";
  * to go for a walk instead. The tool clears them now — this heals the rows
  * that were already written, and defends the screens against any future path
  * that flips the flag and forgets.
+ *
+ * The title and the note are judged separately, because they go stale
+ * separately: renaming "Rest" to "chest" fixes the heading and leaves the
+ * note underneath saying a walk does more than training. The note is matched
+ * against what the templates actually seeded rather than against a pattern.
  */
 function restWordsFor(day: { title: string; isRest: boolean; notes: string | null }) {
-  const stale = !day.isRest && /^rest\b/i.test(day.title);
+  if (day.isRest) return { title: day.title, isRest: true, notes: day.notes };
   return {
-    title: stale ? "Session" : day.title,
-    isRest: day.isRest,
-    notes: stale ? null : day.notes,
+    title: /^rest\b/i.test(day.title) ? "Session" : day.title,
+    isRest: false,
+    notes: day.notes !== null && REST_DAY_NOTES.has(day.notes) ? null : day.notes,
   };
 }
 export type TodayExercise = {

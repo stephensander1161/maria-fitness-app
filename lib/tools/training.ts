@@ -11,6 +11,7 @@ import { planWeek, resolveSlugs } from "@/lib/agent/planner";
 import { weekView } from "@/lib/views";
 import { profileToday, todayForProfile } from "@/lib/profile";
 import { volumeBrief } from "@/lib/volume";
+import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 import { volumeForWeek } from "./progression-targets";
 import { audit } from "@/lib/audit";
 import { defineTool, type ToolContext } from "./define";
@@ -623,10 +624,14 @@ export const addExerciseToDay = defineTool({
     // is how a day with a workout on it kept telling her to go for a walk
     // instead: the flag had flipped, the words had not.
     if (found.day.isRest) {
-      const wasPlaceholder = /^rest\b/i.test(found.day.title);
+      // The title and the note are cleared independently: she may have
+      // renamed the day already, and the note underneath would survive that.
+      const placeholderTitle = /^rest\b/i.test(found.day.title);
+      const restNote = found.day.notes !== null && REST_DAY_NOTES.has(found.day.notes);
       await db.update(planDays).set({
         isRest: false,
-        ...(wasPlaceholder ? { title: `${DAY_NAMES[found.dow]} session`, notes: null } : {}),
+        ...(placeholderTitle ? { title: `${DAY_NAMES[found.dow]} session` } : {}),
+        ...(restNote ? { notes: null } : {}),
       }).where(eq(planDays.id, found.day.id));
     }
     return { ok: true, added: ex.name, day: DAY_NAMES[found.dow] };

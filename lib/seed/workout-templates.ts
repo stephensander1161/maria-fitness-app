@@ -669,3 +669,22 @@ export const WORKOUT_TEMPLATES: WorkoutTemplateSeed[] = [
     ],
   },
 ];
+
+
+/**
+ * Every note the templates put on a rest day.
+ *
+ * A day that stops being a rest day has to stop talking like one, and the
+ * only reliable way to know a note *is* rest-day copy is to ask the thing
+ * that wrote it. Matching on the title was not enough: rename "Rest" to
+ * "chest" and the walk-instead-of-training note survives the rename, which
+ * is exactly what happened.
+ *
+ * Built from the templates rather than listed by hand, so it cannot drift
+ * away from what is actually seeded.
+ */
+export const REST_DAY_NOTES: ReadonlySet<string> = new Set(
+  WORKOUT_TEMPLATES.flatMap((t) =>
+    t.days.filter((d) => d.isRest).map((d) => d.notes).filter((n): n is string => n !== null),
+  ),
+);
