@@ -11,16 +11,10 @@ import { WeighIn } from "@/components/weigh-in";
 import { prettyDate, weekStart } from "@/lib/date";
 import { weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
-import { SignOut } from "@/components/sign-out";
-import { CoachBudget, type Usage } from "@/components/coach-budget";
-import { UnitsSettings } from "@/components/units-settings";
-import { CoachTone } from "@/components/coach-tone";
-import { PlanSetupButton } from "@/components/plan-setup";
 import { CheckIn } from "@/components/check-in";
-import { TranscriptExport } from "@/components/transcript-export";
 import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
-import { runTool } from "@/lib/tools";
+import Link from "next/link";
 import { Measurements } from "@/components/measurements";
 import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
@@ -35,7 +29,7 @@ export default async function ProgressPage() {
 
   const her = profileToday(profile);
 
-  const [history, milestones, review, streak, sites, library, usage, progression, eating] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, progression, eating] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -43,7 +37,6 @@ export default async function ProgressPage() {
     currentStreak(profile.id, her),
     measurementProgress(profile.id, u),
     photoLibrary(profile.id),
-    runTool("get_coach_usage", {}, { profileId: profile.id }),
     exerciseProgression(profile.id, u, { asOf: her }),
     nutritionTrend(profile.id, 14, her),
   ]);
@@ -73,7 +66,22 @@ export default async function ProgressPage() {
     <>
       <header className="mb-5 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
-        <AiOpinion page="progress" label="progress" />
+        <div className="flex items-center gap-2">
+          {/* The settings moved to their own screen; a phone has no sidebar to
+              reach it from, and this is the screen they used to live on. */}
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="grid size-9 place-items-center rounded-full border border-line text-muted md:hidden"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="3.2" />
+              <path d="M4.5 12a7.5 7.5 0 0 1 .1-1.2l-2-1.5 2-3.4 2.3.9a7.5 7.5 0 0 1 2.1-1.2L9.4 3h4.2l.4 2.6c.8.3 1.5.7 2.1 1.2l2.3-.9 2 3.4-2 1.5c0 .4.1.8.1 1.2s0 .8-.1 1.2l2 1.5-2 3.4-2.3-.9c-.6.5-1.3.9-2.1 1.2l-.4 2.6H9.4l-.4-2.6a7.5 7.5 0 0 1-2.1-1.2l-2.3.9-2-3.4 2-1.5c0-.4-.1-.8-.1-1.2Z" />
+            </svg>
+          </Link>
+          <AiOpinion page="progress" label="progress" />
+        </div>
       </header>
 
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
@@ -216,25 +224,8 @@ export default async function ProgressPage() {
       <Measurements sites={sites} unit={lengthLabel(u)} />
       <ProgressPhotos photos={library.photos} total={library.total} />
 
-      <PlanSetupButton
-        defaults={{
-          daysPerWeek: profile.daysPerWeek,
-          sessionMinutes: profile.sessionMinutes,
-          equipment: profile.equipment,
-          injuries: profile.injuries,
-          dietaryRestrictions: profile.dietaryRestrictions,
-          dislikedFoods: profile.dislikedFoods,
-          cookingSkill: profile.cookingSkill,
-        }}
-      />
-      <CoachTone tone={profile.coachTone} />
-      <UnitsSettings units={u} foodUnits={profile.foodUnits} />
-      <TranscriptExport />
-      <CoachBudget usage={usage as Usage} />
       </div>
       </div>
-
-      <SignOut />
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView, RecentMeal } from "@/lib/views";
@@ -62,8 +62,10 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
       <section className="card mb-3 p-5">
         <h2 className="text-[15px] font-semibold">Today&rsquo;s food</h2>
         <p className="mt-1 text-[13px] text-faint">
-          Nothing logged yet. Add food with the calculator below, or just tell your coach.
+          Nothing logged yet. Add it below, work it out with the calculator, or just tell your coach.
         </p>
+
+      <QuickAdd date={day.date} onDone={() => startTransition(() => router.refresh())} />
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
@@ -195,7 +197,129 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
           </div>
         </div>
       )}
+
+      <QuickAdd date={day.date} onDone={() => startTransition(() => router.refresh())} />
     </section>
+  );
+}
+
+
+/**
+ * Add a meal by typing it.
+ *
+ * The coach does this better — "two eggs on toast" and it works out the
+ * numbers — but the only way to add food from this screen used to be a hint
+ * that disappeared as soon as the day had anything in it. A manual row that
+ * is always there costs nothing and removes the one moment where the screen
+ * says "you cannot do that here".
+ *
+ * Calories are optional on purpose. A meal logged in words carries no figure,
+ * and the day's total says so rather than counting it as zero — that is the
+ * rule this whole app is built on, and forcing a number here would break it
+ * by making her invent one.
+ */
+function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [slot, setSlot] = useState<"breakfast" | "lunch" | "dinner" | "snack">("snack");
+  const [what, setWhat] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const said = what.trim();
+    if (!said) return;
+    setBusy(true);
+    setError(null);
+    const kcal = Number(calories);
+    const g = Number(protein);
+    try {
+      await action("log_meal", {
+        slot, description: said, date,
+        ...(calories.trim() && Number.isFinite(kcal) ? { calories: kcal } : {}),
+        ...(protein.trim() && Number.isFinite(g) ? { proteinG: g } : {}),
+      });
+      setWhat(""); setCalories(""); setProtein(""); setOpen(false);
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't log — try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 w-full rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
+      >
+        + Add food
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-raised p-3">
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {(["breakfast", "lunch", "dinner", "snack"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSlot(s)}
+            aria-pressed={slot === s}
+            className={`rounded-full border px-3 py-1.5 text-[12px] capitalize transition-colors ${
+              slot === s ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <input
+        value={what}
+        onChange={(e) => setWhat(e.target.value)}
+        placeholder="What did you eat?"
+        aria-label="What did you eat"
+        autoFocus
+        className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
+      />
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <input
+          value={calories}
+          onChange={(e) => setCalories(e.target.value)}
+          inputMode="numeric"
+          placeholder="kcal (optional)"
+          aria-label="Calories, optional"
+          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        />
+        <input
+          value={protein}
+          onChange={(e) => setProtein(e.target.value)}
+          inputMode="numeric"
+          placeholder="protein g (optional)"
+          aria-label="Protein in grams, optional"
+          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        />
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-faint">
+        Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather
+        than counting it as nothing. Your coach can work them out for you.
+      </p>
+      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={save}
+          disabled={busy || !what.trim()}
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+        >
+          {busy ? "Logging…" : "Log it"}
+        </button>
+        <button onClick={() => setOpen(false)} className="rounded-xl border border-line px-4 py-2.5 text-[13px] text-muted">
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

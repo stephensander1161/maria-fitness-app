@@ -655,6 +655,24 @@ export function ExerciseCard({
           {exercise.extra && (
             <span className="rounded-full bg-raised px-2.5 py-1 text-[11px] text-faint">Added</span>
           )}
+          {/*
+            The visible way in. Tapping the name works too, but an affordance
+            you have to be told about in a line of grey text is not one — and
+            that line was the app apologising for its own layout.
+          */}
+          <button
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-label={`${open ? "Close" : "Log a set for"} ${exercise.name}`}
+            className={`grid size-8 place-items-center rounded-full border transition-colors ${
+              open ? "border-accent bg-accent-soft text-accent" : "border-edge bg-raised text-text"
+            }`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M12 5v14M5 12h14" />}
+            </svg>
+          </button>
           <button
             onClick={() => setGuideOpen(true)}
             aria-label={`How to do ${exercise.name}`}
@@ -827,14 +845,8 @@ export function ExerciseCard({
         </div>
       )}
 
-      <div className="border-t border-line bg-ink/40 p-3">
-        {!open ? (
-          // Tapping the movement's name opens this, which is the obvious
-          // gesture — a second button saying so was a step for nothing.
-          <p className="text-center text-[12px] text-faint">
-            Tap {exercise.name} to log a set
-          </p>
-        ) : (
+      <div className={open ? "border-t border-line bg-ink/40 p-3" : "hidden"}>
+        {!open ? null : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
                 {loaded && (

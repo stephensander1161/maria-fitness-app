@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { action, actionMessage } from "@/lib/client";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
 import { useDialog } from "@/lib/use-dialog";
 import { Composer, ThreadMessages } from "./coach-thread";
@@ -57,7 +58,7 @@ function CoachSheet({
 }: { name: string | null; path: string; onClose: () => void }) {
   const router = useRouter();
   const {
-    messages, setMessages, streaming, activity, busy, error, input, setInput, stream, send,
+    messages, setMessages, streaming, activity, busy, error, setError, input, setInput, stream, send,
   } = useCoachThread({
     // A turn that ran tools changed something the screen behind this is
     // showing — "log that set" should tick the set off underneath.
@@ -67,6 +68,13 @@ function CoachSheet({
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
+  /**
+   * Starting fresh really is starting fresh: the transcript *is* the coach's
+   * memory, so a "new chat" that left it in place would be a new window onto
+   * the same conversation. Said plainly before it happens, because the one
+   * thing worse than forgetting is forgetting silently.
+   */
+  const [clearing, setClearing] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
@@ -129,11 +137,49 @@ function CoachSheet({
         className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(46rem,88dvh)] md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60"
         data-no-pull-to-refresh=""
       >
+        {clearing && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-line/60 bg-raised px-4 py-2.5">
+            <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
+              Start over? Your coach forgets what has been said. Everything you have logged stays.
+            </p>
+            <button onClick={() => setClearing(false)} className="shrink-0 px-2 py-1.5 text-[12px] text-muted">
+              Keep it
+            </button>
+            <button
+              onClick={async () => {
+                setClearing(false);
+                try {
+                  await action("forget_conversation", {});
+                  setMessages([]);
+                  kicked.current = false;
+                  setReloadKey((k) => k + 1);
+                } catch (err) {
+                  // The thread stays as it is and nothing was lost — but she
+                  // asked for a fresh start and did not get one, so say so.
+                  setError(actionMessage(err, "Couldn't clear the conversation — try again."));
+                }
+              }}
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-ink"
+            >
+              Start fresh
+            </button>
+          </div>
+        )}
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line/60 px-4 py-3">
           <h2 className="truncate text-[17px] font-semibold">
             {name ? `Hey, ${name}` : "Coach"}
           </h2>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setClearing(true)}
+              aria-label="Start a new conversation"
+              className="grid size-9 place-items-center rounded-full border border-line bg-surface text-muted active:bg-raised"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
             <button
               onClick={() => setFeedback(true)}
               aria-label="Send feedback"

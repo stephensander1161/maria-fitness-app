@@ -5,6 +5,7 @@ import type { MealWeekView, PickableExercise, TodayView, WeekView } from "@/lib/
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
 import { PlannedDay } from "./planned-day";
+import { DayTitle } from "./day-title";
 import { TrainClient, type NextTarget } from "./train-client";
 
 /**
@@ -85,12 +86,22 @@ export function PlanClient({
         week.exists ? (
           <div className="space-y-3">
             <section className="card p-4">
-              <DayHeading
-                name={trainingDay?.dayName ?? ""}
-                isToday={isToday}
-                title={trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
-                sub={trainingDay?.focus ?? null}
-              />
+              {/* Editable here too. "Full Body B" is the planner's phrasing,
+                  and the first thing anyone wants to do with a name a machine
+                  chose is change it — which only worked on the Train screen,
+                  and only for today. */}
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+                {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
+              </p>
+              <div className="mb-3">
+                {week.exists && trainingDay && !trainingDay.isRest ? (
+                  <DayTitle title={trainingDay.title} dayOfWeek={day} focus={trainingDay.focus} />
+                ) : (
+                  <h2 className="mt-0.5 text-[17px] font-semibold">
+                    {trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
+                  </h2>
+                )}
+              </div>
               {trainingDay?.notes && (
                 <p className="mb-2 text-[13px] italic text-faint">{trainingDay.notes}</p>
               )}

@@ -75,7 +75,21 @@ export function SideNav({ name, title }: { name: string | null; title: Title }) 
         replaces. Screens refresh themselves when she comes back to the tab —
         see RefreshOnFocus.
       */}
-      <div className="mt-auto pt-4">
+      <div className="mt-auto space-y-1 pt-4">
+        <Link
+          href="/settings"
+          aria-current={path.startsWith("/settings") ? "page" : undefined}
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors ${
+            path.startsWith("/settings") ? "bg-accent-soft text-accent" : "text-faint hover:bg-raised hover:text-muted"
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="3.2" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V1a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 17 2.6a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H23a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.4Z" />
+          </svg>
+          Settings
+        </Link>
         <FeedbackNavItem />
       </div>
     </nav>

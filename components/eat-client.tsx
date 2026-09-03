@@ -29,7 +29,11 @@ export function EatClient({
 }) {
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
-      <TodayFood day={day} usuals={usuals} />
+      {/* The day's log is the point of the screen and the widest thing on it —
+          it takes the whole row rather than sharing one. */}
+      <div className="xl:col-span-2">
+        <TodayFood day={day} usuals={usuals} />
+      </div>
 
       <section className="card p-4">
         <div className="mb-3 flex items-baseline justify-between gap-3">
