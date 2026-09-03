@@ -205,7 +205,10 @@ export function TrainClient({
         closed the session, stopped the rest timer, and collapsed the sets she
         was still entering.
       */}
-      <div className="card p-4">
+      {/* Nothing logged and nothing finished is nothing to say — the cards
+          above are the instruction, and a card whose only content is "get
+          going" is furniture. */}
+      <div className={totalLogged === 0 && !view.completed ? "hidden" : "card p-4"}>
         {view.completed && outstanding.length === 0 ? (
           <div className="text-center">
             <p className="text-[15px] font-semibold text-beat">Session done</p>
@@ -215,7 +218,9 @@ export function TrainClient({
             </p>
           </div>
         ) : totalLogged === 0 ? (
-          <p className="text-center text-sm text-muted">Log a set to get going.</p>
+          // Nothing to say. The cards above are the instruction, and a card
+          // whose only content is "get going" is a row of furniture.
+          null
         ) : (
           <div className="text-center">
             {/*
