@@ -2,13 +2,14 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-or
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  preppedPortions, setLogs, workouts,
+  preppedPortions, profiles, setLogs, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
+import { restSecondsFor } from "@/lib/rest";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
@@ -90,6 +91,12 @@ export type TodayView = {
 };
 
 export async function todayView(profileId: string, units: Units, date = today()): Promise<TodayView> {
+  // Her rest preferences, read once: the plan's number is a default, not a
+  // decision — see lib/rest.ts for the precedence.
+  const [prefs] = await db
+    .select({ defaultRestSeconds: profiles.defaultRestSeconds, restByGroup: profiles.restByGroup })
+    .from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  const rest = prefs ?? { defaultRestSeconds: null, restByGroup: null };
   const dow = dayIndex(date);
   const base = {
     date, dayName: DAY_NAMES[dow], unit: weightLabel(units), units,
@@ -108,7 +115,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const items = await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category,
-    equipment: exercises.equipment,
+    equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
     targetWeightKg: planExercises.targetWeightKg,
     restSeconds: planExercises.restSeconds, notes: planExercises.notes,
@@ -137,7 +144,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
         bodyweight: exercises.bodyweight, category: exercises.category,
-        equipment: exercises.equipment,
+        equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       }).from(exercises).where(inArray(exercises.id, extraIds))
     : [];
 
@@ -187,7 +194,12 @@ export async function todayView(profileId: string, units: Units, date = today())
         category: i.category, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
         targetWeight: weightOut(i.targetWeightKg, units),
-        restSeconds: i.restSeconds, notes: i.notes,
+        restSeconds: restSecondsFor(
+          rest,
+          groupForExercise({ primaryMuscles: i.primaryMuscles, category: i.category }),
+          i.restSeconds,
+        ),
+        notes: i.notes,
         lastTime: prev
           ? { date: prev.date, sets: prev.sets.map((s) => ({ reps: s.reps, weight: weightOut(s.weightKg, units) })) }
           : null,

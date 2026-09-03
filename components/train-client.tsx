@@ -114,16 +114,24 @@ export function TrainClient({
     .filter((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)
     .map((e) => e.name);
 
-  const startRest = useCallback((exercise: TodayExercise) => {
+  const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null }) => {
     beginRest({
       slug: exercise.slug,
       name: exercise.name,
       category: exercise.category,
+      unit: view.unit,
+      // Seeded with what she just did, which is what she is most likely to do
+      // again — the GO screen logs the next set from here without her going
+      // back to the card for the numbers.
+      reps: last?.reps ?? exercise.targetReps,
+      weight: last?.weight ?? exercise.targetWeight,
+      loadable: !exercise.bodyweight || exercise.loadable,
+      date,
       // An absolute end time, so a throttled or sleeping tab cannot drift it.
       endsAt: Date.now() + exercise.restSeconds * 1000,
       seconds: exercise.restSeconds,
     });
-  }, [beginRest]);
+  }, [beginRest, view.unit, date]);
 
   /**
    * Finishing is one button now.
@@ -224,7 +232,7 @@ export function TrainClient({
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-          onLogged={(r, finishedExercise) => {
+          onLogged={(r, finishedExercise, logged) => {
             if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
             // Rest runs between sets *and* between movements — finishing the
             // squats is exactly when she needs a minute before the next thing.
@@ -233,7 +241,7 @@ export function TrainClient({
             const wasLastOfSession = finishedExercise
               && outstanding.filter((name) => name !== ex.name).length === 0;
             if (wasLastOfSession) dismissRest();
-            else startRest(ex);
+            else startRest(ex, logged);
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
@@ -574,7 +582,12 @@ export function ExerciseCard({
   /** False while a past day is locked: read it, do not rewrite it. */
   editable?: boolean;
   result?: LogResult; pending: PendingSet[];
-  onLogged: (r: LogResult | null, finishedExercise: boolean) => void;
+  onLogged: (
+    r: LogResult | null,
+    finishedExercise: boolean,
+    /** The set she just logged, to seed the next one. */
+    logged: { reps: number; weight: number | null },
+  ) => void;
   onRetryPending: () => void;
   onRemoved: () => void;
 }) {
@@ -684,7 +697,11 @@ export function ExerciseCard({
         setInput(exercise.slug, reps, loaded && weight > 0 ? weight : null, rir, date as ISODate | undefined),
       );
       // Whether that was the last set she planned for this movement.
-      onLogged(outcome.result, exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets);
+      onLogged(
+        outcome.result,
+        exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets,
+        { reps, weight: loaded && weight > 0 ? weight : null },
+      );
       // A good call is also the moment to drain anything stuck from earlier.
       if (!outcome.queued) onRetryPending();
     } catch {

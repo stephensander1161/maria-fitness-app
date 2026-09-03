@@ -1,9 +1,13 @@
 "use client";
 
 import {
-  createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore,
+  createContext, startTransition, useCallback, useContext, useMemo, useState,
+  useSyncExternalStore,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { logSetOrQueue, setInput } from "@/lib/offline";
+import type { ISODate } from "@/lib/date";
 import { RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
 
@@ -132,6 +136,7 @@ export function useRest(): RestContext {
 }
 
 export function RestProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const rest = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [go, setGo] = useState<Rest | null>(null);
   const [awaiting, setAwaiting] = useState<Rest | null>(null);
@@ -175,7 +180,25 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {go && <GoScreen name={go.name} slug={go.slug} category={go.category} onDismiss={clearGo} />}
+      {go && (
+        <GoScreen
+          rest={go}
+          onLog={async (set) => {
+            // Through the offline-aware path, exactly as the card does: a set
+            // logged in a basement with no signal is still a set she did.
+            await logSetOrQueue(
+              setInput(go.slug, set.reps, set.weight, undefined, go.date as ISODate | undefined),
+            );
+            // And straight back into the next rest, which is the point of
+            // logging here rather than on the card.
+            setGo(null);
+            write({ ...go, endsAt: Date.now() + go.seconds * 1000, reps: set.reps, weight: set.weight });
+            setAwaiting(null);
+            startTransition(() => router.refresh());
+          }}
+          onDismiss={clearGo}
+        />
+      )}
       {!go && awaiting && <LogReminder rest={awaiting} onDismiss={clearAwaiting} />}
     </Ctx.Provider>
   );

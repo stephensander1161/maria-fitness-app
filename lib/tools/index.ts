@@ -120,6 +120,7 @@ const all: Tool[] = [
   nextTargets.estimateOneRepMax,
   training.getPlan,
   profile.getProfile,
+  profile.setRestDefaults,
   training.getWeekReview,
   profile.getWeightHistory,
   profile.listGoals,

@@ -17,6 +17,7 @@ const profile = (tone: Profile["coachTone"]): Profile => ({
   dietaryRestrictions: [], dislikedFoods: [], cookingSkill: null,
   coachTone: tone, units: "metric", foodUnits: null, timezone: "UTC",
   dailyBudgetMicros: null, maintenanceUntil: null, tempEquipment: null,
+  defaultRestSeconds: null, restByGroup: null,
   tempEquipmentUntil: null, planSetupAt: null, planSetupSkippedAt: null,
   onboardedAt: new Date(), createdAt: new Date(),
 });

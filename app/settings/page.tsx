@@ -7,6 +7,7 @@ import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
 import { AiOpinion } from "@/components/ai-opinion";
 import { EraseData } from "@/components/erase-data";
+import { RestSettings } from "@/components/rest-settings";
 import { currentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,13 @@ export default async function SettingsPage() {
 
         <Group title="How things are shown">
           <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
+        </Group>
+
+        <Group title="Training">
+          <RestSettings
+            defaultRestSeconds={profile.defaultRestSeconds}
+            restByGroup={profile.restByGroup}
+          />
         </Group>
 
         <Group title="Your plan">

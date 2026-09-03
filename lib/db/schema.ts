@@ -114,6 +114,22 @@ export const profiles = pgTable("profiles", {
    */
   tempEquipment: jsonb("temp_equipment").$type<string[]>(),
   tempEquipmentUntil: date("temp_equipment_until"),
+  /**
+   * How long she wants between sets, in seconds. Null follows whatever the
+   * plan says for each movement.
+   *
+   * Overriding matters because the number the planner writes is a reasonable
+   * default and not her preference: someone training in a lunch hour wants
+   * sixty seconds on everything, and someone squatting heavy wants three
+   * minutes on that and ninety on the rest.
+   */
+  defaultRestSeconds: integer("default_rest_seconds"),
+  /**
+   * Per muscle group, keyed by the names in lib/muscle-groups.ts. A group
+   * with no entry falls back to `defaultRestSeconds`, and then to the plan.
+   * Legs and Back are the two people actually want longer.
+   */
+  restByGroup: jsonb("rest_by_group").$type<Record<string, number>>(),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**

@@ -28,9 +28,11 @@ export async function MobileGreeting() {
 
   return (
     <div className="mb-4 flex items-baseline justify-between gap-3 md:hidden">
+      {/* The comma belongs to the greeting, not to the name — inside the
+          bolder span it was a stray dark tick sitting against grey text. */}
       <p className="min-w-0 truncate text-[13px] text-muted">
         {greeting}
-        {name ? <span className="font-semibold text-text">, {name}</span> : null}
+        {name ? <>, <span className="font-semibold text-text">{name}</span></> : null}
       </p>
       <p
         className="shrink-0 text-[10px] font-medium uppercase tracking-widest text-accent"

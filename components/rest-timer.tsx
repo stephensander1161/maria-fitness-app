@@ -18,6 +18,22 @@ export type Rest = {
   /** Which figure the GO screen draws. Carried here because the timer now
       outlives the Train screen that knows the exercise. */
   category: string;
+  /**
+   * Everything needed to log the *next* set without going back to the card.
+   *
+   * The point of the GO screen is that she is standing at the rack having
+   * just finished a set — so the numbers go in there, and logging them starts
+   * the next rest. Carried on the rest itself because the timer outlives the
+   * screen that knew them.
+   */
+  unit: string;
+  /** What to seed the entry with: her last set of this movement. */
+  reps: number;
+  weight: number | null;
+  /** Whether this movement can hold a weight at all. */
+  loadable: boolean;
+  /** The day the set belongs to. Undefined means her today. */
+  date?: string;
   /** Absolute wall-clock time the rest is over. */
   endsAt: number;
   /** Total rest, for the progress line. Grows with "+30s". */
@@ -330,6 +346,10 @@ export function RestTimerBar({
 }) {
   const ms = useRemaining(rest.endsAt);
   const over = ms <= 0;
+  // Nothing to draw once it is over: the GO screen has the whole screen and
+  // the entry on it, and a green "Go / Done" bar behind that was a second
+  // copy of the same news with a button that did less. The component stays
+  // mounted, because it is what fires the alarm.
   // Elapsed, not remaining: the runner's pace is its own and does not slow
   // down as the rest runs out. Read from the clock rather than from `ms`, so
   // it is smooth between the countdown's four repaints a second.
@@ -377,6 +397,7 @@ export function RestTimerBar({
   }, [onDismiss]);
 
   const pct = over ? 0 : Math.max(0, Math.min(100, (ms / (rest.seconds * 1000)) * 100));
+  if (over) return null;
 
   // Sticky to the viewport, so it stays with her wherever she scrolls on the
   // Train screen. The safe-area inset keeps it clear of the notch when

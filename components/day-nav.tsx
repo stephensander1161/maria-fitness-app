@@ -17,10 +17,12 @@ import Link from "next/link";
  * implied.
  */
 export function DayNav({
-  base, param, prev, next, today, label, isToday, actions, children,
+  base, param, date, prev, next, today, label, isToday, actions, children,
 }: {
   base: string;
   param: string;
+  /** The day on screen, as YYYY-MM-DD. */
+  date: string;
   prev: string;
   next: string;
   today: string;
@@ -31,7 +33,11 @@ export function DayNav({
   /** The day's own heading, centred under the date it belongs to. */
   children?: React.ReactNode;
 }) {
-  const behind = !isToday && label < today; // reading the past; today is ahead
+  // Compared as dates, not as the words on the button. This read
+  // `label < today` — "Wed, Sep 3" against "2026-09-03" — which is a string
+  // comparison between two unrelated formats and was false every time, so the
+  // way back sat on the left even when today was to the right.
+  const behind = !isToday && date < today; // reading the past; today is ahead
   const jump = (
     <Link
       href={`${base}?${param}=${today}`}

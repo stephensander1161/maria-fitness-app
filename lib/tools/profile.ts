@@ -7,6 +7,7 @@ import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/uni
 import { missingForPlan, profileToday, todayForProfile, ageFrom } from "@/lib/profile";
 import { weightTrend } from "@/lib/trend";
 import { foodUnitsOf } from "@/lib/food-units";
+import { MAX_REST_SECONDS, MIN_REST_SECONDS, REST_GROUPS } from "@/lib/rest";
 import { defineTool, type ToolContext } from "./define";
 
 /** Numbers crossing the tool boundary are always in HER units (lb/in by
@@ -304,5 +305,57 @@ export const achieveGoal = defineTool({
       .returning();
     if (!row) throw new Error("Goal not found");
     return { ok: true, title: row.title, achievedAt: row.achievedAt };
+  },
+});
+
+
+export const setRestDefaults = defineTool({
+  name: "set_rest_defaults",
+  description:
+    "Sets how long she rests between sets — one number for everything, or a different one per muscle group. Use it whenever she says a rest is too long or too short ('ninety seconds is ages', 'I need three minutes on squats'). Seconds. Pass null for `seconds` to go back to whatever each movement's plan says, and an empty object for `byGroup` to clear the per-group ones. Groups are Legs, Glutes, Back, Chest, Shoulders, Arms, Core, Conditioning, Mobility.",
+  input: z.object({
+    seconds: z.number().nullable().optional()
+      .describe("Her default for every movement. Null follows the plan."),
+    byGroup: z.record(z.string(), z.number()).optional()
+      .describe("Per muscle group, e.g. {\"Legs\": 180}. Merged with what is already set; an empty object clears them all."),
+  }),
+  handler: async (input, ctx) => {
+    const [current] = await db
+      .select({ byGroup: profiles.restByGroup })
+      .from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+
+    // Merged, not replaced — "three minutes on legs" should not wipe the two
+    // minutes she set for back last week. An empty object is the clear.
+    let byGroup = current?.byGroup ?? null;
+    if (input.byGroup !== undefined) {
+      const merged = Object.keys(input.byGroup).length === 0
+        ? {}
+        : { ...(byGroup ?? {}), ...input.byGroup };
+      const kept: Record<string, number> = {};
+      for (const [group, value] of Object.entries(merged)) {
+        if (!REST_GROUPS.includes(group as (typeof REST_GROUPS)[number])) continue;
+        const n = Math.round(value);
+        if (n >= MIN_REST_SECONDS && n <= MAX_REST_SECONDS) kept[group] = n;
+      }
+      byGroup = Object.keys(kept).length === 0 ? null : kept;
+    }
+
+    const seconds = input.seconds === undefined
+      ? undefined
+      : input.seconds === null
+        ? null
+        : Math.min(MAX_REST_SECONDS, Math.max(MIN_REST_SECONDS, Math.round(input.seconds)));
+
+    await db.update(profiles).set({
+      ...(seconds === undefined ? {} : { defaultRestSeconds: seconds }),
+      ...(input.byGroup === undefined ? {} : { restByGroup: byGroup }),
+    }).where(eq(profiles.id, ctx.profileId));
+
+    return {
+      ok: true,
+      defaultRestSeconds: seconds === undefined ? undefined : seconds,
+      byGroup: byGroup ?? {},
+      note: "Applies from her next set — the timer reads it when a rest starts.",
+    };
   },
 });

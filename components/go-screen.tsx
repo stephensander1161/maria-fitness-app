@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
+import { NumberField } from "./number-field";
+import { actionMessage } from "@/lib/client";
+import type { Rest } from "./rest-timer";
 
 /**
  * Rest is over. Say so like it matters.
@@ -14,39 +17,58 @@ import { ExerciseFigure } from "./exercise-figure";
  * It stays until she puts it away. A timeout was wrong for the one case this
  * exists for — the phone face-down on a bench while she racks a weight. Coming
  * back to a screen that had already given up is exactly the miss it is meant
- * to prevent. Any tap or any key clears it, and there is nothing to find: the
- * whole screen is the dismiss target.
+ * to prevent.
+ *
+ * It also takes the set. She is standing at the rack having just finished
+ * one; the numbers are in her head at that moment and nowhere else five
+ * minutes later, and logging them here is what starts the next rest. That is
+ * the whole loop — alarm, lift, type two numbers, rest again — with no trip
+ * back to the card in the middle of it.
  */
 export function GoScreen({
-  name, slug, category, onDismiss,
+  rest, onLog, onDismiss,
 }: {
-  name: string;
-  slug: string;
-  category: string;
+  rest: Rest;
+  /** Log the set she just did and start the next rest. */
+  onLog: (set: { reps: number; weight: number | null }) => Promise<void>;
   onDismiss: () => void;
 }) {
+  const { name, slug, category } = rest;
+  const [reps, setReps] = useState(rest.reps);
+  const [weight, setWeight] = useState(rest.weight ?? 0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const dismissed = useRef(false);
 
   useEffect(() => {
-    const go = () => {
-      if (dismissed.current) return;
+    // Escape only. It used to clear on any tap or key, which cannot coexist
+    // with a form: every tap on the stepper would have closed the screen the
+    // stepper is on.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || dismissed.current) return;
       dismissed.current = true;
       onDismiss();
     };
-    window.addEventListener("keydown", go);
-    window.addEventListener("pointerdown", go);
-    return () => {
-      window.removeEventListener("keydown", go);
-      window.removeEventListener("pointerdown", go);
-    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onDismiss]);
+
+  async function log() {
+    setBusy(true);
+    setError(null);
+    try {
+      await onLog({ reps, weight: rest.loadable && weight > 0 ? weight : null });
+    } catch (err) {
+      setError(actionMessage(err, "That didn't log — try again."));
+      setBusy(false);
+    }
+  }
 
   return (
     <div
       role="status"
       aria-live="assertive"
-      onClick={onDismiss}
-      className="fixed inset-0 z-[90] grid place-items-center bg-ink/92 backdrop-blur-sm"
+      className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-ink/92 backdrop-blur-sm"
     >
       {/* The fuse: four segments, each running its own leg of the lap. A
           border cannot be drawn progressively, so this is four bars. */}
@@ -62,17 +84,62 @@ export function GoScreen({
         style={{ boxShadow: "inset 0 0 90px 10px color-mix(in srgb, var(--color-accent) 45%, transparent)" }}
       />
 
-      <div className="relative px-8 text-center">
+      <div className="relative w-full max-w-xs px-6 py-8 text-center">
         <ExerciseFigure
           slug={slug}
           category={category}
-          className="go-word mx-auto mb-4 h-28 w-28 text-accent"
+          className="go-word mx-auto mb-3 h-20 w-20 text-accent"
         />
-        <p className="go-word text-[clamp(3rem,18vw,7rem)] font-bold leading-none tracking-tight text-accent">
+        <p className="go-word text-[clamp(2.5rem,14vw,5rem)] font-bold leading-none tracking-tight text-accent">
           GO
         </p>
-        <p className="go-sub mt-3 text-[15px] font-medium text-text">{name}</p>
-        <p className="go-sub mt-1 text-[12px] text-faint">Tap anywhere to clear</p>
+        <p className="go-sub mt-2 text-[15px] font-medium text-text">{name}</p>
+
+        {/*
+          The set goes in here, not in a panel she has to find afterwards.
+          She is standing at the rack having just finished one: the numbers
+          are in her head now, and logging them is what starts the next rest.
+        */}
+        <div className="go-sub mt-6 space-y-2 text-left">
+          <div className={`grid gap-2 ${rest.loadable ? "grid-cols-2" : "grid-cols-1"}`}>
+            {rest.loadable && (
+              <NumberField
+                label={`Weight (${rest.unit})`}
+                value={weight}
+                onChange={setWeight}
+                step={weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1}
+                min={0}
+                max={2000}
+                decimals
+              />
+            )}
+            <NumberField
+              label="Reps"
+              value={reps}
+              onChange={setReps}
+              step={1}
+              decimals
+              min={0.5}
+              max={500}
+            />
+          </div>
+
+          {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
+
+          <button
+            onClick={log}
+            disabled={busy}
+            className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-50"
+          >
+            {busy ? "Logging…" : "Log it and rest"}
+          </button>
+          <button
+            onClick={onDismiss}
+            className="w-full py-2 text-[12px] text-faint hover:text-muted"
+          >
+            Not yet
+          </button>
+        </div>
       </div>
     </div>
   );

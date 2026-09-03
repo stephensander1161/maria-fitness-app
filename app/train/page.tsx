@@ -68,6 +68,7 @@ export default async function TrainPage({
       <DayNav
         base="/train"
         param="d"
+        date={on}
         prev={addDays(on, -1)}
         next={addDays(on, 1)}
         today={her}
