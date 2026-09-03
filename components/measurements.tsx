@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { Sparkline } from "./sparkline";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { SITES, siteHow } from "@/lib/measurements";
+import { prettyDate } from "@/lib/date";
 import type { SiteProgress } from "@/lib/progress";
 
 export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: string }) {
@@ -15,6 +16,21 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
   const [error, setError] = useState<string | null>(null);
   const [showHow, setShowHow] = useState<string | null>(null);
   const [chart, setChart] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /** Remove one reading. The tape moving is the usual reason a point is odd. */
+  async function drop(site: string, date: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action("remove_measurement", { site, date });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't remove that reading."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const tracked = new Map(sites.map((s) => [s.site, s]));
 
@@ -127,10 +143,43 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
                     </>
                   ) : (
                     <p className="text-center text-[12px] leading-relaxed text-faint">
-                      One reading so far. Measure again in a few weeks and the line appears here —
-                      that is the comparison worth having, not this morning against last night.
+                      One reading so far — a line needs two. Measure again whenever you like; the
+                      comparison worth having is weeks apart, not this morning against last night.
                     </p>
                   )}
+
+                  {/*
+                    Every reading, with a way to remove one.
+                    A chart with no numbers under it is a shape she has to
+                    take on trust, and a tape measure held differently is the
+                    single most likely reason a point is wrong — so the fix
+                    has to be here, next to the point that looks odd.
+                    Re-measuring the same day overwrites rather than stacking,
+                    which is why editing is just measuring again.
+                  */}
+                  <ul className="mt-3 divide-y divide-line/60 border-t border-line/60">
+                    {s.history.map((h) => (
+                      <li key={h.date} className="flex items-baseline justify-between gap-3 py-1.5">
+                        <span className="text-[12px] text-muted tabular">{prettyDate(h.date)}</span>
+                        <span className="text-[13px] tabular">{h.value}{unit}</span>
+                        <button
+                          onClick={() => void drop(s.site, h.date)}
+                          disabled={busy}
+                          aria-label={`Remove the ${s.label} reading from ${h.date}`}
+                          className="-my-1 grid size-7 shrink-0 place-items-center rounded-full text-faint transition-colors hover:bg-surface hover:text-miss disabled:opacity-40"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                            <path d="M18 6 6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10px] leading-relaxed text-faint">
+                    Measuring the same site again on the same day replaces that reading — so
+                    correcting one is just measuring it again.
+                  </p>
                 </div>
               )}
             </li>

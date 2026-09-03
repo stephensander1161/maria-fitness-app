@@ -199,11 +199,18 @@ export function KitchenGrid({ items, hasMealPlan }: { items: Item[]; hasMealPlan
 
                 {isOpen && (
                   <div className="mt-2 grid grid-cols-3 gap-1">
+                    {/*
+                      Three words that say what they do.
+                      They read "Got it / Out / Gone", which is three
+                      ambiguities in a row: got it *now* or got it *already*,
+                      out *of the house* or out *of the list*, and gone
+                      meaning either. These say which.
+                    */}
                     <Act
                       busy={busy !== null}
                       onClick={() => run("add_to_pantry", { items: [{ item: i.item }] }, "Couldn't save that.")}
                     >
-                      Got it
+                      Have some
                     </Act>
                     <Act
                       busy={busy !== null}
@@ -211,7 +218,7 @@ export function KitchenGrid({ items, hasMealPlan }: { items: Item[]; hasMealPlan
                         { item: i.item, amount: 0, ...(i.unit ? { unit: i.unit } : {}) },
                         "Couldn't save that.")}
                     >
-                      Out
+                      Ran out
                     </Act>
                     <Act
                       busy={busy !== null}
@@ -220,11 +227,13 @@ export function KitchenGrid({ items, hasMealPlan }: { items: Item[]; hasMealPlan
                         { item: i.item, ...(i.unit ? { unit: i.unit } : {}) },
                         "Couldn't remove that.")}
                     >
-                      Gone
+                      Remove
                     </Act>
                     <p className="col-span-3 pt-1 text-[10px] leading-relaxed text-faint">
-                      &ldquo;Got it&rdquo; records that you have some without counting it, which is
-                      honest. Tell your coach a number when you want one.
+                      <strong className="font-medium text-muted">Ran out</strong> keeps it on your
+                      shopping list. <strong className="font-medium text-muted">Remove</strong>
+                      {" "}takes it off this screen for good. Neither needs a number — tell your
+                      coach one when you want it counted.
                     </p>
                   </div>
                 )}
