@@ -28,7 +28,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-dvh bg-base text-text md:pl-56">
+      {/*
+        Two layouts, not one that stretches.
+
+        A phone scrolls the document: the whole page moves under the thumb and
+        that is correct there. A desktop app owns the viewport — the window
+        does not scroll, the panes inside it do — which is the difference
+        between an application and a long web page. `md:h-dvh` plus
+        `overflow-hidden` here makes the body a fixed frame; every scrolling
+        region below says so for itself.
+      */}
+      <body className="min-h-dvh bg-base text-text md:h-dvh md:overflow-hidden md:pl-56">
         <SideNavGate />
         <PullToRefresh>
           {/*
@@ -38,9 +48,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             cards is a comfortable measure, and the extra room goes to the
             margins.
           */}
-          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-3xl md:pb-10 md:pl-8 md:pr-8 lg:pt-8">
-            {children}
-            <DailyFact />
+          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:h-dvh md:max-w-none md:overflow-y-auto md:px-8 md:py-8">
+            {/* The frame is the window; the measure is still a measure. */}
+            <div className="md:mx-auto md:max-w-5xl">
+              {children}
+              <DailyFact />
+            </div>
           </main>
         </PullToRefresh>
         <CoachBubbleGate />

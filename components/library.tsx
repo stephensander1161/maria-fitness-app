@@ -19,7 +19,9 @@ const FACT_LABELS: Record<string, string> = {
   womens_health: "Women's health",
 };
 
-export function Library({ exercises, facts }: { exercises: Item[]; facts: FactItem[] }) {
+export function Library({
+  exercises, facts, selected = null,
+}: { exercises: Item[]; facts: FactItem[]; selected?: string | null }) {
   const [tab, setTab] = useState<"moves" | "food" | "know">("moves");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("all");
@@ -108,8 +110,18 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
               </h2>
               <div className="card divide-y divide-line">
                 {items.map((e) => (
-                  <Link key={e.slug} href={`/learn/${e.slug}`}
-                    className="flex items-center gap-3 p-4 transition-colors hover:bg-raised active:bg-raised">
+                  <Link
+                    key={e.slug}
+                    // Query rather than route: the desktop pane and the phone
+                    // page are the same URL, so a link works on both and can
+                    // be shared.
+                    href={`/learn?m=${e.slug}`}
+                    scroll={false}
+                    aria-current={e.slug === selected ? "true" : undefined}
+                    className={`flex items-center gap-3 p-4 transition-colors hover:bg-raised active:bg-raised ${
+                      e.slug === selected ? "bg-raised" : ""
+                    }`}
+                  >
                     <ExerciseFigure
                       slug={e.slug}
                       category={e.category}

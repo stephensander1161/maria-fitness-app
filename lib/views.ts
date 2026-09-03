@@ -527,3 +527,37 @@ export async function pantryView(profileId: string, foodUnits: Units, asOf: ISOD
     })),
   };
 }
+
+export type MovementView = NonNullable<Awaited<ReturnType<typeof movementView>>>;
+
+/**
+ * One movement and the names of everything it scales to.
+ *
+ * A read model rather than a query inside the component, because two screens
+ * render it — its own page on a phone, the right pane of the library on a
+ * desktop — and the rule here is that screens read through this file.
+ */
+export async function movementView(slug: string) {
+  const [ex] = await db.select().from(exercises).where(eq(exercises.slug, slug)).limit(1);
+  if (!ex) return null;
+
+  const relatedSlugs = [...ex.easierAlternatives, ...ex.harderAlternatives];
+  const related = relatedSlugs.length
+    ? await db.select({ slug: exercises.slug, name: exercises.name })
+        .from(exercises).where(inArray(exercises.slug, relatedSlugs))
+    : [];
+  const nameOf = (s: string) => related.find((r) => r.slug === s)?.name ?? s;
+
+  return {
+    slug: ex.slug,
+    name: ex.name,
+    category: ex.category,
+    primaryMuscles: ex.primaryMuscles,
+    equipment: ex.equipment,
+    safetyNote: ex.safetyNote,
+    formCues: ex.formCues,
+    commonMistakes: ex.commonMistakes,
+    easier: ex.easierAlternatives.map((s) => ({ slug: s, name: nameOf(s) })),
+    harder: ex.harderAlternatives.map((s) => ({ slug: s, name: nameOf(s) })),
+  };
+}

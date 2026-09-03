@@ -132,3 +132,40 @@ suite("it works with a mouse too", () => {
     expect(read("components/side-nav.tsx")).toMatch(/router\.refresh\(\)/);
   });
 });
+
+/**
+ * A desktop layout is an information architecture, not a wider column. These
+ * check the three structural decisions rather than the styling: the window is
+ * the frame, the library is master-detail, and the panes that make sense
+ * side by side are side by side.
+ */
+suite("the desktop layout is a layout", () => {
+  it("makes the window the frame and scrolls the pane inside it", () => {
+    // A document that scrolls as a whole is a web page. An app holds still and
+    // moves its contents.
+    const layout = read("app/layout.tsx");
+    expect(layout).toMatch(/md:h-dvh md:overflow-hidden/);
+    expect(layout).toMatch(/md:h-dvh md:max-w-none md:overflow-y-auto/);
+  });
+
+  it("renders the library as list and detail together", () => {
+    const page = read("app/learn/page.tsx");
+    expect(page).toMatch(/searchParams/);
+    expect(page).toMatch(/MovementDetail/);
+    // And the list keeps its own scroll, or 125 movements push the detail
+    // off the bottom of the screen.
+    expect(page).toMatch(/md:sticky[^"]*md:overflow-y-auto/);
+  });
+
+  it("shows one movement through one component, whichever screen it is on", () => {
+    // The page and the pane rendering different markup is how they drift.
+    expect(read("app/learn/[slug]/page.tsx")).toMatch(/MovementDetail/);
+    expect(read("app/learn/page.tsx")).toMatch(/MovementDetail/);
+  });
+
+  it("drops the Plan tabs where both panes fit", () => {
+    const plan = read("components/plan-client.tsx");
+    expect(plan).toMatch(/lg:hidden/);
+    expect(plan).toMatch(/lg:grid lg:grid-cols-2/);
+  });
+});

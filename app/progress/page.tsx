@@ -78,6 +78,17 @@ export default async function ProgressPage() {
 
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
+      {/*
+        Two explicit columns on a desktop, not a flowed one.
+        A multi-column *flow* reshuffles everything below the cursor when a
+        card expands — and half of these expand. Two independent columns only
+        ever move their own contents, so opening the measurement form pushes
+        the photos down and leaves the left-hand side alone.
+
+        Left is what she came to look at; right is what she came to do.
+      */}
+      <div className="lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-4">
+      <div>
       <section className="card mb-3 p-5">
         <div className="flex items-end justify-between">
           <div>
@@ -136,12 +147,6 @@ export default async function ProgressPage() {
       </section>
 
       <NutritionTrendCard trend={eating} />
-      <CheckIn />
-
-      <Measurements sites={sites} unit={lengthLabel(u)} />
-
-      <ProgressPhotos photos={library.photos} total={library.total} />
-
       <Progression items={progression} unit={weightLabel(u)} />
 
       <section className="card mb-3 p-5">
@@ -204,6 +209,13 @@ export default async function ProgressPage() {
         )}
       </section>
 
+      </div>
+
+      <div>
+      <CheckIn />
+      <Measurements sites={sites} unit={lengthLabel(u)} />
+      <ProgressPhotos photos={library.photos} total={library.total} />
+
       <PlanSetupButton
         defaults={{
           daysPerWeek: profile.daysPerWeek,
@@ -219,6 +231,8 @@ export default async function ProgressPage() {
       <UnitsSettings units={u} foodUnits={profile.foodUnits} />
       <TranscriptExport />
       <CoachBudget usage={usage as Usage} />
+      </div>
+      </div>
 
       <SignOut />
     </>
