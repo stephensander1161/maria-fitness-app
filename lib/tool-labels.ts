@@ -70,7 +70,8 @@ export const TOOL_LABELS: Record<string, string> = {
   add_progress_photo: "saving your photo", list_progress_photos: "finding your photos",
   delete_progress_photo: "deleting that photo",
   get_boost: "finding you a boost", get_coach_usage: "checking your coach usage",
-  set_coach_budget: "updating your spend limit",
+  set_coach_budget: "updating your allowance",
+  change_exercise: "renaming that movement",
   export_transcript: "writing out your conversation",
   submit_feedback: "passing that on", list_feedback: "reading your feedback",
 };

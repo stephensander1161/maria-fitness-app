@@ -1,7 +1,9 @@
 import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { complaints, exercises, planDays, planExercises, plans, profiles } from "@/lib/db/schema";
+import {
+  complaints, exercises, planDays, planExercises, plans, profiles, setLogs, workouts,
+} from "@/lib/db/schema";
 import { dayIndex, weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { owns } from "@/lib/templates";
@@ -151,6 +153,79 @@ export const substituteExercise = defineTool({
       hint: input.reason === "pain"
         ? "Log the complaint too — otherwise next week's plan prescribes the same movement again."
         : "Call get_next_targets for a starting weight on the new movement.",
+    };
+  },
+});
+
+export const changeExercise = defineTool({
+  name: "change_exercise",
+  description:
+    "Relabels a movement on a day, bringing every set she already logged against it along. Use it when the movement was named wrong rather than changed — she was doing V-ups and it went down as sit-ups, or she has just learned what the thing she does is actually called. substitute_exercise is the other case: she switched to something else part-way, and those earlier sets really were the old movement.",
+  input: z.object({
+    slug: z.string().describe("The movement as it is currently recorded"),
+    toSlug: z.string().describe("What it should have been"),
+    date: z.string().optional().describe("YYYY-MM-DD; defaults to her today"),
+  }),
+  handler: async (input, ctx) => {
+    const hers = await todayForProfile(ctx.profileId);
+    const on = input.date ?? hers;
+
+    const [from] = await db.select().from(exercises).where(eq(exercises.slug, input.slug)).limit(1);
+    const [to] = await db.select().from(exercises).where(eq(exercises.slug, input.toSlug)).limit(1);
+    // Recoverable, so the model can search and try again rather than throwing.
+    const unknownSlugs = [
+      ...(from ? [] : [input.slug]),
+      ...(to ? [] : [input.toSlug]),
+    ];
+    if (!from || !to) return { ok: false, unknownSlugs, error: "Use search_exercises for the right slug." };
+    if (from.id === to.id) return { ok: false, error: "That is already the movement it is recorded as." };
+
+    // The plan row for that day, if there is one. An exercise she added on the
+    // spot has one too; an exercise from a week with no plan does not, and the
+    // logged sets are still worth moving.
+    const week = weekStart(on);
+    const dow = dayIndex(on);
+    const [row] = await db
+      .select({ id: planExercises.id })
+      .from(planExercises)
+      .innerJoin(planDays, eq(planExercises.planDayId, planDays.id))
+      .innerJoin(plans, eq(planDays.planId, plans.id))
+      .where(and(
+        eq(plans.profileId, ctx.profileId),
+        eq(plans.weekStart, week),
+        eq(planDays.dayOfWeek, dow),
+        eq(planExercises.exerciseId, from.id),
+      ))
+      .limit(1);
+
+    if (row) {
+      // The target load carries across, unlike a substitution: this is the
+      // same work under a different name, so the weight she was working to is
+      // still the right weight.
+      await db.update(planExercises).set({ exerciseId: to.id }).where(eq(planExercises.id, row.id));
+    }
+
+    // Her sets for that day, which are the whole point — a relabel that leaves
+    // the history behind is the same as deleting it.
+    const [session] = await db.select({ id: workouts.id }).from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, on)))
+      .limit(1);
+
+    const moved = session
+      ? await db.update(setLogs)
+          .set({ exerciseId: to.id })
+          .where(and(eq(setLogs.workoutId, session.id), eq(setLogs.exerciseId, from.id)))
+          .returning({ id: setLogs.id })
+      : [];
+
+    if (!row && moved.length === 0) {
+      return { ok: false, error: `${from.name} is not on that day — nothing to change.` };
+    }
+
+    return {
+      ok: true, was: from.name, now: to.name, date: on,
+      setsMoved: moved.length,
+      onPlan: row !== undefined,
     };
   },
 });

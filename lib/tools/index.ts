@@ -71,6 +71,7 @@ const all: Tool[] = [
   cycle.getCycleStatus,
   swaps.suggestSubstitutes,
   swaps.substituteExercise,
+  swaps.changeExercise,
   swaps.logComplaint,
   swaps.resolveComplaint,
   swaps.listComplaints,

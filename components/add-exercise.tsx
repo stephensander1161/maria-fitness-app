@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
-import { ExerciseFigure } from "./exercise-figure";
+import { MovementPicker } from "./movement-picker";
 import type { PickableExercise } from "@/lib/views";
 
 /**
@@ -25,30 +25,14 @@ export function AddExercise({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [group, setGroup] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
   const [slug, setSlug] = useState("");
   const [sets, setSets] = useState(3);
   const [reps, setReps] = useState(10);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const all = useMemo(() => groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.group }))), [groups]);
+  const all = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const chosen = all.find((i) => i.slug === slug);
-
-  // Typing beats tapping once she knows the name, so the search cuts across
-  // every group rather than filtering within the chosen one.
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q) {
-      return all.filter((i) =>
-        i.name.toLowerCase().includes(q)
-        || i.muscles.some((m) => m.includes(q))
-        // The name she uses, which is often not the name it has.
-        || i.tags.some((t) => t.includes(q)));
-    }
-    return group ? all.filter((i) => i.group === group) : [];
-  }, [all, group, query]);
 
   async function add() {
     if (!slug) return;
@@ -68,8 +52,6 @@ export function AddExercise({
   function close() {
     setOpen(false);
     setSlug("");
-    setGroup(null);
-    setQuery("");
     setError(null);
   }
 
@@ -86,77 +68,12 @@ export function AddExercise({
 
   return (
     <section className="card space-y-4 p-4">
-      <div className="flex items-center gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search movements…"
-          aria-label="Search movements"
-          className="min-w-0 flex-1 rounded-xl border border-edge bg-base px-3.5 py-2.5 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
-        />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <MovementPicker groups={groups} value={slug} onPick={setSlug} />
+        </div>
         <button onClick={close} className="shrink-0 px-2 py-2 text-[13px] text-muted">Cancel</button>
       </div>
-
-      {/* The question she is actually asking, as six taps rather than a scroll. */}
-      {!query && (
-        <div className="flex flex-wrap gap-2">
-          {groups.map((g) => (
-            <button
-              key={g.group}
-              onClick={() => setGroup(group === g.group ? null : g.group)}
-              aria-pressed={group === g.group}
-              className={`rounded-full border px-3.5 py-2 text-[13px] transition-colors ${
-                group === g.group
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-line text-muted hover:bg-raised"
-              }`}
-            >
-              {g.group}
-              <span className="ml-1.5 text-[11px] text-faint">{g.items.length}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {shown.length > 0 && (
-        <div className="grid max-h-80 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
-          {shown.map((i) => (
-            <button
-              key={i.slug}
-              onClick={() => setSlug(i.slug)}
-              aria-pressed={slug === i.slug}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-colors ${
-                slug === i.slug
-                  ? "border-accent bg-accent-soft"
-                  : "border-line bg-base hover:bg-raised"
-              }`}
-            >
-              {/* The drawing says what it is before the name does. */}
-              <ExerciseFigure
-                slug={i.slug}
-                category={i.category}
-                className={`h-14 w-14 ${slug === i.slug ? "text-accent" : "text-muted"}`}
-              />
-              <span className={`text-[12px] leading-tight ${slug === i.slug ? "text-accent" : "text-text"}`}>
-                {i.name}
-              </span>
-              <span className="text-[10px] leading-tight text-faint">{i.muscles.slice(0, 2).join(" · ")}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!query && !group && (
-        <p className="py-2 text-center text-[13px] text-faint">
-          Pick a part of the body, or search for a movement by name.
-        </p>
-      )}
-
-      {query && shown.length === 0 && (
-        <p className="py-2 text-center text-[13px] text-faint">
-          Nothing matching that in your equipment. Ask your coach — it can add one.
-        </p>
-      )}
 
       {chosen && (
         <>

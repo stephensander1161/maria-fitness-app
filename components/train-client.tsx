@@ -7,6 +7,7 @@ import { AddExercise } from "./add-exercise";
 import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
 import { FormGuide } from "./form-guide";
+import { MovementPicker } from "./movement-picker";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
@@ -158,6 +159,7 @@ export function TrainClient({
           key={ex.slug}
           exercise={ex}
           unit={view.unit}
+          pickable={pickable}
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
@@ -277,6 +279,70 @@ function PendingBanner({ count, onRetry }: { count: number; onRetry: () => void 
  * stops trusting — and a wrong set skews the comparison to last time, the
  * progression and the next prescription until it is right.
  */
+/**
+ * Relabel a movement, taking today's sets with it.
+ *
+ * Distinct from a substitution on purpose. Swapping to a different movement
+ * mid-session leaves the earlier sets where they are, because they really were
+ * the old movement; this is for the case where the name was wrong all along —
+ * she has been doing V-ups and the app has been calling them sit-ups.
+ */
+function ChangeMovement({
+  exercise, pickable, setCount, onDone, onCancel,
+}: {
+  exercise: TodayExercise;
+  pickable: { group: string; items: PickableExercise[] }[];
+  setCount: number;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [slug, setSlug] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const chosen = pickable.flatMap((g) => g.items).find((i) => i.slug === slug);
+
+  async function change() {
+    if (!slug) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await action("change_exercise", { slug: exercise.slug, toSlug: slug });
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't change that — try again."));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-4 mb-3 rounded-xl border border-line bg-raised p-3">
+      <p className="mb-3 text-[12px] text-muted">
+        What was it really?{" "}
+        {setCount > 0 && (
+          <span className="text-faint">
+            Your {setCount} set{setCount === 1 ? "" : "s"} move across.
+          </span>
+        )}
+      </p>
+      <MovementPicker groups={pickable} value={slug} onPick={setSlug} />
+      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={change}
+          disabled={busy || !slug}
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+        >
+          {busy ? "Changing…" : chosen ? `It was ${chosen.name}` : "Pick a movement"}
+        </button>
+        <button onClick={onCancel} disabled={busy}
+          className="rounded-xl border border-line px-3 py-2.5 text-[13px] text-muted disabled:opacity-50">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SetEditor({
   slug, setNumber, set, unit, bodyweight, onDone, onCancel,
 }: {
@@ -371,9 +437,10 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 }
 
 function ExerciseCard({
-  exercise, unit, next, result, pending, onLogged, onRetryPending, onRemoved,
+  exercise, unit, next, result, pending, pickable, onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
+  pickable: { group: string; items: PickableExercise[] }[];
   result?: LogResult; pending: PendingSet[];
   onLogged: (r: LogResult | null, finishedExercise: boolean) => void;
   onRetryPending: () => void;
@@ -395,6 +462,7 @@ function ExerciseCard({
   const [error, setError] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [changing, setChanging] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [editingSet, setEditingSet] = useState<number | null>(null);
   /**
@@ -498,6 +566,25 @@ function ExerciseCard({
               <path d="M12 17h.01" />
             </svg>
           </button>
+          {/*
+            "That was actually a different movement." The sets she has already
+            logged come with it — she did the work, she just called it
+            something else, and a relabel that loses the history is a delete
+            wearing a friendly name.
+          */}
+          <button
+            onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
+            aria-label={`Change what ${exercise.name} is`}
+            aria-expanded={changing}
+            className={`grid size-8 place-items-center rounded-full border text-muted ${
+              changing ? "border-accent text-accent" : "border-line"
+            }`}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8h13l-3-3M20 16H7l3 3" />
+            </svg>
+          </button>
           {/* Extras aren't on the plan, so there is nothing to remove them from. */}
           {!exercise.extra && (
             <button
@@ -512,6 +599,16 @@ function ExerciseCard({
           )}
         </div>
       </div>
+
+      {changing && (
+        <ChangeMovement
+          exercise={exercise}
+          pickable={pickable}
+          setCount={setCount}
+          onDone={() => { setChanging(false); onRemoved(); }}
+          onCancel={() => setChanging(false)}
+        />
+      )}
 
       {confirmRemove && (
         <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2">
