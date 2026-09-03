@@ -44,20 +44,28 @@ export function Feedback() {
   // Same reason as the tab bar: nothing but the form should be reachable here.
   if (path === "/login" || path === "/welcome" || path === "/") return null;
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Send feedback"
-        // Phone only. On a desktop this lives in the sidebar, where it stopped
-        // landing on top of the control in that corner.
-        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:hidden"
-      >
-        <FeedbackGlyph />
-      </button>
-    );
-  }
-  return <FeedbackSheet path={path} onClose={() => setOpen(false)} />;
+  return (
+    <>
+      {/*
+        In the page, at the end of it — not floating over it.
+        As a fixed bubble it sat on top of whatever happened to be at the
+        bottom of the screen, which since the fact card moved down there meant
+        covering a sentence on every single page. Feedback is not urgent
+        enough to occlude content, and the end of the page is where anyone
+        looks for it anyway. The desktop has the same entry in the sidebar.
+      */}
+      <div className="mt-4 flex justify-center md:hidden">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-[12px] text-faint transition-colors active:bg-raised"
+        >
+          <FeedbackGlyph size={14} />
+          Tell us
+        </button>
+      </div>
+      {open && <FeedbackSheet path={path} onClose={() => setOpen(false)} />}
+    </>
+  );
 }
 
 export function FeedbackGlyph({ size = 17 }: { size?: number }) {

@@ -68,13 +68,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
                 {children}
                 <DailyFact />
+                {/* The end of the page, where feedback belongs — it used to
+                    float over whatever was down here. */}
+                <Feedback />
               </div>
             </PullToRefresh>
           </main>
         </div>
         </RestProvider>
         <RefreshOnFocus />
-        <Feedback />
         <InstallApp />
         <TabBar />
       </body>
