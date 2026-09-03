@@ -31,11 +31,14 @@ export default async function EatPage() {
 
   return (
     <>
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-medium uppercase tracking-wide text-accent">{prettyDate(her)}</p>
-          <h1 className="truncate text-2xl font-bold tracking-tight">Eat</h1>
-        </div>
+      {/*
+        The date is the heading. "Eat" was the tab she tapped to get here and
+        the word above it in the nav — repeating it at the top of the screen
+        told her nothing she had not just been told twice, and pushed the only
+        useful line, the day, into a caption above it.
+      */}
+      <header className="mb-5 flex items-baseline justify-between gap-3">
+        <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
         <AiOpinion page="plan" label="food" />
       </header>
 
