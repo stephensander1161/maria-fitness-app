@@ -65,7 +65,25 @@ export default async function ProgressPage() {
   return (
     <>
       <header className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
+          {/*
+            The week's three numbers, at the top where they are read first.
+            They were the head of a card near the bottom of the screen, which
+            is the wrong place for the only line that answers "how am I
+            doing" without any interpretation at all.
+          */}
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[13px] text-muted tabular">
+            <span>
+              <span className="font-semibold text-text">{review.completed}</span>
+              <span className="text-faint">/{review.planned || "—"}</span> sessions
+            </span>
+            <span className="text-line">·</span>
+            <span><span className="font-semibold text-text">{review.totalSets}</span> sets</span>
+            <span className="text-line">·</span>
+            <span><span className="font-semibold text-text">{streak}</span>-day streak</span>
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {/* The settings moved to their own screen; a phone has no sidebar to
               reach it from, and this is the screen they used to live on. */}
@@ -159,12 +177,6 @@ export default async function ProgressPage() {
 
       <section className="card mb-3 p-5">
         <h2 className="mb-3 text-[15px] font-semibold">This week</h2>
-        <div className="mb-4 grid grid-cols-3 divide-x divide-line">
-          <Stat label="Sessions" value={`${review.completed}/${review.planned || "—"}`} />
-          <Stat label="Sets" value={review.totalSets.toString()} />
-          <Stat label="Streak" value={`${streak}d`} />
-        </div>
-
         {review.beat.length > 0 && (
           <List tone="beat" title="Moved up" items={review.beat} />
         )}
@@ -230,12 +242,6 @@ export default async function ProgressPage() {
   );
 }
 
-const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div className="px-3 text-center first:pl-0 last:pr-0">
-    <p className="text-xl font-semibold tabular">{value}</p>
-    <p className="text-[11px] uppercase tracking-wide text-faint">{label}</p>
-  </div>
-);
 
 const List = ({ tone, title, items }: { tone: "beat" | "miss"; title: string; items: string[] }) => (
   <div className="mt-3">

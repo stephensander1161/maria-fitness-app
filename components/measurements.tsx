@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkline } from "./sparkline";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { SITES, siteHow } from "@/lib/measurements";
@@ -77,29 +78,43 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
       {sites.length > 0 && (
         <ul className="space-y-2.5">
           {sites.map((s) => (
-            <li key={s.site} className="flex items-baseline justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[15px]">{s.label}</p>
-                <p className="text-[11px] text-faint">
-                  {s.history.length} reading{s.history.length === 1 ? "" : "s"}
-                  {s.currentDate && ` · latest ${s.currentDate}`}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[17px] font-semibold tabular">
-                  {s.current}
-                  <span className="ml-0.5 text-[12px] font-normal text-faint">{unit}</span>
-                </p>
-                {s.changeTotal !== null && s.changeTotal !== 0 && (
-                  // Losing inches is the goal, so a decrease is highlighted.
-                  // An increase is left neutral — a bigger arm is not bad news.
-                  <p className={`text-[12px] tabular ${s.changeTotal < 0 ? "text-beat" : "text-muted"}`}>
-                    {s.changeTotal < 0 ? "−" : "+"}
-                    {Math.abs(s.changeTotal)}
-                    {unit} total
+            <li key={s.site}>
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[15px]">{s.label}</p>
+                  <p className="text-[11px] text-faint">
+                    {s.history.length} reading{s.history.length === 1 ? "" : "s"}
+                    {s.currentDate && ` · latest ${s.currentDate}`}
                   </p>
-                )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[17px] font-semibold tabular">
+                    {s.current}
+                    <span className="ml-0.5 text-[12px] font-normal text-faint">{unit}</span>
+                  </p>
+                  {s.changeTotal !== null && s.changeTotal !== 0 && (
+                    // Losing inches is the goal, so a decrease is highlighted.
+                    // An increase is left neutral — a bigger arm is not bad news.
+                    <p className={`text-[12px] tabular ${s.changeTotal < 0 ? "text-beat" : "text-muted"}`}>
+                      {s.changeTotal < 0 ? "−" : "+"}
+                      {Math.abs(s.changeTotal)}
+                      {unit} total
+                    </p>
+                  )}
+                </div>
               </div>
+              {/*
+                The same line the weight gets. A tape measure is the one
+                instrument that shows recomposition — weight flat while the
+                waist comes down — and a column of single numbers hides
+                exactly that. Two readings are the minimum for a line, and the
+                sparkline says so itself below that.
+              */}
+              {s.history.length > 1 && (
+                <div className="-mx-1 mt-1">
+                  <Sparkline points={[...s.history].reverse().map((h) => h.value)} goal={null} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
