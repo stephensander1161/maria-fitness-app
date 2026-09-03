@@ -334,6 +334,12 @@ rules. Two that bite most often:
 - **CI is the only review this project has.** Typecheck, lint, tests, dependency
   audit, a build that proves nothing needs a secret at module load, and a scan
   of git history for credentials. It must pass before deploy.
+- **`npm run ship` pushes before it deploys**, in that order and not the other
+  way round: the gates qualify a commit, the push preserves it, and the deploy
+  is the only step that flakes. It used not to push at all, and twenty-seven
+  commits sat on one laptop while every one of them was live in production —
+  Vercel had the code and GitHub did not. A rejected push stops the ship rather
+  than deploying something the repository cannot reproduce.
 - **Probes never write to real rows.** A script that needs data creates a
   throwaway account and deletes it (`scripts/tenancy-check.ts` is the pattern).
   An overnight probe once overwrote the real profile with fake data and the
