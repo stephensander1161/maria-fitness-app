@@ -8,6 +8,7 @@ import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
 import { RestBar, RestProvider } from "@/components/rest-provider";
+import { RefreshOnFocus } from "@/components/refresh-on-focus";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -59,8 +60,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             */}
             <RestBar />
             <PullToRefresh>
-              {/* The frame is the window; the measure is still a measure. */}
-              <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8">
+              {/*
+                The frame is the window; the measure is still a measure — but a
+                27-inch screen was getting a 64rem column with a foot of empty
+                either side. It widens in steps, and the screens that fill it
+                lay out in more columns as it does.
+              */}
+              <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
                 {children}
                 <DailyFact />
               </div>
@@ -68,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
         </div>
         </RestProvider>
+        <RefreshOnFocus />
         <CoachBubbleGate />
         <Feedback />
         <InstallApp />

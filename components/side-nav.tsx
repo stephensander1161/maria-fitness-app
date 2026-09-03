@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { TABS } from "./tab-bar";
+import { FeedbackNavItem } from "./feedback";
 
 /**
  * The desktop navigation.
@@ -17,7 +18,6 @@ const CHROMELESS = new Set(["/login", "/welcome"]);
 
 export function SideNav({ name }: { name: string | null }) {
   const path = usePathname();
-  const router = useRouter();
   if (CHROMELESS.has(path)) return null;
 
   return (
@@ -53,18 +53,15 @@ export function SideNav({ name }: { name: string | null }) {
         })}
       </ul>
 
-      {/* Pull-to-refresh is a touch gesture, so on a desktop there was no way
-          to reload a screen from inside the app at all. */}
-      <button
-        onClick={() => router.refresh()}
-        className="mt-auto flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-faint transition-colors hover:bg-raised hover:text-muted"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" />
-        </svg>
-        Refresh
-      </button>
+      {/*
+        "Tell us" belongs in the navigation on a desktop, not floating over the
+        bottom-left corner where it landed on top of the refresh button it now
+        replaces. Screens refresh themselves when she comes back to the tab —
+        see RefreshOnFocus.
+      */}
+      <div className="mt-auto pt-4">
+        <FeedbackNavItem />
+      </div>
     </nav>
   );
 }

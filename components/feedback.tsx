@@ -49,7 +49,9 @@ export function Feedback() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:bottom-8 md:left-8"
+        // Phone only. On a desktop this lives in the sidebar, where it stopped
+        // landing on top of the control in that corner.
+        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:hidden"
       >
         <FeedbackGlyph />
       </button>
@@ -65,6 +67,26 @@ export function FeedbackGlyph({ size = 17 }: { size?: number }) {
       <path d="M12 3c4.97 0 9 3.13 9 7s-4.03 7-9 7c-.9 0-1.77-.1-2.58-.3L5 19l.9-3.2A7.9 7.9 0 0 1 3 10c0-3.87 4.03-7 9-7Z" />
       <path d="M12 7v3.5M12 13h.01" />
     </svg>
+  );
+}
+
+/** The same thing as a row, for the desktop sidebar. */
+export function FeedbackNavItem() {
+  const path = usePathname();
+  const [open, setOpen] = useState(false);
+  if (path === "/login" || path === "/welcome" || path === "/") return null;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-faint transition-colors hover:bg-raised hover:text-muted"
+      >
+        <FeedbackGlyph size={16} />
+        Tell us
+      </button>
+      {open && <FeedbackSheet path={path} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

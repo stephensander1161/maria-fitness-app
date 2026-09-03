@@ -153,7 +153,7 @@ export function TrainClient({
         A grid rather than a flowed column: a card grows when she opens the
         stepper, and in a flow that would shove every later card sideways.
       */}
-      <div className="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4">
+      <div className="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 2xl:grid-cols-3">
       {view.exercises.map((ex) => (
         <ExerciseCard
           key={ex.slug}
