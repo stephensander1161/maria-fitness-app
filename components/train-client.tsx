@@ -283,10 +283,14 @@ export function TrainClient({
  */
 function gridFor(n: number): string {
   if (n <= 1) return "";
-  // Wide screens: three columns unless two divide the cards evenly.
-  const wide = n % 3 === 0 ? "2xl:grid-cols-3" : n % 2 === 0 ? "2xl:grid-cols-2" : "2xl:grid-cols-3 2xl:[&>*:last-child]:col-span-full";
-  const mid = n % 2 === 0 ? "xl:grid-cols-2" : "xl:grid-cols-2 xl:[&>*:last-child]:col-span-2";
-  return `${mid} ${wide}`;
+  // Three across when three divide them, two when two do, three otherwise.
+  // Four movements in three columns was a row of three and a lonely one; the
+  // fix for that was stretching the orphan across the gap, which looked worse
+  // — a card twice the width of its neighbours for no reason anyone can see.
+  const cols = n % 3 === 0 ? 3 : n % 2 === 0 ? 2 : Math.min(n, 3);
+  // Literal class strings, because Tailwind scans source text: a computed
+  // `xl:grid-cols-${n}` is a class that never gets generated.
+  return cols === 3 ? "xl:grid-cols-3" : "xl:grid-cols-2";
 }
 
 /** "N sets pending" — the whole point is that she can see nothing was lost. */
@@ -625,10 +629,19 @@ export function ExerciseCard({
               actually logged, not re-derived by the model each week. Labelled
               as a target, because a target read as an achievement is a bug
               this app has had before. */}
+          {/*
+            Target and last time on one line. As two rows, a movement she has
+            done before made a taller card than one she hasn't, and a grid of
+            them came out ragged for a reason that had nothing to do with the
+            training.
+          */}
           <p className="mt-0.5 text-[13px] text-muted tabular">
             Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
             {(next ? next.target.weight : exercise.targetWeight) !== null &&
               ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
+            {exercise.lastTime && (
+              <span className="text-faint"> · last {summariseSets(exercise.lastTime.sets, unit)}</span>
+            )}
           </p>
           {next && next.change === "up" && (
             <p className="mt-1 text-[12px] text-beat">Up from last time</p>
@@ -726,13 +739,6 @@ export function ExerciseCard({
         </div>
       )}
 
-      {exercise.lastTime && (
-        <p className="px-4 pb-3 text-[13px] text-muted tabular">
-          <span className="text-faint">Last time · </span>
-          {summariseSets(exercise.lastTime.sets, unit)}
-        </p>
-      )}
-
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
@@ -823,12 +829,11 @@ export function ExerciseCard({
 
       <div className="border-t border-line bg-ink/40 p-3">
         {!open ? (
-          <button
-            onClick={() => setOpen(true)}
-            className="w-full rounded-xl bg-raised py-3 text-[15px] font-medium text-text active:bg-line"
-          >
-            Log a set
-          </button>
+          // Tapping the movement's name opens this, which is the obvious
+          // gesture — a second button saying so was a step for nothing.
+          <p className="text-center text-[12px] text-faint">
+            Tap {exercise.name} to log a set
+          </p>
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">

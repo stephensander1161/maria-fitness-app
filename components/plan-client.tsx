@@ -4,8 +4,7 @@ import Link from "next/link";
 import type { MealWeekView, PickableExercise, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
-import { AddExercise } from "./add-exercise";
-import { PlannedExerciseRow } from "./planned-exercise-row";
+import { PlannedDay } from "./planned-day";
 import { TrainClient, type NextTarget } from "./train-client";
 
 /**
@@ -22,12 +21,14 @@ import { TrainClient, type NextTarget } from "./train-client";
  * and selected on arrival, because that is the day she is standing in.
  */
 export function PlanClient({
-  week, mealWeek, tab, day, today, pickable, targets,
+  week, mealWeek, tab, day, today, otherDay, pickable, targets,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   tab: "training" | "food";
   day: number;
   today: TodayView;
+  /** The selected day, when it is not today. */
+  otherDay: TodayView;
   pickable: { group: string; items: PickableExercise[] }[];
   targets: NextTarget[];
 }) {
@@ -100,20 +101,9 @@ export function PlanClient({
                 the library, which is what "click into the movement I just
                 did" used to get her.
               */}
-              {!isToday && trainingDay && trainingDay.exercises.length > 0 && (
-                <div className="mb-3">
-                  {trainingDay.exercises.map((e) => (
-                    <PlannedExerciseRow key={e.slug} slug={e.slug} name={e.name} target={e.target} dayOfWeek={day} />
-                  ))}
-                </div>
+              {!isToday && otherDay && (
+                <PlannedDay view={otherDay} pickable={pickable} dayOfWeek={day} past={day < week.todayIndex} />
               )}
-              {!isToday && trainingDay && trainingDay.exercises.length === 0 && (
-                <p className="mb-3 py-2 text-[13px] leading-relaxed text-faint">
-                  A rest day for now. Add a movement and it becomes a training day; take the last
-                  one off again and it goes back to being rest.
-                </p>
-              )}
-              {!isToday && <AddExercise groups={pickable} dayOfWeek={day} label={`+ Add to ${trainingDay?.dayName ?? "this day"}`} />}
             </section>
 
             {isToday && <TrainClient view={today} pickable={pickable} targets={targets} />}
@@ -206,7 +196,10 @@ function WeekStrip({
   href: (day: number) => string;
 }) {
   return (
-    <div className="mb-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+    /* Scrolls only where it has to. At md it is a seven-column grid that
+       fits, and leaving the overflow on painted a scrollbar under the header
+       for a row that never moves. */
+    <div className="mb-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:overflow-x-visible md:px-0">
       <div className="flex gap-2 md:grid md:grid-cols-7">
         {days.map((d) => {
           const isToday = d.dayOfWeek === today;

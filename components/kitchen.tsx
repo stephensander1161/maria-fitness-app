@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { PantryView } from "@/lib/views";
@@ -32,7 +32,7 @@ export function Kitchen({ pantry, expanded = false }: { pantry: PantryView; expa
       const r = await action<{ ok?: boolean; error?: string }>(tool, input);
       if (r?.ok === false) throw new Error(r.error ?? fallback);
       setEditing(null);
-      router.refresh();
+      startTransition(() => router.refresh());
     } catch (err) {
       setError(actionMessage(err, fallback));
     } finally {

@@ -68,6 +68,38 @@ export const PATTERNS: Record<string, Pattern> = {
       hip: [50, 56], knee: [50, 76], foot: [50, 94],
     },
   },
+  /**
+   * On your back on a bench, pressing up.
+   *
+   * This used to be drawn as a person standing bolt upright pushing something
+   * away from their chest, for every bench and chest press in the library —
+   * which is a cable fly at best and nothing at all at worst. The give-away
+   * that a figure is wrong is that it does not tell you what to do with your
+   * body, and a bench press is almost entirely about what your body is doing.
+   */
+  benchPress: {
+    label: "Flat on the bench, press the weight straight up",
+    start: {
+      head: [20, 62], shoulder: [34, 68], elbow: [26, 80], hand: [42, 76],
+      hip: [62, 70], knee: [78, 74], foot: [90, 92],
+    },
+    end: {
+      head: [20, 62], shoulder: [34, 68], elbow: [36, 58], hand: [38, 45],
+      hip: [62, 70], knee: [78, 74], foot: [90, 92],
+    },
+  },
+  /** Face down, one straight line from head to heels, bending at the elbow. */
+  pushUp: {
+    label: "One straight line from head to heels, chest to the floor",
+    start: {
+      head: [18, 56], shoulder: [32, 62], elbow: [32, 76], hand: [30, 90],
+      hip: [60, 70], knee: [76, 78], foot: [92, 86],
+    },
+    end: {
+      head: [18, 70], shoulder: [32, 76], elbow: [20, 82], hand: [30, 90],
+      hip: [60, 80], knee: [76, 84], foot: [92, 88],
+    },
+  },
   verticalPush: {
     label: "Press straight overhead",
     start: {
@@ -240,7 +272,9 @@ const RULES: [RegExp, PatternKey][] = [
   [/pulldown|pull-?up|chin-?up|lat-|dead-hang|negative-pull/, "verticalPull"],
   [/row|face-pull|pull-apart|ytw|rear-delt/, "horizontalPull"],
   [/overhead-press|shoulder-press|pike-push|handstand|half-kneeling-press|z-press|arnold/, "verticalPush"],
-  [/push-?up|bench|chest-press|floor-press|dip|fly/, "horizontalPush"],
+  [/push-?up|press-?up/, "pushUp"],
+  [/bench|chest-press|floor-press|chest-fly|dumbbell-fly/, "benchPress"],
+  [/dip|fly/, "horizontalPush"],
   // Catch-all for any remaining press, after the overhead cases above.
   [/press/, "horizontalPush"],
   [/curl|bicep/, "curl"],

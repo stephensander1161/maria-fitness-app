@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
@@ -13,9 +13,11 @@ import { action, actionMessage } from "@/lib/client";
  * read, look up, or take off the day.
  */
 export function PlannedExerciseRow({
-  slug, name, target, dayOfWeek,
+  slug, name, target, dayOfWeek, done = false,
 }: {
   slug: string; name: string; target: string; dayOfWeek: number;
+  /** These are sets she logged, not a target she was set. */
+  done?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -26,7 +28,7 @@ export function PlannedExerciseRow({
     setError(null);
     try {
       await action("remove_exercise_from_day", { slug, dayOfWeek });
-      router.refresh();
+      startTransition(() => router.refresh());
     } catch (err) {
       setError(actionMessage(err, "Couldn't take that off the day."));
       setBusy(false);
@@ -39,7 +41,7 @@ export function PlannedExerciseRow({
         <Link href={`/learn/${slug}`} className="min-w-0 flex-1 truncate text-[15px] hover:text-accent">
           {name}
         </Link>
-        <span className="shrink-0 text-[13px] text-muted tabular">{target}</span>
+        <span className={`shrink-0 text-[13px] tabular ${done ? "text-beat" : "text-muted"}`}>{target}</span>
         <button
           onClick={remove}
           disabled={busy}

@@ -783,6 +783,23 @@ export const EXERCISES: Seed[] = [
     easier: ["push-up", "incline-push-up"],
   },
   {
+    slug: "incline-barbell-press", name: "Incline Barbell Press", category: "compound",
+    primaryMuscles: ["chest", "shoulders", "triceps"], equipment: ["barbell", "bench", "full gym"],
+    tags: ["incline barbell", "incline bench", "incline press"],
+    formCues: [
+      "Bench set to about 30 degrees — steeper turns it into a shoulder press.",
+      "Shoulder blades pinched and driven into the bench, same as a flat press.",
+      "Lower to the top of the chest, just below the collarbone.",
+      "Press up and slightly back, feet driving into the floor.",
+    ],
+    commonMistakes: [
+      "Setting the bench too upright, which takes the chest out of it.",
+      "Flaring the elbows straight out to the sides.",
+    ],
+    safetyNote: "Use safety pins or a spotter. A failed rep on an incline still pins you.",
+    easier: ["incline-dumbbell-press"], harder: ["barbell-bench-press"],
+  },
+  {
     slug: "barbell-bench-press", name: "Barbell Bench Press", category: "compound",
     primaryMuscles: ["chest", "triceps", "shoulders"], equipment: ["barbell", "bench", "full gym"],
     formCues: [

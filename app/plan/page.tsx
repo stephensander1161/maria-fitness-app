@@ -2,7 +2,7 @@ import { PlanClient } from "@/components/plan-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
-import { dayIndex, prettyDate, weekStart } from "@/lib/date";
+import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
 import { todayTargets } from "@/lib/tools/progression-targets";
@@ -27,18 +27,22 @@ export default async function PlanPage({
   const her = profileToday(profile);
   const { tab, day } = await searchParams;
 
-  const [week, mealWeek, today, pickable, targets] = await Promise.all([
+  const parsedDay = Number(day);
+  const selected = Number.isInteger(parsedDay) && parsedDay >= 0 && parsedDay <= 6 ? parsedDay : dayIndex(her);
+  const selectedDate = addDays(weekStart(her), selected);
+
+  const [week, mealWeek, today, otherDay, pickable, targets] = await Promise.all([
     weekView(profile.id, profile.units, weekStart(her), her),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
     // Today's day, in full, so that selecting today on the training tab gives
     // her the same cards as the Train screen rather than a list of names.
     todayView(profile.id, profile.units, her),
+    // The selected day, whichever it is — a plan to arrange if it is ahead,
+    // a record of what she did if it is behind.
+    todayView(profile.id, profile.units, selectedDate),
     pickableExercises(equipmentToday(profile, her).equipment),
     todayTargets(profile.id, profile.units, her),
   ]);
-
-  const parsed = Number(day);
-  const selected = Number.isInteger(parsed) && parsed >= 0 && parsed <= 6 ? parsed : dayIndex(her);
 
   return (
     <>
@@ -61,6 +65,7 @@ export default async function PlanPage({
         tab={tab === "food" ? "food" : "training"}
         day={selected}
         today={today}
+        otherDay={otherDay}
         pickable={pickable}
         targets={targets}
       />

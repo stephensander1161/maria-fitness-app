@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
@@ -46,7 +46,7 @@ export function AddExercise({
         slug, sets, reps, ...(dayOfWeek === undefined ? {} : { dayOfWeek }),
       });
       close();
-      router.refresh();
+      startTransition(() => router.refresh());
     } catch (err) {
       setError(actionMessage(err, "That didn't save — try again."));
     } finally {
