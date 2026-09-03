@@ -6,6 +6,7 @@ import { addDays, daysBetween } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { consumeForMeal } from "./pantry";
 import { logMeal } from "./nutrition";
+import { audit } from "@/lib/audit";
 import { defineTool } from "./define";
 
 /**
@@ -190,6 +191,9 @@ export const adjustPreppedPortion = defineTool({
 
     if (input.discard) {
       await db.delete(preppedPortions).where(eq(preppedPortions.id, wanted.id));
+      await audit("data.deleted", {
+        detail: { profileId: ctx.profileId, scope: "prepped_portion" },
+      });
       return { ok: true, removed: wanted.title };
     }
     if (input.portionsLeft === undefined) {

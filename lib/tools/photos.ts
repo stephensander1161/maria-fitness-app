@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { photos } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
+import { audit } from "@/lib/audit";
 import { defineTool } from "./define";
 
 /**
@@ -127,6 +128,12 @@ export const deleteProgressPhoto = defineTool({
       .where(and(eq(photos.id, input.photoId), eq(photos.profileId, ctx.profileId)))
       .returning({ id: photos.id, date: photos.date });
     if (!row) return { ok: false, error: "No photo with that id." };
+    // Photographs of her body are the most sensitive rows in the database, and
+    // the bulk delete records itself while this one did not. Count and date
+    // only — never the image, never the pose.
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "photo", date: row.date },
+    });
     return { ok: true, deleted: row.date };
   },
 });

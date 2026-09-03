@@ -12,6 +12,7 @@ import { weekView } from "@/lib/views";
 import { profileToday, todayForProfile } from "@/lib/profile";
 import { volumeBrief } from "@/lib/volume";
 import { volumeForWeek } from "./progression-targets";
+import { audit } from "@/lib/audit";
 import { defineTool, type ToolContext } from "./define";
 
 async function unitsOf(ctx: ToolContext) {
@@ -702,6 +703,11 @@ export const deleteSet = defineTool({
     if (!row) return { ok: false, error: "No set matching that — call get_exercise_history for what is logged." };
 
     await db.delete(setLogs).where(eq(setLogs.id, row.id));
+    // Her training record, gone on request. What it was is in the return
+    // value for her; the log keeps only that it happened.
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "set", date: row.date },
+    });
 
     // Renumber what is left, or the next set she logs collides with a gap and
     // "set 3" stops meaning the third set of the session.
