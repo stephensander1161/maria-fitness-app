@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
@@ -54,7 +55,24 @@ export function Feedback() {
         enough to occlude content, and the end of the page is where anyone
         looks for it anyway. The desktop has the same entry in the sidebar.
       */}
-      <div className="mt-4 flex justify-center md:hidden">
+      <div className="mt-4 flex justify-center gap-2 md:hidden">
+        {/*
+          Settings alongside it, because a phone has no sidebar and the gear
+          tucked in the Progress header was somewhere nobody found. Both live
+          at the end of every page now — the same pair, in the same order, as
+          the foot of the desktop nav.
+        */}
+        <Link
+          href="/settings"
+          className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-[12px] text-faint transition-colors active:bg-raised"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="3.2" />
+            <path d="M4.5 12a7.5 7.5 0 0 1 .1-1.2l-2-1.5 2-3.4 2.3.9a7.5 7.5 0 0 1 2.1-1.2L9.4 3h4.2l.4 2.6c.8.3 1.5.7 2.1 1.2l2.3-.9 2 3.4-2 1.5c0 .4.1.8.1 1.2s0 .8-.1 1.2l2 1.5-2 3.4-2.3-.9c-.6.5-1.3.9-2.1 1.2l-.4 2.6H9.4l-.4-2.6a7.5 7.5 0 0 1-2.1-1.2l-2.3.9-2-3.4 2-1.5c0-.4-.1-.8-.1-1.2Z" />
+          </svg>
+          Settings
+        </Link>
         <button
           onClick={() => setOpen(true)}
           className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-[12px] text-faint transition-colors active:bg-raised"

@@ -14,7 +14,6 @@ import { profileToday } from "@/lib/profile";
 import { CheckIn } from "@/components/check-in";
 import { Progression } from "@/components/progression";
 import { AiOpinion } from "@/components/ai-opinion";
-import Link from "next/link";
 import { Measurements } from "@/components/measurements";
 import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
@@ -68,20 +67,6 @@ export default async function ProgressPage() {
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
           <div className="flex shrink-0 items-center gap-2">
-            {/* The settings moved to their own screen; a phone has no sidebar
-                to reach it from, and this is the screen they used to live
-                on. */}
-            <Link
-              href="/settings"
-              aria-label="Settings"
-              className="grid size-8 place-items-center rounded-full border border-line text-muted md:hidden"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="3.2" />
-                <path d="M4.5 12a7.5 7.5 0 0 1 .1-1.2l-2-1.5 2-3.4 2.3.9a7.5 7.5 0 0 1 2.1-1.2L9.4 3h4.2l.4 2.6c.8.3 1.5.7 2.1 1.2l2.3-.9 2 3.4-2 1.5c0 .4.1.8.1 1.2s0 .8-.1 1.2l2 1.5-2 3.4-2.3-.9c-.6.5-1.3.9-2.1 1.2l-.4 2.6H9.4l-.4-2.6a7.5 7.5 0 0 1-2.1-1.2l-2.3.9-2-3.4 2-1.5c0-.4-.1-.8-.1-1.2Z" />
-              </svg>
-            </Link>
             <AiOpinion page="progress" label="progress" />
           </div>
         </div>
