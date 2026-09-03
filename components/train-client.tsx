@@ -488,7 +488,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
   return sets.map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`).join("  ");
 }
 
-function ExerciseCard({
+export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;

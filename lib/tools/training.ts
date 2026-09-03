@@ -652,7 +652,17 @@ export const removeExerciseFromDay = defineTool({
     if (removed.length === 0) {
       return { ok: false, error: `${ex.name} isn't scheduled on ${DAY_NAMES[found.dow]}.` };
     }
-    return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow] };
+
+    // The mirror of add_exercise_to_day: a day with nothing left on it is a
+    // rest day. Without this, emptying a day left a training day with no
+    // training on it — which reads on every screen as a session she skipped.
+    const [{ left }] = await db.select({ left: sql<number>`count(*)::int` })
+      .from(planExercises).where(eq(planExercises.planDayId, found.day.id));
+    if (left === 0 && !found.day.isRest) {
+      await db.update(planDays).set({ isRest: true }).where(eq(planDays.id, found.day.id));
+    }
+
+    return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow], nowRest: left === 0 };
   },
 });
 

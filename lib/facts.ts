@@ -39,22 +39,36 @@ export async function pickUnseenFact(
 }
 
 /**
- * Today's fact, and the same one all day.
+ * A different one on every screen, without burning the library.
  *
- * The card sits at the bottom of every screen, so this has to be idempotent:
- * picking a new one per render would burn the whole library in an afternoon
- * and mark every one of them seen, which is the one thing the seen-tracking
- * exists to prevent. One a day, recorded once, returned unchanged until
- * tomorrow.
+ * It used to be one a day, which made the card furniture — the same sentence
+ * under every screen from breakfast to bedtime, and by the second look she
+ * had stopped reading it. Now it turns over as she moves around.
+ *
+ * The compromise that makes that affordable: the pool it draws from is the
+ * ones she has *already been shown*, plus one genuinely new one each day. So
+ * a day of heavy use re-reads rather than burning through a year of material
+ * in an afternoon, and the seen-tracking still means the coach never quotes
+ * her something she read ten seconds ago.
  */
 export async function factForDay(profileId: string, asOf: ISODate): Promise<PickedFact | null> {
-  const [already] = await db
+  const shownToday = await db
+    .select({ id: factViews.factId })
+    .from(factViews)
+    .where(and(eq(factViews.profileId, profileId), eq(factViews.shownOn, asOf)))
+    .limit(1);
+
+  // The day's new one, drawn and recorded once.
+  if (shownToday.length === 0) return pickUnseenFact(profileId, asOf);
+
+  // After that, anything she has seen before — at random, and not the one
+  // still on the screen she is leaving.
+  const [row] = await db
     .select({ category: facts.category, text: facts.text, source: facts.source })
     .from(factViews)
     .innerJoin(facts, eq(factViews.factId, facts.id))
-    .where(and(eq(factViews.profileId, profileId), eq(factViews.shownOn, asOf)))
+    .where(eq(factViews.profileId, profileId))
+    .orderBy(sql`random()`)
     .limit(1);
-  if (already) return already;
-
-  return pickUnseenFact(profileId, asOf);
+  return row ?? null;
 }

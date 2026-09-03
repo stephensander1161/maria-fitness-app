@@ -19,9 +19,12 @@ import type { PickableExercise } from "@/lib/views";
  * the drawing says what the movement is before the name does.
  */
 export function AddExercise({
-  groups,
+  groups, dayOfWeek, label,
 }: {
   groups: { group: string; items: PickableExercise[] }[];
+  /** 0=Monday. Omit for today, which is what the Train screen means. */
+  dayOfWeek?: number;
+  label?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -39,7 +42,9 @@ export function AddExercise({
     setSaving(true);
     setError(null);
     try {
-      await action("add_exercise_to_day", { slug, sets, reps });
+      await action("add_exercise_to_day", {
+        slug, sets, reps, ...(dayOfWeek === undefined ? {} : { dayOfWeek }),
+      });
       close();
       router.refresh();
     } catch (err) {
@@ -61,7 +66,7 @@ export function AddExercise({
         onClick={() => setOpen(true)}
         className="w-full rounded-xl border border-dashed border-line py-3.5 text-[14px] text-muted active:bg-surface"
       >
-        + Add an exercise
+        {label ?? "+ Add an exercise"}
       </button>
     );
   }
@@ -93,7 +98,7 @@ export function AddExercise({
             disabled={saving}
             className="w-full rounded-xl bg-accent py-3 text-[14px] font-semibold text-ink disabled:opacity-40"
           >
-            {saving ? "Adding…" : `Add ${chosen.name} to today`}
+            {saving ? "Adding…" : `Add ${chosen.name}`}
           </button>
         </>
       )}

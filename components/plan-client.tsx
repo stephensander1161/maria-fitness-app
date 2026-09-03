@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import type { MealWeekView, PantryView, WeekView } from "@/lib/views";
+import type { MealWeekView, PantryView, PickableExercise, TodayView, WeekView } from "@/lib/views";
 import { ShoppingList, type ShoppingAisle } from "./shopping-list";
 import { MealRow } from "./meal-row";
 import { Kitchen } from "./kitchen";
 import { AskCoach } from "./ask-coach";
+import { AddExercise } from "./add-exercise";
+import { PlannedExerciseRow } from "./planned-exercise-row";
+import { TrainClient, type NextTarget } from "./train-client";
 
 /**
  * The week, as a week.
@@ -22,29 +24,44 @@ import { AskCoach } from "./ask-coach";
  * and selected on arrival, because that is the day she is standing in.
  */
 export function PlanClient({
-  week, mealWeek, shopping, instacart, pantry,
+  week, mealWeek, shopping, instacart, pantry, tab, day, today, pickable, targets,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   shopping: ShoppingAisle[]; instacart: boolean;
   pantry: PantryView;
+  tab: "training" | "food";
+  day: number;
+  today: TodayView;
+  pickable: { group: string; items: PickableExercise[] }[];
+  targets: NextTarget[];
 }) {
-  const [tab, setTab] = useState<"training" | "food">("training");
-  const [day, setDay] = useState(week.todayIndex);
+  const isToday = day === week.todayIndex;
+  const href = (next: { tab?: string; day?: number }) =>
+    `/plan?tab=${next.tab ?? tab}&day=${next.day ?? day}`;
 
   const trainingDay = week.days.find((d) => d.dayOfWeek === day) ?? null;
   const foodDay = mealWeek.days.find((d) => d.dayOfWeek === day) ?? null;
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1">
+      {/*
+        An underline, not two pills inside a bigger pill. And Links, so the
+        back button does what it looks like it does and a day is something she
+        can send someone.
+      */}
+      <div className="mb-4 flex gap-6 border-b border-line">
         {(["training", "food"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            aria-pressed={tab === t}
-            className={`rounded-full py-2 text-[13px] font-medium capitalize transition-colors ${
-              tab === t ? "bg-accent text-ink" : "text-muted"
-            }`}>
+          <Link
+            key={t}
+            href={href({ tab: t })}
+            scroll={false}
+            aria-current={tab === t ? "page" : undefined}
+            className={`-mb-px border-b-2 px-1 pb-2.5 text-[14px] font-medium capitalize transition-colors ${
+              tab === t ? "border-accent text-accent" : "border-transparent text-muted hover:text-text"
+            }`}
+          >
             {t}
-          </button>
+          </Link>
         ))}
       </div>
 
@@ -64,7 +81,7 @@ export function PlanClient({
         })}
         today={week.todayIndex}
         selected={day}
-        onSelect={setDay}
+        href={(d) => href({ day: d })}
       />
 
       {tab === "training" ? (
@@ -73,37 +90,37 @@ export function PlanClient({
             <section className="card p-4">
               <DayHeading
                 name={trainingDay?.dayName ?? ""}
-                isToday={day === week.todayIndex}
+                isToday={isToday}
                 title={trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
                 sub={trainingDay?.focus ?? null}
               />
               {trainingDay?.notes && (
                 <p className="mb-2 text-[13px] italic text-faint">{trainingDay.notes}</p>
               )}
-              {trainingDay && trainingDay.exercises.length > 0 ? (
-                <div>
+              {/*
+                Another day of the week is a plan she can edit. Today is a
+                session she is in the middle of — so today gets the Train
+                screen's own cards rather than a list of names that links to
+                the library, which is what "click into the movement I just
+                did" used to get her.
+              */}
+              {!isToday && trainingDay && trainingDay.exercises.length > 0 && (
+                <div className="mb-3">
                   {trainingDay.exercises.map((e) => (
-                    <Link key={e.slug} href={`/learn/${e.slug}`}
-                      className="flex items-baseline justify-between gap-3 border-b border-line/60 py-2.5 last:border-0">
-                      <span className="text-[15px]">{e.name}</span>
-                      <span className="shrink-0 text-[13px] text-muted tabular">{e.target}</span>
-                    </Link>
+                    <PlannedExerciseRow key={e.slug} slug={e.slug} name={e.name} target={e.target} dayOfWeek={day} />
                   ))}
                 </div>
-              ) : (
-                <p className="py-2 text-[13px] leading-relaxed text-faint">
-                  {trainingDay?.isRest
-                    ? "Recovery is when the adaptation actually happens. A walk or some mobility work is plenty."
-                    : "Nothing scheduled. Ask your coach to put something here, or add it on the Train screen."}
+              )}
+              {!isToday && trainingDay && trainingDay.exercises.length === 0 && (
+                <p className="mb-3 py-2 text-[13px] leading-relaxed text-faint">
+                  A rest day for now. Add a movement and it becomes a training day; take the last
+                  one off again and it goes back to being rest.
                 </p>
               )}
-              {day === week.todayIndex && !trainingDay?.isRest && (
-                <Link href="/train"
-                  className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-ink">
-                  Start today&rsquo;s session
-                </Link>
-              )}
+              {!isToday && <AddExercise groups={pickable} dayOfWeek={day} label={`+ Add to ${trainingDay?.dayName ?? "this day"}`} />}
             </section>
+
+            {isToday && <TrainClient view={today} pickable={pickable} targets={targets} />}
 
             {week.rationale && (
               <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
@@ -189,12 +206,12 @@ export function PlanClient({
  * glance — how many movements, or how many calories.
  */
 function WeekStrip({
-  days, today, selected, onSelect,
+  days, today, selected, href,
 }: {
   days: { dayOfWeek: number; dayName: string; note: string; quiet: boolean }[];
   today: number;
   selected: number;
-  onSelect: (d: number) => void;
+  href: (day: number) => string;
 }) {
   return (
     <div className="mb-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
@@ -203,10 +220,11 @@ function WeekStrip({
           const isToday = d.dayOfWeek === today;
           const isOn = d.dayOfWeek === selected;
           return (
-            <button
+            <Link
               key={d.dayOfWeek}
-              onClick={() => onSelect(d.dayOfWeek)}
-              aria-pressed={isOn}
+              href={href(d.dayOfWeek)}
+              scroll={false}
+              aria-current={isOn ? "page" : undefined}
               aria-label={`${d.dayName}${isToday ? ", today" : ""}`}
               className={`min-w-[3.5rem] flex-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
                 isOn ? "border-accent bg-accent-soft" : "border-edge bg-surface hover:bg-raised"
@@ -222,7 +240,7 @@ function WeekStrip({
               }`}>
                 {d.note}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>

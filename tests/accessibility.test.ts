@@ -184,7 +184,12 @@ suite("the desktop layout is a layout", () => {
     const plan = read("components/plan-client.tsx");
     expect(plan).not.toMatch(/lg:grid lg:grid-cols-2/);
     expect(plan).toMatch(/WeekStrip/);
-    expect(plan).toMatch(/useState\(week\.todayIndex\)/);
+    // The tab and the day live in the URL, so the back button does what it
+    // looks like it does and a day is something she can send someone — same
+    // reason the library is addressed by `?m=`. Defaulting to her today is
+    // the page's job, since it is the page that knows her timezone.
+    expect(read("app/plan/page.tsx")).toMatch(/searchParams/);
+    expect(read("app/plan/page.tsx")).toMatch(/dayIndex\(her\)/);
   });
 
   it("gives today's food a screen of its own, like today's training", () => {
