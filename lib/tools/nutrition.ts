@@ -254,7 +254,7 @@ export const logMeal = defineTool({
     if (isFuture(date, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
     const planned = input.mealId ? await herMeal(ctx.profileId, input.mealId) : null;
     if (input.mealId && !planned) {
-      return { ok: false, error: "That mealId is not in her plan — log it without mealId, or call get_meal_plan for the right one" };
+      return { ok: false, error: "That meal is not in the plan — log it without a mealId, or call get_meal_plan for the right one" };
     }
     // Same idempotency as log_set: a response lost on a dropped connection is
     // the normal shape of a gym basement, and the retry used to log the meal a

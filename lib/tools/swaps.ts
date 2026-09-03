@@ -95,7 +95,7 @@ export const suggestSubstitutes = defineTool({
     if (found.options.length === 0) {
       return {
         ok: false,
-        error: `Nothing in the library covers ${found.target.name} with her equipment. Ask what she has to hand.`,
+        error: `Nothing in the library covers ${found.target.name} with the equipment on file. Ask what she has to hand.`,
       };
     }
     return { ok: true, replacing: found.target.name, options: found.options };

@@ -32,16 +32,22 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
    */
   const [swapping, setSwapping] = useState(false);
   const [removing, setRemoving] = useState(false);
-  // A meal the week planner left without a recipe. Rather than showing her an
-  // empty panel, the coach writes one the first time she opens it — and the
-  // tool saves it onto the meal, so this asks once and never again.
-  const [recipe, setRecipe] = useState<Recipe | null>(
-    // Both halves, or it is not something she can cook from — the same test
-    // the tool applies before it writes one.
+  /**
+   * The recipe on screen, which has to be the recipe of the meal on screen.
+   *
+   * Both halves, or it is not something she can cook from — the same test the
+   * tool applies before it writes one. Written recipes are held against the
+   * meal they were written for: swapping a meal keeps the same row and the
+   * same id, so a recipe seeded once into state stayed on screen describing
+   * the breakfast she had just replaced.
+   */
+  const fromPlan: Recipe | null =
     meal.ingredients.length > 0 && meal.steps.length > 0
       ? { ingredients: meal.ingredients, steps: meal.steps, prepMinutes: meal.prepMinutes }
-      : null,
-  );
+      : null;
+  const signature = `${meal.id}::${meal.title}`;
+  const [written, setWritten] = useState<{ for: string; recipe: Recipe } | null>(null);
+  const recipe = written?.for === signature ? written.recipe : fromPlan;
   const [writing, setWriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +59,10 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
     setError(null);
     try {
       const r = await action<Recipe>("get_meal_recipe", { mealId: meal.id });
-      setRecipe({ ingredients: r.ingredients, steps: r.steps, prepMinutes: r.prepMinutes });
+      setWritten({
+        for: signature,
+        recipe: { ingredients: r.ingredients, steps: r.steps, prepMinutes: r.prepMinutes },
+      });
     } catch (err) {
       setError(actionMessage(err, "Couldn't write that recipe — try again."));
     } finally {

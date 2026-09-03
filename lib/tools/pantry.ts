@@ -198,7 +198,7 @@ export const removePantryItem = defineTool({
     const wanted = input.unit === undefined
       ? rows
       : rows.filter((r) => r.unit === unitIn(input.unit));
-    if (wanted.length === 0) return { ok: false, error: `Nothing called "${item}" in her kitchen.` };
+    if (wanted.length === 0) return { ok: false, error: `Nothing called "${item}" in your kitchen.` };
 
     await db.delete(pantryItems).where(and(
       eq(pantryItems.profileId, ctx.profileId),
@@ -227,7 +227,7 @@ export const clearPantry = defineTool({
           return rows.filter((r) => names.has(normaliseItem(r.item)));
         })()
       : rows;
-    if (wanted.length === 0) return { ok: false, error: "None of those are in her kitchen." };
+    if (wanted.length === 0) return { ok: false, error: "None of those are in your kitchen." };
 
     await db.delete(pantryItems).where(and(
       eq(pantryItems.profileId, ctx.profileId),

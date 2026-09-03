@@ -109,7 +109,10 @@ export function estimateExpenditure(
     // days would lower her target because she was busy, not because she ate
     // less.
     return refuse(
-      `Only ${daysCounted} of the last ${windowDays} days are fully counted — not enough to measure what she burns. Nothing changes until there are more.`,
+      // Second person: this string is rendered on the check-in card, not fed
+      // to the model. Tool descriptions talk *about* her; anything she reads
+      // talks *to* her.
+      `Only ${daysCounted} of the last ${windowDays} days are fully counted — not enough to measure what you burn. Nothing changes until there are more.`,
     );
   }
 
@@ -209,7 +212,7 @@ export function proposeTarget(
     rateKgPerWeek: actualRate,
     note:
       limitedBy === "bmr"
-        ? "Held at what she burns at rest — going under that costs muscle, bone and her cycle, and no rate of loss is worth it."
+        ? "Held at what you burn at rest — going under that costs muscle, bone and your cycle, and no rate of loss is worth it."
         : limitedBy === "floor"
           ? "Held at the floor this app will not go below."
           : limitedBy === "rate"

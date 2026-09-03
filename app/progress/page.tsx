@@ -232,9 +232,12 @@ export default async function ProgressPage() {
       </div>
 
       <div>
-      <CheckIn />
       <Measurements sites={sites} unit={lengthLabel(u)} />
       <ProgressPhotos photos={library.photos} total={library.total} />
+      {/* Last, because it is the one thing here that cannot say anything
+          useful until several weeks of logs exist — and until it can, it is a
+          card explaining why it has nothing to say. */}
+      <CheckIn />
 
       </div>
       </div>
