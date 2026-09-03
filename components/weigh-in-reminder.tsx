@@ -12,8 +12,12 @@ import { action, actionMessage } from "@/lib/client";
  * is the pair that trips people up — allowing notifications and then never
  * getting one, or picking a time on a phone that was never asked.
  *
- * An hour, not a time. The reminder is sent by a job that runs hourly, and
- * offering 07:42 would be offering something it cannot keep.
+ * An hour, not a time. The reminder is sent by a scheduled sweep, and how
+ * often that runs is the hosting plan's decision rather than hers — so the
+ * rule is "her hour has come and she has not been nudged today", which gives
+ * one notification a day whatever the schedule. On a plan that sweeps hourly
+ * it arrives within the hour she picked; on one that sweeps daily it arrives
+ * at the sweep. Offering 07:42 would be offering something neither can keep.
  *
  * It only ever fires on a day she has not already weighed in. A reminder to
  * do something you have done is how notifications get switched off.
@@ -111,9 +115,9 @@ export function WeighInReminder({
         </span>
       </div>
       <p className="mt-1 text-[12px] leading-relaxed text-faint">
-        A notification at the hour you pick, and only on a day you haven&rsquo;t already weighed
-        in. Weight is the one number the whole plan is worked out from, and the reason people
-        stop logging it is forgetting rather than minding.
+        One notification a day, once the hour you pick has come round, and only on a day you
+        haven&rsquo;t already weighed in. Weight is the one number the whole plan is worked out
+        from, and the reason people stop logging it is forgetting rather than minding.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">

@@ -76,6 +76,7 @@ export const TOOL_LABELS: Record<string, string> = {
   erase_all_my_data: "erasing everything",
   set_rest_defaults: "setting your rest times",
   set_weigh_in_reminder: "setting your weigh-in reminder",
+  record_weigh_in_reminder: "noting that reminder",
   save_push_device: "turning on notifications",
   forget_push_device: "turning off notifications",
   export_transcript: "writing out your conversation",

@@ -6,12 +6,22 @@ import { pushConfigured, sendPush } from "@/lib/push";
 import { runTool } from "@/lib/tools";
 
 /**
- * The weigh-in nudge, swept once an hour.
+ * The weigh-in nudge.
  *
- * Sends to whoever's chosen hour it currently is *where they are*, which is
- * why the hour is stored as a local hour and compared per profile rather than
- * converted once. The same instant is 7am in one place and 3pm in another,
- * and this app's standing rule is that the clock and the day belong to her.
+ * Deliberately independent of how often it is swept. The first version
+ * compared the current hour to her chosen one for an exact match, which needs
+ * an hourly schedule — and the hosting plan turned out to allow one sweep a
+ * day, so an exact match would almost never have fired. The hosting plan
+ * should not decide whether she gets reminded.
+ *
+ * So the rule is "her hour has come and gone, and she has not been nudged
+ * today": with an hourly sweep that lands within the hour she asked for, and
+ * with a daily sweep it lands at whatever time that runs. Same code, same one
+ * notification a day, different punctuality.
+ *
+ * The hour is a *local* hour, compared per profile, because the same instant
+ * is 7am in one place and 3pm in another — the standing rule that the clock
+ * and the day belong to her.
  *
  * It never nudges about something already done: a weigh-in logged today, in
  * her timezone, skips her. A reminder to do a thing you have finished is how
@@ -36,7 +46,12 @@ export async function sweepReminders(): Promise<SweepResult> {
   }
 
   const due = await db
-    .select({ id: profiles.id, hour: profiles.weighInReminderHour, timezone: profiles.timezone })
+    .select({
+      id: profiles.id,
+      hour: profiles.weighInReminderHour,
+      timezone: profiles.timezone,
+      remindedOn: profiles.weighInRemindedOn,
+    })
     .from(profiles)
     .where(and(isNotNull(profiles.weighInReminderHour), isNotNull(profiles.onboardedAt)));
 
@@ -46,13 +61,16 @@ export async function sweepReminders(): Promise<SweepResult> {
 
   for (const person of due) {
     const zone = person.timezone ?? APP_TIMEZONE;
-    if (hourIn(zone) !== person.hour) { skipped += 1; continue; }
+    const herToday = today(zone);
 
-    // Her today, not the server's — the whole reason the zone is stored.
+    // Not yet her hour, once today already, or already on the scale.
+    if (person.hour === null || hourIn(zone) < person.hour) { skipped += 1; continue; }
+    if (person.remindedOn === herToday) { skipped += 1; continue; }
+
     const [already] = await db
       .select({ date: weighIns.date })
       .from(weighIns)
-      .where(and(eq(weighIns.profileId, person.id), eq(weighIns.date, today(zone))))
+      .where(and(eq(weighIns.profileId, person.id), eq(weighIns.date, herToday)))
       .limit(1);
     if (already) { skipped += 1; continue; }
 
@@ -61,15 +79,20 @@ export async function sweepReminders(): Promise<SweepResult> {
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.profileId, person.id));
 
+    let reached = false;
     for (const device of devices) {
       const outcome = await sendPush(device.endpoint);
-      if (outcome === "sent") sent += 1;
+      if (outcome === "sent") { sent += 1; reached = true; }
       else if (outcome === "gone") {
         await runTool("forget_push_device", { endpoint: device.endpoint }, { profileId: person.id });
         dropped += 1;
       }
-      // Anything else is a bad hour for the push service, not a dead device.
-      // Next hour will try again; there is nothing to record.
+      // Anything else is a bad moment for the push service, not a dead
+      // device. The next sweep tries again, and because nothing is recorded
+      // she has not used up today's reminder on a failure.
+    }
+    if (reached) {
+      await runTool("record_weigh_in_reminder", { date: herToday }, { profileId: person.id });
     }
   }
 

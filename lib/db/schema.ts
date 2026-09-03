@@ -139,6 +139,15 @@ export const profiles = pgTable("profiles", {
    * it will not keep is worse than offering the hour it will.
    */
   weighInReminderHour: integer("weigh_in_reminder_hour"),
+  /**
+   * The last day, in her timezone, she was nudged to weigh in.
+   *
+   * What makes one reminder a day true regardless of how often the sweep
+   * runs. Hourly and once-a-day schedules then differ only in punctuality,
+   * not in how many notifications she gets — which matters, because the
+   * hosting plan decides the schedule and she should not.
+   */
+  weighInRemindedOn: date("weigh_in_reminded_on"),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**

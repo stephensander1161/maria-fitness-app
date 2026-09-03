@@ -122,6 +122,7 @@ const all: Tool[] = [
   profile.getProfile,
   profile.setRestDefaults,
   profile.setWeighInReminder,
+  profile.recordWeighInReminder,
   profile.savePushDevice,
   profile.forgetPushDevice,
   training.getWeekReview,

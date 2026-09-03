@@ -385,6 +385,22 @@ export const setWeighInReminder = defineTool({
   },
 });
 
+export const recordWeighInReminder = defineTool({
+  name: "record_weigh_in_reminder",
+  description:
+    "Marks that she has been nudged to weigh in today, so she is not nudged twice. The reminder sweep calls it after sending. You will not normally need it; calling it only suppresses today's reminder.",
+  input: z.object({
+    date: z.string().optional().describe("YYYY-MM-DD in her timezone; defaults to her today"),
+  }),
+  handler: async (input, ctx) => {
+    const on = input.date ?? (await todayForProfile(ctx.profileId));
+    await db.update(profiles)
+      .set({ weighInRemindedOn: on })
+      .where(eq(profiles.id, ctx.profileId));
+    return { ok: true, date: on };
+  },
+});
+
 export const savePushDevice = defineTool({
   name: "save_push_device",
   // The browser mints a subscription — an endpoint the push service issued
