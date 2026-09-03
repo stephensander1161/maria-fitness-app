@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TABS } from "./tab-bar";
 import { FeedbackNavItem } from "./feedback";
+import type { Title } from "@/lib/titles";
 
 /**
  * The desktop navigation.
@@ -16,7 +17,7 @@ import { FeedbackNavItem } from "./feedback";
  */
 const CHROMELESS = new Set(["/login", "/welcome"]);
 
-export function SideNav({ name }: { name: string | null }) {
+export function SideNav({ name, title }: { name: string | null; title: Title }) {
   const path = usePathname();
   if (CHROMELESS.has(path)) return null;
 
@@ -26,8 +27,21 @@ export function SideNav({ name }: { name: string | null }) {
       className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface/40 px-3 py-6 md:flex md:h-dvh md:overflow-y-auto"
     >
       <div className="px-3 pb-6">
-        <p className="text-[11px] uppercase tracking-widest text-faint">Coach</p>
-        {name && <p className="mt-0.5 truncate text-[15px] font-semibold">{name}</p>}
+        {name && <p className="truncate text-[15px] font-semibold">{name}</p>}
+        {/*
+          A rank she earns by turning up, in place of the app's own name. It
+          only ever goes up — see lib/titles.ts — so this can never be the
+          thing that greets her after a bad fortnight.
+        */}
+        <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-widest text-accent" title={title.blurb}>
+          {title.name}
+        </p>
+        <span className="sr-only">{title.blurb}</span>
+        {title.next && (
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-raised" title={`Next: ${title.next}`}>
+            <div className="h-full rounded-full bg-accent/70" style={{ width: `${title.progress}%` }} />
+          </div>
+        )}
       </div>
 
       <ul className="flex flex-col gap-1">

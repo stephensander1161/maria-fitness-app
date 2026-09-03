@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/session";
-import { getProfile } from "@/lib/profile";
+import { getProfile, profileToday } from "@/lib/profile";
+import { titleStats } from "@/lib/views";
 import { SideNav } from "./side-nav";
 
 /**
@@ -15,5 +16,8 @@ export async function SideNavGate() {
   if (!user) return null;
   const profile = await getProfile(user.id);
   if (!profile.onboardedAt) return null;
-  return <SideNav name={user.name ?? profile.name} />;
+  // The eyebrow above her name used to say "Coach", which is the app's name
+  // and tells her nothing about herself.
+  const title = await titleStats(profile.id, profileToday(profile));
+  return <SideNav name={user.name ?? profile.name} title={title} />;
 }

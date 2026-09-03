@@ -26,12 +26,14 @@ export default async function PlanPage() {
     <>
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[13px] font-medium uppercase tracking-wide text-accent">
+          {/* Today, big, because "week of the 31st" answers a question nobody
+              asked while leaving the one they did — what day is it — to be
+              worked out from a date range. */}
+          <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
+          <p className="mt-0.5 truncate text-[13px] text-muted">
             Week of {prettyDate(weekStart(her))}
+            {week.exists ? ` · ${week.title}` : ""}
           </p>
-          <h1 className="truncate text-2xl font-bold tracking-tight">
-            {week.exists ? week.title : "Your plan"}
-          </h1>
         </div>
         <AiOpinion page="plan" label="plan" />
       </header>

@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, gt, gte, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
+  exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
   preppedPortions, setLogs, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
@@ -12,6 +12,7 @@ import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
+import { streakWeeks, titleFor } from "@/lib/titles";
 
 /**
  * Read models for the screens. Pages render from these; mutations always go
@@ -568,4 +569,46 @@ export async function movementView(slug: string) {
     easier: ex.easierAlternatives.map((s) => ({ slug: s, name: nameOf(s) })),
     harder: ex.harderAlternatives.map((s) => ({ slug: s, name: nameOf(s) })),
   };
+}
+
+
+/**
+ * Everything her rank is made of.
+ *
+ * Lifetime totals only — see lib/titles.ts for why. Four cheap counts and the
+ * dates of her sessions, which is the only evidence a weekly streak has.
+ */
+export async function titleStats(profileId: string, asOf: ISODate) {
+  const [[sets], [sessions], [days], [milestones], sessionDates] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(setLogs)
+      .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .where(eq(workouts.profileId, profileId)),
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(workouts)
+      .where(and(eq(workouts.profileId, profileId), isNotNull(workouts.completedAt))),
+    db.select({ n: sql<number>`count(distinct ${mealLogs.date})::int` })
+      .from(mealLogs)
+      .where(eq(mealLogs.profileId, profileId)),
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(goals)
+      .where(and(eq(goals.profileId, profileId), isNotNull(goals.achievedAt))),
+    db.select({ date: workouts.date })
+      .from(workouts)
+      .where(and(eq(workouts.profileId, profileId), isNotNull(workouts.completedAt)))
+      .orderBy(desc(workouts.date))
+      .limit(400),
+  ]);
+
+  return titleFor({
+    sets: sets?.n ?? 0,
+    sessions: sessions?.n ?? 0,
+    daysLogged: days?.n ?? 0,
+    streakWeeks: streakWeeks(
+      sessionDates.map((r) => r.date as ISODate),
+      (d) => weekStart(d),
+      weekStart(asOf),
+    ),
+    milestones: milestones?.n ?? 0,
+  });
 }
