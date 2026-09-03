@@ -456,7 +456,12 @@ export const workoutTemplateExercises = pgTable(
     exerciseSlug: text("exercise_slug").notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     sets: integer("sets").notNull(),
-    reps: integer("reps").notNull(),
+    /**
+     * Fractional on purpose. A set she got seven and a half reps into is
+     * seven and a half, not seven — rounding it down loses the half she did
+     * and rounding it up claims one she did not.
+     */
+    reps: real("reps").notNull(),
     restSeconds: integer("rest_seconds").default(90).notNull(),
     notes: text("notes"),
   },
@@ -577,7 +582,12 @@ export const setLogs = pgTable(
     workoutId: uuid("workout_id").notNull().references(() => workouts.id, { onDelete: "cascade" }),
     exerciseId: uuid("exercise_id").notNull().references(() => exercises.id, { onDelete: "restrict" }),
     setNumber: integer("set_number").notNull(),
-    reps: integer("reps").notNull(),
+    /**
+     * Fractional on purpose. A set she got seven and a half reps into is
+     * seven and a half, not seven — rounding it down loses the half she did
+     * and rounding it up claims one she did not.
+     */
+    reps: real("reps").notNull(),
     /**
      * Reps in reserve: how many more she could have done. One tap, and it is
      * what turns "3×8 @ 40kg" from a number into a signal — the same set at

@@ -385,7 +385,7 @@ export const logSet = defineTool({
     "Record one completed set. Opens today's session automatically if needed. Returns how this set compares to the last time she trained that movement — use that comparison in your reply, including when it is down.",
   input: z.object({
     exerciseSlug: z.string(),
-    reps: z.number(),
+    reps: z.number().describe("Whole reps, or a half when she got part-way through the last one"),
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight movements"),
     rpe: z.number().nullable().optional().describe("1–10 perceived effort, if she mentions it"),
     rir: z.number().nullable().optional()

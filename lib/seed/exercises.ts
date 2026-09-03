@@ -1350,6 +1350,55 @@ export const EXERCISES: Seed[] = [
     easier: ["dead-bug"], harder: ["hanging-knee-raise"],
   },
   {
+    slug: "russian-twist", name: "Russian Twist", category: "core",
+    primaryMuscles: ["obliques", "core"], equipment: ["dumbbell", "bodyweight"],
+    formCues: [
+      "Sit with knees bent and heels down, leaning back until you feel the middle switch on.",
+      "Hold a dumbbell or plate at your chest with both hands.",
+      "Rotate from the ribs, not the arms — the weight follows your chest round.",
+      "Touch down beside your hip, then take it across without letting your back round.",
+    ],
+    commonMistakes: [
+      "Swinging the arms while the torso stays still, which works nothing.",
+      "Rounding the lower back as you lean — hinge from the hips and keep the chest up.",
+      "Lifting the feet before the movement is solid, which turns it into a balance drill.",
+    ],
+    safetyNote: "Keep the feet down until you can go slowly without your back rounding.",
+    easier: ["dead-bug"], harder: ["v-up"],
+  },
+  {
+    slug: "v-up", name: "V-Up", category: "core",
+    primaryMuscles: ["core", "hip flexors"], equipment: ["bodyweight", "mat", "dumbbell"], bodyweight: true,
+    formCues: [
+      "Lie flat, arms overhead, legs straight and together.",
+      "Lift the arms and legs at the same time and meet over your hips — a V, not a crunch.",
+      "Reach for your feet rather than yanking your neck forward.",
+      "Lower both ends under control; touching down between reps is fine.",
+    ],
+    commonMistakes: [
+      "Bending the knees to make the legs lighter, which shortens the movement to nothing.",
+      "Throwing the arms for momentum and letting the lower back arch off the floor.",
+    ],
+    safetyNote: "If your lower back lifts off the floor, bend the knees or go back to a dead bug until it does not.",
+    easier: ["dead-bug", "reverse-crunch"], harder: ["hanging-knee-raise"],
+  },
+  {
+    slug: "seated-cross-punch", name: "Seated Cross Punch", category: "core",
+    primaryMuscles: ["obliques", "core", "shoulders"], equipment: ["dumbbell"],
+    formCues: [
+      "Sit leaning back at about forty-five degrees, heels down, a light dumbbell in each hand.",
+      "Punch across your body — right hand toward the left knee — turning the ribs, not just the arm.",
+      "Keep the back long: it leans, it does not round.",
+      "Alternate at a pace you can hold for the whole set.",
+    ],
+    commonMistakes: [
+      "Going heavy, which turns it into shoulders and momentum.",
+      "Punching from the shoulder while the torso stays square.",
+    ],
+    safetyNote: "Light weights only. This is a rotation exercise wearing a boxing costume, not a pressing one.",
+    easier: ["russian-twist"], harder: ["v-up"],
+  },
+  {
     slug: "hanging-knee-raise", name: "Hanging Knee Raise", category: "core",
     primaryMuscles: ["core", "hip flexors", "grip"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
     formCues: [

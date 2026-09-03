@@ -45,6 +45,7 @@ export function TrainClient({
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
+  const [finishEarly, setFinishEarly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rest, setRest] = useState<Rest | null>(null);
 
@@ -176,30 +177,47 @@ export function TrainClient({
 
       <AddExercise groups={pickable} />
 
+      {/*
+        Finishing is offered when there is a session to finish, not while she
+        is mid-way through one. Five big buttons under a half-done workout is
+        an invitation to end it by accident — which is what happened: a tap
+        closed the session, stopped the rest timer, and collapsed the sets she
+        was still entering.
+      */}
       <div className="card p-4">
         {view.completed && outstanding.length === 0 ? (
           <p className="text-center text-sm text-beat">Session complete. Nice work.</p>
+        ) : totalLogged === 0 ? (
+          <p className="text-center text-sm text-muted">Log a set to get going.</p>
+        ) : outstanding.length > 0 ? (
+          <div className="text-center">
+            <p className="text-sm text-muted">Still to do: {outstanding.join(", ")}</p>
+            {/* Stopping early is hers to choose — it is just not the biggest
+                thing on the screen while there is work left. */}
+            {finishEarly ? (
+              <div className="mt-3">
+                <p className="mb-2 text-[13px] text-muted">Finish here — how did it feel?</p>
+                <Feelings onPick={finish} disabled={finishing} />
+                <button onClick={() => setFinishEarly(false)}
+                  className="mt-2 -mb-1 px-3 py-2 text-[12px] text-faint">
+                  Keep going
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setFinishEarly(true)}
+                className="-mb-1 mt-2 px-3 py-2 text-[12px] text-faint underline underline-offset-2 hover:text-muted"
+              >
+                Finish early
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <p className="mb-3 text-center text-sm text-muted">
-                {totalLogged === 0
-                  ? "Log a set to get going."
-                  : outstanding.length > 0
-                    ? `Still to do: ${outstanding.join(", ")}`
-                    : `${totalLogged} sets logged — how did it feel?`}
+              {totalLogged} sets logged — how did it feel?
             </p>
-            <div className="grid grid-cols-5 gap-2">
-              {["Brutal", "Hard", "Solid", "Good", "Easy"].map((label, i) => (
-                <button
-                  key={label}
-                  disabled={totalLogged === 0 || finishing}
-                  onClick={() => finish(i + 1)}
-                  className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted active:bg-line disabled:opacity-60"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Feelings onPick={finish} disabled={finishing} />
           </>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
@@ -243,6 +261,98 @@ function PendingBanner({ count, onRetry }: { count: number; onRetry: () => void 
 }
 
 /**
+ * Correcting a set she has already logged.
+ *
+ * "That was 45, not 55" used to be something only the coach could do, and only
+ * if she thought to ask. A number she can see and cannot fix is a number she
+ * stops trusting — and a wrong set skews the comparison to last time, the
+ * progression and the next prescription until it is right.
+ */
+function SetEditor({
+  slug, setNumber, set, unit, bodyweight, onDone, onCancel,
+}: {
+  slug: string;
+  setNumber: number;
+  set: { reps: number; weight: number | null };
+  unit: string;
+  bodyweight: boolean;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [reps, setReps] = useState(set.reps);
+  const [weight, setWeight] = useState(set.weight ?? 0);
+  const [busy, setBusy] = useState<"save" | "delete" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(kind: "save" | "delete") {
+    setBusy(kind);
+    setError(null);
+    try {
+      if (kind === "delete") {
+        await action("delete_set", { exerciseSlug: slug, setNumber });
+      } else {
+        await action("correct_set", {
+          exerciseSlug: slug, setNumber, reps,
+          ...(bodyweight ? {} : { weight }),
+        });
+      }
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't save — try again."));
+      setBusy(null);
+    }
+  }
+
+  const step = weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
+
+  return (
+    <div className="mx-4 mb-3 rounded-xl border border-line bg-raised p-3">
+      <p className="mb-2 text-[12px] text-muted">Set {setNumber}</p>
+      <div className={`grid gap-2 ${bodyweight ? "grid-cols-1" : "grid-cols-2"}`}>
+        {!bodyweight && (
+          <NumberField label={`Weight (${unit})`} value={weight} step={step} min={0} max={2000}
+            onChange={setWeight} />
+        )}
+        <NumberField label="Reps" value={reps} step={0.5} min={0.5} max={500} onChange={setReps} />
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <button onClick={() => run("save")} disabled={busy !== null}
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-50">
+          {busy === "save" ? "Saving…" : "Save"}
+        </button>
+        <button onClick={onCancel} disabled={busy !== null}
+          className="rounded-xl border border-line px-3 py-2.5 text-[13px] text-muted disabled:opacity-50">
+          Cancel
+        </button>
+        <button onClick={() => run("delete")} disabled={busy !== null}
+          className="rounded-xl border border-miss/40 px-3 py-2.5 text-[13px] text-miss disabled:opacity-50">
+          {busy === "delete" ? "…" : "Delete"}
+        </button>
+      </div>
+      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+    </div>
+  );
+}
+
+/** The five-way "how did it feel", in one place because it now has two homes. */
+function Feelings({ onPick, disabled }: { onPick: (n: number) => void; disabled: boolean }) {
+  return (
+    <div className="grid grid-cols-5 gap-2">
+      {["Brutal", "Hard", "Solid", "Good", "Easy"].map((label, i) => (
+        <button
+          key={label}
+          disabled={disabled}
+          onClick={() => onPick(i + 1)}
+          className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted transition-colors hover:bg-line active:bg-line disabled:opacity-60"
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Three identical sets read better as "3×8 @ 65lb" than as "8@65 8@65 8@65" —
  * and it matches how the target directly above it is written.
  */
@@ -282,6 +392,7 @@ function ExerciseCard({
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [editingSet, setEditingSet] = useState<number | null>(null);
 
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
@@ -404,27 +515,50 @@ function ExerciseCard({
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
-          looks logged, because it is; the outline says it hasn't gone up yet. */}
+          looks logged, because it is; the outline says it hasn't gone up yet.
+          A logged one is a button: a mistyped set was permanent until now. */}
       <div className="flex flex-wrap gap-1.5 px-4 pb-3">
         {Array.from({ length: Math.max(exercise.targetSets, setCount) }).map((_, i) => {
           const s = done[i] ?? queued[i - done.length];
           const isQueued = i >= done.length && i < setCount;
+          const label = s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—";
+          const shape = `flex h-9 min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
+            isQueued
+              ? "border border-dashed border-accent bg-accent-soft text-accent"
+              : s
+                ? "bg-accent text-ink"
+                : "border border-dashed border-edge text-faint"
+          }`;
+
+          // Only a set that has actually landed can be corrected — one still
+          // in the outbox has no row to correct yet.
+          if (!s || isQueued) return <div key={i} className={shape}>{label}</div>;
           return (
-            <div
+            <button
               key={i}
-              className={`flex h-9 min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
-                isQueued
-                  ? "border border-dashed border-accent bg-accent-soft text-accent"
-                  : s
-                    ? "bg-accent text-ink"
-                    : "border border-dashed border-edge text-faint"
+              onClick={() => setEditingSet(editingSet === i + 1 ? null : i + 1)}
+              aria-label={`Edit set ${i + 1}: ${label}`}
+              className={`${shape} transition-opacity hover:opacity-80 ${
+                editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""
               }`}
             >
-              {s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—"}
-            </div>
+              {label}
+            </button>
           );
         })}
       </div>
+
+      {editingSet !== null && done[editingSet - 1] && (
+        <SetEditor
+          slug={exercise.slug}
+          setNumber={editingSet}
+          set={done[editingSet - 1]}
+          unit={unit}
+          bodyweight={exercise.bodyweight}
+          onDone={() => { setEditingSet(null); onRemoved(); }}
+          onCancel={() => setEditingSet(null)}
+        />
+      )}
 
       {result && (
         <p className={`mx-4 mb-3 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
@@ -491,8 +625,10 @@ function ExerciseCard({
                 <NumberField
                   label="Reps"
                   value={reps}
-                  step={1}
-                  min={1}
+                  // Halves, so a set she got part-way through is recorded as
+                  // what it was rather than rounded to a lie in one direction.
+                  step={0.5}
+                  min={0.5}
                   max={500}
                   onChange={setReps}
                   className={exercise.bodyweight ? "col-span-2" : ""}
