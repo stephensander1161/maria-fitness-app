@@ -28,6 +28,12 @@ type Logged = {
   logged: { date: string; weight: number; unit: string };
   changeSinceStart: number | null;
   remainingToGoal: number | null;
+  /**
+   * What the days since her last weigh-in were worth in fat, next to what the
+   * scale did. Null when there is nothing honest to say — no previous
+   * reading, or a day with a meal typed in words and therefore no figure.
+   */
+  context: string | null;
 };
 
 /** Rotated so the fiftieth weigh-in does not read exactly like the first. */
@@ -86,6 +92,20 @@ export function WeighIn({
           <p className="mt-1 text-[12px] text-muted tabular">
             {done.changeSinceStart < 0 ? "−" : "+"}
             {Math.abs(done.changeSinceStart)}{done.logged.unit} since you started
+          </p>
+        )}
+
+        {/*
+          Why the scale did what it did.
+          A day's deficit is worth tens of grams of fat and the scale swings a
+          thousand grams on water — which is the single most common reason
+          someone decides none of this is working and stops weighing in. The
+          arithmetic goes here, at the moment the number appears, rather than
+          being left for her to either work out or not.
+        */}
+        {done.context && (
+          <p className="mx-auto mt-3 max-w-xs border-t border-beat/20 pt-3 text-[12px] leading-relaxed text-muted">
+            {done.context}
           </p>
         )}
         {/* It said "Change it" and then dropped back to the quiet row, which

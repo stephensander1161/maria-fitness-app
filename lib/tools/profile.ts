@@ -3,12 +3,14 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns, pushSubscriptions,
 } from "@/lib/db/schema";
-import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
+import { daysBetween, FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan, profileToday, todayForProfile, ageFrom } from "@/lib/profile";
 import { weightTrend } from "@/lib/trend";
 import { foodUnitsOf } from "@/lib/food-units";
 import { MAX_REST_SECONDS, MIN_REST_SECONDS, REST_GROUPS } from "@/lib/rest";
+import { explainScaleMove } from "@/lib/weight-explainer";
+import { energyBalanceBetween } from "@/lib/energy-balance";
 import { audit } from "@/lib/audit";
 import { defineTool, type ToolContext } from "./define";
 
@@ -154,7 +156,7 @@ export const updateProfile = defineTool({
 export const logWeight = defineTool({
   name: "log_weight",
   description:
-    "Record a weigh-in for a date (defaults to today). Re-logging the same date overwrites it. Returns the change since her last weigh-in and since her starting weight.",
+    "Record a weigh-in for a date (defaults to today). Re-logging the same date overwrites it. Returns the change since her last weigh-in, the change since her start, and — when the days in between were fully logged — what her energy balance over them was actually worth in fat, next to what the scale did. Use that explanation when the scale moved the other way: a day's deficit is worth tens of grams and the scale swings a thousand on water, and someone who does not know that concludes none of this is working.",
   input: z.object({
     weight: z.number().describe("In her display units — lb by default"),
     date: z.string().optional().describe("YYYY-MM-DD; defaults to today"),
@@ -182,11 +184,29 @@ export const logWeight = defineTool({
 
     const u = p.units;
     const toGoal = p.goalWeightKg !== null ? kg - p.goalWeightKg : null;
+
+    // What the days since her last weigh-in were worth, in fat, against what
+    // the scale actually did. Null unless every one of those days was fully
+    // logged — a deficit computed from a day with a meal typed in words is a
+    // deficit she may never have run.
+    const changeKg = prev && prev.date !== date ? kg - prev.weightKg : null;
+    const balance = prev && prev.date !== date && prev.date < date
+      ? await energyBalanceBetween(ctx.profileId, prev.date, date)
+      : null;
+    const context = explainScaleMove({
+      changeKg,
+      daysApart: prev && prev.date !== date ? daysBetween(prev.date, date) : null,
+      balanceKcal: balance?.balanceKcal ?? null,
+      complete: balance?.complete ?? false,
+    });
+
     return {
       logged: { date, weight: weightOut(kg, u), unit: weightLabel(u) },
       changeSinceLast: prev && prev.date !== date ? weightOut(kg - prev.weightKg, u) : null,
       changeSinceStart: p.startWeightKg !== null ? weightOut(kg - p.startWeightKg, u) : null,
       remainingToGoal: weightOut(toGoal, u),
+      // One reading is never progress; this says what it *is*.
+      context: context?.note ?? null,
     };
   },
 });
