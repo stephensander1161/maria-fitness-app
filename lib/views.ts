@@ -2,12 +2,13 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-or
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  preppedPortions, profiles, setLogs, workouts,
+  foods, preppedPortions, profiles, setLogs, shoppingExtras, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
+import { guessCategory, sortKitchen, stateFor } from "@/lib/kitchen";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import { restSecondsFor } from "@/lib/rest";
 import { shoppingListFor } from "@/lib/shopping-list";
@@ -673,4 +674,77 @@ export async function titleStats(profileId: string, asOf: ISODate) {
     ),
     milestones: milestones?.n ?? 0,
   });
+}
+
+
+/**
+ * The kitchen as tiles: everything she has, everything the week needs, and
+ * everything she added herself, in one collection with a state each.
+ *
+ * The category comes from the food library by name, which is the same table
+ * the calorie lookup uses — so a tile gets the right glyph for free, and an
+ * item the library has never heard of gets the fallback rather than nothing.
+ */
+export async function kitchenView(profileId: string, foodUnits: Units, asOf: ISODate) {
+  const [stock, { needs, hasPlan }, extras, catalogue] = await Promise.all([
+    pantryStock(profileId),
+    pantryNeeds(profileId, asOf),
+    db.select({ item: shoppingExtras.item }).from(shoppingExtras)
+      .where(eq(shoppingExtras.profileId, profileId)),
+    db.select({ name: foods.name, category: foods.category }).from(foods),
+  ]);
+
+  const lines = compareStock(needs, stock);
+  const byKey = new Map(lines.map((l) => [normaliseItem(l.item), l]));
+  const onHand = new Map(stock.map((s) => [normaliseItem(s.item), s]));
+
+  // Longest name first, so "chicken breast" wins over "chicken" for an item
+  // called "chicken breast fillets".
+  const known = catalogue
+    .map((f) => ({ key: normaliseItem(f.name), category: f.category }))
+    .sort((a, b) => b.key.length - a.key.length);
+  const categoryFor = (item: string): string | null => {
+    const key = normaliseItem(item);
+    return known.find((f) => key.includes(f.key) || f.key.includes(key))?.category
+      // The nutrition library does not carry cumin or a crusty bread roll,
+      // and without this two fifths of a real kitchen sat under "Other".
+      ?? guessCategory(item);
+  };
+
+  const extraNames = new Set(extras.map((e) => normaliseItem(e.item)));
+  const names = new Set<string>([
+    ...stock.map((s) => s.item),
+    ...lines.map((l) => l.item),
+    ...extras.map((e) => e.item),
+  ]);
+
+  const items = [...names].map((item) => {
+    const key = normaliseItem(item);
+    const have = onHand.get(key) ?? null;
+    const line = byKey.get(key) ?? null;
+    const state = extraNames.has(key) && !have
+      ? ("need" as const)
+      : stateFor(have, line?.status ?? null);
+    return {
+      item,
+      category: categoryFor(item),
+      state,
+      label: have === null
+        ? "not in"
+        : have.amount === null
+          ? "some"
+          : have.amount === 0
+            ? "out"
+            : quantityLabel(have.amount, have.unit, foodUnits),
+      needed: line?.amount == null ? null : quantityLabel(line.amount, line.unit, foodUnits),
+      extra: extraNames.has(key),
+      unit: have?.unit ?? null,
+    };
+  });
+
+  return {
+    hasMealPlan: hasPlan,
+    items: sortKitchen(items),
+    toBuy: items.filter((i) => i.state === "need" || i.state === "out").length,
+  };
 }

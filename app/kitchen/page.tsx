@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { ShoppingList, type ShoppingAisle } from "@/components/shopping-list";
-import { Kitchen } from "@/components/kitchen";
+import { KitchenGrid } from "@/components/kitchen-grid";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
-import { pantryView } from "@/lib/views";
+import { kitchenView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
@@ -12,73 +11,53 @@ import { runTool } from "@/lib/tools";
 export const dynamic = "force-dynamic";
 
 /**
- * Shopping and the kitchen, given a screen.
+ * What is in the house.
  *
- * Both were collapsed cards two thirds of the way down the Plan page, which
- * is the worst place for the two things she does *standing up and holding a
- * phone* — one in a supermarket aisle, one in front of a cupboard. Neither is
- * about the week's plan; they are about what is in the house.
+ * One screen, not two lists. Shopping and the pantry were separate tabs, each
+ * a column of text read top to bottom — which is the wrong shape for both
+ * jobs: in a supermarket she is scanning for one item among thirty, and at
+ * the cupboard she is answering "have I got X". A grid of tiles with a state
+ * each answers both at a glance, and the same chips-and-search the movement
+ * picker uses cut it down before she reads anything.
  *
- * `?tab=` rather than component state, for the same reason as everywhere else:
- * the back button, and a screen she can link to.
+ * The list she takes to the shop is still a list — that is genuinely what a
+ * shopping list is — so it stays, underneath, as the thing she shares or
+ * sends to Instacart rather than the thing she manages her kitchen through.
  */
-export default async function KitchenPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
+export default async function KitchenPage() {
   const profile = await requireOnboarded();
   const her = profileToday(profile);
-  const { tab } = await searchParams;
-  const on = tab === "have" ? "have" : "shopping";
 
-  const [shopping, pantry] = await Promise.all([
-    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[]; instacart: boolean }>,
-    pantryView(profile.id, foodUnitsOf(profile), her),
+  const [kitchen, shopping] = await Promise.all([
+    kitchenView(profile.id, foodUnitsOf(profile), her),
+    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{
+      aisles?: ShoppingAisle[]; instacart: boolean;
+    }>,
   ]);
-
-  const toBuy = (shopping.aisles ?? []).reduce((n, a) => n + a.items.length, 0);
 
   return (
     <>
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
-          <p className="mt-0.5 text-[13px] text-muted">Week of {prettyDate(weekStart(her))}</p>
+          <p className="mt-0.5 text-[13px] text-muted">
+            {kitchen.toBuy > 0
+              ? `${kitchen.toBuy} to buy · week of ${prettyDate(weekStart(her))}`
+              : `Week of ${prettyDate(weekStart(her))}`}
+          </p>
         </div>
-        <AiOpinion page="plan" label="the list and your kitchen" />
+        <AiOpinion page="plan" label="the kitchen" />
       </header>
 
-      <div className="mb-4 flex gap-6 border-b border-line">
-        {([["shopping", "Shopping", toBuy], ["have", "What I have", pantry.items.length]] as const).map(
-          ([key, label, count]) => (
-            <Link
-              key={key}
-              href={`/kitchen?tab=${key}`}
-              scroll={false}
-              aria-current={on === key ? "page" : undefined}
-              className={`-mb-px border-b-2 px-1 pb-2.5 text-[14px] font-medium transition-colors ${
-                on === key ? "border-accent text-accent" : "border-transparent text-muted hover:text-text"
-              }`}
-            >
-              {label}
-              <span className="ml-1.5 text-[11px] text-faint tabular">{count}</span>
-            </Link>
-          ),
-        )}
-      </div>
+      <KitchenGrid items={kitchen.items} hasMealPlan={kitchen.hasMealPlan} />
 
-      {on === "shopping" ? (
+      <div className="mt-6">
         <ShoppingList
           weekStart={weekStart(her)}
           aisles={shopping.aisles ?? []}
           instacart={shopping.instacart}
-          expanded
         />
-      ) : (
-        <Kitchen pantry={pantry} expanded />
-      )}
-
+      </div>
     </>
   );
 }
