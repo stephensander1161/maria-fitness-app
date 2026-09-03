@@ -201,20 +201,13 @@ function EditLog({
         aria-label="What it was"
         className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] focus:border-accent focus:outline-none"
       />
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <input
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
-          inputMode="numeric"
-          placeholder="kcal"
-          aria-label="Calories"
-          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-        />
-        <ProteinField
-          value={protein}
-          onChange={setProtein}
-          describes={what}
+      <div className="mt-2">
+        <FoodNumbers
           calories={calories}
+          onCalories={setCalories}
+          protein={protein}
+          onProtein={setProtein}
+          describes={what}
         />
       </div>
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
@@ -236,39 +229,58 @@ function EditLog({
 }
 
 /**
- * Protein, with a way to have it worked out.
+ * Calories and protein, with a way to have either worked out.
  *
- * "300 calories of cheese" carries a protein figure that anyone with a food
- * table can find and she should not have to. The estimate is behind a tap
- * rather than automatic: it is a lookup she may not want, the number lands in
- * an editable box so she can overrule it, and a figure the app quietly
- * invented and she never checked is exactly the kind of made-up data this
- * app refuses to produce elsewhere.
+ * "Cheese" has a calorie figure and a protein figure that anyone with a food
+ * table can find, and she should not have to. One button fills whichever box
+ * is empty and leaves alone whatever she has already typed — so "300 cal of
+ * cheese" gets the protein for that portion, a bare description gets both,
+ * and a figure she entered herself is never overwritten by an estimate.
+ *
+ * Behind a tap rather than automatic: it is a lookup she may not want, the
+ * numbers land in editable boxes so she can overrule them, and a figure the
+ * app quietly invented and she never checked is exactly the kind of made-up
+ * data it refuses to produce anywhere else.
  */
-function ProteinField({
-  value, onChange, describes, calories,
+function FoodNumbers({
+  calories, onCalories, protein, onProtein, describes, optional = false,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  describes: string;
   calories: string;
+  onCalories: (v: string) => void;
+  protein: string;
+  onProtein: (v: string) => void;
+  describes: string;
+  optional?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  const wantsCalories = calories.trim() === "";
+  const wantsProtein = protein.trim() === "";
+
   async function estimate() {
     const food = describes.trim();
-    if (!food) return;
+    if (!food || (!wantsCalories && !wantsProtein)) return;
     setBusy(true);
     setFailed(false);
     try {
-      // Calories included when she has typed them, so "300 cal of cheese"
-      // is looked up as that portion rather than as 100g of cheese.
+      // Her own calorie figure goes into the query when she has one, so the
+      // lookup prices that portion rather than a default hundred grams.
       const kcal = Number(calories);
-      const query = calories.trim() && Number.isFinite(kcal) ? `${kcal} kcal ${food}` : food;
-      const r = await action<{ found: boolean; proteinG?: number }>("lookup_food", { query });
-      if (r.found && r.proteinG !== undefined && r.proteinG !== null) onChange(String(Math.round(r.proteinG)));
-      else setFailed(true);
+      const query = !wantsCalories && Number.isFinite(kcal) ? `${kcal} kcal ${food}` : food;
+      const r = await action<{ found: boolean; kcal?: number; proteinG?: number }>(
+        "lookup_food", { query },
+      );
+      let filled = false;
+      if (wantsCalories && r.found && r.kcal !== undefined && r.kcal !== null) {
+        onCalories(String(Math.round(r.kcal)));
+        filled = true;
+      }
+      if (wantsProtein && r.found && r.proteinG !== undefined && r.proteinG !== null) {
+        onProtein(String(Math.round(r.proteinG)));
+        filled = true;
+      }
+      if (!filled) setFailed(true);
     } catch {
       setFailed(true);
     } finally {
@@ -276,26 +288,40 @@ function ProteinField({
     }
   }
 
+  const label = wantsCalories && wantsProtein
+    ? "estimate both"
+    : wantsCalories ? "estimate calories" : "estimate protein";
+
   return (
-    // Under the field, not inside it. Sitting in the input's right-hand
-    // padding, the button ran into the placeholder on a narrow phone — half a
-    // grid column is not much room for a number and a word.
     <div>
-      <input
-        value={value}
-        onChange={(e) => { onChange(e.target.value); setFailed(false); }}
-        inputMode="numeric"
-        placeholder="protein g"
-        aria-label="Protein in grams"
-        className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          value={calories}
+          onChange={(e) => { onCalories(e.target.value); setFailed(false); }}
+          inputMode="numeric"
+          placeholder={optional ? "kcal (optional)" : "kcal"}
+          aria-label="Calories"
+          className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        />
+        <input
+          value={protein}
+          onChange={(e) => { onProtein(e.target.value); setFailed(false); }}
+          inputMode="numeric"
+          placeholder={optional ? "protein g (optional)" : "protein g"}
+          aria-label="Protein in grams"
+          className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        />
+      </div>
+      {/* Under the pair, not inside a field: half a grid column is not much
+          room for a number and a word, and the button ran into the
+          placeholder on a narrow phone. */}
       <button
         type="button"
         onClick={estimate}
-        disabled={busy || !describes.trim()}
+        disabled={busy || !describes.trim() || (!wantsCalories && !wantsProtein)}
         className="mt-1 px-1 text-[11px] font-medium text-accent underline underline-offset-2 disabled:no-underline disabled:opacity-30"
       >
-        {busy ? "working it out…" : failed ? "no match — type it" : "estimate it"}
+        {busy ? "working it out…" : failed ? "no match — type it" : label}
       </button>
     </div>
   );
@@ -381,16 +407,15 @@ function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
         autoFocus
         className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
       />
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <input
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
-          inputMode="numeric"
-          placeholder="kcal (optional)"
-          aria-label="Calories, optional"
-          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+      <div className="mt-2">
+        <FoodNumbers
+          calories={calories}
+          onCalories={setCalories}
+          protein={protein}
+          onProtein={setProtein}
+          describes={what}
+          optional
         />
-        <ProteinField value={protein} onChange={setProtein} describes={what} calories={calories} />
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-faint">
         Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather

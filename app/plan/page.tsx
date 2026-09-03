@@ -52,9 +52,13 @@ export default async function PlanPage({
               asked while leaving the one they did — what day is it — to be
               worked out from a date range. */}
           <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
+          {/* The week's own name is gone. It is the template's — "Full Body
+              3× — Dumbbells & Bench" — and it goes stale the moment she
+              renames a day or adds one, exactly like the blurb underneath it
+              did. The days below say what the week is; the header only needs
+              to say which week. */}
           <p className="mt-0.5 truncate text-[13px] text-muted">
             Week of {prettyDate(weekStart(her))}
-            {week.exists ? ` · ${week.title}` : ""}
           </p>
         </div>
         <AiOpinion page="plan" label="plan" />

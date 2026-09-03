@@ -26,8 +26,29 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   // and reading a ref there is exactly what React 19 forbids.
   const [dragging, setDragging] = useState(false);
 
+  /**
+   * True while the content is displaced, or settling back.
+   *
+   * This decides whether a transform is applied at all, and that matters far
+   * more than it looks. A `transform` — even `translateY(0)` — makes an
+   * element the containing block for every `position: fixed` descendant and
+   * traps them in its stacking context. This wrapper holds the entire app, so
+   * a permanent transform quietly redefined "fixed" for every overlay in it:
+   * the coach sheet stopped being pinned to the viewport and pinned itself to
+   * the bottom of the *document* instead, and the tab bar — a sibling at body
+   * level with a lower z-index — painted straight over it. On a long page the
+   * sheet was somewhere below the fold entirely.
+   *
+   * So the transform exists only while the gesture is happening. `settling`
+   * keeps it for the length of the spring-back so the animation still runs.
+   */
+  const [settling, setSettling] = useState(false);
+
   const startY = useRef<number | null>(null);
   const active = useRef(false);
+  // The current pull, readable from an event handler without a stale closure
+  // and without doing side effects inside a state updater.
+  const pulled = useRef(0);
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
@@ -53,6 +74,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       if (dy <= 0 || window.scrollY > 0) {
         active.current = false;
         setDragging(false);
+        pulled.current = 0;
         setPull(0);
         return;
       }
@@ -60,7 +82,14 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       // Non-passive so this can win against the browser's own overscroll.
       e.preventDefault();
       const distance = Math.min(MAX_PULL, dy * RESISTANCE);
+      pulled.current = distance;
       setPull(distance);
+    };
+
+    /** Hold the transform for the spring-back, then drop it entirely. */
+    const settle = () => {
+      setSettling(true);
+      window.setTimeout(() => setSettling(false), 320);
     };
 
     const onEnd = () => {
@@ -69,17 +98,27 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
       setDragging(false);
       startY.current = null;
 
-      setPull((current) => {
-        if (current >= THRESHOLD) {
-          setRefreshing(true);
-          router.refresh();
-          // The refresh is not awaitable, so hold the indicator briefly rather
-          // than snapping back before the new content lands.
-          window.setTimeout(() => setRefreshing(false), 700);
-          return THRESHOLD;
-        }
-        return 0;
-      });
+      if (pulled.current >= THRESHOLD) {
+        setPull(THRESHOLD);
+        setRefreshing(true);
+        router.refresh();
+        // The refresh is not awaitable, so hold the indicator briefly rather
+        // than snapping back before the new content lands — and then put it
+        // away. It used to hold the pull at the threshold for ever: the
+        // banner went on reading "Let go to refresh" long after she had, on
+        // every screen, until the page was reloaded by hand.
+        window.setTimeout(() => {
+          setRefreshing(false);
+          pulled.current = 0;
+          setPull(0);
+          settle();
+        }, 700);
+        return;
+      }
+
+      pulled.current = 0;
+      setPull(0);
+      settle();
     };
 
     window.addEventListener("touchstart", onStart, { passive: true });
@@ -96,6 +135,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
 
   const offset = refreshing ? THRESHOLD : pull;
   const ready = pull >= THRESHOLD;
+  const displaced = dragging || refreshing || settling || pull > 0;
 
   return (
     <>
@@ -111,11 +151,19 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
+      {/*
+        No transform at rest — see `settling` above. `undefined` rather than
+        "none" so the property is absent entirely, which is what keeps this
+        div from becoming the containing block for every fixed overlay in the
+        app.
+      */}
       <div
-        style={{
-          transform: `translateY(${offset}px)`,
-          transition: dragging ? "none" : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
+        style={displaced
+          ? {
+              transform: `translateY(${offset}px)`,
+              transition: dragging ? "none" : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }
+          : undefined}
       >
         {children}
       </div>
