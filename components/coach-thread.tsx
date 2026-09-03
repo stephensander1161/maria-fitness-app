@@ -125,7 +125,7 @@ export function Suggestions({
           type="button"
           disabled={busy}
           onClick={() => onPick(s)}
-          className="shrink-0 rounded-full border border-line bg-surface px-3.5 py-2 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+          className="shrink-0 rounded-full border border-line bg-surface px-3.5 py-2 text-[13px] text-muted transition-colors hover:bg-raised active:bg-raised disabled:opacity-40"
         >
           {s}
         </button>

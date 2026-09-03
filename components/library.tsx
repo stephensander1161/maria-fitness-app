@@ -109,7 +109,7 @@ export function Library({ exercises, facts }: { exercises: Item[]; facts: FactIt
               <div className="card divide-y divide-line">
                 {items.map((e) => (
                   <Link key={e.slug} href={`/learn/${e.slug}`}
-                    className="flex items-center gap-3 p-4 active:bg-raised">
+                    className="flex items-center gap-3 p-4 transition-colors hover:bg-raised active:bg-raised">
                     <ExerciseFigure
                       slug={e.slug}
                       category={e.category}

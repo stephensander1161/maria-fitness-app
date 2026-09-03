@@ -277,11 +277,11 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
       role="dialog"
       aria-modal="true"
       aria-label="Set up your plan"
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm"
     >
       <div ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
+        className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface p-5"
         data-no-pull-to-refresh=""
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
       >

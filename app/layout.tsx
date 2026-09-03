@@ -5,6 +5,7 @@ import { Feedback } from "@/components/feedback";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { CoachBubbleGate } from "@/components/coach-bubble-gate";
+import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
 
 export const metadata: Metadata = {
@@ -27,9 +28,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-dvh bg-base text-text">
+      <body className="min-h-dvh bg-base text-text md:pl-56">
+        <SideNavGate />
         <PullToRefresh>
-          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4">
+          {/*
+            One column on a phone, offset past the sidebar and wider on a
+            desktop. `md:pl-56` clears the fixed nav; the column itself stays
+            readable rather than stretching to the window — 40rem of prose and
+            cards is a comfortable measure, and the extra room goes to the
+            margins.
+          */}
+          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-3xl md:pb-10 md:pl-8 md:pr-8 lg:pt-8">
             {children}
             <DailyFact />
           </main>

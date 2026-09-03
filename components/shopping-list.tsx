@@ -233,7 +233,7 @@ export function ShoppingList({
             <button
               onClick={share}
               disabled={selected.length === 0}
-              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted transition-colors hover:bg-raised active:bg-raised disabled:opacity-40"
             >
               {shared === "copied" ? "Copied" : `${canShare ? "Share" : "Copy"} ${selected.length}`}
             </button>
@@ -249,7 +249,7 @@ export function ShoppingList({
             <button
               onClick={putAway}
               disabled={stocking || selected.length === 0}
-              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+              className="rounded-full border border-line px-3.5 py-2 text-[13px] text-muted transition-colors hover:bg-raised active:bg-raised disabled:opacity-40"
             >
               {stocking ? "Saving…" : "Got these"}
             </button>

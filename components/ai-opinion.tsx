@@ -22,7 +22,7 @@ export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-accent active:bg-raised"
+        className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] text-accent transition-colors hover:bg-raised active:bg-raised"
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -64,9 +64,9 @@ function Sheet({
 
   return (
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`The coach on your ${label}`}
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm">
+      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm">
       <div ref={panel} onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line bg-surface"
+        className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""

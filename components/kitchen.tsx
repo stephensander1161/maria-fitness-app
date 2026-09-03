@@ -214,7 +214,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
             <button
               type="submit"
               disabled={busy || !adding.trim()}
-              className="shrink-0 rounded-xl border border-line px-3.5 py-2.5 text-[13px] text-accent disabled:opacity-40"
+              className="shrink-0 rounded-xl border border-line px-3.5 py-2.5 text-[13px] text-accent transition-colors hover:bg-raised disabled:opacity-40"
             >
               Add
             </button>

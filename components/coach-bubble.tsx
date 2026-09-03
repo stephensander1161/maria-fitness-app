@@ -36,7 +36,9 @@ export function CoachBubble({ name }: { name: string | null }) {
         <button
           onClick={() => setOpen(true)}
           aria-label="Ask your coach"
-          className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-ink shadow-lg shadow-ink/50 active:scale-95"
+          className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-ink shadow-lg shadow-ink/50 transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
+          // Above the tab bar on a phone; the tab bar is gone on a desktop, so
+          // the inline style is overridden by the md: classes above.
           style={{ bottom: "calc(4.25rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -113,12 +115,18 @@ function CoachSheet({
       role="dialog"
       aria-modal="true"
       aria-label="Your coach"
-      className="fixed inset-0 z-[80] flex flex-col justify-end bg-ink/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[80] flex flex-col justify-end bg-ink/70 backdrop-blur-sm md:items-end md:justify-center md:p-6"
     >
+      {/*
+        A sheet from the bottom edge is right under a thumb and wrong under a
+        mouse — on a wide screen it becomes a panel docked to the right, at a
+        height that leaves the screen behind it visible, because the whole
+        point is asking about what is on it.
+      */}
       <div
         ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base"
+        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(46rem,88dvh)] md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60"
         data-no-pull-to-refresh=""
       >
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line/60 px-4 py-3">

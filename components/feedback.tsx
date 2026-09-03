@@ -49,7 +49,7 @@ export function Feedback() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur active:bg-raised"
+        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:bottom-8 md:left-[15.5rem]"
       >
         <FeedbackGlyph />
       </button>
@@ -105,11 +105,11 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm"
       onClick={onClose} role="dialog" aria-modal="true" aria-label="Send feedback">
       <div ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5"
+        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface p-5"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""

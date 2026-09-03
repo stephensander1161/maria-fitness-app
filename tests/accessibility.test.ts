@@ -100,3 +100,35 @@ suite("contrast", () => {
     expect(ratio(token("ink"), token("accent"))).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+/**
+ * The app was built thumb-first and then had to work on a desktop too. These
+ * are the three ways that goes wrong silently: navigation that only exists at
+ * the bottom edge of a phone, sheets that rise from an edge a mouse is nowhere
+ * near, and a refresh that only a finger can perform.
+ */
+suite("it works with a mouse too", () => {
+  it("has navigation that survives the tab bar being hidden", () => {
+    // The bottom bar is display:none from md up, so something else has to
+    // carry the destinations — and from the same list, or they drift.
+    expect(read("components/tab-bar.tsx")).toMatch(/md:hidden/);
+    expect(read("components/side-nav.tsx")).toMatch(/from "\.\/tab-bar"/);
+    expect(read("components/tab-bar.tsx")).toMatch(/export const TABS/);
+  });
+
+  it("gives every bottom sheet a desktop position", () => {
+    // An 88dvh sheet glued to the bottom edge of a 27-inch screen is a phone
+    // app in a window.
+    const sheets = screens.filter((f) => /items-end justify-center/.test(read(f)));
+    expect(sheets.length).toBeGreaterThan(3);
+    const stuck = sheets.filter((f) => !/md:(items-center|justify-center|self-auto)/.test(read(f)));
+    expect(stuck, `these still rise from the bottom edge on a desktop: ${stuck.join(", ")}`).toEqual([]);
+  });
+
+  it("can refresh without a touch gesture", () => {
+    // pull-to-refresh binds touch events only, and every page is
+    // force-dynamic — so on a desktop there was no way to reload a screen
+    // from inside the app at all.
+    expect(read("components/side-nav.tsx")).toMatch(/router\.refresh\(\)/);
+  });
+});
