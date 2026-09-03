@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { action } from "@/lib/client";
 import { daysBetween, prettyDate, today } from "@/lib/date";
@@ -23,6 +23,48 @@ const QUALITY = 0.75;
 /** Matches the backstop in lib/tools/photos.ts (~300KB of JPEG). */
 const MAX_BASE64_CHARS = 400_000;
 
+/* --------------------------------------------------- the chosen pair ----- */
+
+/** Her chosen comparison, kept in this browser only. */
+const PAIR_KEY = "coach.photo-pair";
+
+type Pair = { before: string; after: string } | null;
+
+let pairValue: Pair = null;
+let pairLoaded = false;
+const pairListeners = new Set<() => void>();
+
+/** Cached, because useSyncExternalStore compares snapshots by identity. */
+function readPair(): Pair {
+  if (!pairLoaded) {
+    pairLoaded = true;
+    try {
+      const raw = window.localStorage.getItem(PAIR_KEY);
+      pairValue = raw ? (JSON.parse(raw) as Pair) : null;
+    } catch {
+      pairValue = null;
+    }
+  }
+  return pairValue;
+}
+
+function writePair(next: Pair) {
+  pairValue = next;
+  pairLoaded = true;
+  try {
+    if (next) window.localStorage.setItem(PAIR_KEY, JSON.stringify(next));
+    else window.localStorage.removeItem(PAIR_KEY);
+  } catch {
+    /* private mode — the choice just does not survive the tab */
+  }
+  for (const l of pairListeners) l();
+}
+
+function subscribePair(listener: () => void) {
+  pairListeners.add(listener);
+  return () => { pairListeners.delete(listener); };
+}
+
 const POSES: { key: PhotoPose; label: string }[] = [
   { key: "front", label: "Front" },
   { key: "side", label: "Side" },
@@ -41,7 +83,23 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [pair, setPair] = useState<{ before: string; after: string } | null>(null);
+  /**
+   * Which two she is comparing.
+   *
+   * Remembered in this browser, because "the two I care about" is a standing
+   * choice and re-picking it on every visit is the sort of small tax that
+   * stops people opening a screen. Read through useSyncExternalStore rather
+   * than an effect: the server render has no localStorage, and the two have
+   * to agree at hydration.
+   */
+  const pair = useSyncExternalStore(subscribePair, readPair, () => null);
+  const setPair = (next: { before: string; after: string } | null) => {
+    writePair(next);
+  };
+
+  /** Both the gallery and the two date pickers start out of the way. */
+  const [browsing, setBrowsing] = useState(false);
+  const [editing, setEditing] = useState<"before" | "after" | null>(null);
 
   // Oldest first, so "before" and "after" read left to right.
   const shown = useMemo(() => {
@@ -51,9 +109,12 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
 
   const byId = useMemo(() => new Map(shown.map((p) => [p.id, p])), [shown]);
 
-  // Default comparison: her first photo against her latest. Any explicit pick
-  // wins, but falls back the moment the filter hides what was chosen.
-  const before = (pair && byId.get(pair.before)) ?? shown[0] ?? null;
+  // Default comparison: the two most recent. Her first against her latest is
+  // the more flattering pair and the less useful one — what she opens this
+  // for month to month is "has anything changed lately", and the long view is
+  // one tap away. Any explicit pick wins, and falls back the moment the
+  // filter hides what was chosen.
+  const before = (pair && byId.get(pair.before)) ?? shown[shown.length - 2] ?? shown[0] ?? null;
   const after = (pair && byId.get(pair.after)) ?? shown[shown.length - 1] ?? null;
   const apart = before && after && before.id !== after.id ? monthsApart(before.date, after.date) : null;
 
@@ -199,7 +260,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
               {(["all", ...POSES.map((p) => p.key)] as const).map((key) => (
                 <button
                   key={key}
-                  onClick={() => { setFilter(key); setPair(null); }}
+                  onClick={() => { setFilter(key); setPair(null); setEditing(null); }}
                   className={`rounded-full px-3 py-1 text-[12px] ${
                     filter === key ? "bg-raised text-text" : "text-faint"
                   }`}
@@ -216,30 +277,46 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
 
           {before && after && (
             <>
+              {/* Tapping a photo is how you change it. The two dropdowns
+                  used to sit under the pair permanently, which is a form
+                  bolted to a picture. */}
               <div className="grid grid-cols-2 gap-2">
-                <Side label="Before" photo={before} />
-                <Side label="After" photo={after} />
+                <button
+                  onClick={() => setEditing(editing === "before" ? null : "before")}
+                  disabled={shown.length < 2}
+                  aria-expanded={editing === "before"}
+                  className="text-left disabled:cursor-default"
+                >
+                  <Side label="Before" photo={before} />
+                </button>
+                <button
+                  onClick={() => setEditing(editing === "after" ? null : "after")}
+                  disabled={shown.length < 2}
+                  aria-expanded={editing === "after"}
+                  className="text-left disabled:cursor-default"
+                >
+                  <Side label="After" photo={after} />
+                </button>
               </div>
 
               <p className="mt-2 text-center text-[12px] text-muted">
                 {before.id === after.id
                   ? "One photo so far — add another next month and this becomes a comparison."
-                  : apart}
+                  : shown.length > 1 ? `${apart} · tap either to change it` : apart}
               </p>
 
-              {shown.length > 1 && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
+              {editing && shown.length > 1 && (
+                <div className="mt-3">
                   <Picker
-                    label="Before"
-                    value={before.id}
+                    label={editing === "before" ? "Before" : "After"}
+                    value={editing === "before" ? before.id : after.id}
                     options={shown}
-                    onChange={(id) => setPair({ before: id, after: after.id })}
-                  />
-                  <Picker
-                    label="After"
-                    value={after.id}
-                    options={shown}
-                    onChange={(id) => setPair({ before: before.id, after: id })}
+                    onChange={(id) => {
+                      setPair(editing === "before"
+                        ? { before: id, after: after.id }
+                        : { before: before.id, after: id });
+                      setEditing(null);
+                    }}
                   />
                 </div>
               )}
@@ -248,10 +325,23 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
 
           {shown.length > 0 && (
             <div className="mt-4">
-              <p className="mb-2 text-[11px] uppercase tracking-wide text-faint">
-                All photos{total && total > photos.length ? ` · newest ${photos.length} of ${total}` : ""}
-              </p>
-              <div className="grid grid-cols-4 gap-1.5">
+              {/* Closed by default: the comparison is the point of the card,
+                  and a wall of thumbnails under it buried the thing she came
+                  to look at. */}
+              <button
+                onClick={() => { setBrowsing(!browsing); setSelected(null); setConfirmDelete(null); }}
+                aria-expanded={browsing}
+                className="flex w-full items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-faint"
+              >
+                <span>
+                  All photos{total && total > photos.length ? ` · newest ${photos.length} of ${total}` : ` · ${shown.length}`}
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                  className={`transition-transform ${browsing ? "rotate-180" : ""}`} aria-hidden>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div className={browsing ? "mt-2 grid grid-cols-4 gap-1.5" : "hidden"}>
                 {[...shown].reverse().map((p) => (
                   <button
                     key={p.id}
@@ -271,7 +361,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
                 ))}
               </div>
 
-              {selected && byId.get(selected) && (
+              {browsing && selected && byId.get(selected) && (
                 <div className="mt-2 rounded-xl bg-raised p-3">
                   <p className="mb-2 text-[13px]">
                     {prettyDate(byId.get(selected)!.date)}

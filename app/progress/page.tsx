@@ -175,6 +175,11 @@ export default async function ProgressPage() {
       <NutritionTrendCard trend={eating} />
       <Progression items={progression} unit={weightLabel(u)} />
 
+      {/*
+        The week and the milestones are one question asked over two spans —
+        "am I moving" this week, and "am I moving" overall. They were two
+        cards with a gap between them, and the second one was below the fold.
+      */}
       <section className="card mb-3 p-5">
         <h2 className="mb-3 text-[15px] font-semibold">This week</h2>
         {review.beat.length > 0 && (
@@ -191,10 +196,9 @@ export default async function ProgressPage() {
         {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
           <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
         )}
-      </section>
 
-      <section className="card p-5">
-        <h2 className="mb-3 text-[15px] font-semibold">Milestones</h2>
+        <div className="mt-5 border-t border-line pt-4">
+          <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-faint">Milestones</h3>
         {milestones.length === 0 ? (
           <p className="text-[13px] text-faint">
             No milestones yet. Ask your coach to set a few — they make the big goal feel reachable.
@@ -227,7 +231,9 @@ export default async function ProgressPage() {
             ))}
           </ul>
         )}
+        </div>
       </section>
+
 
       </div>
 
