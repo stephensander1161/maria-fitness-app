@@ -147,6 +147,9 @@ const all: Tool[] = [
   training.startWorkout,
   nutrition.removeMealLog,
   nutrition.swapMeal,
+  nutrition.saveMeal,
+  nutrition.listSavedMeals,
+  nutrition.removeSavedMeal,
   profile.updateProfile,
 ];
 

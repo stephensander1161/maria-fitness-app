@@ -2,7 +2,7 @@
 
 import { TodayFood } from "./today-food";
 import { CalorieCalculator } from "./calorie-calculator";
-import type { DayFoodView, MealWeekView } from "@/lib/views";
+import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
 import { MealRow } from "./meal-row";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
@@ -17,9 +17,11 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  * as a prompt rather than an instruction; she can log one with a tap.
  */
 export function EatClient({
-  day, planned, calorieTarget, proteinTargetG, foodUnits,
+  day, saved, planned, calorieTarget, proteinTargetG, foodUnits,
 }: {
   day: DayFoodView;
+  /** Her regulars, for one-tap logging. */
+  saved: SavedMeal[];
   planned: Meal[];
   calorieTarget: number | null;
   proteinTargetG: number | null;
@@ -30,7 +32,7 @@ export function EatClient({
       {/* The day's log is the point of the screen and the widest thing on it —
           it takes the whole row rather than sharing one. */}
       <div className="xl:col-span-2">
-        <TodayFood day={day} />
+        <TodayFood day={day} saved={saved} />
       </div>
 
       <section className="card p-4">

@@ -3,7 +3,7 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import type { DayFoodView } from "@/lib/views";
+import type { DayFoodView, SavedMeal } from "@/lib/views";
 import { proteinForCalories } from "@/lib/nutrition";
 
 /**
@@ -11,7 +11,7 @@ import { proteinForCalories } from "@/lib/nutrition";
  * she actually has standing at the fridge is "where am I now", not "what was
  * I supposed to have on Thursday".
  */
-export function TodayFood({ day }: { day: DayFoodView }) {
+export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[] }) {
   const router = useRouter();
   const [removing, setRemoving] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export function TodayFood({ day }: { day: DayFoodView }) {
           Nothing logged yet. Add it below, work it out with the calculator, or just tell your coach.
         </p>
 
-      <QuickAdd date={day.date} onDone={() => startTransition(() => router.refresh())} />
+      <QuickAdd date={day.date} saved={saved} onDone={() => startTransition(() => router.refresh())} />
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
@@ -117,6 +117,14 @@ export function TodayFood({ day }: { day: DayFoodView }) {
                   {l.proteinG !== null && ` · ${l.proteinG}g`}
                 </span>
               </button>
+              {/*
+                Keep it for next time.
+                A rolling window of last week's food was the old answer and it
+                was not a favourites list — the porridge she has every single
+                morning was never on it twice in the same form, and the thing
+                she had once in a fortnight was. This is hers to choose.
+              */}
+              <SaveMeal log={l} saved={saved} onDone={() => startTransition(() => router.refresh())} />
               <button
                 onClick={() => void remove(l.id)}
                 disabled={removing === l.id}
@@ -145,11 +153,83 @@ export function TodayFood({ day }: { day: DayFoodView }) {
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
 
-      <QuickAdd date={day.date} onDone={() => startTransition(() => router.refresh())} />
+      <QuickAdd date={day.date} saved={saved} onDone={() => startTransition(() => router.refresh())} />
     </section>
   );
 }
 
+
+/**
+ * The bookmark on a logged entry.
+ *
+ * Filled when this is already one of her regulars, hollow when it is not, and
+ * a tap in either direction. The state is what makes it worth having: an icon
+ * that always looks the same is a button you have to remember pressing.
+ */
+function SaveMeal({
+  log, saved, onDone,
+}: {
+  log: { slot: string; description: string; calories: number | null; proteinG: number | null; fibreG: number | null };
+  saved: SavedMeal[];
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const already = saved.some(
+    (m) => m.description.toLowerCase() === log.description.trim().toLowerCase(),
+  );
+
+  async function toggle() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (already) {
+        await action("remove_saved_meal", { description: log.description });
+      } else {
+        await action("save_meal", {
+          slot: log.slot,
+          description: log.description,
+          // Passed through as-is, nulls included: a meal typed in words has
+          // no figures and the saved copy should say so rather than claim
+          // zero. save_meal takes null for exactly this.
+          calories: log.calories,
+          proteinG: log.proteinG,
+          fibreG: log.fibreG,
+        });
+      }
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't save that."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="relative">
+      <button
+        onClick={toggle}
+        disabled={busy}
+        aria-pressed={already}
+        aria-label={already ? `Stop saving ${log.description}` : `Save ${log.description} for next time`}
+        title={already ? "One of your regulars" : "Save for next time"}
+        className={`-my-2 grid size-11 shrink-0 place-items-center transition-colors disabled:opacity-30 ${
+          already ? "text-accent" : "text-faint hover:text-muted"
+        }`}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" strokeWidth="1.9" strokeLinecap="round"
+          strokeLinejoin="round" stroke="currentColor" fill={already ? "currentColor" : "none"} aria-hidden>
+          <path d="M6 4h12v17l-6-4-6 4V4Z" />
+        </svg>
+      </button>
+      {error && (
+        <span role="alert" className="absolute right-0 top-10 z-10 w-40 rounded-lg border border-miss/40 bg-miss-soft px-2 py-1 text-[11px] text-miss">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * Fix an entry that is already in.
@@ -354,7 +434,9 @@ function FoodNumbers({
  * rule this whole app is built on, and forcing a number here would break it
  * by making her invent one.
  */
-function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
+function QuickAdd({
+  date, saved, onDone,
+}: { date: string; saved: SavedMeal[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState<"breakfast" | "lunch" | "dinner" | "snack">("snack");
   const [what, setWhat] = useState("");
@@ -362,6 +444,27 @@ function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
   const [protein, setProtein] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** One tap: a regular goes in with the numbers she gave it. */
+  async function logSaved(m: SavedMeal) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action("log_meal", {
+        slot: m.slot, description: m.description, date,
+        // Only what is actually known. A saved "leftovers" carries no
+        // figures, and sending zero would count it as a zero-calorie meal.
+        ...(m.calories === null ? {} : { calories: m.calories }),
+        ...(m.proteinG === null ? {} : { proteinG: m.proteinG }),
+        ...(m.fibreG === null ? {} : { fibreG: m.fibreG }),
+      });
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't log — try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function save() {
     const said = what.trim();
@@ -398,6 +501,25 @@ function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
 
   return (
     <div className="mt-4 rounded-xl border border-line bg-raised p-3">
+      {saved.length > 0 && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-[11px] uppercase tracking-wide text-faint">Your regulars</p>
+          <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {saved.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => void logSaved(m)}
+                disabled={busy}
+                className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-left text-[13px] active:bg-raised disabled:opacity-40"
+              >
+                <span className="max-w-[180px] truncate">{m.description}</span>
+                {m.calories !== null && <span className="ml-1.5 text-faint tabular">{m.calories}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mb-2 flex flex-wrap gap-1.5">
         {(["breakfast", "lunch", "dinner", "snack"] as const).map((s) => (
           <button

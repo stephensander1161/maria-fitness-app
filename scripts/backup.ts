@@ -18,7 +18,7 @@ import { audit } from "@/lib/audit";
 import {
   complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
-  pushSubscriptions, setLogs, shoppingExtras,
+  pushSubscriptions, savedMeals, setLogs, shoppingExtras,
   usageDaily, weighIns, workouts,
 } from "@/lib/db/schema";
 
@@ -28,7 +28,7 @@ const TABLES = {
   plans, planDays, planExercises,
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
-  messages, feedback, factViews, usageDaily, pushSubscriptions,
+  messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
 } as const;
 
 async function main() {

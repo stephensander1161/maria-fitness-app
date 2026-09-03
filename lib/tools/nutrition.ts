@@ -1,7 +1,8 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
+import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
+} from "@/lib/db/schema";
 import { planMeals, writeRecipe } from "@/lib/agent/planner";
 import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
@@ -677,5 +678,81 @@ export const getShoppingList = defineTool({
         }),
       })),
     };
+  },
+});
+
+export const saveMeal = defineTool({
+  name: "save_meal",
+  description:
+    "Keeps a meal she eats often so logging it later is one tap — her porridge, her usual lunch, the shake she has after training. Pass the numbers if they are known and leave them out if they are not; 'leftovers' is a perfectly good thing to save and carries no figures. Saving the same thing twice just updates it. Use it when she says something is a regular, or after working out a meal she is clearly going to eat again.",
+  input: z.object({
+    slot: slotEnum.describe("Where it usually goes; she can still log it anywhere"),
+    description: z.string().min(1),
+    calories: z.number().nullable().optional(),
+    proteinG: z.number().nullable().optional(),
+    fibreG: z.number().nullable().optional()
+      .describe("Only when actually known — from lookup_food, not a guess."),
+  }),
+  handler: async (input, ctx) => {
+    const description = input.description.trim();
+    const [row] = await db.insert(savedMeals)
+      .values({
+        profileId: ctx.profileId,
+        slot: input.slot,
+        description,
+        calories: input.calories ?? null,
+        proteinG: input.proteinG ?? null,
+        fibreG: input.fibreG ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [savedMeals.profileId, savedMeals.slot, savedMeals.description],
+        set: {
+          calories: input.calories ?? null,
+          proteinG: input.proteinG ?? null,
+          fibreG: input.fibreG ?? null,
+        },
+      })
+      .returning();
+    return { ok: true, saved: row.description, slot: row.slot };
+  },
+});
+
+export const listSavedMeals = defineTool({
+  name: "list_saved_meals",
+  description:
+    "The meals she has saved as regulars, most recently used first. Read it before suggesting what she could eat — something she has already told us she eats often beats anything from the library, and it means not asking her again for numbers she has already given.",
+  input: z.object({}),
+  handler: async (_input, ctx) => {
+    const rows = await db.select().from(savedMeals)
+      .where(eq(savedMeals.profileId, ctx.profileId))
+      .orderBy(desc(savedMeals.lastUsedAt), asc(savedMeals.description));
+    return {
+      meals: rows.map((r) => ({
+        id: r.id, slot: r.slot, description: r.description,
+        calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
+      })),
+      note: rows.length === 0
+        ? "Nothing saved yet — save_meal keeps one when she mentions a regular."
+        : undefined,
+    };
+  },
+});
+
+export const removeSavedMeal = defineTool({
+  name: "remove_saved_meal",
+  description:
+    "Takes a meal off her saved list — she has gone off it, or it was saved by mistake. Matched on what it is called; her logged entries are untouched, because this is the shortcut and not the record.",
+  input: z.object({
+    description: z.string().describe("As it appears in list_saved_meals"),
+  }),
+  handler: async (input, ctx) => {
+    const gone = await db.delete(savedMeals)
+      .where(and(
+        eq(savedMeals.profileId, ctx.profileId),
+        sql`lower(${savedMeals.description}) = ${input.description.trim().toLowerCase()}`,
+      ))
+      .returning({ description: savedMeals.description });
+    if (gone.length === 0) return { ok: false, error: "Nothing saved by that name — call list_saved_meals." };
+    return { ok: true, removed: gone.map((g) => g.description) };
   },
 });

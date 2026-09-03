@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-or
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  foods, preppedPortions, profiles, setLogs, shoppingExtras, workouts,
+  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
@@ -748,3 +748,22 @@ export async function kitchenView(profileId: string, foodUnits: Units, asOf: ISO
     toBuy: items.filter((i) => i.state === "need" || i.state === "out").length,
   };
 }
+
+
+/** Her regulars, most recently used first — the pool the Eat screen taps. */
+export async function savedMealsView(profileId: string) {
+  const rows = await db.select().from(savedMeals)
+    .where(eq(savedMeals.profileId, profileId))
+    .orderBy(desc(savedMeals.lastUsedAt), asc(savedMeals.description))
+    .limit(40);
+  return rows.map((r) => ({
+    id: r.id,
+    slot: r.slot,
+    description: r.description,
+    calories: r.calories,
+    proteinG: r.proteinG,
+    fibreG: r.fibreG,
+  }));
+}
+
+export type SavedMeal = Awaited<ReturnType<typeof savedMealsView>>[number];

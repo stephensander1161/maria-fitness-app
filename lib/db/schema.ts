@@ -954,3 +954,44 @@ export const pushSubscriptions = pgTable(
     index("push_subscriptions_profile").on(t.profileId),
   ],
 );
+
+
+/**
+ * Meals she eats often, kept so logging one is a tap.
+ *
+ * The app had two ways to reuse a meal and neither was hers to control: the
+ * planner's recipes, and a strip of whatever she happened to log last week.
+ * The second was removed because a rolling window is not a favourites list —
+ * "hummus, ~2oz" fell off it after a fortnight, and the porridge she has
+ * every single morning was never on it twice in the same form.
+ *
+ * The numbers are copied rather than referenced. A saved meal is a note of
+ * what a portion of that food was, and if she later learns her porridge is
+ * 380 rather than 350, the entries she already logged should not silently
+ * change — the same reason a set log keeps the weight it was logged with.
+ *
+ * Calories and protein are nullable, because "leftovers" is a real thing to
+ * save and carries no figures. Unknown is not zero, here as everywhere.
+ */
+export const savedMeals = pgTable(
+  "saved_meals",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** Where it usually goes. She can still log it into any slot. */
+    slot: text("slot", { enum: ["breakfast", "lunch", "dinner", "snack"] }).notNull(),
+    description: text("description").notNull(),
+    calories: integer("calories"),
+    proteinG: real("protein_g"),
+    fibreG: real("fibre_g"),
+    /** Bumped on every log, so the ones she actually uses come first. */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // One row per thing per slot. Saving the same porridge twice should be a
+    // no-op, not a second chip that looks identical.
+    uniqueIndex("saved_meals_unique").on(t.profileId, t.slot, t.description),
+    index("saved_meals_profile").on(t.profileId, t.lastUsedAt),
+  ],
+);
