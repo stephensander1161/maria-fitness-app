@@ -174,9 +174,23 @@ suite("the desktop layout is a layout", () => {
     expect(read("app/learn/page.tsx")).toMatch(/MovementDetail/);
   });
 
-  it("drops the Plan tabs where both panes fit", () => {
+  it("shows one of training and food at a time, and marks today", () => {
+    // This used to assert the opposite — the tabs disappearing at lg so both
+    // panes could render side by side. Testing showed nobody reads "what am I
+    // training on Thursday" and "what am I eating on Thursday" in the same
+    // moment, and the split gave each of them half a screen to do it in. The
+    // rule now is one at a time with the whole width, over a week strip where
+    // today is marked and selected on arrival.
     const plan = read("components/plan-client.tsx");
-    expect(plan).toMatch(/lg:hidden/);
-    expect(plan).toMatch(/lg:grid lg:grid-cols-2/);
+    expect(plan).not.toMatch(/lg:grid lg:grid-cols-2/);
+    expect(plan).toMatch(/WeekStrip/);
+    expect(plan).toMatch(/useState\(week\.todayIndex\)/);
+  });
+
+  it("gives today's food a screen of its own, like today's training", () => {
+    // Eating was a column on a weekly document. The two active screens are
+    // the two things happening today.
+    expect(read("components/tab-bar.tsx")).toMatch(/href: "\/eat"/);
+    expect(fs.existsSync("app/eat/page.tsx")).toBe(true);
   });
 });

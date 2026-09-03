@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 /** Shared with the desktop sidebar, so the two can never drift apart. */
 export const TABS = [
   { href: "/train", label: "Train", icon: "M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11" },
+  { href: "/eat", label: "Eat", icon: "M5 3v8a3 3 0 0 0 6 0V3M8 3v18M16 3c-1.5 1.5-2 3.5-2 5.5S15 12 16 12v9" },
   { href: "/plan", label: "Plan", icon: "M4 6h16M4 6v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6M8 3v4M16 3v4M8 12h8M8 16h5" },
   { href: "/progress", label: "Progress", icon: "M4 19V5M4 19h16M7.5 15l3.5-4 3 2.5L19 8" },
   { href: "/learn", label: "Learn", icon: "M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5V5.5ZM8 7.5h7M8 11h5" },
@@ -26,7 +27,7 @@ export function TabBar() {
     // Thumb-first, and hidden the moment there is a sidebar instead.
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl md:hidden">
       <div
-        className="mx-auto grid max-w-lg grid-cols-4"
+        className="mx-auto grid max-w-lg grid-cols-5"
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
       >
         {TABS.map((tab) => {

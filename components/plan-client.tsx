@@ -2,34 +2,42 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { DayFoodView, MealWeekView, PantryView, RecentMeal, WeekView } from "@/lib/views";
-import { CalorieCalculator } from "./calorie-calculator";
-import { TodayFood } from "./today-food";
+import type { MealWeekView, PantryView, WeekView } from "@/lib/views";
 import { ShoppingList, type ShoppingAisle } from "./shopping-list";
+import { MealRow } from "./meal-row";
 import { Kitchen } from "./kitchen";
-import { action, actionMessage } from "@/lib/client";
 import { AskCoach } from "./ask-coach";
 
+/**
+ * The week, as a week.
+ *
+ * Two things changed here. Training and food no longer sit side by side: a
+ * fortnight of testing said nobody reads "what am I training on Thursday" and
+ * "what am I eating on Thursday" at the same moment, and the split column gave
+ * each of them half a screen to do it in. One at a time, with the whole width.
+ *
+ * And the days are a row you scan rather than seven cards you unfold. A plan
+ * is a calendar; the question it answers is "where am I in the week", and an
+ * accordion answers that only after you have counted the rows. Today is marked
+ * and selected on arrival, because that is the day she is standing in.
+ */
 export function PlanClient({
-  week, mealWeek, dayFood, usuals, shopping, instacart, pantry,
+  week, mealWeek, shopping, instacart, pantry,
 }: {
-  week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
+  week: WeekView; mealWeek: MealWeekView;
   shopping: ShoppingAisle[]; instacart: boolean;
   pantry: PantryView;
 }) {
-  const [tab, setTab] = useState<"training" | "meals">("training");
-  const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
+  const [tab, setTab] = useState<"training" | "food">("training");
+  const [day, setDay] = useState(week.todayIndex);
+
+  const trainingDay = week.days.find((d) => d.dayOfWeek === day) ?? null;
+  const foodDay = mealWeek.days.find((d) => d.dayOfWeek === day) ?? null;
 
   return (
     <>
-      {/*
-        Tabs exist because a phone can show one of these at a time. A desktop
-        can show the week and the food together, which is how they are actually
-        read — "what am I training on Thursday, and what am I eating that day"
-        is one question. So the tab row disappears at lg and both panes render.
-      */}
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1 lg:hidden">
-        {(["training", "meals"] as const).map((t) => (
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1">
+        {(["training", "food"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             aria-pressed={tab === t}
             className={`rounded-full py-2 text-[13px] font-medium capitalize transition-colors ${
@@ -40,95 +48,121 @@ export function PlanClient({
         ))}
       </div>
 
-      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
-      <div className={tab === "training" ? "" : "hidden lg:block"}>
-      <h2 className="mb-3 hidden text-[13px] font-semibold uppercase tracking-widest text-faint lg:block">
-        Training
-      </h2>
+      <WeekStrip
+        days={week.days.map((d) => {
+          const food = mealWeek.days.find((m) => m.dayOfWeek === d.dayOfWeek);
+          return {
+            dayOfWeek: d.dayOfWeek,
+            dayName: d.dayName,
+            // What the chip has to say at a glance depends on which week she
+            // is reading — the training one or the eating one.
+            note: tab === "training"
+              ? (d.isRest ? "Rest" : `${d.exercises.length}`)
+              : (food && food.meals.length > 0 ? `${food.calories}` : "—"),
+            quiet: tab === "training" ? d.isRest : !food || food.meals.length === 0,
+          };
+        })}
+        today={week.todayIndex}
+        selected={day}
+        onSelect={setDay}
+      />
+
       {tab === "training" ? (
         week.exists ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <section className="card p-4">
+              <DayHeading
+                name={trainingDay?.dayName ?? ""}
+                isToday={day === week.todayIndex}
+                title={trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
+                sub={trainingDay?.focus ?? null}
+              />
+              {trainingDay?.notes && (
+                <p className="mb-2 text-[13px] italic text-faint">{trainingDay.notes}</p>
+              )}
+              {trainingDay && trainingDay.exercises.length > 0 ? (
+                <div>
+                  {trainingDay.exercises.map((e) => (
+                    <Link key={e.slug} href={`/learn/${e.slug}`}
+                      className="flex items-baseline justify-between gap-3 border-b border-line/60 py-2.5 last:border-0">
+                      <span className="text-[15px]">{e.name}</span>
+                      <span className="shrink-0 text-[13px] text-muted tabular">{e.target}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-2 text-[13px] leading-relaxed text-faint">
+                  {trainingDay?.isRest
+                    ? "Recovery is when the adaptation actually happens. A walk or some mobility work is plenty."
+                    : "Nothing scheduled. Ask your coach to put something here, or add it on the Train screen."}
+                </p>
+              )}
+              {day === week.todayIndex && !trainingDay?.isRest && (
+                <Link href="/train"
+                  className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-ink">
+                  Start today&rsquo;s session
+                </Link>
+              )}
+            </section>
+
             {week.rationale && (
-              <p className="card mb-3 p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
+              <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
             )}
-            {week.days.map((d) => (
-              <DayRow
-                key={d.dayOfWeek}
-                open={openDay === d.dayOfWeek}
-                onToggle={() => setOpenDay(openDay === d.dayOfWeek ? null : d.dayOfWeek)}
-                isToday={d.dayOfWeek === week.todayIndex}
-                dayName={d.dayName}
-                title={d.title}
-                meta={d.isRest ? "Rest" : `${d.exercises.length} exercises`}
-                dim={d.isRest}
-              >
-                {d.notes && <p className="mb-2 text-[13px] italic text-faint">{d.notes}</p>}
-                {d.exercises.map((e) => (
-                  <Link key={e.slug} href={`/learn/${e.slug}`}
-                    className="flex items-baseline justify-between gap-3 border-b border-line/60 py-2.5 last:border-0">
-                    <span className="text-[15px]">{e.name}</span>
-                    <span className="shrink-0 text-[13px] text-muted tabular">{e.target}</span>
-                  </Link>
-                ))}
-              </DayRow>
-            ))}
           </div>
         ) : (
           <>
-          <Empty body="No training plan for this week yet. Ask your coach to build one." />
-          <AskCoach
-            title="Ask your coach"
-            hint="It builds the week here"
-            placeholder="Tell your coach what you want…"
-            suggestions={[
-              "Build my week",
-              "I've only got three days this week",
-              "Give me something short I can do at home",
-            ]}
-          />
+            <Empty body="No training plan for this week yet. Ask your coach to build one." />
+            <AskCoach
+              title="Ask your coach"
+              hint="It builds the week here"
+              placeholder="Tell your coach what you want…"
+              suggestions={[
+                "Build my week",
+                "I've only got three days this week",
+                "Give me something short I can do at home",
+              ]}
+            />
           </>
         )
-      ) : null}
-      </div>
+      ) : mealWeek.exists ? (
+        <div className="space-y-3">
+          <section className="card p-4">
+            <DayHeading
+              name={foodDay?.dayName ?? ""}
+              isToday={day === mealWeek.todayIndex}
+              title={foodDay && foodDay.meals.length > 0 ? `${foodDay.calories} kcal` : "Nothing planned"}
+              sub={foodDay && foodDay.meals.length > 0 ? `${foodDay.proteinG}g protein` : null}
+            />
+            {foodDay && foodDay.meals.length > 0 ? (
+              <div>{foodDay.meals.map((m) => <MealRow key={m.id} meal={m} />)}</div>
+            ) : (
+              <p className="py-2 text-[13px] leading-relaxed text-faint">
+                Nothing planned for this day. Ask your coach for meals, or just log what you eat
+                on the Eat screen — a day you eat off-plan is still a logged day.
+              </p>
+            )}
+            {day === mealWeek.todayIndex && (
+              <Link href="/eat"
+                className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-ink">
+                Log today&rsquo;s food
+              </Link>
+            )}
+          </section>
 
-      <div className={tab === "meals" ? "" : "hidden lg:block"}>
-      <h2 className="mb-3 hidden text-[13px] font-semibold uppercase tracking-widest text-faint lg:block">
-        Food
-      </h2>
-      {mealWeek.exists ? (
-        <div className="space-y-2">
-          <TodayFood day={dayFood} usuals={usuals} />
-          <CalorieCalculator calorieTarget={mealWeek.calorieTarget} foodUnits={mealWeek.foodUnits} />
-
-          <div className="card mb-3 flex divide-x divide-line p-4">
+          <div className="card flex divide-x divide-line p-4">
             <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
             <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
           </div>
+
           <ShoppingList weekStart={mealWeek.weekStart} aisles={shopping} instacart={instacart} />
           <Kitchen pantry={pantry} />
 
           {mealWeek.rationale && (
-            <p className="card mb-3 p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
+            <p className="card p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
           )}
-          {mealWeek.days.map((d) => (
-            <DayRow
-              key={d.dayOfWeek}
-              open={openDay === d.dayOfWeek}
-              onToggle={() => setOpenDay(openDay === d.dayOfWeek ? null : d.dayOfWeek)}
-              isToday={d.dayOfWeek === mealWeek.todayIndex}
-              dayName={d.dayName}
-              title={d.meals.length ? `${d.calories} kcal` : "Nothing planned"}
-              meta={d.meals.length ? `${d.proteinG}g protein` : ""}
-              dim={d.meals.length === 0}
-            >
-              {d.meals.map((m) => <MealRow key={m.id} meal={m} />)}
-            </DayRow>
-          ))}
         </div>
       ) : (
-        <div className="space-y-2">
-          <TodayFood day={dayFood} usuals={usuals} />
-          <CalorieCalculator calorieTarget={null} foodUnits={mealWeek.foodUnits} />
+        <div className="space-y-3">
           <Kitchen pantry={pantry} />
           <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
           <AskCoach
@@ -143,120 +177,70 @@ export function PlanClient({
           />
         </div>
       )}
-      </div>
-      </div>
-
     </>
   );
 }
 
-type Meal = MealWeekView["days"][number]["meals"][number];
-type Recipe = { ingredients: string[]; steps: string[]; prepMinutes: number | null };
-
-function MealRow({ meal }: { meal: Meal }) {
-  const [open, setOpen] = useState(false);
-  // A meal the week planner left without a recipe. Rather than showing her an
-  // empty panel, the coach writes one the first time she opens it — and the
-  // tool saves it onto the meal, so this asks once and never again.
-  const [recipe, setRecipe] = useState<Recipe | null>(
-    // Both halves, or it is not something she can cook from — the same test
-    // the tool applies before it writes one.
-    meal.ingredients.length > 0 && meal.steps.length > 0
-      ? { ingredients: meal.ingredients, steps: meal.steps, prepMinutes: meal.prepMinutes }
-      : null,
-  );
-  const [writing, setWriting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const reveal = async () => {
-    const next = !open;
-    setOpen(next);
-    if (!next || recipe || writing) return;
-    setWriting(true);
-    setError(null);
-    try {
-      const r = await action<Recipe>("get_meal_recipe", { mealId: meal.id });
-      setRecipe({ ingredients: r.ingredients, steps: r.steps, prepMinutes: r.prepMinutes });
-    } catch (err) {
-      setError(actionMessage(err, "Couldn't write that recipe — try again."));
-    } finally {
-      setWriting(false);
-    }
-  };
-
+/**
+ * Seven days in a row, with today marked.
+ *
+ * Scrolls on a narrow phone rather than shrinking to seven unreadable slivers,
+ * and each chip carries the one number that makes the week legible at a
+ * glance — how many movements, or how many calories.
+ */
+function WeekStrip({
+  days, today, selected, onSelect,
+}: {
+  days: { dayOfWeek: number; dayName: string; note: string; quiet: boolean }[];
+  today: number;
+  selected: number;
+  onSelect: (d: number) => void;
+}) {
   return (
-    <div className="border-b border-line/60 py-2.5 last:border-0">
-      <button onClick={reveal} className="flex w-full items-baseline justify-between gap-3 text-left">
-        <span className="min-w-0">
-          <span className="mr-2 text-[11px] uppercase tracking-wide text-accent">{meal.slot}</span>
-          <span className="text-[15px]">{meal.title}</span>
-        </span>
-        <span className="shrink-0 text-[13px] text-muted tabular">{meal.calories} · {meal.proteinG}g</span>
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2 text-[13px] text-muted">
-          {recipe?.prepMinutes !== null && recipe?.prepMinutes !== undefined && (
-            <p className="text-faint">{recipe.prepMinutes} min prep</p>
-          )}
-
-          {writing && (
-            <p className="flex items-center gap-2 text-faint">
-              <span className="size-1.5 animate-pulse rounded-full bg-accent" />
-              Your coach is writing the recipe…
-            </p>
-          )}
-
-          {error && (
-            <p role="alert" className="rounded-lg border border-miss/40 bg-miss-soft px-2.5 py-1.5 text-miss">{error}</p>
-          )}
-
-          {recipe && recipe.ingredients.length > 0 && (
-            <div>
-              <p className="mb-1 text-[11px] uppercase tracking-wide text-faint">Ingredients</p>
-              <ul className="space-y-0.5">{recipe.ingredients.map((x, i) => <li key={i}>· {x}</li>)}</ul>
-            </div>
-          )}
-          {recipe && recipe.steps.length > 0 && (
-            <div>
-              <p className="mb-1 text-[11px] uppercase tracking-wide text-faint">Method</p>
-              <ol className="space-y-1">
-                {recipe.steps.map((x, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-accent tabular">{i + 1}.</span><span>{x}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-        </div>
-      )}
+    <div className="mb-4 -mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <div className="flex gap-2 md:grid md:grid-cols-7">
+        {days.map((d) => {
+          const isToday = d.dayOfWeek === today;
+          const isOn = d.dayOfWeek === selected;
+          return (
+            <button
+              key={d.dayOfWeek}
+              onClick={() => onSelect(d.dayOfWeek)}
+              aria-pressed={isOn}
+              aria-label={`${d.dayName}${isToday ? ", today" : ""}`}
+              className={`min-w-[3.5rem] flex-1 rounded-xl border px-2 py-2.5 text-center transition-colors ${
+                isOn ? "border-accent bg-accent-soft" : "border-edge bg-surface hover:bg-raised"
+              }`}
+            >
+              <span className={`block text-[10px] font-semibold uppercase tracking-wide ${
+                isToday ? "text-accent" : "text-faint"
+              }`}>
+                {isToday ? "Today" : d.dayName.slice(0, 3)}
+              </span>
+              <span className={`mt-1 block text-[15px] font-semibold tabular ${
+                d.quiet ? "text-faint" : isOn ? "text-accent" : "text-text"
+              }`}>
+                {d.note}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function DayRow({
-  open, onToggle, isToday, dayName, title, meta, dim, children,
-}: {
-  open: boolean; onToggle: () => void; isToday: boolean;
-  dayName: string; title: string; meta: string; dim?: boolean; children: React.ReactNode;
-}) {
+function DayHeading({
+  name, isToday, title, sub,
+}: { name: string; isToday: boolean; title: string; sub: string | null }) {
   return (
-    <section className={`card overflow-hidden ${isToday ? "border-accent/50" : ""}`}>
-      <button onClick={onToggle} className="flex w-full items-center gap-3 p-4 text-left">
-        <div className={`w-11 shrink-0 text-[11px] font-semibold uppercase tracking-wide ${isToday ? "text-accent" : "text-faint"}`}>
-          {dayName.slice(0, 3)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-[15px] font-medium ${dim ? "text-muted" : ""}`}>{title}</p>
-          {meta && <p className="text-[12px] text-faint">{meta}</p>}
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          className={`shrink-0 text-faint transition-transform ${open ? "rotate-180" : ""}`}>
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && <div className="border-t border-line px-4 py-2">{children}</div>}
-    </section>
+    <div className="mb-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+        {isToday ? `Today · ${name}` : name}
+      </p>
+      <h2 className="mt-0.5 text-[17px] font-semibold">{title}</h2>
+      {sub && <p className="mt-0.5 text-[13px] text-muted">{sub}</p>}
+    </div>
   );
 }
 

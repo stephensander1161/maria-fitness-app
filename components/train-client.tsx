@@ -166,7 +166,7 @@ export function TrainClient({
         A grid rather than a flowed column: a card grows when she opens the
         stepper, and in a flow that would shove every later card sideways.
       */}
-      <div className="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 2xl:grid-cols-3">
+      <div className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}>
       {view.exercises.map((ex) => (
         <ExerciseCard
           key={ex.slug}
@@ -267,6 +267,26 @@ export function TrainClient({
       )}
     </div>
   );
+}
+
+/**
+ * How many columns of cards, so the last row is not a lonely orphan.
+ *
+ * Four movements in three columns is a row of three and a row of one, which
+ * reads as a layout accident. The column count is chosen to divide the cards
+ * evenly where a count exists that does; where none does, the last card
+ * stretches across what is left, so the shortfall looks deliberate rather
+ * than dropped.
+ *
+ * Literal class strings because Tailwind scans source text — a computed
+ * `xl:grid-cols-${n}` is a class that never gets generated.
+ */
+function gridFor(n: number): string {
+  if (n <= 1) return "";
+  // Wide screens: three columns unless two divide the cards evenly.
+  const wide = n % 3 === 0 ? "2xl:grid-cols-3" : n % 2 === 0 ? "2xl:grid-cols-2" : "2xl:grid-cols-3 2xl:[&>*:last-child]:col-span-full";
+  const mid = n % 2 === 0 ? "xl:grid-cols-2" : "xl:grid-cols-2 xl:[&>*:last-child]:col-span-2";
+  return `${mid} ${wide}`;
 }
 
 /** "N sets pending" — the whole point is that she can see nothing was lost. */

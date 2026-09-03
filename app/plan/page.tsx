@@ -1,7 +1,7 @@
 import { PlanClient } from "@/components/plan-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
-import { dayFoodView, mealWeekView, pantryView, recentMeals, weekView } from "@/lib/views";
+import { mealWeekView, pantryView, weekView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
@@ -15,11 +15,9 @@ export default async function PlanPage() {
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
 
-  const [week, mealWeek, dayFood, usuals, shopping, pantry] = await Promise.all([
+  const [week, mealWeek, shopping, pantry] = await Promise.all([
     weekView(profile.id, profile.units, weekStart(her), her),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
-    dayFoodView(profile.id, her),
-    recentMeals(profile.id, { from: her }),
     runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[]; instacart: boolean }>,
     pantryView(profile.id, foodUnitsOf(profile), her),
   ]);
@@ -40,8 +38,6 @@ export default async function PlanPage() {
       <PlanClient
         week={week}
         mealWeek={mealWeek}
-        dayFood={dayFood}
-        usuals={usuals}
         shopping={shopping.aisles ?? []}
         instacart={shopping.instacart}
         pantry={pantry}
