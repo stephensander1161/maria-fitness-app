@@ -7,6 +7,7 @@ import { PullToRefresh } from "@/components/pull-to-refresh";
 import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
+import { RestBar, RestProvider } from "@/components/rest-provider";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -46,9 +47,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           what happened. Here the nav takes its width and the pane takes the
           rest, and there is nothing to keep in step.
         */}
+        <RestProvider>
         <div className="md:flex md:h-dvh">
           <SideNavGate />
           <main className="md:min-w-0 md:flex-1 md:overflow-y-auto">
+            {/*
+              Above the pull-to-refresh container on purpose: the bar should
+              stay put while the page underneath it is dragged, and it is in
+              normal flow so it pushes the screen down rather than covering
+              the first thing on it.
+            */}
+            <RestBar />
             <PullToRefresh>
               {/* The frame is the window; the measure is still a measure. */}
               <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8">
@@ -58,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </PullToRefresh>
           </main>
         </div>
+        </RestProvider>
         <CoachBubbleGate />
         <Feedback />
         <InstallApp />

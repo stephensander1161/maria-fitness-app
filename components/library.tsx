@@ -8,7 +8,12 @@ import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import type { MealWeekView, WeekView } from "@/lib/views";
 
-type Item = { slug: string; name: string; category: string; primaryMuscles: string[]; equipment: string[] };
+type Item = {
+  slug: string; name: string; category: string;
+  primaryMuscles: string[]; equipment: string[];
+  /** What people call it in a gym, which is often not its name. */
+  tags: string[];
+};
 type FactItem = { id: string; category: string; text: string; source: string | null };
 
 const CATEGORIES = ["all", ...LIBRARY_GROUP_ORDER] as const;
@@ -49,7 +54,9 @@ export function Library({
         (q === "" ||
           e.name.toLowerCase().includes(q) ||
           e.primaryMuscles.some((m) => m.includes(q)) ||
-          e.equipment.some((m) => m.includes(q))),
+          e.equipment.some((m) => m.includes(q)) ||
+          // "bow extension" should find the overhead triceps extension.
+          e.tags.some((t) => t.includes(q))),
     );
   }, [exercises, query, category]);
 

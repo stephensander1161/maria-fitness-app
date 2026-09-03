@@ -10,7 +10,8 @@ import { FormGuide } from "./form-guide";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
-import { RestTimerBar, unlockAudio, type Rest } from "@/components/rest-timer";
+import { askToNotify, unlockAudio } from "@/components/rest-timer";
+import { useRest } from "@/components/rest-provider";
 import type { PickableExercise, TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
@@ -47,7 +48,9 @@ export function TrainClient({
   const [finishing, setFinishing] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rest, setRest] = useState<Rest | null>(null);
+  // The countdown lives above the router now, so it keeps running when she
+  // wanders off to the food screen mid-rest.
+  const { start: beginRest, dismiss: dismissRest } = useRest();
 
   // Sets that failed to reach the server. They count as logged on screen —
   // she did the work, and the queue will deliver them.
@@ -75,22 +78,15 @@ export function TrainClient({
     .map((e) => e.name);
 
   const startRest = useCallback((exercise: TodayExercise) => {
-    if (exercise.restSeconds <= 0) return;
-    setRest({
+    beginRest({
       slug: exercise.slug,
       name: exercise.name,
+      category: exercise.category,
       // An absolute end time, so a throttled or sleeping tab cannot drift it.
       endsAt: Date.now() + exercise.restSeconds * 1000,
       seconds: exercise.restSeconds,
     });
-  }, []);
-
-  const extendRest = useCallback((seconds: number) => {
-    setRest((r) =>
-      r ? { ...r, endsAt: Math.max(r.endsAt, Date.now()) + seconds * 1000, seconds: r.seconds + seconds } : r,
-    );
-  }, []);
-  const dismissRest = useCallback(() => setRest(null), []);
+  }, [beginRest]);
 
   /**
    * Finishing is one button now.
@@ -108,7 +104,7 @@ export function TrainClient({
       // Anything still queued belongs in this session's summary.
       await flush();
       await action("finish_workout", feeling === undefined ? {} : { feeling });
-      setRest(null);
+      dismissRest();
       router.refresh();
     } catch {
       setError("Couldn't close out the session — check your signal and try again.");
@@ -149,8 +145,6 @@ export function TrainClient({
 
   return (
     <div className="space-y-4">
-      {rest && <RestTimerBar rest={rest} onExtend={extendRest} onDismiss={dismissRest} />}
-
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -167,13 +161,16 @@ export function TrainClient({
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-          onLogged={(r, done) => {
+          onLogged={(r, finishedExercise) => {
             if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
-            // No rest after the last set of a movement: there is nothing to
-            // recover *for*, and a timer still counting down while she has
-            // moved on is the app not keeping up with her.
-            if (!done) startRest(ex);
-            else dismissRest();
+            // Rest runs between sets *and* between movements — finishing the
+            // squats is exactly when she needs a minute before the next thing.
+            // The only set with nothing to recover for is the last one of the
+            // session, and that is the one that stops the timer.
+            const wasLastOfSession = finishedExercise
+              && outstanding.filter((name) => name !== ex.name).length === 0;
+            if (wasLastOfSession) dismissRest();
+            else startRest(ex);
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
@@ -293,6 +290,11 @@ function SetEditor({
 }) {
   const [reps, setReps] = useState(set.reps);
   const [weight, setWeight] = useState(set.weight ?? 0);
+  // A bodyweight movement she logged with a weight is still a weighted set —
+  // the editor has to be able to show and change that number, or correcting
+  // the reps silently throws the weight away.
+  const [addWeight, setAddWeight] = useState(false);
+  const loaded = !bodyweight || addWeight || set.weight !== null;
   const [busy, setBusy] = useState<"save" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -305,7 +307,7 @@ function SetEditor({
       } else {
         await action("correct_set", {
           exerciseSlug: slug, setNumber, reps,
-          ...(bodyweight ? {} : { weight }),
+          ...(loaded ? { weight } : {}),
         });
       }
       onDone();
@@ -320,13 +322,21 @@ function SetEditor({
   return (
     <div className="mx-4 mb-3 rounded-xl border border-line bg-raised p-3">
       <p className="mb-2 text-[12px] text-muted">Set {setNumber}</p>
-      <div className={`grid gap-2 ${bodyweight ? "grid-cols-1" : "grid-cols-2"}`}>
-        {!bodyweight && (
+      <div className={`grid gap-2 ${loaded ? "grid-cols-2" : "grid-cols-1"}`}>
+        {loaded && (
           <NumberField label={`Weight (${unit})`} value={weight} step={step} min={0} max={2000}
             onChange={setWeight} />
         )}
-        <NumberField label="Reps" value={reps} step={0.5} min={0.5} max={500} onChange={setReps} />
+        <NumberField label="Reps" value={reps} step={1} decimals min={0.5} max={500} onChange={setReps} />
       </div>
+      {!loaded && (
+        <button
+          onClick={() => setAddWeight(true)}
+          className="mt-2 text-[12px] text-faint active:text-muted"
+        >
+          + Add a weight
+        </button>
+      )}
       <div className="mt-3 flex items-center gap-2">
         <button onClick={() => run("save")} disabled={busy !== null}
           className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-50">
@@ -387,6 +397,21 @@ function ExerciseCard({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [editingSet, setEditingSet] = useState<number | null>(null);
+  /**
+   * She is holding something for a movement the library calls bodyweight.
+   *
+   * Weighted V-ups, a dumbbell held through a Russian twist, a plate on a
+   * push-up — the loaded variation is the *same movement*, and hiding the
+   * weight field forces her to either log a lie or give up the number. It
+   * starts hidden because most people do these empty-handed, and stays put
+   * once she has said otherwise: a set already logged with a weight means the
+   * question is settled for today.
+   */
+  const [addWeight, setAddWeight] = useState(false);
+  const loaded = !exercise.bodyweight
+    || addWeight
+    || done.some((s) => s.weight !== null)
+    || queued.some((s) => s.weight !== null);
 
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
@@ -414,11 +439,13 @@ function ExerciseCard({
   async function logSet(rir?: number) {
     setSaving(true);
     setError(null);
-    // Her tap is the gesture iOS requires before the rest beep can ever sound.
+    // Her tap is the gesture iOS requires before the rest beep can ever sound,
+    // and the only moment a browser will entertain a notification prompt.
     unlockAudio();
+    askToNotify();
     try {
       const outcome = await logSetOrQueue<LogResult>(
-        setInput(exercise.slug, reps, exercise.bodyweight ? null : weight, rir),
+        setInput(exercise.slug, reps, loaded ? weight : null, rir),
       );
       // Whether that was the last set she planned for this movement.
       onLogged(outcome.result, exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets);
@@ -605,7 +632,7 @@ function ExerciseCard({
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-                {!exercise.bodyweight && (
+                {loaded && (
                   <NumberField
                     label={`Weight (${unit})`}
                     value={weight}
@@ -619,21 +646,37 @@ function ExerciseCard({
                 <NumberField
                   label="Reps"
                   value={reps}
-                  // Halves, so a set she got part-way through is recorded as
-                  // what it was rather than rounded to a lie in one direction.
-                  step={0.5}
+                  // The buttons nudge by whole reps, because that is what a rep
+                  // is. Typing accepts a half for the set she got part-way
+                  // through — rounding that down loses the half she did and
+                  // rounding it up claims one she did not.
+                  step={1}
+                  decimals
                   min={0.5}
                   max={500}
                   onChange={setReps}
-                  className={exercise.bodyweight ? "col-span-2" : ""}
+                  className={loaded ? "" : "col-span-2"}
                 />
             </div>
+
+            {/* The way in. Small, because it is the exception. */}
+            {!loaded && (
+              <button
+                onClick={() => setAddWeight(true)}
+                className="flex items-center gap-1.5 text-[12px] text-faint active:text-muted"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Holding a weight?
+              </button>
+            )}
             {/* One tap, one question: how many were left in the tank. It is
                 the only fatigue signal available without a wearable, and it is
                 what turns "3×8 @ 40" into something the progression maths can
                 read. Skipping it logs the set with no answer — which is
                 recorded as unknown, never as zero. */}
-            {!exercise.bodyweight && (
+            {loaded && (
               <div className="flex items-center gap-1.5">
                 <span className="mr-0.5 shrink-0 text-[11px] uppercase tracking-wide text-faint">
                   Left in tank

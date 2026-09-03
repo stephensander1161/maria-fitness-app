@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PATTERNS } from "@/lib/movement-patterns";
 
 /**
  * The rest timer.
@@ -14,6 +15,9 @@ import { useEffect, useRef, useState } from "react";
 export type Rest = {
   slug: string;
   name: string;
+  /** Which figure the GO screen draws. Carried here because the timer now
+      outlives the Train screen that knows the exercise. */
+  category: string;
   /** Absolute wall-clock time the rest is over. */
   endsAt: number;
   /** Total rest, for the progress line. Grows with "+30s". */
@@ -48,7 +52,7 @@ export function unlockAudio() {
   }
 }
 
-/** Two short beeps, synthesised — no audio file, no dependency. */
+/** Six beeps over a second and a half — synthesised, no audio file. */
 function beep() {
   const ctx = audio;
   if (!ctx) return;
@@ -56,14 +60,17 @@ function beep() {
     if (ctx.state === "suspended") void ctx.resume();
     if (ctx.state !== "running") return; // backgrounded on iOS — nothing will sound
     const t0 = ctx.currentTime;
-    for (const offset of [0, 0.22]) {
+    // Two polite pips are what a microwave does, and a phone face-down on a
+    // bench next to a squat rack is not a kitchen. This is a run of six, rising
+    // at the end, long enough to be noticed across a room.
+    for (const offset of [0, 0.22, 0.44, 0.66, 0.88, 1.1]) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880, t0 + offset);
+      osc.frequency.setValueAtTime(offset >= 0.88 ? 1174 : 880, t0 + offset);
       // Ramp rather than switch, or it clicks.
       gain.gain.setValueAtTime(0.0001, t0 + offset);
-      gain.gain.exponentialRampToValueAtTime(0.3, t0 + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.5, t0 + offset + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, t0 + offset + 0.18);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -75,13 +82,47 @@ function beep() {
   }
 }
 
-function fireAlarm() {
+/**
+ * A notification, for the case the beep cannot cover: the phone is locked or
+ * the app is in the background, where iOS suspends the AudioContext and
+ * nothing this page draws is on screen at all.
+ *
+ * Only ever shown if she has already granted permission. Asking is a separate,
+ * deliberate act — see `askToNotify`, which runs off a tap.
+ */
+function notify(name: string) {
   try {
-    navigator.vibrate?.([180, 90, 180]);
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    if (document.visibilityState === "visible") return; // she is looking at it
+    new Notification("Rest over", { body: name, tag: "coach-rest", silent: false });
+  } catch {
+    /* not supported, or blocked in an iframe */
+  }
+}
+
+/**
+ * Ask once, from inside a tap. Browsers reject a permission prompt that is not
+ * tied to a gesture, and asking on page load is the thing that trains people
+ * to hit Block forever.
+ */
+export function askToNotify() {
+  try {
+    if (!("Notification" in window) || Notification.permission !== "default") return;
+    void Notification.requestPermission();
+  } catch {
+    /* Safari once made this callback-only; not worth a shim */
+  }
+}
+
+function fireAlarm(name: string) {
+  try {
+    // Long, and repeated. A single buzz through a pocket is missable.
+    navigator.vibrate?.([250, 100, 250, 100, 400]);
   } catch {
     /* unsupported on iOS Safari; Android buzzes */
   }
   beep();
+  notify(name);
 }
 
 /* ------------------------------------------------------------ wake lock --- */
@@ -122,6 +163,38 @@ function useScreenAwake(active: boolean) {
   }, [active]);
 }
 
+/* ------------------------------------------------------------- tumbler ---- */
+
+/**
+ * The little wireframe figure, cartwheeling backwards down the fuse.
+ *
+ * It cycles through the same movement patterns the library draws, one every
+ * three quarters of a second, so it reads as a figure tumbling rather than a
+ * spinning icon. Pure decoration — but the bar was the one thing on this
+ * screen anyone actually watches, and now it is worth watching.
+ */
+const TUMBLE = ["squat", "hinge", "lunge", "cardio", "rotation", "carry"] as const;
+
+function TumblingFigure({ ms }: { ms: number }) {
+  const pattern = PATTERNS[TUMBLE[Math.floor(Math.max(0, ms) / 750) % TUMBLE.length]] ?? PATTERNS.squat;
+  const j = pattern.end;
+  const line = (a: [number, number], b: [number, number]) =>
+    `M${a[0]},${a[1]}L${b[0]},${b[1]}`;
+
+  return (
+    <svg width="20" height="20" viewBox="0 0 100 100" className="rest-tumble" aria-hidden>
+      <g stroke="currentColor" strokeWidth="6" strokeLinecap="round" fill="none">
+        <circle cx={j.head[0]} cy={j.head[1]} r="7" fill="currentColor" stroke="none" />
+        <path d={line(j.shoulder, j.hip)} />
+        <path d={line(j.shoulder, j.elbow)} />
+        <path d={line(j.elbow, j.hand)} />
+        <path d={line(j.hip, j.knee)} />
+        <path d={line(j.knee, j.foot)} />
+      </g>
+    </svg>
+  );
+}
+
 /* ----------------------------------------------------------------- bar ---- */
 
 /** Milliseconds left, recomputed from the clock — never accumulated. */
@@ -154,11 +227,13 @@ const clock = (ms: number) => {
 };
 
 export function RestTimerBar({
-  rest, onExtend, onDismiss,
+  rest, onExtend, onDismiss, onOver,
 }: {
   rest: Rest;
   onExtend: (seconds: number) => void;
   onDismiss: () => void;
+  /** Fired once, the moment the clock reaches zero. */
+  onOver?: () => void;
 }) {
   const ms = useRemaining(rest.endsAt);
   const over = ms <= 0;
@@ -171,8 +246,24 @@ export function RestTimerBar({
     firedFor.current = rest.endsAt;
     // If the phone was locked through the whole rest, this runs on the way
     // back in — late, but she still gets the buzz and the beep.
-    fireAlarm();
-  }, [over, rest.endsAt]);
+    fireAlarm(rest.name);
+    onOver?.();
+    // `rest.name` only rides along for the notification text; `firedFor` is
+    // what guarantees one alarm per rest however often this re-runs.
+  }, [over, rest.endsAt, rest.name, onOver]);
+
+  /**
+   * The tab itself shouts. On a desktop the app is usually behind an editor or
+   * a browser tab she has switched away from, where a beep may be muted and
+   * the GO screen is not being looked at — the title is the one thing still
+   * visible in that state.
+   */
+  useEffect(() => {
+    if (!over) return;
+    const original = document.title;
+    document.title = `GO — ${rest.name}`;
+    return () => { document.title = original; };
+  }, [over, rest.name]);
 
   // Don't leave "Rest over" sitting there forever if she never taps it.
   useEffect(() => {
@@ -245,8 +336,21 @@ export function RestTimerBar({
         </div>
 
         {!over && (
-          <div className="h-1 bg-raised">
+          <div className="relative h-1 bg-raised">
             <div className="h-full bg-accent transition-[width] duration-200 ease-linear" style={{ width: `${pct}%` }} />
+            {/*
+              A figure riding the burning end of the fuse, cartwheeling
+              backwards as the bar retreats under it. It is decoration and it
+              knows it — aria-hidden, and it holds still under
+              prefers-reduced-motion.
+            */}
+            <span
+              aria-hidden
+              className="rest-tumbler absolute -top-3 -ml-2 text-accent transition-[left] duration-200 ease-linear"
+              style={{ left: `${pct}%` }}
+            >
+              <TumblingFigure ms={ms} />
+            </span>
           </div>
         )}
       </div>

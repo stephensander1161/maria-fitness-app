@@ -42,7 +42,10 @@ export function AddExercise({
     const q = query.trim().toLowerCase();
     if (q) {
       return all.filter((i) =>
-        i.name.toLowerCase().includes(q) || i.muscles.some((m) => m.includes(q)));
+        i.name.toLowerCase().includes(q)
+        || i.muscles.some((m) => m.includes(q))
+        // The name she uses, which is often not the name it has.
+        || i.tags.some((t) => t.includes(q)));
     }
     return group ? all.filter((i) => i.group === group) : [];
   }, [all, group, query]);

@@ -39,6 +39,7 @@ export default async function LearnPage({
     db.select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       primaryMuscles: exercises.primaryMuscles, equipment: exercises.equipment,
+      tags: exercises.tags,
     }).from(exercises).orderBy(asc(exercises.name)),
     db.select({ id: facts.id, category: facts.category, text: facts.text, source: facts.source })
       .from(facts).orderBy(asc(facts.category)),

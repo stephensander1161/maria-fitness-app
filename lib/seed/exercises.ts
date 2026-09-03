@@ -847,6 +847,9 @@ export const EXERCISES: Seed[] = [
   {
     slug: "overhead-tricep-extension", name: "Overhead Triceps Extension", category: "isolation",
     primaryMuscles: ["triceps"], equipment: ["dumbbell", "resistance band"],
+    // What people actually call it in a gym. Searching for the name you use
+    // should find the movement you mean.
+    tags: ["bow extension", "skull crusher", "french press", "overhead extension", "triceps extension"],
     formCues: [
       "One dumbbell held in both hands, pressed overhead, elbows pointing forward.",
       "Lower behind your head by bending only at the elbow.",
@@ -1352,6 +1355,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "russian-twist", name: "Russian Twist", category: "core",
     primaryMuscles: ["obliques", "core"], equipment: ["dumbbell", "bodyweight"],
+    tags: ["twist", "oblique twist", "seated twist"],
     formCues: [
       "Sit with knees bent and heels down, leaning back until you feel the middle switch on.",
       "Hold a dumbbell or plate at your chest with both hands.",
@@ -1369,6 +1373,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "v-up", name: "V-Up", category: "core",
     primaryMuscles: ["core", "hip flexors"], equipment: ["bodyweight", "mat", "dumbbell"], bodyweight: true,
+    tags: ["v up", "vups", "jackknife", "pike crunch"],
     formCues: [
       "Lie flat, arms overhead, legs straight and together.",
       "Lift the arms and legs at the same time and meet over your hips — a V, not a crunch.",
@@ -1385,6 +1390,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "seated-cross-punch", name: "Seated Cross Punch", category: "core",
     primaryMuscles: ["obliques", "core", "shoulders"], equipment: ["dumbbell"],
+    tags: ["v sit cross jab", "cross jab", "punch", "boxer twist", "v-sit punch"],
     formCues: [
       "Sit leaning back at about forty-five degrees, heels down, a light dumbbell in each hand.",
       "Punch across your body — right hand toward the left knee — turning the ribs, not just the arm.",

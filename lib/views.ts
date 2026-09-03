@@ -282,6 +282,8 @@ export type PickableExercise = {
   slug: string; name: string; category: string;
   /** Shown under the name, so the choice is informed rather than a guess. */
   muscles: string[];
+  /** What people call it in a gym — searched, never shown. */
+  tags: string[];
 };
 
 /**
@@ -299,6 +301,7 @@ export async function pickableExercises(
     .select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
+      tags: exercises.tags,
     })
     .from(exercises)
     .orderBy(asc(exercises.name));
@@ -323,8 +326,8 @@ export async function pickableExercises(
   return LIBRARY_GROUP_ORDER.flatMap((group) => {
     const items = usable
       .filter((r) => groupForExercise(r) === group)
-      .map(({ slug, name, category, primaryMuscles }) => ({
-        slug, name, category, muscles: primaryMuscles,
+      .map(({ slug, name, category, primaryMuscles, tags }) => ({
+        slug, name, category, muscles: primaryMuscles, tags,
       }));
     return items.length ? [{ group, items }] : [];
   });
