@@ -121,3 +121,34 @@ export function directionMatchesGoal(
   if (Math.abs(goalKg - currentKg) < 1) return direction === "maintenance";
   return goalKg < currentKg ? direction === "deficit" : direction === "surplus";
 }
+
+
+/**
+ * The protein in *her* portion, given a reference portion of the same food.
+ *
+ * Protein per calorie is a property of the food, so scaling by calories is
+ * exact for one food and the best available guess for a described meal. It
+ * exists because the alternative was worse: the app was building a query
+ * string like "300 kcal cheese", which the portion parser reads as 300 of a
+ * unit called "kcal" — no library match, and a fabricated syntax handed to
+ * the model to make sense of. Ask for the food, do the arithmetic here.
+ *
+ * Returns null rather than a number when the scaling would be nonsense: no
+ * reference calories to divide by, or a ratio so far from one that the two
+ * portions cannot be the same food.
+ */
+export function proteinForCalories(
+  referenceProteinG: number,
+  referenceKcal: number,
+  herKcal: number,
+): number | null {
+  if (!Number.isFinite(referenceKcal) || referenceKcal <= 0) return null;
+  if (!Number.isFinite(herKcal) || herKcal <= 0) return null;
+  const ratio = herKcal / referenceKcal;
+  // A tenth to ten times covers every real portion of one food. Beyond that
+  // something has gone wrong — a lookup that answered about something else,
+  // or a calorie figure with a digit too many — and a wrong protein number
+  // is worse than an empty box she fills in herself.
+  if (ratio < 0.1 || ratio > 10) return null;
+  return Math.round(referenceProteinG * ratio);
+}

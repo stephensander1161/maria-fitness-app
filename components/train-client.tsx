@@ -498,7 +498,7 @@ function SetEditor({
         await action("correct_set", {
           exerciseSlug: slug, setNumber, reps,
           ...(date === undefined ? {} : { date }),
-          ...(loaded ? { weight } : {}),
+          ...(loaded ? { weight: weight > 0 ? weight : null } : {}),
         });
       }
       onDone();
@@ -609,6 +609,10 @@ export function ExerciseCard({
    */
   const [addWeight, setAddWeight] = useState(false);
   const loaded = !exercise.bodyweight
+    // The library says a weight is possible for this movement — a V-up with a
+    // dumbbell is a V-up. Hidden behind an opt-in, the field was a thing she
+    // had to know existed, and the number went unrecorded when she did not.
+    || exercise.loadable
     || addWeight
     || done.some((s) => s.weight !== null)
     || queued.some((s) => s.weight !== null);
@@ -674,7 +678,10 @@ export function ExerciseCard({
     askToNotify();
     try {
       const outcome = await logSetOrQueue<LogResult>(
-        setInput(exercise.slug, reps, loaded ? weight : null, rir, date as ISODate | undefined),
+        // Zero is not a weight. An untouched field on a movement she did with
+        // nothing in her hands is bodyweight, and recording it as "0 kg" is
+        // the same class of lie as counting an unknown as a zero.
+        setInput(exercise.slug, reps, loaded && weight > 0 ? weight : null, rir, date as ISODate | undefined),
       );
       // Whether that was the last set she planned for this movement.
       onLogged(outcome.result, exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets);

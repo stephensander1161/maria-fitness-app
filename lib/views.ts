@@ -35,6 +35,19 @@ import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
  * note underneath saying a walk does more than training. The note is matched
  * against what the templates actually seeded rather than against a pattern.
  */
+/**
+ * Whether the library says this movement can take a load.
+ *
+ * A V-up is listed as bodyweight *and* dumbbell, because both are real ways
+ * to do it. Read from the equipment rather than from the bodyweight flag: the
+ * flag answers "can this be done with nothing", which is a different question
+ * from "can she be holding something".
+ */
+const LOADS = /dumbbell|barbell|kettlebell|plate|weight|cable|machine|medicine ball|sandbag|full gym/i;
+function canHoldWeight(equipment: string[]): boolean {
+  return equipment.some((e) => LOADS.test(e));
+}
+
 function restWordsFor(day: { title: string; isRest: boolean; notes: string | null }) {
   if (day.isRest) return { title: day.title, isRest: true, notes: day.notes };
   return {
@@ -45,6 +58,15 @@ function restWordsFor(day: { title: string; isRest: boolean; notes: string | nul
 }
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
+  /**
+   * The library says this movement can hold a weight.
+   *
+   * Distinct from `bodyweight`, which only says it *can* be done without one.
+   * A V-up is a bodyweight movement she does holding a dumbbell, and hiding
+   * the weight field behind an opt-in meant she either logged a lie or lost
+   * the number. Where a load is possible the field is simply there.
+   */
+  loadable: boolean;
   /** Drives the wireframe figure's fallback when the name matches no pattern. */
   category: string;
   /** Logged today but not on the plan — an extra she added, or one she removed
@@ -86,6 +108,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const items = await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category,
+    equipment: exercises.equipment,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
     targetWeightKg: planExercises.targetWeightKg,
     restSeconds: planExercises.restSeconds, notes: planExercises.notes,
@@ -114,6 +137,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
         bodyweight: exercises.bodyweight, category: exercises.category,
+        equipment: exercises.equipment,
       }).from(exercises).where(inArray(exercises.id, extraIds))
     : [];
 
@@ -159,6 +183,7 @@ export async function todayView(profileId: string, units: Units, date = today())
       const prev = lastTime.get(i.exerciseId);
       return {
         slug: i.slug, name: i.name, bodyweight: i.bodyweight,
+        loadable: canHoldWeight(i.equipment),
         category: i.category, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
         targetWeight: weightOut(i.targetWeightKg, units),

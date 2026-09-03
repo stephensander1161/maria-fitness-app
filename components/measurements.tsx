@@ -14,6 +14,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showHow, setShowHow] = useState<string | null>(null);
+  const [chart, setChart] = useState<string | null>(null);
 
   const tracked = new Map(sites.map((s) => [s.site, s]));
 
@@ -79,7 +80,11 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
         <ul className="space-y-2.5">
           {sites.map((s) => (
             <li key={s.site}>
-              <div className="flex items-baseline justify-between gap-3">
+              <button
+                onClick={() => setChart(chart === s.site ? null : s.site)}
+                aria-expanded={chart === s.site}
+                className="flex w-full items-baseline justify-between gap-3 text-left"
+              >
                 <div className="min-w-0">
                   <p className="text-[15px]">{s.label}</p>
                   <p className="text-[11px] text-faint">
@@ -102,17 +107,30 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
                     </p>
                   )}
                 </div>
-              </div>
+              </button>
               {/*
-                The same line the weight gets. A tape measure is the one
-                instrument that shows recomposition — weight flat while the
-                waist comes down — and a column of single numbers hides
-                exactly that. Two readings are the minimum for a line, and the
-                sparkline says so itself below that.
+                The chart is a tap, not a permanent fixture.
+                A tape measure is the one instrument that shows recomposition
+                — weight flat while the waist comes down — so the line matters;
+                but seven of them stacked is a wall, and a site with one
+                reading has no line to draw at all. Opening it says which of
+                those two it is rather than showing nothing.
               */}
-              {s.history.length > 1 && (
-                <div className="-mx-1 mt-1">
-                  <Sparkline points={[...s.history].reverse().map((h) => h.value)} goal={null} />
+              {chart === s.site && (
+                <div className="mt-1 rounded-xl border border-line bg-raised p-3">
+                  {s.history.length > 1 ? (
+                    <>
+                      <Sparkline points={[...s.history].reverse().map((h) => h.value)} goal={null} />
+                      <p className="mt-1 text-center text-[11px] text-faint tabular">
+                        {s.first}{unit} on {s.firstDate} → {s.current}{unit} on {s.currentDate}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-center text-[12px] leading-relaxed text-faint">
+                      One reading so far. Measure again in a few weeks and the line appears here —
+                      that is the comparison worth having, not this morning against last night.
+                    </p>
+                  )}
                 </div>
               )}
             </li>

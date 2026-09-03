@@ -4,6 +4,7 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView } from "@/lib/views";
+import { proteinForCalories } from "@/lib/nutrition";
 
 /**
  * What she has eaten today. Sits above the week's plan because the question
@@ -264,21 +265,33 @@ function FoodNumbers({
     setBusy(true);
     setFailed(false);
     try {
-      // Her own calorie figure goes into the query when she has one, so the
-      // lookup prices that portion rather than a default hundred grams.
-      const kcal = Number(calories);
-      const query = !wantsCalories && Number.isFinite(kcal) ? `${kcal} kcal ${food}` : food;
+      // The food as she wrote it, and nothing else. Building a query like
+      // "300 kcal cheese" reads to the portion parser as 300 of a unit called
+      // "kcal": no library match, and a syntax the app invented handed to the
+      // model to interpret. Her calorie figure is applied here instead, as
+      // arithmetic — see proteinForCalories.
       const r = await action<{ found: boolean; kcal?: number; proteinG?: number }>(
-        "lookup_food", { query },
+        "lookup_food", { query: food },
       );
+      const refKcal = typeof r.kcal === "number" ? r.kcal : null;
+      const refProtein = typeof r.proteinG === "number" ? r.proteinG : null;
+
       let filled = false;
-      if (wantsCalories && r.found && r.kcal !== undefined && r.kcal !== null) {
-        onCalories(String(Math.round(r.kcal)));
+      if (wantsCalories && r.found && refKcal !== null) {
+        onCalories(String(Math.round(refKcal)));
         filled = true;
       }
-      if (wantsProtein && r.found && r.proteinG !== undefined && r.proteinG !== null) {
-        onProtein(String(Math.round(r.proteinG)));
-        filled = true;
+      if (wantsProtein && r.found && refProtein !== null) {
+        // Scaled to her portion when she gave a calorie figure; otherwise the
+        // reference portion's own protein, alongside the calories just filled
+        // in for the same portion.
+        const hers = wantsCalories
+          ? Math.round(refProtein)
+          : proteinForCalories(refProtein, refKcal ?? 0, Number(calories));
+        if (hers !== null) {
+          onProtein(String(hers));
+          filled = true;
+        }
       }
       if (!filled) setFailed(true);
     } catch {

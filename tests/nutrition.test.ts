@@ -1,5 +1,8 @@
 import { describe as suite, expect, it } from "vitest";
-import { CALORIE_FLOOR, directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection } from "@/lib/nutrition";
+import {
+  CALORIE_FLOOR, directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets,
+  proteinForCalories, targetDirection,
+} from "@/lib/nutrition";
 
 const base = {
   weightKg: 78,
@@ -165,5 +168,26 @@ suite("does the target point where she is going", () => {
     });
     expect(t.maintenanceCalories).toBeGreaterThan(t.calorieTarget);
     expect(targetDirection(t.calorieTarget, t.maintenanceCalories)).toBe("deficit");
+  });
+});
+
+
+suite("protein scaled to her portion", () => {
+  it("scales by calories, because protein per calorie is the food", () => {
+    // 100g cheddar: 416 kcal, 25g protein. Her 300 kcal of it is 18g.
+    expect(proteinForCalories(25, 416, 300)).toBe(18);
+    // The reference portion itself comes back unchanged.
+    expect(proteinForCalories(30, 212, 212)).toBe(30);
+  });
+
+  it("refuses rather than guessing when the scaling is nonsense", () => {
+    // Nothing to divide by. This is the branch that stops a lookup which
+    // answered with an error — no kcal — writing a protein figure anyway.
+    expect(proteinForCalories(25, 0, 300)).toBeNull();
+    expect(proteinForCalories(25, 416, 0)).toBeNull();
+    // Ten times out is not the same food, or a calorie figure with a digit
+    // too many. An empty box she fills in beats a wrong number she trusts.
+    expect(proteinForCalories(25, 416, 9000)).toBeNull();
+    expect(proteinForCalories(25, 416, 10)).toBeNull();
   });
 });
