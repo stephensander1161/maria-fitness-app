@@ -8,6 +8,7 @@ import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
+import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
@@ -277,7 +278,11 @@ export async function planSummary(
   );
 }
 
-export type PickableExercise = { slug: string; name: string; category: string };
+export type PickableExercise = {
+  slug: string; name: string; category: string;
+  /** Shown under the name, so the choice is informed rather than a guess. */
+  muscles: string[];
+};
 
 /**
  * Movements she can actually perform, grouped for a picker.
@@ -292,8 +297,8 @@ export async function pickableExercises(
 ): Promise<{ group: string; items: PickableExercise[] }[]> {
   const rows = await db
     .select({
-      slug: exercises.slug, name: exercises.name,
-      category: exercises.category, equipment: exercises.equipment,
+      slug: exercises.slug, name: exercises.name, category: exercises.category,
+      equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     })
     .from(exercises)
     .orderBy(asc(exercises.name));
@@ -311,17 +316,17 @@ export async function pickableExercises(
     );
   });
 
-  const LABELS: Record<string, string> = {
-    compound: "Compound", isolation: "Isolation", core: "Core",
-    mobility: "Mobility", cardio: "Cardio",
-  };
-  const ORDER = ["compound", "isolation", "core", "cardio", "mobility"];
-
-  return ORDER.flatMap((category) => {
+  // Grouped by what it works, not by whether a textbook calls it compound.
+  // "Compound" had sixty-three movements in it, which is not a group — it is
+  // the whole library with a label on. Nobody looks for an isolation
+  // exercise; they look for something for their shoulders.
+  return LIBRARY_GROUP_ORDER.flatMap((group) => {
     const items = usable
-      .filter((r) => r.category === category)
-      .map(({ slug, name, category }) => ({ slug, name, category }));
-    return items.length ? [{ group: LABELS[category] ?? category, items }] : [];
+      .filter((r) => groupForExercise(r) === group)
+      .map(({ slug, name, category, primaryMuscles }) => ({
+        slug, name, category, muscles: primaryMuscles,
+      }));
+    return items.length ? [{ group, items }] : [];
   });
 }
 

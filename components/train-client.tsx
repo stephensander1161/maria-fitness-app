@@ -92,13 +92,22 @@ export function TrainClient({
   }, []);
   const dismissRest = useCallback(() => setRest(null), []);
 
-  async function finish(feeling: number) {
+  /**
+   * Finishing is one button now.
+   *
+   * It used to be five — Brutal to Easy — asking how the session felt. Reps in
+   * reserve per set answers the same question better and is already being
+   * collected one tap at a time, so the five-way was a second, coarser copy of
+   * a signal we have. The coach can still ask in words when it matters, and
+   * finish_workout still takes a feeling when she gives one.
+   */
+  async function finish(feeling?: number) {
     setFinishing(true);
     setError(null);
     try {
       // Anything still queued belongs in this session's summary.
       await flush();
-      await action("finish_workout", { feeling });
+      await action("finish_workout", feeling === undefined ? {} : { feeling });
       setRest(null);
       router.refresh();
     } catch {
@@ -195,11 +204,13 @@ export function TrainClient({
             {/* Stopping early is hers to choose — it is just not the biggest
                 thing on the screen while there is work left. */}
             {finishEarly ? (
-              <div className="mt-3">
-                <p className="mb-2 text-[13px] text-muted">Finish here — how did it feel?</p>
-                <Feelings onPick={finish} disabled={finishing} />
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <button onClick={() => void finish()} disabled={finishing}
+                  className="rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-ink disabled:opacity-50">
+                  {finishing ? "Finishing…" : "Finish session"}
+                </button>
                 <button onClick={() => setFinishEarly(false)}
-                  className="mt-2 -mb-1 px-3 py-2 text-[12px] text-faint">
+                  className="px-3 py-2.5 text-[12px] text-faint">
                   Keep going
                 </button>
               </div>
@@ -213,12 +224,13 @@ export function TrainClient({
             )}
           </div>
         ) : (
-          <>
-            <p className="mb-3 text-center text-sm text-muted">
-              {totalLogged} sets logged — how did it feel?
-            </p>
-            <Feelings onPick={finish} disabled={finishing} />
-          </>
+          <div className="text-center">
+            <p className="mb-3 text-sm text-muted">{totalLogged} sets logged.</p>
+            <button onClick={() => void finish()} disabled={finishing}
+              className="rounded-xl bg-accent px-6 py-3 text-[14px] font-semibold text-ink disabled:opacity-50">
+              {finishing ? "Finishing…" : "Finish session"}
+            </button>
+          </div>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
       </div>
@@ -330,24 +342,6 @@ function SetEditor({
         </button>
       </div>
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
-    </div>
-  );
-}
-
-/** The five-way "how did it feel", in one place because it now has two homes. */
-function Feelings({ onPick, disabled }: { onPick: (n: number) => void; disabled: boolean }) {
-  return (
-    <div className="grid grid-cols-5 gap-2">
-      {["Brutal", "Hard", "Solid", "Good", "Easy"].map((label, i) => (
-        <button
-          key={label}
-          disabled={disabled}
-          onClick={() => onPick(i + 1)}
-          className="rounded-xl border border-line bg-raised py-3 text-[11px] font-medium text-muted transition-colors hover:bg-line active:bg-line disabled:opacity-60"
-        >
-          {label}
-        </button>
-      ))}
     </div>
   );
 }

@@ -23,8 +23,20 @@ import { defineTool } from "./define";
  * to a beginner as her being inconsistent.
  */
 
-/** The last few sessions of one movement, newest first. */
-async function historyFor(profileId: string, exerciseId: string, limit = 6): Promise<Session[]> {
+/**
+ * The last few sessions of one movement, newest first.
+ *
+ * `excludeDate` leaves today out. What to lift next is a question about
+ * previous sessions — with today included, logging the first set of her life
+ * produced a target "up from last time", where last time was the set she had
+ * just done ninety seconds earlier.
+ */
+async function historyFor(
+  profileId: string,
+  exerciseId: string,
+  limit = 6,
+  excludeDate?: string,
+): Promise<Session[]> {
   const rows = await db
     .select({
       date: workouts.date, reps: setLogs.reps, weightKg: setLogs.weightKg, rir: setLogs.rir,
@@ -38,6 +50,7 @@ async function historyFor(profileId: string, exerciseId: string, limit = 6): Pro
 
   const byDate = new Map<string, Session>();
   for (const r of rows) {
+    if (excludeDate && r.date === excludeDate) continue;
     const s = byDate.get(r.date) ?? { date: r.date, sets: [] };
     s.sets.push({ reps: r.reps, weightKg: r.weightKg, rir: r.rir });
     byDate.set(r.date, s);
@@ -73,10 +86,12 @@ async function plannedFor(profileId: string, date: string): Promise<Target[]> {
   return rows;
 }
 
-async function targetsFor(profileId: string, units: Units, targets: Target[]) {
+async function targetsFor(
+  profileId: string, units: Units, targets: Target[], asOf?: string,
+) {
   const unit = weightLabel(units);
   return Promise.all(targets.map(async (t) => {
-    const history = await historyFor(profileId, t.exerciseId);
+    const history = await historyFor(profileId, t.exerciseId, 6, asOf);
     const step = loadStepKg(t.equipment, units);
     const next = nextPrescription(
       { sets: t.sets, reps: t.reps, weightKg: t.weightKg },
@@ -147,7 +162,7 @@ export const getNextTargets = defineTool({
         sets: 3, reps: 10, weightKg: fallbackWeight,
         equipment: ex.equipment, bodyweight: ex.bodyweight,
       };
-      const [only] = await targetsFor(ctx.profileId, profile.units, [target]);
+      const [only] = await targetsFor(ctx.profileId, profile.units, [target], date);
       return { ok: true, date, onPlanToday: planned !== undefined, ...only };
     }
 
@@ -155,7 +170,10 @@ export const getNextTargets = defineTool({
     if (planned.length === 0) {
       return { ok: true, date, movements: [], hint: "Nothing planned for that day — pass a slug for a single movement." };
     }
-    return { ok: true, date, movements: await targetsFor(ctx.profileId, profile.units, planned) };
+    return {
+      ok: true, date,
+      movements: await targetsFor(ctx.profileId, profile.units, planned, date),
+    };
   },
 });
 
@@ -247,5 +265,5 @@ export async function volumeForWeek(profileId: string, week: string) {
 export async function todayTargets(profileId: string, units: Units, date: string) {
   const planned = await plannedFor(profileId, date);
   if (planned.length === 0) return [];
-  return targetsFor(profileId, units, planned);
+  return targetsFor(profileId, units, planned, date);
 }

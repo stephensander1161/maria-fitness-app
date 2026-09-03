@@ -5,12 +5,13 @@ import Link from "next/link";
 import { ExerciseFigure } from "./exercise-figure";
 import { IngredientSearch } from "./ingredient-search";
 import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
+import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import type { MealWeekView, WeekView } from "@/lib/views";
 
 type Item = { slug: string; name: string; category: string; primaryMuscles: string[]; equipment: string[] };
 type FactItem = { id: string; category: string; text: string; source: string | null };
 
-const CATEGORIES = ["all", "compound", "isolation", "core", "mobility", "cardio"] as const;
+const CATEGORIES = ["all", ...LIBRARY_GROUP_ORDER] as const;
 
 const FACT_LABELS: Record<string, string> = {
   sedentary_risk: "The cost of sitting",
@@ -44,7 +45,7 @@ export function Library({
     const q = query.trim().toLowerCase();
     return exercises.filter(
       (e) =>
-        (category === "all" || e.category === category) &&
+        (category === "all" || groupForExercise(e) === category) &&
         (q === "" ||
           e.name.toLowerCase().includes(q) ||
           e.primaryMuscles.some((m) => m.includes(q)) ||
@@ -52,16 +53,14 @@ export function Library({
     );
   }, [exercises, query, category]);
 
+  // Grouped by what a movement works, not by whether a textbook calls it
+  // compound — that bucket held sixty-three of a hundred and sixty, which is
+  // not a group, it is the library with a label on. Nobody goes looking for an
+  // isolation exercise; they go looking for something for their shoulders.
   const grouped = useMemo(() => {
-    const LABELS: Record<string, string> = {
-      compound: "Compound lifts", isolation: "Isolation", core: "Core",
-      cardio: "Conditioning", mobility: "Mobility",
-    };
-    // Fixed order, most useful first — not whatever the query returned.
-    const ORDER = ["compound", "isolation", "core", "cardio", "mobility"];
-    return ORDER.flatMap((c) => {
-      const items = filtered.filter((e) => e.category === c);
-      return items.length ? [{ category: LABELS[c] ?? c, items }] : [];
+    return LIBRARY_GROUP_ORDER.flatMap((group) => {
+      const items = filtered.filter((e) => groupForExercise(e) === group);
+      return items.length ? [{ category: group, items }] : [];
     });
   }, [filtered]);
 
