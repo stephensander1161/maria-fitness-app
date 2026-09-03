@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { MealWeekView, PantryView, PickableExercise, TodayView, WeekView } from "@/lib/views";
-import { ShoppingList, type ShoppingAisle } from "./shopping-list";
+import type { MealWeekView, PickableExercise, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
-import { Kitchen } from "./kitchen";
 import { AskCoach } from "./ask-coach";
 import { AddExercise } from "./add-exercise";
 import { PlannedExerciseRow } from "./planned-exercise-row";
@@ -24,11 +22,9 @@ import { TrainClient, type NextTarget } from "./train-client";
  * and selected on arrival, because that is the day she is standing in.
  */
 export function PlanClient({
-  week, mealWeek, shopping, instacart, pantry, tab, day, today, pickable, targets,
+  week, mealWeek, tab, day, today, pickable, targets,
 }: {
   week: WeekView; mealWeek: MealWeekView;
-  shopping: ShoppingAisle[]; instacart: boolean;
-  pantry: PantryView;
   tab: "training" | "food";
   day: number;
   today: TodayView;
@@ -171,16 +167,12 @@ export function PlanClient({
             <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
           </div>
 
-          <ShoppingList weekStart={mealWeek.weekStart} aisles={shopping} instacart={instacart} />
-          <Kitchen pantry={pantry} />
-
           {mealWeek.rationale && (
             <p className="card p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
           )}
         </div>
       ) : (
         <div className="space-y-3">
-          <Kitchen pantry={pantry} />
           <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
           <AskCoach
             title="Ask your coach"

@@ -63,10 +63,12 @@ const useCanShare = () =>
 type Choices = { on: string[]; off: string[] };
 
 export function ShoppingList({
-  weekStart, aisles, instacart,
+  weekStart, aisles, instacart, expanded = false,
 }: {
   weekStart: string;
   aisles: ShoppingAisle[];
+  /** On its own screen there is nothing to collapse it out of the way of. */
+  expanded?: boolean;
   /** Whether the server has an Instacart key. Without one the button would
    *  only ever say no. */
   instacart: boolean;
@@ -202,7 +204,7 @@ export function ShoppingList({
   // that is broken, and she never learns the feature exists.
   if (total === 0) {
     return (
-      <section className="card mb-3 p-5">
+      <section className={expanded ? "card p-5" : "card mb-3 p-5"}>
         <h2 className="text-[15px] font-semibold">Shopping list</h2>
         <p className="mt-1 text-[12px] leading-relaxed text-faint">
           Nothing to buy yet — this fills in from the week&rsquo;s meals. Ask your coach to plan
@@ -212,22 +214,36 @@ export function ShoppingList({
     );
   }
 
-  return (
-    <section className="card mb-3 p-5">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">Shopping list</h2>
-        <span className="shrink-0 text-[13px] tabular text-muted">
-          {selected.length === total ? `${total} items` : `${selected.length}/${total} chosen`}
-        </span>
-      </button>
+  const showing = expanded || open;
 
-      {!open && (
-        <p className="mt-1 text-[12px] text-faint">
-          Everything this week&rsquo;s meals need, added up and grouped by aisle.
-        </p>
+  return (
+    <section className={expanded ? "" : "card mb-3 p-5"}>
+      {expanded ? (
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="text-[13px] text-faint">
+            Everything this week&rsquo;s meals need, grouped by aisle.
+          </p>
+          <span className="shrink-0 text-[13px] tabular text-muted">
+            {selected.length === total ? `${total} items` : `${selected.length}/${total} chosen`}
+          </span>
+        </div>
+      ) : (
+        <>
+          <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3">
+            <h2 className="text-[15px] font-semibold">Shopping list</h2>
+            <span className="shrink-0 text-[13px] tabular text-muted">
+              {selected.length === total ? `${total} items` : `${selected.length}/${total} chosen`}
+            </span>
+          </button>
+          {!open && (
+            <p className="mt-1 text-[12px] text-faint">
+              Everything this week&rsquo;s meals need, added up and grouped by aisle.
+            </p>
+          )}
+        </>
       )}
 
-      {open && (
+      {showing && (
         <div className="mt-4 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <button

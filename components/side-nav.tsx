@@ -33,7 +33,9 @@ export function SideNav({ name, title }: { name: string | null; title: Title }) 
           only ever goes up — see lib/titles.ts — so this can never be the
           thing that greets her after a bad fortnight.
         */}
-        <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-widest text-accent" title={title.blurb}>
+        {/* Wraps rather than truncating: there is room in a sidebar, and a
+            rank she cannot read is not a reward. Whole words only. */}
+        <p className="mt-1 text-[11px] font-medium uppercase leading-snug tracking-widest text-accent [overflow-wrap:normal]" title={title.blurb}>
           {title.name}
         </p>
         <span className="sr-only">{title.blurb}</span>

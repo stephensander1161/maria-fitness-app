@@ -14,7 +14,7 @@ import type { PantryView } from "@/lib/views";
  * state the rest of this app calls unknown, and rendering it as either
  * extreme is how a kitchen list stops being believed.
  */
-export function Kitchen({ pantry }: { pantry: PantryView }) {
+export function Kitchen({ pantry, expanded = false }: { pantry: PantryView; expanded?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -49,15 +49,27 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
     await run("add_to_pantry", { items: [{ item: said }] }, "Couldn't add that.");
   }
 
+  const showing = expanded || open;
+
   return (
-    <section className="card mb-3 p-5">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">Kitchen</h2>
-        <span className="shrink-0 text-[13px] tabular text-muted">
-          {items.length === 0 ? "empty" : `${items.length} in`}
-          {missing.length > 0 && <span className="text-hold"> · {missing.length} to buy</span>}
-        </span>
-      </button>
+    <section className={expanded ? "" : "card mb-3 p-5"}>
+      {expanded ? (
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="text-[13px] text-faint">What you have in, and what this week will run you out of.</p>
+          <span className="shrink-0 text-[13px] tabular text-muted">
+            {items.length === 0 ? "empty" : `${items.length} in`}
+            {missing.length > 0 && <span className="text-hold"> · {missing.length} to buy</span>}
+          </span>
+        </div>
+      ) : (
+        <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3">
+          <h2 className="text-[15px] font-semibold">Kitchen</h2>
+          <span className="shrink-0 text-[13px] tabular text-muted">
+            {items.length === 0 ? "empty" : `${items.length} in`}
+            {missing.length > 0 && <span className="text-hold"> · {missing.length} to buy</span>}
+          </span>
+        </button>
+      )}
 
       {!open && prepped.length > 0 && (
         <p className="mt-1 text-[12px] text-beat">
@@ -73,7 +85,7 @@ export function Kitchen({ pantry }: { pantry: PantryView }) {
         </p>
       )}
 
-      {open && (
+      {showing && (
         <div className="mt-4 space-y-4">
           {error && <p role="alert" className="text-[13px] text-miss">{error}</p>}
 

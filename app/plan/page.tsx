@@ -1,14 +1,12 @@
 import { PlanClient } from "@/components/plan-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
-import { mealWeekView, pantryView, pickableExercises, todayView, weekView } from "@/lib/views";
+import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
 import { dayIndex, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
-import { runTool } from "@/lib/tools";
 import { todayTargets } from "@/lib/tools/progression-targets";
 import { equipmentToday } from "@/lib/tools/phases";
-import type { ShoppingAisle } from "@/components/shopping-list";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +27,9 @@ export default async function PlanPage({
   const her = profileToday(profile);
   const { tab, day } = await searchParams;
 
-  const [week, mealWeek, shopping, pantry, today, pickable, targets] = await Promise.all([
+  const [week, mealWeek, today, pickable, targets] = await Promise.all([
     weekView(profile.id, profile.units, weekStart(her), her),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
-    runTool("get_shopping_list", {}, { profileId: profile.id }) as Promise<{ aisles?: ShoppingAisle[]; instacart: boolean }>,
-    pantryView(profile.id, foodUnitsOf(profile), her),
     // Today's day, in full, so that selecting today on the training tab gives
     // her the same cards as the Train screen rather than a list of names.
     todayView(profile.id, profile.units, her),
@@ -62,9 +58,6 @@ export default async function PlanPage({
       <PlanClient
         week={week}
         mealWeek={mealWeek}
-        shopping={shopping.aisles ?? []}
-        instacart={shopping.instacart}
-        pantry={pantry}
         tab={tab === "food" ? "food" : "training"}
         day={selected}
         today={today}
