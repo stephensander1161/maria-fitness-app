@@ -35,9 +35,12 @@ function read(): Rest | null {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const r = JSON.parse(raw) as Rest;
-    // Anything well past its end is stale — she closed the app an hour ago,
-    // and this would greet her with a finished timer for a forgotten set.
-    if (typeof r?.endsAt !== "number" || r.endsAt < Date.now() - 20_000) return null;
+    // The alarm does not give up on its own, so a reload must not do it for
+    // her — twenty seconds meant refreshing the page mid-alarm killed it. Ten
+    // minutes is long enough to cover a set and a reload, and short enough
+    // that opening the app tomorrow is not greeted by a finished timer for a
+    // workout she has forgotten about.
+    if (typeof r?.endsAt !== "number" || r.endsAt < Date.now() - 600_000) return null;
     return r;
   } catch {
     return null;

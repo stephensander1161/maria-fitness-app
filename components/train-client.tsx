@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
@@ -8,6 +8,7 @@ import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
 import { FormGuide } from "./form-guide";
 import { MovementPicker } from "./movement-picker";
+import { SessionDone } from "./session-done";
 import {
   logSetOrQueue, setInput, useFlushPendingSets, usePendingSets, type PendingSet,
 } from "@/lib/offline";
@@ -48,6 +49,7 @@ export function TrainClient({
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The countdown lives above the router now, so it keeps running when she
   // wanders off to the food screen mid-rest.
@@ -71,6 +73,13 @@ export function TrainClient({
 
   const totalLogged =
     view.exercises.reduce((n, e) => n + e.loggedToday.length, 0) + pending.length;
+  const totalVolume = Math.round(
+    view.exercises.reduce(
+      (n, e) => n + e.loggedToday.reduce((v, s) => v + (s.weight ?? 0) * s.reps, 0),
+      0,
+    ),
+  );
+  const movementsWorked = view.exercises.filter((e) => e.loggedToday.length > 0).length;
   // Movements that still have sets left in them. "Complete" has to mean
   // every one is done, or adding an exercise after signing off leaves the
   // card claiming the session is finished when it plainly isn't.
@@ -106,6 +115,10 @@ export function TrainClient({
       await flush();
       await action("finish_workout", feeling === undefined ? {} : { feeling });
       dismissRest();
+      // Said properly, once, and only when she says she is done — a card
+      // quietly turning green was the whole celebration for the thing this
+      // app exists to get her to do.
+      setDone(true);
       router.refresh();
     } catch {
       setError("Couldn't close out the session — check your signal and try again.");
@@ -194,45 +207,64 @@ export function TrainClient({
       */}
       <div className="card p-4">
         {view.completed && outstanding.length === 0 ? (
-          <p className="text-center text-sm text-beat">Session complete. Nice work.</p>
+          <div className="text-center">
+            <p className="text-[15px] font-semibold text-beat">Session done</p>
+            <p className="mt-1 text-[13px] text-muted">
+              {totalLogged} set{totalLogged === 1 ? "" : "s"} across {movementsWorked} movement
+              {movementsWorked === 1 ? "" : "s"}.
+            </p>
+          </div>
         ) : totalLogged === 0 ? (
           <p className="text-center text-sm text-muted">Log a set to get going.</p>
-        ) : outstanding.length > 0 ? (
+        ) : (
           <div className="text-center">
-            <p className="text-sm text-muted">Still to do: {outstanding.join(", ")}</p>
-            {/* Stopping early is hers to choose — it is just not the biggest
-                thing on the screen while there is work left. */}
+            {/*
+              One button, always here, saying the same thing whether or not
+              there is work left. "Finish early" was a grey underlined link at
+              12px — the app hedging about whether she is allowed to stop, for
+              a decision that is entirely hers. What changes with work left is
+              the confirmation, not the prominence.
+            */}
+            <p className="mb-3 text-[13px] text-muted">
+              {outstanding.length > 0
+                ? `Still to do: ${outstanding.join(", ")}`
+                : `${totalLogged} set${totalLogged === 1 ? "" : "s"} logged. Everything on the plan is done.`}
+            </p>
+
             {finishEarly ? (
-              <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <button onClick={() => void finish()} disabled={finishing}
-                  className="rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-ink disabled:opacity-50">
-                  {finishing ? "Finishing…" : "Finish session"}
+                  className="rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-ink disabled:opacity-50">
+                  {finishing ? "Finishing…" : "Yes, I'm done"}
                 </button>
                 <button onClick={() => setFinishEarly(false)}
-                  className="px-3 py-2.5 text-[12px] text-faint">
+                  className="rounded-xl border border-line px-4 py-3 text-[13px] text-muted">
                   Keep going
                 </button>
               </div>
             ) : (
               <button
-                onClick={() => setFinishEarly(true)}
-                className="-mb-1 mt-2 px-3 py-2 text-[12px] text-faint underline underline-offset-2 hover:text-muted"
+                onClick={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
+                disabled={finishing}
+                className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-50"
               >
-                Finish early
+                {finishing ? "Finishing…" : "Finish workout"}
               </button>
             )}
-          </div>
-        ) : (
-          <div className="text-center">
-            <p className="mb-3 text-sm text-muted">{totalLogged} sets logged.</p>
-            <button onClick={() => void finish()} disabled={finishing}
-              className="rounded-xl bg-accent px-6 py-3 text-[14px] font-semibold text-ink disabled:opacity-50">
-              {finishing ? "Finishing…" : "Finish session"}
-            </button>
           </div>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
       </div>
+
+      {done && (
+        <SessionDone
+          sets={totalLogged}
+          movements={movementsWorked}
+          volume={totalVolume}
+          unit={view.unit}
+          onClose={() => setDone(false)}
+        />
+      )}
     </div>
   );
 }
@@ -483,6 +515,24 @@ function ExerciseCard({
 
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
+
+  /**
+   * The small version of a celebration: the moment the last planned set of a
+   * movement lands, and only that moment. It appears because the count
+   * crossed the target while she was looking, not because the card happens to
+   * be complete — arriving at a finished card should say nothing.
+   */
+  const [justMet, setJustMet] = useState(false);
+  const wasMet = useRef(targetMet);
+  useEffect(() => {
+    if (targetMet && !wasMet.current) {
+      setJustMet(true);
+      const id = window.setTimeout(() => setJustMet(false), 4000);
+      wasMet.current = targetMet;
+      return () => window.clearTimeout(id);
+    }
+    wasMet.current = targetMet;
+  }, [targetMet]);
   const todayVolume = Math.round(
     [...done, ...queued].reduce((n, s) => n + (s.weight ?? 0) * s.reps, 0),
   );
@@ -538,7 +588,18 @@ function ExerciseCard({
   return (
     <section className="card overflow-hidden">
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
-        <div className="min-w-0">
+        {/*
+          The name and the target are the card's own open/close control. She
+          is looking at the movement she is about to do and tapping it is the
+          obvious thing; making her find a button lower down was a step for
+          nothing. The controls to the right keep their own jobs.
+        */}
+        <button
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} the set counter for ${exercise.name}`}
+          className="min-w-0 flex-1 text-left"
+        >
           <h2 className="truncate text-[17px] font-semibold">{exercise.name}</h2>
           {/* The computed target where there is one — worked out from what she
               actually logged, not re-derived by the model each week. Labelled
@@ -552,7 +613,7 @@ function ExerciseCard({
           {next && next.change === "up" && (
             <p className="mt-1 text-[12px] text-beat">Up from last time</p>
           )}
-        </div>
+        </button>
         <div className="flex shrink-0 items-center gap-1.5">
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
             <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-ink"
@@ -611,6 +672,12 @@ function ExerciseCard({
           )}
         </div>
       </div>
+
+      {justMet && (
+        <p className="go-sub mx-4 mb-3 rounded-xl border border-beat/40 bg-beat-soft px-3 py-2 text-center text-[13px] font-medium text-beat">
+          {exercise.targetSets}×{exercise.targetReps} done — that&rsquo;s {exercise.name} finished.
+        </p>
+      )}
 
       {changing && (
         <ChangeMovement
