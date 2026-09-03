@@ -61,7 +61,15 @@ suite("tool registry", () => {
     // Deliberately a hard-coded list. Adding to it should require reading the
     // reason and agreeing that the model truly cannot perform the action —
     // "the UI does it" is not a reason, or nearly everything would qualify.
-    const ALLOWED_HIDDEN = ["add_progress_photo"];
+    // - add_progress_photo: the model cannot produce a resized JPEG.
+    // - save_push_device / forget_push_device: a push subscription is minted
+    //   by the browser — an endpoint the push service issued and two keys it
+    //   generated. There is no sentence the model could say that produces
+    //   one, and the endpoint is the only handle on the device, so forgetting
+    //   it needs the same value back. Turning reminders on and off *is*
+    //   delegable and is a separate tool the model does have:
+    //   set_weigh_in_reminder.
+    const ALLOWED_HIDDEN = ["add_progress_photo", "forget_push_device", "save_push_device"];
     const hidden = [...registry.values()].filter((t) => t.uiOnly).map((t) => t.name).sort();
     expect(
       hidden,

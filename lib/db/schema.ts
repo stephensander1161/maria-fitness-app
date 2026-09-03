@@ -130,6 +130,15 @@ export const profiles = pgTable("profiles", {
    * Legs and Back are the two people actually want longer.
    */
   restByGroup: jsonb("rest_by_group").$type<Record<string, number>>(),
+  /**
+   * The hour she wants reminding to weigh in, 0–23 in her own timezone, or
+   * null for no reminder.
+   *
+   * An hour rather than a time because the reminder is sent by a scheduled
+   * job, and a job that runs hourly cannot honour 07:42 — offering a minute
+   * it will not keep is worse than offering the hour it will.
+   */
+  weighInReminderHour: integer("weigh_in_reminder_hour"),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**
@@ -905,3 +914,34 @@ export type Complaint = typeof complaints.$inferSelect;
 export type CycleEvent = typeof cycleEvents.$inferSelect;
 export type PreppedPortion = typeof preppedPortions.$inferSelect;
 export type AuditEvent = typeof auditLog.$inferSelect;
+
+
+/**
+ * Where to send her a notification.
+ *
+ * One row per browser she has installed the app in — a phone and a laptop are
+ * two subscriptions, and both are hers. The endpoint is the address the
+ * browser vendor gave us and is unique by construction, so re-subscribing the
+ * same browser updates rather than duplicating.
+ *
+ * `p256dh` and `auth` are the keys an *encrypted* payload would need. Nothing
+ * sends one today — a reminder carries no data, because the notification says
+ * "time to weigh in" and there is nothing about her body in that. They are
+ * stored because the browser mints them with the subscription and throwing
+ * them away would mean asking for permission again to ever use them.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint").on(t.endpoint),
+    index("push_subscriptions_profile").on(t.profileId),
+  ],
+);

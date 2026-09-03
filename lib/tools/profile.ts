@@ -1,13 +1,15 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { goals, profiles, weighIns } from "@/lib/db/schema";
+import { goals, profiles, weighIns, pushSubscriptions,
+} from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan, profileToday, todayForProfile, ageFrom } from "@/lib/profile";
 import { weightTrend } from "@/lib/trend";
 import { foodUnitsOf } from "@/lib/food-units";
 import { MAX_REST_SECONDS, MIN_REST_SECONDS, REST_GROUPS } from "@/lib/rest";
+import { audit } from "@/lib/audit";
 import { defineTool, type ToolContext } from "./define";
 
 /** Numbers crossing the tool boundary are always in HER units (lb/in by
@@ -357,5 +359,78 @@ export const setRestDefaults = defineTool({
       byGroup: byGroup ?? {},
       note: "Applies from her next set — the timer reads it when a rest starts.",
     };
+  },
+});
+
+export const setWeighInReminder = defineTool({
+  name: "set_weigh_in_reminder",
+  description:
+    "Sets the hour she wants a notification reminding her to weigh in — 7 for 7am, 19 for 7pm, in her own timezone. Null turns it off. Only sent on a day she has not already weighed in, so it never nags about something she has done. She has to allow notifications on the device itself, which is a tap in Settings and cannot be done from here.",
+  input: z.object({
+    hour: z.number().min(0).max(23).nullable()
+      .describe("0–23 in her timezone. Null for no reminder."),
+  }),
+  handler: async (input, ctx) => {
+    const hour = input.hour === null ? null : Math.round(input.hour);
+    await db.update(profiles)
+      .set({ weighInReminderHour: hour })
+      .where(eq(profiles.id, ctx.profileId));
+    return {
+      ok: true,
+      hour,
+      note: hour === null
+        ? "No weigh-in reminder."
+        : `She will be nudged at ${hour}:00 her time, only on days she has not already weighed in.`,
+    };
+  },
+});
+
+export const savePushDevice = defineTool({
+  name: "save_push_device",
+  // The browser mints a subscription — an endpoint the push service issued
+  // and two keys — and there is no way for the model to produce one. It is
+  // registered here so the write still goes through the registry rather than
+  // a second path into the database.
+  uiOnly: "the browser mints the push subscription; the model cannot",
+  description:
+    "Registers this browser or phone to receive notifications, which the app calls once she has allowed them on the device. The subscription comes from the browser itself, so this is not something to call from a conversation — set_weigh_in_reminder is the one that decides whether and when anything is actually sent.",
+  input: z.object({
+    endpoint: z.string().url(),
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+  handler: async (input, ctx) => {
+    await db.insert(pushSubscriptions)
+      .values({
+        profileId: ctx.profileId,
+        endpoint: input.endpoint,
+        p256dh: input.p256dh,
+        auth: input.auth,
+      })
+      // Re-subscribing the same browser updates rather than duplicating, and
+      // moves the row to whoever is signed in now.
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: { profileId: ctx.profileId, p256dh: input.p256dh, auth: input.auth },
+      });
+    await audit("push.registered", { detail: { profileId: ctx.profileId } });
+    return { ok: true };
+  },
+});
+
+export const forgetPushDevice = defineTool({
+  name: "forget_push_device",
+  uiOnly: "the endpoint identifying the device is only known to the browser",
+  description:
+    "Stops notifications going to one browser or phone, identified by the endpoint the browser issued for it. Called by the app when she turns notifications off on that device. To stop reminders everywhere, set_weigh_in_reminder with null is the tool.",
+  input: z.object({ endpoint: z.string().url() }),
+  handler: async (input, ctx) => {
+    const gone = await db.delete(pushSubscriptions)
+      .where(and(
+        eq(pushSubscriptions.profileId, ctx.profileId),
+        eq(pushSubscriptions.endpoint, input.endpoint),
+      ))
+      .returning({ id: pushSubscriptions.id });
+    return { ok: true, removed: gone.length };
   },
 });

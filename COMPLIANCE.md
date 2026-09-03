@@ -48,10 +48,18 @@ Read it as an honest inventory, not a certificate.
   even if something coaxed a malicious URL out of the model, the browser has
   nowhere to send anything.
 - Outbound data flows are enumerated: the model call to Anthropic (her
-  conversation and the state block), and — only when `INSTACART_API_KEY` is set
+  conversation and the state block); — only when `INSTACART_API_KEY` is set
   and only when she asks — the week's shopping list to Instacart's API, which is
-  item names and quantities and nothing about her. Both are server-side calls;
-  the browser talks to no one but this app.
+  item names and quantities and nothing about her; and — only when she turns on
+  a reminder — a **bare push** to whichever push service her browser named
+  (Apple's, Google's, Mozilla's). That last one carries **no payload at all**:
+  a signed VAPID header proving the sender, and nothing else. The words "time
+  to weigh in" live in the service worker, so the push service is told to wake
+  a device and is told nothing about her. `lib/push.ts` has no dependency in
+  the path — `node:crypto` signs it — and a 404 or 410 deletes the
+  subscription rather than retrying it for ever.
+  All are server-side calls; the browser talks to no one but this app and its
+  own push service.
 - Links in coach output render only for the `https:` scheme
   (`components/rich-text.tsx`), and open in a new tab with `noopener`.
 - HSTS with a two-year max-age, `frame-ancestors 'none'`, `nosniff`,

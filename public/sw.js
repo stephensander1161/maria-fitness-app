@@ -40,6 +40,47 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/**
+ * A reminder arrives with no payload on purpose.
+ *
+ * The only notification this app sends says "time to weigh in", which the
+ * service worker already knows — so nothing about her passes through Apple's
+ * or Google's push service. See lib/push.ts.
+ */
+self.addEventListener("push", (event) => {
+  event.waitUntil(
+    self.registration.showNotification("Time to weigh in", {
+      body: "Ten seconds on the scale. No single reading is judged.",
+      icon: "/icon-192",
+      badge: "/icon-192",
+      // One reminder replaces the last rather than stacking up a column of
+      // them after a few days away.
+      tag: "coach-weigh-in",
+      renotify: true,
+      data: { url: "/progress" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/progress";
+  event.waitUntil(
+    (async () => {
+      // Focus the app if it is already open — opening a second window for an
+      // installed app is the thing that makes a PWA feel like a web page.
+      for (const client of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) {
+        if (new URL(client.url).origin === self.location.origin) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(url);
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;

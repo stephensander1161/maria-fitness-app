@@ -20,6 +20,13 @@ export type AuditEventName =
   | "login.rate_limited"
   | "logout"
   | "budget.changed"
+  // A device registered for notifications. Recorded because it is a new
+  // place her app can be reached, and never with the endpoint — that is an
+  // address someone else could push to.
+  | "push.registered"
+  // Counts only, never who: which person was reminded to stand on a scale
+  // is her business.
+  | "reminder.sent"
   | "data.exported"
   | "data.restored"
   /** Her data handed to a third party at her request — currently the

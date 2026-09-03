@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "ship": "bash scripts/ship.sh",
+    "vapid": "tsx scripts/vapid.ts",
     "eval": "tsx --env-file=.env evals/run.ts",
     "backup": "tsx --env-file=.env scripts/backup.ts",
     "restore": "tsx --env-file=.env scripts/restore.ts",
