@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -268,6 +268,9 @@ export const removePlannedMeal = defineTool({
     if (!row) return { ok: false, error: "Meal not found — call get_meal_plan for current ids." };
 
     await db.delete(meals).where(eq(meals.id, row.id));
+    // The week's blurb described the week as planned; it no longer does.
+    await db.update(mealPlans).set({ rationale: null })
+      .where(and(eq(mealPlans.profileId, ctx.profileId), isNotNull(mealPlans.rationale)));
     return { ok: true, removed: row.title, slot: row.slot };
   },
 });

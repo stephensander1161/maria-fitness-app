@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -143,6 +143,10 @@ export const substituteExercise = defineTool({
     await db.update(planExercises)
       .set({ exerciseId: replacement.id, targetWeightKg: null })
       .where(eq(planExercises.id, row.id));
+
+    // The week's blurb described the week as planned. It no longer does.
+    await db.update(plans).set({ rationale: null })
+      .where(and(eq(plans.id, plan.id), isNotNull(plans.rationale)));
 
     return {
       ok: true,

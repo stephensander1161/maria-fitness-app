@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -579,6 +579,27 @@ async function planDayFor(
   return { day, week, dow } as const;
 }
 
+/**
+ * The week's blurb was true when it was written, and is not any more.
+ *
+ * `plans.rationale` is either a template's description ("three full-body
+ * sessions a week with a pair of dumbbells and a bench") or the planner
+ * explaining the week it just built. Both describe a *specific* week. The
+ * moment she adds a fourth day or swaps half the movements, the sentence at
+ * the top of her plan is describing something that no longer exists — and it
+ * reads with more authority than anything else on the screen, because it is
+ * the only part written in prose.
+ *
+ * So a structural edit clears it. Nothing is better than stale: the same
+ * reason a rest day stops carrying a rest-day note the moment it has work in
+ * it, and the same reason a readiness document that has drifted is worse than
+ * no document at all.
+ */
+async function rationaleNoLongerApplies(planId: string) {
+  await db.update(plans).set({ rationale: null })
+    .where(and(eq(plans.id, planId), isNotNull(plans.rationale)));
+}
+
 export const addExerciseToDay = defineTool({
   name: "add_exercise_to_day",
   description:
@@ -618,6 +639,8 @@ export const addExerciseToDay = defineTool({
       restSeconds: input.restSeconds ?? 90,
       notes: input.notes ?? null,
     });
+
+    await rationaleNoLongerApplies(found.day.planId);
 
     // A day that was rest is no longer rest once it has work in it — and the
     // title and note written for a rest day go with it. Leaving them behind
@@ -664,6 +687,8 @@ export const removeExerciseFromDay = defineTool({
     if (removed.length === 0) {
       return { ok: false, error: `${ex.name} isn't scheduled on ${DAY_NAMES[found.dow]}.` };
     }
+
+    await rationaleNoLongerApplies(found.day.planId);
 
     // The mirror of add_exercise_to_day: a day with nothing left on it is a
     // rest day. Without this, emptying a day left a training day with no

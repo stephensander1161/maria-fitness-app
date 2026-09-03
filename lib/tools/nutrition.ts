@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns } from "@/lib/db/schema";
@@ -166,6 +166,11 @@ export const swapMeal = defineTool({
   handler: async (input, ctx) => {
     const mine = await herMeal(ctx.profileId, input.mealId);
     if (!mine) return { ok: false, error: "Meal not found — call get_meal_plan for current meal ids" };
+    // The meal week's blurb described the week as planned. Swapping a meal
+    // out of it makes that sentence a description of something else.
+    await db.update(mealPlans).set({ rationale: null })
+      .where(and(eq(mealPlans.id, mine.mealPlanId), isNotNull(mealPlans.rationale)));
+
     const [row] = await db.update(meals).set({
       title: input.title, calories: input.calories, proteinG: input.proteinG,
       carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
