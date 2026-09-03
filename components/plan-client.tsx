@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { MealWeekView, PickableExercise, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
-import { PlannedDay } from "./planned-day";
 import { DayTitle } from "./day-title";
 import { AddMeal } from "./add-meal";
 import { TrainClient, type NextTarget } from "./train-client";
@@ -23,7 +22,7 @@ import { TrainClient, type NextTarget } from "./train-client";
  * and selected on arrival, because that is the day she is standing in.
  */
 export function PlanClient({
-  week, mealWeek, tab, day, today, otherDay, pickable, targets,
+  week, mealWeek, tab, day, today, otherDay, otherDate, pickable, targets,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   tab: "training" | "food";
@@ -31,6 +30,7 @@ export function PlanClient({
   today: TodayView;
   /** The selected day, when it is not today. */
   otherDay: TodayView;
+  otherDate: string;
   pickable: { group: string; items: PickableExercise[] }[];
   targets: NextTarget[];
 }) {
@@ -113,8 +113,11 @@ export function PlanClient({
                 the library, which is what "click into the movement I just
                 did" used to get her.
               */}
-              {!isToday && otherDay && (
-                <PlannedDay view={otherDay} pickable={pickable} dayOfWeek={day} past={day < week.todayIndex} />
+              {/* The same cards as today, on whichever day she picked. A
+                  summary of the day was a different, worse screen for the
+                  same information — and it could not be edited. */}
+              {!isToday && (
+                <TrainClient view={otherDay} pickable={pickable} date={otherDate} isToday={false} />
               )}
             </section>
 

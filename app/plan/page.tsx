@@ -66,6 +66,7 @@ export default async function PlanPage({
         day={selected}
         today={today}
         otherDay={otherDay}
+        otherDate={selectedDate}
         pickable={pickable}
         targets={targets}
       />

@@ -65,6 +65,18 @@ export function TrainClient({
   const [finishing, setFinishing] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
+  /**
+   * A finished day is read-first.
+   *
+   * The cards are the same on every day, which is right — but a past session
+   * is something she is *reading*, and every control that logs a set is one
+   * mis-tap away from rewriting a workout she has already done. So the past
+   * arrives locked and she opens it deliberately. Today and the days ahead
+   * are for doing and planning, and are not locked.
+   */
+  const past = !isToday && date !== undefined && date < todayOnDevice();
+  const [unlocked, setUnlocked] = useState(false);
+  const editable = isToday || !past || unlocked;
   const [error, setError] = useState<string | null>(null);
   // The countdown lives above the router now, so it keeps running when she
   // wanders off to the food screen mid-rest.
@@ -146,7 +158,7 @@ export function TrainClient({
     return (
       <div className="space-y-4">
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
-        <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />
+        {editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }
@@ -174,6 +186,24 @@ export function TrainClient({
 
   return (
     <div className="space-y-4">
+      {past && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
+          <p className="min-w-0 text-[12px] text-faint">
+            {unlocked
+              ? "Editing a session you have already done."
+              : "A session you have already done. Locked so a stray tap cannot change it."}
+          </p>
+          <button
+            onClick={() => setUnlocked(!unlocked)}
+            className={`shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              unlocked ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted hover:bg-raised"
+            }`}
+          >
+            {unlocked ? "Done editing" : "Edit"}
+          </button>
+        </div>
+      )}
+
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -189,7 +219,8 @@ export function TrainClient({
           unit={view.unit}
           pickable={pickable}
           date={date}
-          canLog={isToday || (date !== undefined && date < todayOnDevice())}
+          canLog={editable}
+          editable={editable}
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
@@ -213,7 +244,7 @@ export function TrainClient({
       ))}
       </div>
 
-      <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />
+      {editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
 
       {/*
         Finishing is offered when there is a session to finish, not while she
@@ -531,7 +562,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 }
 
 export function ExerciseCard({
-  exercise, unit, next, result, pending, pickable, date, canLog = true,
+  exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
@@ -540,6 +571,8 @@ export function ExerciseCard({
   date?: string;
   /** False on a day that has not happened yet — nothing to record there. */
   canLog?: boolean;
+  /** False while a past day is locked: read it, do not rewrite it. */
+  editable?: boolean;
   result?: LogResult; pending: PendingSet[];
   onLogged: (r: LogResult | null, finishedExercise: boolean) => void;
   onRetryPending: () => void;
@@ -740,6 +773,7 @@ export function ExerciseCard({
             something else, and a relabel that loses the history is a delete
             wearing a friendly name.
           */}
+          {editable && (
           <button
             onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
             aria-label={`Change what ${exercise.name} is`}
@@ -753,13 +787,14 @@ export function ExerciseCard({
               <path d="M4 8h13l-3-3M20 16H7l3 3" />
             </svg>
           </button>
+          )}
           {/*
             Extras are not on the plan, so "remove" means deleting the sets
             themselves — the only thing holding them on the day. It used to
             mean no button at all, which left a movement she had logged once
             with no way off the screen.
           */}
-          {(!exercise.extra || setCount > 0) && (
+          {editable && (!exercise.extra || setCount > 0) && (
             <button
               onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
               aria-label={`Remove ${exercise.name} from today`}
@@ -831,7 +866,7 @@ export function ExerciseCard({
           return (
             <button
               key={i}
-              onClick={() => setEditingSet(editingSet === i + 1 ? null : i + 1)}
+              onClick={() => editable && setEditingSet(editingSet === i + 1 ? null : i + 1)}
               aria-label={`Edit set ${i + 1}: ${label}`}
               className={`${shape} transition-opacity hover:opacity-80 ${
                 editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""
@@ -843,7 +878,7 @@ export function ExerciseCard({
         })}
       </div>
 
-      {editingSet !== null && done[editingSet - 1] && (
+      {editable && editingSet !== null && done[editingSet - 1] && (
         <SetEditor
           slug={exercise.slug}
           setNumber={editingSet}
