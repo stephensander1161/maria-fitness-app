@@ -97,9 +97,8 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
     writePair(next);
   };
 
-  /** Both the gallery and the two date pickers start out of the way. */
+  /** The gallery starts out of the way; the comparison is the point. */
   const [browsing, setBrowsing] = useState(false);
-  const [editing, setEditing] = useState<"before" | "after" | null>(null);
 
   // Oldest first, so "before" and "after" read left to right.
   const shown = useMemo(() => {
@@ -260,7 +259,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
               {(["all", ...POSES.map((p) => p.key)] as const).map((key) => (
                 <button
                   key={key}
-                  onClick={() => { setFilter(key); setPair(null); setEditing(null); }}
+                  onClick={() => { setFilter(key); setPair(null); }}
                   className={`rounded-full px-3 py-1 text-[12px] ${
                     filter === key ? "bg-raised text-text" : "text-faint"
                   }`}
@@ -277,23 +276,26 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
 
           {before && after && (
             <>
-              {/* Tapping a photo is how you change it. The two dropdowns
-                  used to sit under the pair permanently, which is a form
-                  bolted to a picture. */}
+              {/*
+                Tapping a photo takes a new one.
+                It used to open a date dropdown, which is the rarer thing by a
+                long way — the reason she is looking at these is to add this
+                month's, and a form bolted under a picture was the old version
+                of the same mistake. Choosing *which* two to compare lives in
+                the grid below, where she is already looking at all of them.
+              */}
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => setEditing(editing === "before" ? null : "before")}
-                  disabled={shown.length < 2}
-                  aria-expanded={editing === "before"}
-                  className="text-left disabled:cursor-default"
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Add a photo"
+                  className="text-left"
                 >
                   <Side label="Before" photo={before} />
                 </button>
                 <button
-                  onClick={() => setEditing(editing === "after" ? null : "after")}
-                  disabled={shown.length < 2}
-                  aria-expanded={editing === "after"}
-                  className="text-left disabled:cursor-default"
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Add a photo"
+                  className="text-left"
                 >
                   <Side label="After" photo={after} />
                 </button>
@@ -302,24 +304,8 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
               <p className="mt-2 text-center text-[12px] text-muted">
                 {before.id === after.id
                   ? "One photo so far — add another next month and this becomes a comparison."
-                  : shown.length > 1 ? `${apart} · tap either to change it` : apart}
+                  : `${apart} · tap either to add a new one`}
               </p>
-
-              {editing && shown.length > 1 && (
-                <div className="mt-3">
-                  <Picker
-                    label={editing === "before" ? "Before" : "After"}
-                    value={editing === "before" ? before.id : after.id}
-                    options={shown}
-                    onChange={(id) => {
-                      setPair(editing === "before"
-                        ? { before: id, after: after.id }
-                        : { before: before.id, after: id });
-                      setEditing(null);
-                    }}
-                  />
-                </div>
-              )}
             </>
           )}
 
@@ -335,6 +321,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
               >
                 <span>
                   All photos{total && total > photos.length ? ` · newest ${photos.length} of ${total}` : ` · ${shown.length}`}
+                  <span className="ml-1.5 normal-case tracking-normal">— tap one to compare it</span>
                 </span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                   className={`transition-transform ${browsing ? "rotate-180" : ""}`} aria-hidden>
@@ -415,29 +402,6 @@ const Side = ({ label, photo }: { label: string; photo: ProgressPhoto }) => (
   </figure>
 );
 
-const Picker = ({
-  label, value, options, onChange,
-}: {
-  label: string;
-  value: string;
-  options: ProgressPhoto[];
-  onChange: (id: string) => void;
-}) => (
-  <label className="block">
-    <span className="mb-1 block text-[11px] uppercase tracking-wide text-faint">{label}</span>
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-line bg-surface px-2 py-2 text-[13px] text-text"
-    >
-      {options.map((p) => (
-        <option key={p.id} value={p.id}>
-          {prettyDate(p.date)}{p.pose ? ` · ${p.pose}` : ""}
-        </option>
-      ))}
-    </select>
-  </label>
-);
 
 /** "3 months apart" reads better than a date range when the point is the gap. */
 function monthsApart(from: string, to: string): string {
