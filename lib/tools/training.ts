@@ -731,6 +731,46 @@ export const deleteSet = defineTool({
   },
 });
 
+export const removeLoggedExercise = defineTool({
+  name: "remove_logged_exercise",
+  description:
+    "Takes a whole movement off a day and deletes every set logged against it — the case where the movement should not be there at all, not just one bad set. Use it when she says she never did that exercise, or logged it against the wrong day. delete_set is for a single set she got wrong; this is for all of them.",
+  input: z.object({
+    exerciseSlug: z.string(),
+    date: z.string().optional().describe("YYYY-MM-DD; defaults to her today"),
+  }),
+  handler: async (input, ctx) => {
+    const on = input.date ?? (await todayForProfile(ctx.profileId));
+
+    const [ex] = await db.select({ id: exercises.id, name: exercises.name })
+      .from(exercises).where(eq(exercises.slug, input.exerciseSlug)).limit(1);
+    if (!ex) return { ok: false, unknownSlugs: [input.exerciseSlug], error: "Use search_exercises." };
+
+    // Scoped through her own workout, like every other correction here —
+    // set_logs has no profile column, so ownership is two joins away.
+    const [session] = await db.select({ id: workouts.id }).from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, on)))
+      .limit(1);
+    if (!session) return { ok: false, error: `Nothing logged on ${on}.` };
+
+    const removed = await db.delete(setLogs)
+      .where(and(eq(setLogs.workoutId, session.id), eq(setLogs.exerciseId, ex.id)))
+      .returning({ id: setLogs.id });
+
+    if (removed.length === 0) {
+      return { ok: false, error: `No ${ex.name} sets logged on ${on}.` };
+    }
+
+    // Her training record, gone on request. The log keeps that it happened
+    // and not what it was.
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "exercise", date: on, sets: removed.length },
+    });
+
+    return { ok: true, exercise: ex.name, date: on, setsRemoved: removed.length };
+  },
+});
+
 export const correctSet = defineTool({
   name: "correct_set",
   description:

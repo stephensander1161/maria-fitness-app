@@ -77,9 +77,13 @@ export function AddExercise({
 
       {chosen && (
         <>
+          <p className="text-[12px] text-faint">
+            What you are aiming for today. The card counts your sets against it, and you
+            can log more or fewer — this is the target, not a limit.
+          </p>
           <div className="grid grid-cols-2 gap-3">
-            <NumberField label="Sets" value={sets} onChange={setSets} min={1} max={20} />
-            <NumberField label="Reps" value={reps} onChange={setReps} min={1} max={200} />
+            <NumberField label="Target sets" value={sets} onChange={setSets} min={1} max={20} />
+            <NumberField label="Target reps" value={reps} onChange={setReps} min={1} max={200} />
           </div>
 
           {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}

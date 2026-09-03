@@ -113,6 +113,7 @@ const all: Tool[] = [
   shopping.sendShoppingListToInstacart,
   training.deleteSet,
   training.correctSet,
+  training.removeLoggedExercise,
   nextTargets.getNextTargets,
   nextTargets.getWeeklyVolume,
   nextTargets.estimateOneRepMax,

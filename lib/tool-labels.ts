@@ -72,6 +72,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_boost: "finding you a boost", get_coach_usage: "checking your coach usage",
   set_coach_budget: "updating your allowance",
   change_exercise: "renaming that movement",
+  remove_logged_exercise: "taking that movement off the day",
   export_transcript: "writing out your conversation",
   submit_feedback: "passing that on", list_feedback: "reading your feedback",
 };

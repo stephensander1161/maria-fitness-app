@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/session";
 import { getProfile, profileToday } from "@/lib/profile";
 import { factForDay } from "@/lib/facts";
+import { FactCard } from "@/components/fact-card";
 
 /**
  * One thing worth knowing, at the bottom of every screen.
@@ -11,7 +12,7 @@ import { factForDay } from "@/lib/facts";
  *
  * The same fact all day, deliberately: a new one per page load would burn the
  * whole library in an afternoon, and every one of them would be recorded as
- * read.
+ * read. Reading on is a tap, not a page load — see FactCard.
  */
 export async function DailyFact() {
   const user = await currentUser();
@@ -22,11 +23,5 @@ export async function DailyFact() {
   const fact = await factForDay(profile.id, profileToday(profile));
   if (!fact) return null;
 
-  return (
-    <aside className="mt-8 rounded-2xl border border-line bg-surface px-4 py-3.5">
-      <p className="text-[10px] uppercase tracking-wide text-accent">Did you know</p>
-      <p className="mt-1 text-[13px] leading-relaxed text-text">{fact.text}</p>
-      {fact.source && <p className="mt-1.5 text-[11px] text-faint">{fact.source}</p>}
-    </aside>
-  );
+  return <FactCard first={fact} />;
 }

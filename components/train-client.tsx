@@ -491,7 +491,14 @@ function ExerciseCard({
     setRemoving(true);
     setError(null);
     try {
-      await action("remove_exercise_from_day", { slug: exercise.slug });
+      // An extra is held on the day by its sets and nothing else, so removing
+      // it *is* deleting them. Said plainly in the confirm above, because this
+      // is the one remove on this screen that loses work she did.
+      if (exercise.extra) {
+        await action("remove_logged_exercise", { exerciseSlug: exercise.slug });
+      } else {
+        await action("remove_exercise_from_day", { slug: exercise.slug });
+      }
       onRemoved();
       setConfirmRemove(false);
     } catch (err) {
@@ -585,10 +592,15 @@ function ExerciseCard({
               <path d="M4 8h13l-3-3M20 16H7l3 3" />
             </svg>
           </button>
-          {/* Extras aren't on the plan, so there is nothing to remove them from. */}
-          {!exercise.extra && (
+          {/*
+            Extras are not on the plan, so "remove" means deleting the sets
+            themselves — the only thing holding them on the day. It used to
+            mean no button at all, which left a movement she had logged once
+            with no way off the screen.
+          */}
+          {(!exercise.extra || setCount > 0) && (
             <button
-              onClick={() => setConfirmRemove(!confirmRemove)}
+              onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
               aria-label={`Remove ${exercise.name} from today`}
               className="grid size-8 place-items-center rounded-full border border-line text-muted"
             >
@@ -613,7 +625,11 @@ function ExerciseCard({
       {confirmRemove && (
         <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2">
           <p className="flex-1 text-[12px] text-muted">
-            {setCount > 0 ? "Remove from today's plan? Your logged sets stay." : "Remove from today?"}
+            {exercise.extra
+              ? `Delete ${setCount} logged set${setCount === 1 ? "" : "s"} of ${exercise.name}?`
+              : setCount > 0
+                ? "Remove from today's plan? Your logged sets stay."
+                : "Remove from today?"}
           </p>
           <button onClick={() => setConfirmRemove(false)} className="-my-1 px-2.5 py-2.5 text-[12px] text-muted">Keep</button>
           <button onClick={removeFromToday} disabled={removing}

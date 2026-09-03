@@ -175,15 +175,58 @@ function useScreenAwake(active: boolean) {
  */
 const TUMBLE = ["squat", "hinge", "lunge", "cardio", "rotation", "carry"] as const;
 
-function TumblingFigure({ ms }: { ms: number }) {
-  const pattern = PATTERNS[TUMBLE[Math.floor(Math.max(0, ms) / 750) % TUMBLE.length]] ?? PATTERNS.squat;
-  const j = pattern.end;
+/** How long one pose takes to melt into the next. */
+const POSE_MS = 620;
+/** One length of the bar, there or back. Faster than the bar it runs on. */
+const LAP_MS = 2600;
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const lerpPoint = (
+  a: [number, number], b: [number, number], t: number,
+): [number, number] => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+
+/** Ease in and out, so a pose arrives and leaves rather than snapping. */
+const ease = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * Where the runner is along the bar, 0–100, bouncing off both ends.
+ *
+ * Deliberately not tied to the countdown. Riding the burning end of the fuse
+ * sounded right and read as a stutter — the bar creeps, so the figure crept
+ * with it. It is quicker than the thing it runs on, and turns around when it
+ * gets to the end.
+ */
+function lapPosition(elapsedMs: number): number {
+  const phase = (elapsedMs % (LAP_MS * 2)) / LAP_MS;
+  return (phase <= 1 ? phase : 2 - phase) * 100;
+}
+
+function TumblingFigure({ elapsed }: { elapsed: number }) {
+  // Blend between consecutive poses rather than cutting between them. Six
+  // drawings swapped on a timer is a flip-book; six drawings interpolated is
+  // a body moving.
+  const step = elapsed / POSE_MS;
+  const i = Math.floor(step) % TUMBLE.length;
+  const from = PATTERNS[TUMBLE[i]] ?? PATTERNS.squat;
+  const to = PATTERNS[TUMBLE[(i + 1) % TUMBLE.length]] ?? PATTERNS.squat;
+  const t = ease(step - Math.floor(step));
+
+  const j = {
+    head: lerpPoint(from.end.head, to.end.head, t),
+    shoulder: lerpPoint(from.end.shoulder, to.end.shoulder, t),
+    elbow: lerpPoint(from.end.elbow, to.end.elbow, t),
+    hand: lerpPoint(from.end.hand, to.end.hand, t),
+    hip: lerpPoint(from.end.hip, to.end.hip, t),
+    knee: lerpPoint(from.end.knee, to.end.knee, t),
+    foot: lerpPoint(from.end.foot, to.end.foot, t),
+  };
+
   const line = (a: [number, number], b: [number, number]) =>
     `M${a[0]},${a[1]}L${b[0]},${b[1]}`;
 
   return (
-    <svg width="20" height="20" viewBox="0 0 100 100" className="rest-tumble" aria-hidden>
-      <g stroke="currentColor" strokeWidth="6" strokeLinecap="round" fill="none">
+    <svg width="22" height="22" viewBox="0 0 100 100" className="rest-tumble" aria-hidden>
+      <g stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none">
         <circle cx={j.head[0]} cy={j.head[1]} r="7" fill="currentColor" stroke="none" />
         <path d={line(j.shoulder, j.hip)} />
         <path d={line(j.shoulder, j.elbow)} />
@@ -196,6 +239,34 @@ function TumblingFigure({ ms }: { ms: number }) {
 }
 
 /* ----------------------------------------------------------------- bar ---- */
+
+/**
+ * A frame clock for the one thing on this bar that has to move smoothly.
+ *
+ * The countdown repaints four times a second, which is right for a number
+ * counting down and far too coarse for a figure running along a bar — at
+ * 250ms it lurches. This runs only while there is something to animate, and
+ * not at all when she has asked for less motion.
+ */
+function useFrameClock(active: boolean): number {
+  // Zero until the first frame lands, which is also the server's value — so
+  // there is nothing to mismatch on hydration.
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    let raf = 0;
+    const loop = () => {
+      setNow(Date.now());
+      // One frame is enough when she has asked for less motion: the figure
+      // takes a position and holds it.
+      if (!still) raf = window.requestAnimationFrame(loop);
+    };
+    raf = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(raf);
+  }, [active]);
+  return now;
+}
 
 /** Milliseconds left, recomputed from the clock — never accumulated. */
 function useRemaining(endsAt: number) {
@@ -237,6 +308,12 @@ export function RestTimerBar({
 }) {
   const ms = useRemaining(rest.endsAt);
   const over = ms <= 0;
+  // Elapsed, not remaining: the runner's pace is its own and does not slow
+  // down as the rest runs out. Read from the clock rather than from `ms`, so
+  // it is smooth between the countdown's four repaints a second.
+  const now = useFrameClock(!over);
+  const startedAt = rest.endsAt - rest.seconds * 1000;
+  const elapsed = now === 0 ? 0 : now - startedAt;
   const firedFor = useRef<number | null>(null);
 
   useScreenAwake(!over);
@@ -339,17 +416,16 @@ export function RestTimerBar({
           <div className="relative h-1 bg-raised">
             <div className="h-full bg-accent transition-[width] duration-200 ease-linear" style={{ width: `${pct}%` }} />
             {/*
-              A figure riding the burning end of the fuse, cartwheeling
-              backwards as the bar retreats under it. It is decoration and it
-              knows it — aria-hidden, and it holds still under
-              prefers-reduced-motion.
+              A figure cartwheeling up and down the bar, standing on it rather
+              than hovering above it. It is decoration and it knows it —
+              aria-hidden, and it holds still under prefers-reduced-motion.
             */}
             <span
               aria-hidden
-              className="rest-tumbler absolute -top-3 -ml-2 text-accent transition-[left] duration-200 ease-linear"
-              style={{ left: `${pct}%` }}
+              className="absolute bottom-full text-accent"
+              style={{ left: `${lapPosition(elapsed)}%`, transform: "translateX(-50%)" }}
             >
-              <TumblingFigure ms={ms} />
+              <TumblingFigure elapsed={elapsed} />
             </span>
           </div>
         )}

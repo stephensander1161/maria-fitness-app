@@ -161,6 +161,37 @@ export const PATTERNS: Record<string, Pattern> = {
       hip: [50, 56], knee: [50, 76], foot: [50, 94],
     },
   },
+  /**
+   * Sitting on a bench, leaning back, punching across the body.
+   *
+   * It used to fall through to the plank, which is a person lying face down —
+   * about as wrong as a drawing can be for a movement done sitting up. The
+   * angle of the torso is the whole point: the abs hold it there, and that is
+   * why this is a core exercise and not an arm one.
+   */
+  punch: {
+    label: "Sit leaning back, turn through the middle and punch across",
+    start: {
+      head: [26, 40], shoulder: [32, 52], elbow: [38, 60], hand: [32, 64],
+      hip: [44, 72], knee: [62, 78], foot: [74, 93],
+    },
+    end: {
+      head: [26, 40], shoulder: [32, 52], elbow: [48, 54], hand: [64, 47],
+      hip: [44, 72], knee: [62, 78], foot: [74, 93],
+    },
+  },
+  /** Flat on the floor, folding into a V — both ends lifting at once. */
+  vSit: {
+    label: "Lift the arms and legs together into a V",
+    start: {
+      head: [18, 84], shoulder: [28, 88], elbow: [20, 84], hand: [12, 80],
+      hip: [52, 92], knee: [70, 92], foot: [88, 92],
+    },
+    end: {
+      head: [24, 52], shoulder: [32, 62], elbow: [38, 58], hand: [50, 54],
+      hip: [52, 92], knee: [66, 72], foot: [76, 54],
+    },
+  },
   cardio: {
     label: "Steady, upright, keep moving",
     start: {
@@ -196,6 +227,9 @@ export type PatternKey = keyof typeof PATTERNS;
  * cases sit above the general ones.
  */
 const RULES: [RegExp, PatternKey][] = [
+  // Before the plank rule, which otherwise catches these through `category`.
+  [/punch|jab|boxer/, "punch"],
+  [/v-?up|jackknife|sit-?up|toe-touch|pike-crunch/, "vSit"],
   [/plank|hollow|dead-?bug|bird-?dog|superman|ab-wheel|crunch|knee-raise/, "plank"],
   [/pallof|woodchop|rotation|twist|russian/, "rotation"],
   [/carry|suitcase|farmer|rack-walk|weighted-walk/, "carry"],

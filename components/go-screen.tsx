@@ -11,9 +11,11 @@ import { ExerciseFigure } from "./exercise-figure";
  * screen for a moment: the frame lights up like a fuse burning round the edge,
  * the word lands, and it goes away the instant she touches anything.
  *
- * Deliberately not a modal — no focus trap, no dismissal she has to find. Any
- * tap, any key, or five seconds, and it is gone. Nothing behind it is blocked
- * for longer than that.
+ * It stays until she puts it away. A timeout was wrong for the one case this
+ * exists for — the phone face-down on a bench while she racks a weight. Coming
+ * back to a screen that had already given up is exactly the miss it is meant
+ * to prevent. Any tap or any key clears it, and there is nothing to find: the
+ * whole screen is the dismiss target.
  */
 export function GoScreen({
   name, slug, category, onDismiss,
@@ -31,11 +33,9 @@ export function GoScreen({
       dismissed.current = true;
       onDismiss();
     };
-    const timer = window.setTimeout(go, 5000);
     window.addEventListener("keydown", go);
     window.addEventListener("pointerdown", go);
     return () => {
-      window.clearTimeout(timer);
       window.removeEventListener("keydown", go);
       window.removeEventListener("pointerdown", go);
     };
@@ -72,7 +72,7 @@ export function GoScreen({
           GO
         </p>
         <p className="go-sub mt-3 text-[15px] font-medium text-text">{name}</p>
-        <p className="go-sub mt-1 text-[12px] text-faint">Tap anywhere</p>
+        <p className="go-sub mt-1 text-[12px] text-faint">Tap anywhere to clear</p>
       </div>
     </div>
   );

@@ -8,6 +8,12 @@ import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import type { MealWeekView, WeekView } from "@/lib/views";
 
+/** The gym name she typed, when it is not the name on the row. */
+function matchedTag(tags: string[], q: string): string | null {
+  if (!q) return null;
+  return tags.find((t) => t.includes(q)) ?? null;
+}
+
 type Item = {
   slug: string; name: string; category: string;
   primaryMuscles: string[]; equipment: string[];
@@ -46,8 +52,9 @@ export function Library({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("all");
 
+  const q = query.trim().toLowerCase();
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return exercises.filter(
       (e) =>
         (category === "all" || groupForExercise(e) === category) &&
@@ -58,7 +65,7 @@ export function Library({
           // "bow extension" should find the overhead triceps extension.
           e.tags.some((t) => t.includes(q))),
     );
-  }, [exercises, query, category]);
+  }, [exercises, q, category]);
 
   // Grouped by what a movement works, not by whether a textbook calls it
   // compound — that bucket held sixty-three of a hundred and sixty, which is
@@ -157,7 +164,16 @@ export function Library({
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium">{e.name}</p>
-                      <p className="truncate text-[12px] text-faint">{e.primaryMuscles.join(" · ")}</p>
+                      {/* Say which of her words matched, or "bow extension"
+                          returning "Overhead Triceps Extension" reads as the
+                          wrong answer. */}
+                      {matchedTag(e.tags, q) ? (
+                        <p className="truncate text-[12px] text-accent">
+                          also &ldquo;{matchedTag(e.tags, q)}&rdquo;
+                        </p>
+                      ) : (
+                        <p className="truncate text-[12px] text-faint">{e.primaryMuscles.join(" · ")}</p>
+                      )}
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                       strokeWidth="2" className="shrink-0 text-faint"><path d="m9 18 6-6-6-6" /></svg>

@@ -4,6 +4,12 @@ import { useMemo, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
 import type { PickableExercise } from "@/lib/views";
 
+/** The gym name she typed, when it is not the name on the card. */
+function aliasFor(tags: string[], q: string): string | null {
+  if (!q) return null;
+  return tags.find((t) => t.includes(q)) ?? null;
+}
+
 /**
  * Choose a movement by looking at it.
  *
@@ -35,8 +41,9 @@ export function MovementPicker({
     [groups],
   );
 
+  const q = query.trim().toLowerCase();
+
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
     if (q) {
       return all.filter((i) =>
         i.name.toLowerCase().includes(q)
@@ -45,7 +52,7 @@ export function MovementPicker({
         || i.tags.some((t) => t.includes(q)));
     }
     return group ? all.filter((i) => i.group === group) : [];
-  }, [all, group, query]);
+  }, [all, group, q]);
 
   return (
     <div className="space-y-4">
@@ -96,7 +103,19 @@ export function MovementPicker({
               <span className={`text-[12px] leading-tight ${value === i.slug ? "text-accent" : "text-text"}`}>
                 {i.name}
               </span>
-              <span className="text-[10px] leading-tight text-faint">{i.muscles.slice(0, 2).join(" · ")}</span>
+              {/*
+                She searched for "bow extension" and this is the overhead
+                triceps extension. Matching silently and showing only the
+                library's name reads as the wrong result — say which of her
+                words this answers to.
+              */}
+              {aliasFor(i.tags, q) ? (
+                <span className="text-[10px] leading-tight text-accent">
+                  also &ldquo;{aliasFor(i.tags, q)}&rdquo;
+                </span>
+              ) : (
+                <span className="text-[10px] leading-tight text-faint">{i.muscles.slice(0, 2).join(" · ")}</span>
+              )}
             </button>
           ))}
         </div>
