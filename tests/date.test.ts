@@ -4,6 +4,8 @@ import {
   addDays,
   dayIndex,
   daysBetween,
+  greetingFor,
+  hourIn,
   isFuture,
   prettyDate,
   today,
@@ -248,5 +250,42 @@ describe("the future-date guard", () => {
   it("lets someone a day ahead of the server log their own today", () => {
     // Server on the 1st, her on the 2nd in Kiritimati.
     expect(isFuture("2026-09-02", "2026-09-02")).toBe(false);
+  });
+});
+
+
+describe("the time of day, where she is", () => {
+  it("names the part of the day the way English does", () => {
+    expect(greetingFor(5)).toBe("Good morning");
+    expect(greetingFor(11)).toBe("Good morning");
+    expect(greetingFor(12)).toBe("Good afternoon");
+    expect(greetingFor(17)).toBe("Good afternoon");
+    expect(greetingFor(18)).toBe("Good evening");
+    expect(greetingFor(21)).toBe("Good evening");
+    // Someone still up at one in the morning would rather be told it is night
+    // than be wished a good evening.
+    expect(greetingFor(22)).toBe("Good night");
+    expect(greetingFor(1)).toBe("Good night");
+    expect(greetingFor(4)).toBe("Good night");
+  });
+
+  it("covers every hour, so none falls through with nothing to say", () => {
+    for (let h = 0; h < 24; h += 1) {
+      expect(greetingFor(h), `hour ${h}`).toMatch(/^Good (morning|afternoon|evening|night)$/);
+    }
+  });
+
+  it("reads the hour in her zone, not the server's", () => {
+    // The same instant is a different hour in two places. Greeting someone
+    // "good morning" at nine in the evening because the box is in another
+    // country is the small version of filing her dinner on the wrong day.
+    const a = hourIn("Pacific/Auckland");
+    const b = hourIn("America/Los_Angeles");
+    for (const h of [a, b]) {
+      expect(Number.isInteger(h)).toBe(true);
+      expect(h).toBeGreaterThanOrEqual(0);
+      expect(h).toBeLessThan(24);
+    }
+    expect(a).not.toBe(b);
   });
 });

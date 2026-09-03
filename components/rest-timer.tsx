@@ -201,6 +201,28 @@ function lapPosition(elapsedMs: number): number {
   return (phase <= 1 ? phase : 2 - phase) * 100;
 }
 
+/** How long one hop takes, and how high it goes in pixels. */
+const HOP_MS = 700;
+const HOP_PX = 9;
+
+/**
+ * How far off the bar the figure is, in pixels.
+ *
+ * A ball on a flat floor: up fast, over the top, down fast, and a beat on the
+ * ground before the next one. `1 - (2t - 1)²` is a parabola through zero at
+ * both ends and one in the middle, which is exactly the shape a thrown thing
+ * makes — running the whole hop as a sine wave instead gives a hover, and a
+ * figure that hovers is floating rather than bouncing.
+ */
+function hopHeight(elapsedMs: number): number {
+  // A fifth of each cycle is spent on the ground, so the hops read as
+  // separate rather than as one continuous wobble.
+  const t = (elapsedMs % HOP_MS) / HOP_MS / 0.8;
+  if (t >= 1) return 0;
+  const arc = 1 - (2 * t - 1) ** 2;
+  return arc * HOP_PX;
+}
+
 function TumblingFigure({ elapsed }: { elapsed: number }) {
   // Blend between consecutive poses rather than cutting between them. Six
   // drawings swapped on a timer is a flip-book; six drawings interpolated is
@@ -436,7 +458,10 @@ export function RestTimerBar({
               className="absolute bottom-full"
               style={{
                 left: `${lapPosition(elapsed)}%`,
-                transform: "translateX(-50%)",
+                // Bouncing as well as running: the vertical hop is its own
+                // rhythm, faster than the length of the bar, so the two do not
+                // fall into step and turn back into a single slide.
+                transform: `translate(-50%, ${-hopHeight(elapsed)}px)`,
                 color: `color-mix(in srgb, var(--color-miss) ${Math.round(100 - pct)}%, var(--color-accent))`,
               }}
             >

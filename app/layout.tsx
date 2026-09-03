@@ -6,6 +6,7 @@ import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
+import { MobileGreeting } from "@/components/mobile-greeting";
 import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 lay out in more columns as it does.
               */}
               <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
+                <MobileGreeting />
                 {children}
                 <DailyFact />
                 {/* The end of the page, where feedback belongs — it used to

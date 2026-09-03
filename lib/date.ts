@@ -25,6 +25,37 @@ export function toISODate(d: Date, tz: string = APP_TIMEZONE): ISODate {
 
 export const today = (tz: string = APP_TIMEZONE): ISODate => toISODate(new Date(), tz);
 
+/**
+ * The hour of the day where she is, 0–23.
+ *
+ * Same rule as every date in this app: computed in her timezone, never the
+ * server's. Greeting someone "good morning" at nine in the evening because
+ * the box is in another country is the small, silly version of filing her
+ * dinner on the wrong day.
+ */
+export function hourIn(tz: string = APP_TIMEZONE): number {
+  const h = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz, hour: "2-digit", hour12: false,
+  }).format(new Date());
+  // "24" is how some zones render midnight under hourCycle h24.
+  return Number(h) % 24;
+}
+
+/**
+ * What to call the time of day.
+ *
+ * The boundaries are the ordinary English ones rather than anything clever:
+ * morning until noon, afternoon until six, evening until ten, and night after
+ * that — which is also when someone still awake would rather be told it is
+ * night than be wished a good evening.
+ */
+export function greetingFor(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 18) return "Good afternoon";
+  if (hour >= 18 && hour < 22) return "Good evening";
+  return "Good night";
+}
+
 /** Parse 'YYYY-MM-DD' as a UTC instant — no local-time interpretation. */
 const parse = (date: ISODate): number => {
   const [y, m, d] = date.split("-").map(Number);
