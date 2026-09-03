@@ -618,9 +618,16 @@ export const addExerciseToDay = defineTool({
       notes: input.notes ?? null,
     });
 
-    // A day that was rest is no longer rest once it has work in it.
+    // A day that was rest is no longer rest once it has work in it — and the
+    // title and note written for a rest day go with it. Leaving them behind
+    // is how a day with a workout on it kept telling her to go for a walk
+    // instead: the flag had flipped, the words had not.
     if (found.day.isRest) {
-      await db.update(planDays).set({ isRest: false }).where(eq(planDays.id, found.day.id));
+      const wasPlaceholder = /^rest\b/i.test(found.day.title);
+      await db.update(planDays).set({
+        isRest: false,
+        ...(wasPlaceholder ? { title: `${DAY_NAMES[found.dow]} session`, notes: null } : {}),
+      }).where(eq(planDays.id, found.day.id));
     }
     return { ok: true, added: ex.name, day: DAY_NAMES[found.dow] };
   },
@@ -659,7 +666,9 @@ export const removeExerciseFromDay = defineTool({
     const [{ left }] = await db.select({ left: sql<number>`count(*)::int` })
       .from(planExercises).where(eq(planExercises.planDayId, found.day.id));
     if (left === 0 && !found.day.isRest) {
-      await db.update(planDays).set({ isRest: true }).where(eq(planDays.id, found.day.id));
+      // Same in reverse: the session's name is not the name of a rest day.
+      await db.update(planDays).set({ isRest: true, title: "Rest", notes: null })
+        .where(eq(planDays.id, found.day.id));
     }
 
     return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow], nowRest: left === 0 };

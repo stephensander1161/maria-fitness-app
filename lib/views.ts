@@ -18,6 +18,25 @@ import { streakWeeks, titleFor } from "@/lib/titles";
  * Read models for the screens. Pages render from these; mutations always go
  * back through the tool registry, so there's exactly one write path.
  */
+
+/**
+ * A day that stopped being a rest day should stop talking like one.
+ *
+ * The templates ship a rest day with a title of "Rest" and a note saying a
+ * walk beats sitting still. Adding a movement flips the flag; for a while it
+ * left the words behind, so a day with a workout on it was still telling her
+ * to go for a walk instead. The tool clears them now — this heals the rows
+ * that were already written, and defends the screens against any future path
+ * that flips the flag and forgets.
+ */
+function restWordsFor(day: { title: string; isRest: boolean; notes: string | null }) {
+  const stale = !day.isRest && /^rest\b/i.test(day.title);
+  return {
+    title: stale ? "Session" : day.title,
+    isRest: day.isRest,
+    notes: stale ? null : day.notes,
+  };
+}
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
   /** Drives the wireframe figure's fallback when the name matches no pattern. */
@@ -128,7 +147,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   return {
     ...base,
     hasPlan: true,
-    title: day.title, focus: day.focus, isRest: day.isRest, notes: day.notes,
+    ...restWordsFor(day),
     completed: workout?.completedAt != null,
     exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
@@ -195,8 +214,8 @@ export async function weekView(
     weekStart: week, exists: true, title: plan.title, rationale: plan.rationale,
     todayIndex: dayIndex(asOf), unit: weightLabel(units),
     days: days.map((d) => ({
-      dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek], title: d.title,
-      focus: d.focus, isRest: d.isRest, notes: d.notes,
+      dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek],
+      focus: d.focus, ...restWordsFor(d),
       exercises: items.filter((i) => i.planDayId === d.id).map((i) => ({
         slug: i.slug, name: i.name, notes: i.notes,
         target: `${i.sets}×${i.reps}${i.weightKg !== null ? ` @ ${weightOut(i.weightKg, units)}${weightLabel(units)}` : ""}`,

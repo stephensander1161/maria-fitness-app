@@ -6,6 +6,7 @@ import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
 import { PlannedDay } from "./planned-day";
 import { DayTitle } from "./day-title";
+import { AddMeal } from "./add-meal";
 import { TrainClient, type NextTarget } from "./train-client";
 
 /**
@@ -148,13 +149,17 @@ export function PlanClient({
               sub={foodDay && foodDay.meals.length > 0 ? `${foodDay.proteinG}g protein` : null}
             />
             {foodDay && foodDay.meals.length > 0 ? (
-              <div>{foodDay.meals.map((m) => <MealRow key={m.id} meal={m} />)}</div>
+              <div>{foodDay.meals.map((m) => <MealRow key={m.id} meal={m} dayOfWeek={day} />)}</div>
             ) : (
               <p className="py-2 text-[13px] leading-relaxed text-faint">
                 Nothing planned for this day. Ask your coach for meals, or just log what you eat
                 on the Eat screen — a day you eat off-plan is still a logged day.
               </p>
             )}
+            {/* Add to the day, in the slot she picks — the other half of
+                being able to change what is planned. */}
+            <AddMeal dayOfWeek={day} />
+
             {day === mealWeek.todayIndex && (
               <Link href="/eat"
                 className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-ink">
