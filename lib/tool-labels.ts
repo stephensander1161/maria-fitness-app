@@ -54,6 +54,8 @@ export const TOOL_LABELS: Record<string, string> = {
   send_shopping_list_to_instacart: "sending your list to Instacart",
   log_measurement: "saving your measurement", get_measurements: "checking your measurements",
   get_measuring_guide: "pulling up the measuring guide",
+  estimate_body_composition: "working that out from your measurements",
+  get_strength_standard: "seeing where that lift sits",
   get_exercise_progression: "tracking your progression",
   check_progression_status: "seeing what's still moving", schedule_deload: "planning a lighter week",
   get_next_targets: "working out your weights", get_weekly_volume: "adding up your week", estimate_one_rep_max: "estimating your max",

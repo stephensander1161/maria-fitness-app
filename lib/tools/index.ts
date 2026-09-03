@@ -20,6 +20,7 @@ import * as swaps from "./swaps";
 import * as cycle from "./cycle-tools";
 import * as phases from "./phases";
 import * as batch from "./batch-cooking";
+import * as composition from "./composition";
 import * as deload from "./deload-tools";
 import * as setup from "./setup";
 import * as transcript from "./transcript";
@@ -56,6 +57,8 @@ const all: Tool[] = [
   corrections.forgetConversation,
   deload.checkProgressionStatus,
   deload.scheduleDeload,
+  composition.estimateBodyComp,
+  composition.getStrengthStandard,
   batch.logCookSession,
   batch.listPreppedPortions,
   batch.eatPreppedPortion,

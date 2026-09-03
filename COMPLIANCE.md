@@ -125,6 +125,15 @@ the plan stops prescribing the thing that aggravates it, the cycle log so a
 fluid rise on the scale is explained rather than reported as a gain, and so she
 can decide to move a session.
 
+A body-fat estimate is derived from her tape measurements (US Navy
+circumference method) for one purpose: the lowest intake she can safely be set
+is computed from her lean mass rather than from a formula, and
+`set_nutrition_targets` enforces that floor where no prompt can reach it. The
+estimate is stated with its uncertainty — about four percentage points — and
+the coach is instructed to lead with the change over months rather than the
+level, because the level is mostly noise and is exactly the kind of figure
+someone watches daily.
+
 The cycle data is the most sensitive thing in this database after the progress
 photos. It is never used to prescribe training by phase — that is ahead of the
 evidence — and the coach is instructed never to raise the subject unless she

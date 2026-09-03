@@ -1,7 +1,8 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { mealLogs, mealPlans, profiles, weighIns } from "@/lib/db/schema";
+import { mealLogs, mealPlans, measurements, profiles, weighIns } from "@/lib/db/schema";
+import { energyFloorKcal, estimateBodyComposition } from "@/lib/body-composition";
 import { addDays, weekStart } from "@/lib/date";
 import { todayForProfile, ageFrom } from "@/lib/profile";
 import { cmToIn, weightLabel, weightOut } from "@/lib/units";
@@ -10,6 +11,38 @@ import { nutritionTargets, CALORIE_FLOOR } from "@/lib/nutrition";
 import { defineTool } from "./define";
 
 const WINDOW_DAYS = 21;
+
+/**
+ * The lowest intake her lean mass will tolerate, when the tape can tell us.
+ *
+ * Null rather than a guess when waist, hips or neck are missing — a floor
+ * invented from a default body composition is exactly the kind of number that
+ * should never quietly govern how little someone eats.
+ */
+async function leanMassFloor(profileId: string): Promise<number | null> {
+  const [profile] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  if (!profile?.heightCm) return null;
+
+  const rows = await db.select().from(measurements)
+    .where(eq(measurements.profileId, profileId))
+    .orderBy(desc(measurements.date));
+  const latest = new Map<string, number>();
+  for (const r of rows) if (!latest.has(r.site)) latest.set(r.site, r.valueCm);
+
+  const [waist, hip, neck] = [latest.get("waist"), latest.get("hips"), latest.get("neck")];
+  if (waist === undefined || hip === undefined || neck === undefined) return null;
+
+  const [weigh] = await db.select({ weightKg: weighIns.weightKg })
+    .from(weighIns).where(eq(weighIns.profileId, profileId))
+    .orderBy(desc(weighIns.date)).limit(1);
+  const weightKg = weigh?.weightKg ?? profile.startWeightKg;
+  if (weightKg === null) return null;
+
+  const composition = estimateBodyComposition({
+    waistCm: waist, hipCm: hip, neckCm: neck, heightCm: profile.heightCm, weightKg,
+  });
+  return composition ? energyFloorKcal(composition.fatFreeMassKg) : null;
+}
 
 /**
  * The weekly check-in: what she actually burns, and what to eat because of it.
@@ -110,7 +143,9 @@ export const runCheckIn = defineTool({
     });
     const bmr = formula.maintenanceCalories / (profile.daysPerWeek && profile.daysPerWeek >= 4 ? 1.55 : 1.375);
 
-    const proposal = proposeTarget(measured.tdee, weightKg, bmr);
+    // Lean mass where the tape allows it, resting burn otherwise.
+    const lean = await leanMassFloor(ctx.profileId);
+    const proposal = proposeTarget(measured.tdee, weightKg, Math.max(bmr, lean ?? 0));
     const current = plan?.calorieTarget ?? null;
 
     return {
@@ -130,7 +165,8 @@ export const runCheckIn = defineTool({
       expectedRate: `${weightOut(proposal.rateKgPerWeek, units)}${unit} a week`,
       limitedBy: proposal.limitedBy,
       note: proposal.note,
-      floor: Math.max(CALORIE_FLOOR, Math.round(bmr)),
+      floor: Math.max(CALORIE_FLOOR, Math.round(bmr), lean ?? 0),
+      floorFrom: lean !== null && lean >= bmr ? "lean mass" : "resting burn",
       hint: current === null
         ? "No target set for this week yet — offer the proposed one."
         : Math.abs(proposal.calorieTarget - current) < 75
@@ -162,8 +198,12 @@ export const setNutritionTargets = defineTool({
     const age = ageFrom(profile.birthYear, asOf);
 
     // The floor is enforced here rather than in the caller, so no prompt and
-    // no screen can talk it lower.
+    // no screen can talk it lower. Lean mass beats a BMR formula when the tape
+    // can supply it: under about 30 kcal per kg of fat-free mass is low energy
+    // availability, which costs bone density and menstrual function rather
+    // than a slower week of fat loss.
     let floor = CALORIE_FLOOR;
+    const lean = await leanMassFloor(ctx.profileId);
     if (weightKg !== null && profile.heightCm !== null && age !== null) {
       const formula = nutritionTargets({
         weightKg,
@@ -177,6 +217,7 @@ export const setNutritionTargets = defineTool({
         Math.round(formula.maintenanceCalories / (profile.daysPerWeek && profile.daysPerWeek >= 4 ? 1.55 : 1.375)),
       );
     }
+    if (lean !== null) floor = Math.max(floor, lean);
 
     const asked = Math.round(input.calorieTarget);
     const calorieTarget = Math.max(floor, asked);
@@ -202,8 +243,9 @@ export const setNutritionTargets = defineTool({
       mealsKept: existing !== undefined,
       raisedToFloor: calorieTarget > asked,
       note: calorieTarget > asked
-        ? `Asked for ${asked}; set to ${calorieTarget}, which is what she burns at rest. Tell her that plainly — under it she loses muscle and bone, not fat.`
+        ? `Asked for ${asked}; set to ${calorieTarget}, which is the floor — ${lean !== null && lean >= floor ? "thirty calories per kilo of her lean mass" : "what she burns at rest"}. Tell her that plainly: under it she loses muscle and bone, not fat.`
         : undefined,
+      floorFrom: lean !== null && lean >= floor ? "lean mass" : "resting burn",
     };
   },
 });
