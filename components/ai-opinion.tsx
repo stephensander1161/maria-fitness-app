@@ -58,12 +58,53 @@ export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"
   );
 }
 
+/**
+ * "Ask the coach about this" — where "this" is something on the screen the
+ * header buttons cannot see.
+ *
+ * The page context tells the coach what screen she is on; it does not know
+ * she has just looked up sirloin steak in the calculator and found nothing to
+ * cook with it. This carries that one sentence in with her, so the answer
+ * starts from the thing she is actually looking at rather than from "what
+ * were you asking about?".
+ *
+ * It sends on tap, on purpose. The button says it will ask, and making her
+ * confirm a question she has just chosen to ask is a step for nothing.
+ */
+export function AskAbout({ prompt, label = "this", children }: {
+  prompt: string;
+  label?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent-soft/70"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" />
+        </svg>
+        {children}
+      </button>
+      {open && (
+        <Sheet page="plan" label={label} mode="ask" ask={prompt} onClose={() => setOpen(false)} />
+      )}
+    </>
+  );
+}
+
 function Sheet({
-  page, label, mode, onClose,
+  page, label, mode, ask, onClose,
 }: {
   page: "train" | "plan" | "progress";
   label: string;
   mode: "read" | "ask";
+  /** A question to send the moment it opens, from AskAbout. */
+  ask?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -71,8 +112,17 @@ function Sheet({
   const {
     messages, streaming, activity, busy, error, input, setInput, stream, send,
   } = useCoachThread({ onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); } });
-  const [opened, setOpened] = useState(mode === "ask");
+  const [opened, setOpened] = useState(mode === "ask" && !ask);
   const end = useRef<HTMLDivElement>(null);
+  const asked = useRef(false);
+
+  // A question that came with the button, sent once. The ref guards a second
+  // send if this ever re-renders before the stream settles.
+  useEffect(() => {
+    if (!ask || asked.current) return;
+    asked.current = true;
+    void send(ask, path).then(() => setOpened(true));
+  }, [ask, send, path]);
 
   useEffect(() => {
     if (mode !== "read") return;

@@ -46,36 +46,46 @@ export function DayNav({
 
   return (
     <header className="mb-5">
-      <div className="flex items-center gap-1">
-      <Link
-        href={`${base}?${param}=${prev}`}
-        scroll={false}
-        aria-label="The day before"
-        className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
-      >
-        <Chevron dir="left" />
-      </Link>
+      {/*
+        The date is centred on the row and stays there.
+        Laid out in flow, the "Today" link appeared on one day and not the
+        next, so the date shifted sideways as she stepped through the week —
+        the one element that should be the fixed point of this control was
+        the only one moving.
+      */}
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <Link
+            href={`${base}?${param}=${prev}`}
+            scroll={false}
+            aria-label="The day before"
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
+          >
+            <Chevron dir="left" />
+          </Link>
+          {!isToday && !behind && jump}
+        </div>
 
-      {!isToday && !behind && jump}
+        <p
+          className={`pointer-events-none absolute left-1/2 max-w-[46%] -translate-x-1/2 truncate text-center text-[13px] font-medium ${
+            isToday ? "text-faint" : "text-text"
+          }`}
+        >
+          {isToday ? "Today" : label}
+        </p>
 
-      <p className={`min-w-0 flex-1 truncate text-center text-[13px] font-medium ${
-        isToday ? "text-faint" : "text-text"
-      }`}>
-        {isToday ? "Today" : label}
-      </p>
-
-      {!isToday && behind && jump}
-
-      <Link
-        href={`${base}?${param}=${next}`}
-        scroll={false}
-        aria-label="The day after"
-        className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
-      >
-        <Chevron dir="right" />
-      </Link>
-
-      {actions && <div className="ml-1 shrink-0">{actions}</div>}
+        <div className="flex items-center gap-1">
+          {!isToday && behind && jump}
+          <Link
+            href={`${base}?${param}=${next}`}
+            scroll={false}
+            aria-label="The day after"
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
+          >
+            <Chevron dir="right" />
+          </Link>
+          {actions && <div className="ml-1 shrink-0">{actions}</div>}
+        </div>
       </div>
 
       {/* The day's heading under the day it belongs to, centred on it. Two

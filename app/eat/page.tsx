@@ -1,7 +1,7 @@
 import { EatClient } from "@/components/eat-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
-import { dayFoodView, mealWeekView, recentMeals } from "@/lib/views";
+import { dayFoodView, mealWeekView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
@@ -21,10 +21,9 @@ export default async function EatPage() {
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
 
-  const [dayFood, mealWeek, usuals] = await Promise.all([
+  const [dayFood, mealWeek] = await Promise.all([
     dayFoodView(profile.id, her),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
-    recentMeals(profile.id, { from: her }),
   ]);
 
   const today = mealWeek.days.find((d) => d.dayOfWeek === mealWeek.todayIndex) ?? null;
@@ -44,7 +43,6 @@ export default async function EatPage() {
 
       <EatClient
         day={dayFood}
-        usuals={usuals}
         planned={today?.meals ?? []}
         calorieTarget={mealWeek.exists ? mealWeek.calorieTarget : null}
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}

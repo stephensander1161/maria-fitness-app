@@ -3,47 +3,21 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import type { DayFoodView, RecentMeal } from "@/lib/views";
+import type { DayFoodView } from "@/lib/views";
 
 /**
  * What she has eaten today. Sits above the week's plan because the question
  * she actually has standing at the fridge is "where am I now", not "what was
  * I supposed to have on Thursday".
  */
-export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMeal[] }) {
+export function TodayFood({ day }: { day: DayFoodView }) {
   const router = useRouter();
   const [removing, setRemoving] = useState<string | null>(null);
-  const [logging, setLogging] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Re-logging goes through log_meal with the macros she last recorded, so it
   // is the same write path as typing it out — just without the typing.
-  async function logAgain(m: RecentMeal) {
-    const key = `${m.slot}::${m.description}`;
-    setLogging(key);
-    // Cleared before the attempt: a failure from ten minutes ago sitting under
-    // a successful log describes a problem that no longer exists.
-    setError(null);
-    // Minted once per tap and reused by a retry, so a response lost on the way
-    // back cannot log her breakfast twice.
-    const clientKey = crypto.randomUUID();
-    try {
-      await action("log_meal", {
-        slot: m.slot,
-        description: m.description,
-        ...(m.calories !== null && { calories: m.calories }),
-        ...(m.proteinG !== null && { proteinG: m.proteinG }),
-        ...(m.fibreG !== null && { fibreG: m.fibreG }),
-        clientKey,
-      });
-      router.refresh();
-    } catch (err) {
-      setError(actionMessage(err, "That didn't log — try again."));
-    } finally {
-      setLogging(null);
-    }
-  }
-
   async function remove(id: string) {
     setRemoving(id);
     setError(null);
@@ -69,29 +43,6 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
-      {usuals.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-faint">Log again</p>
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {usuals.map((m) => {
-              const key = `${m.slot}::${m.description}`;
-              return (
-                <button
-                  key={key}
-                  onClick={() => void logAgain(m)}
-                  disabled={logging === key}
-                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-left text-[13px] active:bg-raised disabled:opacity-40"
-                >
-                  <span className="max-w-[190px] truncate">{m.description}</span>
-                  {m.calories !== null && (
-                    <span className="ml-1.5 text-faint tabular">{m.calories}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
       </section>
     );
   }
@@ -146,63 +97,206 @@ export function TodayFood({ day, usuals }: { day: DayFoodView; usuals: RecentMea
 
       <ul className="mt-3 space-y-0.5">
         {day.logged.map((l) => (
-          <li key={l.id} className="flex items-baseline gap-2 border-b border-line/60 py-2 last:border-0">
-            <span className="w-[62px] shrink-0 text-[11px] uppercase tracking-wide text-accent">
-              {l.slot}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[14px]">{l.description}</span>
-            <span className="shrink-0 text-[12px] tabular text-muted">
-              {l.calories ?? "—"}
-              {l.proteinG !== null && ` · ${l.proteinG}g`}
-            </span>
-            <button
-              onClick={() => void remove(l.id)}
-              disabled={removing === l.id}
-              aria-label={`Remove ${l.description}`}
-              // A 14px icon with no vertical padding, next to the calorie figure, that
-              // deleted a meal on contact. Now a proper thumb target.
-              className="-my-2 -mr-2 grid size-11 shrink-0 place-items-center text-faint transition-opacity active:text-miss disabled:opacity-30"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.2" strokeLinecap="round">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </button>
+          <li key={l.id} className="border-b border-line/60 py-2 last:border-0">
+            <div className="flex items-baseline gap-2">
+              <span className="w-[62px] shrink-0 text-[11px] uppercase tracking-wide text-accent">
+                {l.slot}
+              </span>
+              {/* Tapping the entry edits it. "Delete it and log it again" is
+                  not a correction — it loses the time it was eaten and makes
+                  fixing a number feel like a mistake being punished. */}
+              <button
+                onClick={() => setEditing(editing === l.id ? null : l.id)}
+                aria-expanded={editing === l.id}
+                className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
+              >
+                <span className="min-w-0 flex-1 truncate text-[14px]">{l.description}</span>
+                <span className="shrink-0 text-[12px] tabular text-muted">
+                  {l.calories ?? "—"}
+                  {l.proteinG !== null && ` · ${l.proteinG}g`}
+                </span>
+              </button>
+              <button
+                onClick={() => void remove(l.id)}
+                disabled={removing === l.id}
+                aria-label={`Remove ${l.description}`}
+                // A 14px icon with no vertical padding, next to the calorie figure, that
+                // deleted a meal on contact. Now a proper thumb target.
+                className="-my-2 -mr-2 grid size-11 shrink-0 place-items-center text-faint transition-opacity active:text-miss disabled:opacity-30"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {editing === l.id && (
+              <EditLog
+                log={l}
+                onDone={() => { setEditing(null); startTransition(() => router.refresh()); }}
+                onCancel={() => setEditing(null)}
+              />
+            )}
           </li>
         ))}
       </ul>
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
-      {usuals.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-faint">Log again</p>
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {usuals.map((m) => {
-              const key = `${m.slot}::${m.description}`;
-              return (
-                <button
-                  key={key}
-                  onClick={() => void logAgain(m)}
-                  disabled={logging === key}
-                  className="shrink-0 rounded-full border border-line bg-surface px-3 py-2 text-left text-[13px] active:bg-raised disabled:opacity-40"
-                >
-                  <span className="max-w-[190px] truncate">{m.description}</span>
-                  {m.calories !== null && (
-                    <span className="ml-1.5 text-faint tabular">{m.calories}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <QuickAdd date={day.date} onDone={() => startTransition(() => router.refresh())} />
     </section>
   );
 }
 
+
+/**
+ * Fix an entry that is already in.
+ *
+ * Deleting and re-logging was the only way to change a number, which loses
+ * when it was eaten and makes correcting a figure feel like being told off
+ * for getting it wrong the first time. Blank is a real value here: clearing
+ * the calories records that we do not know them, which is what the day's
+ * total already says out loud with a "≥".
+ */
+function EditLog({
+  log, onDone, onCancel,
+}: {
+  log: { id: string; description: string; calories: number | null; proteinG: number | null };
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [what, setWhat] = useState(log.description);
+  const [calories, setCalories] = useState(log.calories === null ? "" : String(log.calories));
+  const [protein, setProtein] = useState(log.proteinG === null ? "" : String(log.proteinG));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const kcal = Number(calories);
+    const g = Number(protein);
+    try {
+      await action("update_meal_log", {
+        logId: log.id,
+        description: what.trim() || log.description,
+        // Null, not zero, when she clears it: the day counts an unknown as a
+        // floor rather than as nothing eaten.
+        calories: calories.trim() && Number.isFinite(kcal) ? kcal : null,
+        proteinG: protein.trim() && Number.isFinite(g) ? g : null,
+      });
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't save — try again."));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-raised p-3">
+      <input
+        value={what}
+        onChange={(e) => setWhat(e.target.value)}
+        aria-label="What it was"
+        className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] focus:border-accent focus:outline-none"
+      />
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <input
+          value={calories}
+          onChange={(e) => setCalories(e.target.value)}
+          inputMode="numeric"
+          placeholder="kcal"
+          aria-label="Calories"
+          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+        />
+        <ProteinField
+          value={protein}
+          onChange={setProtein}
+          describes={what}
+          calories={calories}
+        />
+      </div>
+      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={save}
+          disabled={busy}
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        <button onClick={onCancel} disabled={busy}
+          className="rounded-xl border border-line px-4 py-2.5 text-[13px] text-muted disabled:opacity-50">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Protein, with a way to have it worked out.
+ *
+ * "300 calories of cheese" carries a protein figure that anyone with a food
+ * table can find and she should not have to. The estimate is behind a tap
+ * rather than automatic: it is a lookup she may not want, the number lands in
+ * an editable box so she can overrule it, and a figure the app quietly
+ * invented and she never checked is exactly the kind of made-up data this
+ * app refuses to produce elsewhere.
+ */
+function ProteinField({
+  value, onChange, describes, calories,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  describes: string;
+  calories: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function estimate() {
+    const food = describes.trim();
+    if (!food) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      // Calories included when she has typed them, so "300 cal of cheese"
+      // is looked up as that portion rather than as 100g of cheese.
+      const kcal = Number(calories);
+      const query = calories.trim() && Number.isFinite(kcal) ? `${kcal} kcal ${food}` : food;
+      const r = await action<{ found: boolean; proteinG?: number }>("lookup_food", { query });
+      if (r.found && r.proteinG !== undefined && r.proteinG !== null) onChange(String(Math.round(r.proteinG)));
+      else setFailed(true);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setFailed(false); }}
+        inputMode="numeric"
+        placeholder="protein g"
+        aria-label="Protein in grams"
+        className="w-full rounded-lg border border-edge bg-base py-2 pl-3 pr-16 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={estimate}
+        disabled={busy || !describes.trim()}
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-accent disabled:opacity-30"
+      >
+        {busy ? "…" : failed ? "no match" : "estimate"}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Add a meal by typing it.
@@ -293,14 +387,7 @@ function QuickAdd({ date, onDone }: { date: string; onDone: () => void }) {
           aria-label="Calories, optional"
           className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
         />
-        <input
-          value={protein}
-          onChange={(e) => setProtein(e.target.value)}
-          inputMode="numeric"
-          placeholder="protein g (optional)"
-          aria-label="Protein in grams, optional"
-          className="rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-        />
+        <ProteinField value={protein} onChange={setProtein} describes={what} calories={calories} />
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-faint">
         Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather

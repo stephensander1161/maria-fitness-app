@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { FoodGlyph } from "./food-glyph";
+import { AskAbout } from "./ai-opinion";
 import type { Units } from "@/lib/units";
 
 type Lookup = {
@@ -262,9 +263,19 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
             Made with {recipesFor}
           </p>
           {recipes.length === 0 ? (
-            <p className="text-[13px] text-faint">
-              Nothing in your plan or the recipe library uses that. Ask your coach for an idea.
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[13px] text-faint">
+                Nothing in your plan or the recipe library uses that.
+              </p>
+              {/* The header's coach buttons can see the screen; they cannot
+                  see that she just looked this up and found nothing. */}
+              <AskAbout
+                prompt={`I've got ${recipesFor}. What could I make with it that fits my targets?`}
+                label={`what to make with ${recipesFor}`}
+              >
+                Ask your coach
+              </AskAbout>
+            </div>
           ) : (
             <ul className="space-y-1.5">
               {recipes.map((r, i) => (
