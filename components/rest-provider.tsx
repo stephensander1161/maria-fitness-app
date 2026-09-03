@@ -3,6 +3,7 @@
 import {
   createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore,
 } from "react";
+import Link from "next/link";
 import { RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
 
@@ -93,6 +94,12 @@ const getServerSnapshot = (): Rest | null => null;
 
 type RestContext = {
   rest: Rest | null;
+  /**
+   * The rest she has already acknowledged, still waiting on the set itself.
+   * Cleared the moment a set is logged — which is also the moment the next
+   * rest begins.
+   */
+  awaiting: Rest | null;
   /** Begin (or restart) rest for a movement. Zero seconds means no rest. */
   start: (r: Rest) => void;
   extend: (seconds: number) => void;
@@ -103,6 +110,7 @@ type RestContext = {
 
 const NO_REST: RestContext = {
   rest: null,
+  awaiting: null,
   start: () => {},
   extend: () => {},
   dismiss: () => {},
@@ -123,10 +131,14 @@ export function useRest(): RestContext {
 export function RestProvider({ children }: { children: React.ReactNode }) {
   const rest = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [go, setGo] = useState<Rest | null>(null);
+  const [awaiting, setAwaiting] = useState<Rest | null>(null);
 
   const start = useCallback((r: Rest) => {
     if (r.seconds <= 0) return;
     setGo(null);
+    // A new rest means a set was just logged, which is exactly the thing the
+    // reminder was waiting for.
+    setAwaiting(null);
     write(r);
   }, []);
 
@@ -136,19 +148,72 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
     write({ ...r, endsAt: Math.max(r.endsAt, Date.now()) + seconds * 1000, seconds: r.seconds + seconds });
   }, []);
 
-  const dismiss = useCallback(() => { setGo(null); write(null); }, []);
+  const dismiss = useCallback(() => { setGo(null); setAwaiting(null); write(null); }, []);
   const fireGo = useCallback(() => { setGo(getSnapshot()); }, []);
 
+  /**
+   * Clearing the GO screen is not the same as doing the set.
+   *
+   * She taps it away, lifts, racks the bar, and forgets to log — which is the
+   * most common way a session ends up under-recorded, and the app had nothing
+   * to say about it. So acknowledging the alarm hands off to a quiet standing
+   * reminder that follows her around until the set is actually in.
+   */
+  const clearGo = useCallback(() => {
+    setGo((g) => { setAwaiting(g); return null; });
+  }, []);
+  const clearAwaiting = useCallback(() => setAwaiting(null), []);
+
   const value = useMemo(
-    () => ({ rest, start, extend, dismiss, fireGo }),
-    [rest, start, extend, dismiss, fireGo],
+    () => ({ rest, awaiting, start, extend, dismiss, fireGo }),
+    [rest, awaiting, start, extend, dismiss, fireGo],
   );
 
   return (
     <Ctx.Provider value={value}>
       {children}
-      {go && <GoScreen name={go.name} slug={go.slug} category={go.category} onDismiss={dismiss} />}
+      {go && <GoScreen name={go.name} slug={go.slug} category={go.category} onDismiss={clearGo} />}
+      {!go && awaiting && <LogReminder rest={awaiting} onDismiss={clearAwaiting} />}
     </Ctx.Provider>
+  );
+}
+
+/**
+ * "You haven't logged that set."
+ *
+ * Deliberately unobtrusive and deliberately persistent: it costs nothing to
+ * ignore, it does not cover anything, and it does not go away on its own,
+ * because the thing it is waiting for has not happened. Logging the set
+ * removes it — so does saying she is done with it.
+ */
+function LogReminder({ rest, onDismiss }: { rest: Rest; onDismiss: () => void }) {
+  return (
+    <div
+      className="fixed inset-x-0 z-40 flex justify-center px-4"
+      style={{ bottom: "calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
+    >
+      <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-accent/40 bg-surface/95 py-2 pl-4 pr-2 shadow-lg shadow-ink/50 backdrop-blur">
+        <p className="min-w-0 flex-1 truncate text-[12px] text-muted">
+          Log your {rest.name} set
+        </p>
+        <Link
+          href="/train"
+          onClick={onDismiss}
+          className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-ink"
+        >
+          Log it
+        </Link>
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss the reminder"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-faint hover:text-muted"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+            <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -160,7 +225,7 @@ export function RestBar() {
   const { rest, extend, dismiss, fireGo } = useRest();
   if (!rest) return null;
   return (
-    <div className="mx-auto w-full max-w-lg px-4 md:max-w-5xl md:px-8">
+    <div className="mx-auto w-full max-w-lg px-4 pt-4 md:max-w-5xl md:px-8 md:pt-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
       <RestTimerBar rest={rest} onExtend={extend} onDismiss={dismiss} onOver={fireGo} />
     </div>
   );

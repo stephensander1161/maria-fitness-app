@@ -9,6 +9,7 @@ import { SideNavGate } from "@/components/side-nav-gate";
 import { DailyFact } from "@/components/daily-fact";
 import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
+import { WanderingFigure } from "@/components/wandering-figure";
 
 export const metadata: Metadata = {
   title: "Coach",
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
         </div>
         </RestProvider>
+        <WanderingFigure />
         <RefreshOnFocus />
         <CoachBubbleGate />
         <Feedback />

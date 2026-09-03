@@ -342,11 +342,10 @@ export function RestTimerBar({
     return () => { document.title = original; };
   }, [over, rest.name]);
 
-  // Don't leave "Rest over" sitting there forever if she never taps it.
-  useEffect(() => {
-    if (ms > -20_000) return;
-    onDismiss();
-  }, [ms, onDismiss]);
+  // It used to clear itself twenty seconds after zero. That is the same
+  // mistake the GO screen made: the case this exists for is a phone face-down
+  // on a bench, and an alarm that gives up while she is mid-set is an alarm
+  // she cannot rely on. It stays until she says so.
 
   // Escape stops it too — on a desktop the bar is a long way from the pointer.
   useEffect(() => {
@@ -414,7 +413,19 @@ export function RestTimerBar({
 
         {!over && (
           <div className="relative h-1 bg-raised">
-            <div className="h-full bg-accent transition-[width] duration-200 ease-linear" style={{ width: `${pct}%` }} />
+            {/*
+              It warms as it drains. A bar that is the same colour at five
+              seconds as at ninety is only telling her the length, and the
+              glance she actually takes is "how long have I got" — colour
+              answers that before the number does.
+            */}
+            <div
+              className="h-full transition-[width] duration-200 ease-linear"
+              style={{
+                width: `${pct}%`,
+                background: `color-mix(in srgb, var(--color-miss) ${Math.round(100 - pct)}%, var(--color-accent))`,
+              }}
+            />
             {/*
               A figure cartwheeling up and down the bar, standing on it rather
               than hovering above it. It is decoration and it knows it —
@@ -422,8 +433,12 @@ export function RestTimerBar({
             */}
             <span
               aria-hidden
-              className="absolute bottom-full text-accent"
-              style={{ left: `${lapPosition(elapsed)}%`, transform: "translateX(-50%)" }}
+              className="absolute bottom-full"
+              style={{
+                left: `${lapPosition(elapsed)}%`,
+                transform: "translateX(-50%)",
+                color: `color-mix(in srgb, var(--color-miss) ${Math.round(100 - pct)}%, var(--color-accent))`,
+              }}
             >
               <TumblingFigure elapsed={elapsed} />
             </span>
