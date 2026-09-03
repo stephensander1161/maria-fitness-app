@@ -157,9 +157,13 @@ export function TrainClient({
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-          onLogged={(r) => {
+          onLogged={(r, done) => {
             if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
-            startRest(ex);
+            // No rest after the last set of a movement: there is nothing to
+            // recover *for*, and a timer still counting down while she has
+            // moved on is the app not keeping up with her.
+            if (!done) startRest(ex);
+            else dismissRest();
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
@@ -257,7 +261,7 @@ function ExerciseCard({
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   result?: LogResult; pending: PendingSet[];
-  onLogged: (r: LogResult | null) => void;
+  onLogged: (r: LogResult | null, finishedExercise: boolean) => void;
   onRetryPending: () => void;
   onRemoved: () => void;
 }) {
@@ -311,7 +315,8 @@ function ExerciseCard({
       const outcome = await logSetOrQueue<LogResult>(
         setInput(exercise.slug, reps, exercise.bodyweight ? null : weight, rir),
       );
-      onLogged(outcome.result);
+      // Whether that was the last set she planned for this movement.
+      onLogged(outcome.result, exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets);
       // A good call is also the moment to drain anything stuck from earlier.
       if (!outcome.queued) onRetryPending();
     } catch {

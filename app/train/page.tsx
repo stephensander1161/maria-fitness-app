@@ -6,6 +6,8 @@ import { pickableExercises, todayView } from "@/lib/views";
 import { todayTargets } from "@/lib/tools/progression-targets";
 import { PlanSetupInvite } from "@/components/plan-setup";
 import { equipmentToday } from "@/lib/tools/phases";
+import { DayTitle } from "@/components/day-title";
+import { dayIndex } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +45,14 @@ export default async function TrainPage() {
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[13px] font-medium uppercase tracking-wide text-accent">{view.dayName}</p>
-          <h1 className="truncate text-2xl font-bold tracking-tight">{view.title}</h1>
-          {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
+          {view.hasPlan ? (
+            <DayTitle title={view.title} dayOfWeek={dayIndex(her)} focus={view.focus} />
+          ) : (
+            <>
+              <h1 className="truncate text-2xl font-bold tracking-tight">{view.title}</h1>
+              {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
+            </>
+          )}
         </div>
         <AiOpinion page="train" label="session" />
       </header>

@@ -38,24 +38,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `overflow-hidden` here makes the body a fixed frame; every scrolling
         region below says so for itself.
       */}
-      <body className="min-h-dvh bg-base text-text md:h-dvh md:overflow-hidden md:pl-56">
-        <SideNavGate />
-        <PullToRefresh>
-          {/*
-            One column on a phone, offset past the sidebar and wider on a
-            desktop. `md:pl-56` clears the fixed nav; the column itself stays
-            readable rather than stretching to the window — 40rem of prose and
-            cards is a comfortable measure, and the extra room goes to the
-            margins.
-          */}
-          <main className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:h-dvh md:max-w-none md:overflow-y-auto md:px-8 md:py-8">
-            {/* The frame is the window; the measure is still a measure. */}
-            <div className="md:mx-auto md:max-w-5xl">
-              {children}
-              <DailyFact />
-            </div>
+      <body className="min-h-dvh bg-base text-text md:h-dvh md:overflow-hidden">
+        {/*
+          A flex row rather than a fixed sidebar plus a matching left padding.
+          The two have to agree on a width, and when they disagree the content
+          lands somewhere off to the right with no clue why — which is exactly
+          what happened. Here the nav takes its width and the pane takes the
+          rest, and there is nothing to keep in step.
+        */}
+        <div className="md:flex md:h-dvh">
+          <SideNavGate />
+          <main className="md:min-w-0 md:flex-1 md:overflow-y-auto">
+            <PullToRefresh>
+              {/* The frame is the window; the measure is still a measure. */}
+              <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8">
+                {children}
+                <DailyFact />
+              </div>
+            </PullToRefresh>
           </main>
-        </PullToRefresh>
+        </div>
         <CoachBubbleGate />
         <Feedback />
         <InstallApp />

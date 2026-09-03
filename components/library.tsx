@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ExerciseFigure } from "./exercise-figure";
 import { IngredientSearch } from "./ingredient-search";
+import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
+import type { MealWeekView, WeekView } from "@/lib/views";
 
 type Item = { slug: string; name: string; category: string; primaryMuscles: string[]; equipment: string[] };
 type FactItem = { id: string; category: string; text: string; source: string | null };
@@ -20,9 +22,21 @@ const FACT_LABELS: Record<string, string> = {
 };
 
 export function Library({
-  exercises, facts, selected = null,
-}: { exercises: Item[]; facts: FactItem[]; selected?: string | null }) {
-  const [tab, setTab] = useState<"moves" | "food" | "know">("moves");
+  exercises, facts, selected = null, active, week, mealWeek, mealIdeas, moveIdeas,
+}: {
+  exercises: Item[];
+  facts: FactItem[];
+  selected?: string | null;
+  active: "moves" | "food" | "ideas" | "know";
+  week: WeekView;
+  mealWeek: MealWeekView;
+  mealIdeas: MealIdea[];
+  moveIdeas: MoveIdea[];
+}) {
+  // The tab lives in the URL, not in state: the page needs it to decide
+  // whether to show the detail pane beside the list, and a tab you can link to
+  // is a tab you can send someone.
+  const tab = active;
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("all");
 
@@ -62,19 +76,27 @@ export function Library({
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1">
-        {([["moves", "Movements"], ["food", "Food"], ["know", "Worth knowing"]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)}
-            aria-pressed={tab === k}
-            className={`rounded-full py-2.5 text-[13px] font-medium transition-colors ${
-              tab === k ? "bg-accent text-ink" : "text-muted"
-            }`}>
+      <div className="mb-4 grid grid-cols-4 gap-1 rounded-full border border-line bg-surface p-1">
+        {([["moves", "Moves"], ["food", "Food"], ["ideas", "Ideas"], ["know", "Facts"]] as const).map(([k, label]) => (
+          <Link
+            key={k}
+            href={k === "moves" ? "/learn" : `/learn?t=${k}`}
+            scroll={false}
+            aria-current={tab === k ? "page" : undefined}
+            className={`rounded-full py-2.5 text-center text-[13px] font-medium transition-colors ${
+              tab === k ? "bg-accent text-ink" : "text-muted hover:bg-raised"
+            }`}
+          >
             {label}
-          </button>
+          </Link>
         ))}
       </div>
 
       {tab === "food" && <IngredientSearch />}
+
+      {tab === "ideas" && (
+        <Ideas week={week} mealWeek={mealWeek} initialMeals={mealIdeas} initialMoves={moveIdeas} />
+      )}
 
       {tab === "moves" ? (
         <>

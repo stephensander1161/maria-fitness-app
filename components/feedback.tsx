@@ -49,7 +49,7 @@ export function Feedback() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:bottom-8 md:left-[15.5rem]"
+        className="fixed bottom-24 left-4 z-40 grid size-10 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:bg-raised active:bg-raised md:bottom-8 md:left-8"
       >
         <FeedbackGlyph />
       </button>

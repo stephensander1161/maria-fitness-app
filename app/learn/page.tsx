@@ -3,9 +3,15 @@ import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, facts } from "@/lib/db/schema";
 import { Library } from "@/components/library";
+import type { MealIdea, MoveIdea } from "@/components/ideas";
 import { MovementDetail } from "@/components/movement-detail";
 import { movementView } from "@/lib/views";
 import { requireOnboarded } from "@/lib/session";
+import { runTool } from "@/lib/tools";
+import { mealWeekView, weekView } from "@/lib/views";
+import { profileToday } from "@/lib/profile";
+import { foodUnitsOf } from "@/lib/food-units";
+import { weekStart } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
@@ -21,25 +27,36 @@ export const dynamic = "force-dynamic";
 export default async function LearnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; t?: string }>;
 }) {
-  await requireOnboarded();
-  const { m } = await searchParams;
+  const profile = await requireOnboarded();
+  const { m, t } = await searchParams;
+  const TABS = ["moves", "food", "ideas", "know"] as const;
+  const active = (TABS as readonly string[]).includes(t ?? "") ? (t as (typeof TABS)[number]) : "moves";
+  const her = profileToday(profile);
 
-  const [moves, allFacts] = await Promise.all([
+  const [moves, allFacts, week, mealWeek, mealIdeas, moveIdeas] = await Promise.all([
     db.select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       primaryMuscles: exercises.primaryMuscles, equipment: exercises.equipment,
     }).from(exercises).orderBy(asc(exercises.name)),
     db.select({ id: facts.id, category: facts.category, text: facts.text, source: facts.source })
       .from(facts).orderBy(asc(facts.category)),
+    // Ideas moved here from the Plan screen: Plan is what she is doing, and
+    // this is what she could do. Both are library reads, no model call.
+    weekView(profile.id, profile.units, weekStart(her), her),
+    mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
+    runTool("suggest_meals", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MealIdea[] }>,
+    runTool("suggest_exercises", { limit: 6 }, { profileId: profile.id }) as Promise<{ ideas: MoveIdea[] }>,
   ]);
 
-  const selected = m && moves.some((e) => e.slug === m) ? m : null;
+  // Only the movements tab is master-detail; the others want the full width.
+  const selected = active === "moves" && m && moves.some((e) => e.slug === m) ? m : null;
+  const split = active === "moves";
   const move = selected ? await movementView(selected) : null;
 
   return (
-    <div className="md:flex md:gap-6">
+    <div className={split ? "md:flex md:gap-6" : ""}>
       {/* The list. Hidden on a phone once something is selected. */}
       {/*
         The list keeps its own scroll and stays put while the pane beside it
@@ -47,16 +64,25 @@ export default async function LearnPage({
         make the pair useless together, which is the only reason to show both.
       */}
       <div
-        className={`md:sticky md:top-0 md:max-h-[calc(100dvh-4rem)] md:w-[22rem] md:shrink-0 md:overflow-y-auto md:pr-1 ${
-          selected ? "hidden md:block" : ""
-        }`}
+        className={`${
+          split ? "md:sticky md:top-0 md:max-h-[calc(100dvh-4rem)] md:w-[22rem] md:shrink-0 md:overflow-y-auto md:pr-1" : ""
+        } ${selected ? "hidden md:block" : ""}`}
       >
         <h1 className="mb-5 text-2xl font-bold tracking-tight md:text-xl">Learn</h1>
-        <Library exercises={moves} facts={allFacts} selected={selected} />
+        <Library
+          active={active}
+          exercises={moves}
+          facts={allFacts}
+          selected={selected}
+          week={week}
+          mealWeek={mealWeek}
+          mealIdeas={mealIdeas.ideas}
+          moveIdeas={moveIdeas.ideas}
+        />
       </div>
 
       {/* The detail. On a phone this *is* the page when something is selected. */}
-      <div className={`min-w-0 flex-1 ${selected ? "" : "hidden md:block"}`}>
+      <div className={`min-w-0 flex-1 ${selected ? "" : "hidden md:block"} ${split ? "" : "md:hidden"}`}>
         {selected ? (
           <>
             {/* On a phone the pane is the page, so it needs a way back. */}

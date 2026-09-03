@@ -5,20 +5,19 @@ import Link from "next/link";
 import type { DayFoodView, MealWeekView, PantryView, RecentMeal, WeekView } from "@/lib/views";
 import { CalorieCalculator } from "./calorie-calculator";
 import { TodayFood } from "./today-food";
-import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { ShoppingList, type ShoppingAisle } from "./shopping-list";
 import { Kitchen } from "./kitchen";
 import { action, actionMessage } from "@/lib/client";
 import { AskCoach } from "./ask-coach";
 
 export function PlanClient({
-  week, mealWeek, dayFood, usuals, initialMeals, initialMoves, shopping, instacart, pantry,
+  week, mealWeek, dayFood, usuals, shopping, instacart, pantry,
 }: {
   week: WeekView; mealWeek: MealWeekView; dayFood: DayFoodView; usuals: RecentMeal[];
-  initialMeals: MealIdea[]; initialMoves: MoveIdea[]; shopping: ShoppingAisle[]; instacart: boolean;
+  shopping: ShoppingAisle[]; instacart: boolean;
   pantry: PantryView;
 }) {
-  const [tab, setTab] = useState<"training" | "meals" | "ideas">("training");
+  const [tab, setTab] = useState<"training" | "meals">("training");
   const [openDay, setOpenDay] = useState<number | null>(week.todayIndex);
 
   return (
@@ -29,8 +28,8 @@ export function PlanClient({
         read — "what am I training on Thursday, and what am I eating that day"
         is one question. So the tab row disappears at lg and both panes render.
       */}
-      <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1 lg:hidden">
-        {(["training", "meals", "ideas"] as const).map((t) => (
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1 lg:hidden">
+        {(["training", "meals"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             aria-pressed={tab === t}
             className={`rounded-full py-2 text-[13px] font-medium capitalize transition-colors ${
@@ -46,14 +45,7 @@ export function PlanClient({
       <h2 className="mb-3 hidden text-[13px] font-semibold uppercase tracking-widest text-faint lg:block">
         Training
       </h2>
-      {tab === "ideas" ? (
-        // Only the phone renders Ideas here — on a desktop it has its own
-        // place below both panes, and rendering it in the training column too
-        // would show it twice if the tab happened to be left on it.
-        <div className="lg:hidden">
-          <Ideas week={week} mealWeek={mealWeek} initialMeals={initialMeals} initialMoves={initialMoves} />
-        </div>
-      ) : tab === "training" ? (
+      {tab === "training" ? (
         week.exists ? (
           <div className="space-y-2">
             {week.rationale && (
@@ -154,12 +146,6 @@ export function PlanClient({
       </div>
       </div>
 
-      {/* Ideas is a third thing rather than a pane: on a desktop it sits under
-          the two, where it reads as a suggestion rather than a column. */}
-      <div className="mt-5 hidden lg:block">
-        <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-widest text-faint">Ideas</h2>
-        <Ideas week={week} mealWeek={mealWeek} initialMeals={initialMeals} initialMoves={initialMoves} />
-      </div>
     </>
   );
 }

@@ -180,6 +180,13 @@ export function RestTimerBar({
     onDismiss();
   }, [ms, onDismiss]);
 
+  // Escape stops it too — on a desktop the bar is a long way from the pointer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onDismiss(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
   const pct = over ? 0 : Math.max(0, Math.min(100, (ms / (rest.seconds * 1000)) * 100));
 
   // Sticky to the viewport, so it stays with her wherever she scrolls on the
@@ -224,13 +231,16 @@ export function RestTimerBar({
               +30s
             </button>
           )}
+          {/* Always here, whatever the timer is doing. A countdown you cannot
+              stop is the app telling her when she is allowed to lift. */}
           <button
             onClick={onDismiss}
-            className={`shrink-0 rounded-lg px-3 py-2 text-[12px] font-semibold ${
-              over ? "bg-beat text-ink" : "bg-raised text-text active:bg-line"
+            aria-label={over ? "Dismiss" : "Stop the rest timer"}
+            className={`shrink-0 rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors ${
+              over ? "bg-beat text-ink" : "bg-raised text-text hover:bg-line active:bg-line"
             }`}
           >
-            {over ? "Done" : "Skip"}
+            {over ? "Done" : "Stop"}
           </button>
         </div>
 

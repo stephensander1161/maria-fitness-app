@@ -1,3 +1,5 @@
+import { groupForMuscle } from "./muscle-groups";
+
 /**
  * Hard sets per muscle group per week.
  *
@@ -18,22 +20,30 @@
  * mapped is deliberately dropped rather than bucketed as "other": a set of
  * grip work is not a set of anything a landmark applies to.
  */
-const GROUPS: Record<string, string[]> = {
-  Legs: ["quads", "hamstrings", "glutes", "calves", "adductors", "hip abductors", "legs", "soleus", "gastrocnemius"],
-  Back: ["upper back", "lats", "back", "rhomboids", "mid traps", "upper traps", "lower back"],
-  Chest: ["chest"],
-  Shoulders: ["shoulders", "rear delts", "rear shoulder", "shoulder", "rotator cuff"],
-  Arms: ["biceps", "triceps", "forearm", "forearms"],
-  Core: ["core", "deep core", "obliques", "transverse abdominis", "pelvic floor"],
+/**
+ * One mapping for the whole app — see lib/muscle-groups.ts. Volume folds
+ * Glutes into Legs, because the landmarks below are written for the leg as a
+ * training unit rather than for how someone searches a library.
+ */
+/**
+ * Work that is real but that no volume landmark describes. Grip, neck and
+ * conditioning belong in the library — she goes looking for them — and
+ * counting them as sets of "Arms" would inflate a number these landmarks are
+ * not about. They are reported as unmapped instead of hidden.
+ */
+const NOT_VOLUME = new Set([
+  "grip", "wrist", "elbow", "neck", "deep neck flexors", "cardiovascular",
+  "diaphragm", "pelvic floor", "ankles", "knee", "foot", "achilles",
+  "plantar fascia", "thoracic spine", "posterior shoulder capsule",
+]);
+
+export const muscleGroup = (muscle: string): string | null => {
+  if (NOT_VOLUME.has(muscle.trim().toLowerCase())) return null;
+  const group = groupForMuscle(muscle);
+  // Glutes are their own group in the library, because that is how she looks
+  // for an exercise; here they are part of the leg as a training unit.
+  return group === "Glutes" ? "Legs" : group;
 };
-
-const LOOKUP = new Map<string, string>();
-for (const [group, muscles] of Object.entries(GROUPS)) {
-  for (const m of muscles) LOOKUP.set(m, group);
-}
-
-export const muscleGroup = (muscle: string): string | null =>
-  LOOKUP.get(muscle.trim().toLowerCase()) ?? null;
 
 /**
  * Weekly landmarks, in hard sets, for someone in her first year training.

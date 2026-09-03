@@ -145,7 +145,11 @@ suite("the desktop layout is a layout", () => {
     // moves its contents.
     const layout = read("app/layout.tsx");
     expect(layout).toMatch(/md:h-dvh md:overflow-hidden/);
-    expect(layout).toMatch(/md:h-dvh md:max-w-none md:overflow-y-auto/);
+    // A flex row, not a fixed sidebar and a matching padding: the two have to
+    // agree on a width, and when they disagreed the content landed off to the
+    // right of the window with no clue why.
+    expect(layout).toMatch(/md:flex md:h-dvh/);
+    expect(layout).toMatch(/md:flex-1 md:overflow-y-auto/);
   });
 
   it("renders the library as list and detail together", () => {

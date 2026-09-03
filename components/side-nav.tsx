@@ -23,7 +23,7 @@ export function SideNav({ name }: { name: string | null }) {
   return (
     <nav
       aria-label="Sections"
-      className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-line bg-surface/40 px-3 py-6 md:flex"
+      className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface/40 px-3 py-6 md:flex md:h-dvh md:overflow-y-auto"
     >
       <div className="px-3 pb-6">
         <p className="text-[11px] uppercase tracking-widest text-faint">Coach</p>
