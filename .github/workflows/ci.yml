@@ -18,7 +18,8 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Headroom for the bounded audit retries above.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -46,25 +47,35 @@ jobs:
         run: npm test
 
       - name: Dependency audit (production)
-        # npm's advisory endpoint is flaky, and it takes the whole pipeline
-        # down with it: two runs in one evening failed here, one on ECONNRESET
-        # and one on a read timeout, neither of them a vulnerability. A gate
+        # npm's advisory endpoint is flaky, and it used to take the whole
+        # pipeline down with it: two runs in one evening failed here, one on
+        # ECONNRESET and one on a read timeout, neither a vulnerability. A gate
         # that goes red for reasons unrelated to the change is a gate people
         # learn to ignore, which costs more than the flake does.
         #
-        # So: retry a network error, and never let one read as a clean audit.
-        # A real finding still fails on the first attempt — the retry only
-        # applies to the handful of errors that mean "could not ask".
+        # Retrying alone made it worse — npm waits five minutes before giving
+        # up, so three attempts blew the job's ten-minute limit and the run was
+        # cancelled instead of failing. So each attempt is bounded twice: npm's
+        # own fetch timeout, and `timeout` around it in case npm ignores its
+        # own. Worst case is about three minutes, not fifteen.
+        #
+        # A real finding still fails on the first attempt. Only the handful of
+        # errors that mean "could not ask" are retried, and an unreachable
+        # endpoint is never allowed to read as a clean audit.
         run: |
-          unreachable='ECONNRESET|network timeout|audit endpoint returned an error|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up'
+          unreachable='ECONNRESET|network timeout|audit endpoint returned an error|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up|request to .* failed'
           for attempt in 1 2 3; do
-            if out="$(npm audit --omit=dev --audit-level=high 2>&1)"; then
+            code=0
+            out="$(timeout 75 npm audit --omit=dev --audit-level=high --fetch-timeout=30000 2>&1)" || code=$?
+            if [ "$code" -eq 0 ]; then
               echo "$out"
               exit 0
             fi
-            if echo "$out" | grep -qiE "$unreachable"; then
-              echo "::warning::npm advisory endpoint unreachable (attempt $attempt of 3) — retrying"
-              sleep $((attempt * 15))
+            # 124 is `timeout` killing it, which is the same problem by
+            # another name.
+            if [ "$code" -eq 124 ] || echo "$out" | grep -qiE "$unreachable"; then
+              echo "::warning::npm advisory endpoint unreachable (attempt $attempt of 3)"
+              sleep $((attempt * 10))
               continue
             fi
             # Anything else is the audit doing its job.
@@ -72,12 +83,11 @@ jobs:
             exit 1
           done
           echo "$out"
-          echo "::error::Could not reach npm's advisory endpoint after 3 attempts. That is a registry outage, not a clean audit — re-run when it is back."
+          echo "::error::Could not reach npm's advisory endpoint after 3 bounded attempts. That is a registry outage, not a clean audit — re-run when it is back."
           exit 1
 
-      # Dev-only advisories shouldn't block a deploy, but shouldn't be silent.
       - name: Dependency audit (all, advisory)
-        run: npm audit --audit-level=moderate || true
+        run: timeout 75 npm audit --audit-level=moderate --fetch-timeout=30000 || true
 
       - name: Build
         run: npm run build
