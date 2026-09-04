@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TABS } from "./tab-bar";
 import { FeedbackNavItem } from "./feedback";
+import { SignOutNavItem } from "./sign-out";
 import type { Title } from "@/lib/titles";
 
 /**
@@ -15,7 +16,7 @@ import type { Title } from "@/lib/titles";
  * anything and there is no thumb. Same destinations, moved to where a mouse
  * already is.
  */
-const CHROMELESS = new Set(["/login", "/welcome"]);
+const CHROMELESS = new Set(["/login", "/signup", "/welcome"]);
 
 export function SideNav({ name, title }: { name: string | null; title: Title }) {
   const path = usePathname();
@@ -91,6 +92,8 @@ export function SideNav({ name, title }: { name: string | null; title: Title }) 
           Settings
         </Link>
         <FeedbackNavItem />
+        {/* Leaving is a menu item, not the last card on Settings — see sign-out.tsx. */}
+        <SignOutNavItem />
       </div>
     </nav>
   );

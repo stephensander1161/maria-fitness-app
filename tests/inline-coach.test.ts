@@ -47,6 +47,7 @@ suite("asking the coach never means leaving the screen", () => {
     // from data that no longer exists.
     const ARRIVALS = [
       "components/login-form.tsx",
+      "components/signup-form.tsx",
       "components/onboarding.tsx",
       "components/erase-data.tsx",
     ];
@@ -66,7 +67,7 @@ suite("asking the coach never means leaving the screen", () => {
     // it existed for is unchanged and is what is checked here: from any
     // screen, asking about that screen must not mean leaving it.
     const pages = fs.readdirSync("app", { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !["api", "login", "welcome"].includes(e.name))
+      .filter((e) => e.isDirectory() && !["api", "login", "signup", "welcome"].includes(e.name))
       .map((e) => path.join("app", e.name, "page.tsx"))
       .filter((f) => fs.existsSync(f));
 

@@ -38,54 +38,67 @@ export default async function SettingsPage() {
       </header>
 
       {/*
-        One column, grouped, and narrower than the page.
-        Settings are read down, not scanned across: two columns of cards that
-        are each a different height gave every one of them a ragged edge and
-        no order at all. The measure is the same reason an article is not
-        full-bleed.
+        One column on a phone; two columns of *groups* on a wide screen.
+
+        Not a masonry of cards. A card grid put seven different heights in two
+        columns and gave every one of them a ragged edge and no order at all,
+        which is how this came to be a single 36rem column — and on a 27-inch
+        screen that column read as a phone app with a foot of empty either side.
+        The group is the unit here: each column is read down, in order, and the
+        left column comes first. The whole thing is still capped, because
+        settings are read, not scanned, and a 100rem grid is scanned.
       */}
-      <div className="max-w-xl">
-        <Group title="Your coach">
-          <CoachTone tone={profile.coachTone} />
-          <CoachBudget usage={usage as Usage} />
-        </Group>
+      <div className="max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-x-8">
+        <div>
+          <Group title="Your coach">
+            <CoachTone tone={profile.coachTone} />
+            <CoachBudget usage={usage as Usage} />
+          </Group>
 
-        <Group title="How things are shown">
-          <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
-        </Group>
+          <Group title="How things are shown">
+            <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
+          </Group>
 
-        <Group title="Reminders">
-          <WeighInReminder hour={profile.weighInReminderHour} vapidPublicKey={vapidPublicKey()} />
-        </Group>
+          <Group title="Reminders">
+            <WeighInReminder hour={profile.weighInReminderHour} vapidPublicKey={vapidPublicKey()} />
+          </Group>
+        </div>
 
-        <Group title="Training">
-          <RestSettings
-            defaultRestSeconds={profile.defaultRestSeconds}
-            restByGroup={profile.restByGroup}
-          />
-        </Group>
+        <div>
+          <Group title="Training">
+            <RestSettings
+              defaultRestSeconds={profile.defaultRestSeconds}
+              restByGroup={profile.restByGroup}
+            />
+          </Group>
 
-        <Group title="Your plan">
-          <PlanSetupButton
-            defaults={{
-              daysPerWeek: profile.daysPerWeek,
-              sessionMinutes: profile.sessionMinutes,
-              equipment: profile.equipment,
-              injuries: profile.injuries,
-              dietaryRestrictions: profile.dietaryRestrictions,
-              dislikedFoods: profile.dislikedFoods,
-              cookingSkill: profile.cookingSkill,
-            }}
-          />
-        </Group>
+          <Group title="Your plan">
+            <PlanSetupButton
+              defaults={{
+                daysPerWeek: profile.daysPerWeek,
+                sessionMinutes: profile.sessionMinutes,
+                equipment: profile.equipment,
+                injuries: profile.injuries,
+                dietaryRestrictions: profile.dietaryRestrictions,
+                dislikedFoods: profile.dislikedFoods,
+                cookingSkill: profile.cookingSkill,
+              }}
+            />
+          </Group>
 
-        <Group title="Your account">
-          {/* Last, and the only thing here that cannot be undone. */}
-          <EraseData />
-        </Group>
+          <Group title="Your account">
+            {/* Last, and the only thing here that cannot be undone. */}
+            <EraseData />
+          </Group>
+        </div>
       </div>
 
-      <div className="max-w-xl">
+      {/*
+        Only where there is no sidebar. On a desktop, signing out is a row in
+        the menu beneath "Tell us" — a menu is where a mouse looks for it, and
+        it should not take opening Settings to leave.
+      */}
+      <div className="max-w-xl md:hidden">
         <SignOut />
       </div>
     </>

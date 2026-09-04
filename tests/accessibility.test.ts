@@ -116,6 +116,21 @@ suite("it works with a mouse too", () => {
     expect(read("components/tab-bar.tsx")).toMatch(/export const TABS/);
   });
 
+  it("can sign out without opening Settings", () => {
+    // Leaving is a menu item on a desktop, beneath "Tell us". It used to be the
+    // last card on the Settings page, which meant opening Settings to leave.
+    const nav = read("components/side-nav.tsx");
+    expect(nav).toMatch(/<FeedbackNavItem \/>[\s\S]{0,200}<SignOutNavItem \/>/);
+    // And not twice on the same screen: the Settings copy is for the phone,
+    // where there is no sidebar to carry it.
+    const settings = read("app/settings/page.tsx");
+    expect(settings).toMatch(/md:hidden[^>]*>\s*<SignOut \/>/);
+    // One implementation of leaving, or the two drift on what a failure does.
+    const signOut = read("components/sign-out.tsx");
+    expect(signOut).toMatch(/export function useSignOut/);
+    expect(signOut.match(/fetch\("\/api\/login"/g)).toHaveLength(1);
+  });
+
   it("gives every bottom sheet a desktop position", () => {
     // An 88dvh sheet glued to the bottom edge of a 27-inch screen is a phone
     // app in a window.
@@ -190,6 +205,15 @@ suite("the desktop layout is a layout", () => {
     // the page's job, since it is the page that knows her timezone.
     expect(read("app/plan/page.tsx")).toMatch(/searchParams/);
     expect(read("app/plan/page.tsx")).toMatch(/dayIndex\(her\)/);
+  });
+
+  it("lays settings out in two columns of groups, not one phone column", () => {
+    // A 36rem column on a 27-inch screen is a phone app in a window. Two
+    // columns of *groups* — not a masonry of cards, which is what gave every
+    // card a ragged edge the first time — each read down, in order.
+    const settings = read("app/settings/page.tsx");
+    expect(settings).toMatch(/lg:grid[^"]*lg:grid-cols-2/);
+    expect(settings).toMatch(/lg:items-start/);
   });
 
   it("gives today's food a screen of its own, like today's training", () => {

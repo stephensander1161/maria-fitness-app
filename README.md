@@ -98,6 +98,9 @@ npm run dev
 
 The first account created becomes the owner. Add one per person — each account
 gets its own profile and its own coach; no account can see another's data.
+Access is invite-only: the accounts table *is* the allowlist. `invite` adds
+someone without a password, and `/signup` lets them choose their own — it
+cannot add an address that was never invited.
 
 Open http://localhost:3000. The coach opens the conversation itself and runs
 onboarding — there is no setup form.
@@ -112,6 +115,7 @@ onboarding — there is no setup form.
 | `npm run db:seed` | Upsert the exercise and fact libraries |
 | `npm run user -- list` | Accounts, roles, last sign-in |
 | `npm run user -- add <email> [name]` | Create an account (prompts for a password) |
+| `npm run user -- invite <email> [name]` | Create an account with no password: they sign in with Google, or choose a password at `/signup`. Access is invite-only — that page can claim an invitation, never create one |
 | `npm run user -- passwd <email>` | Change a password; signs that account out everywhere |
 | `npm run user -- signout-everywhere <email>` | Revoke one account's sessions |
 | `npm run feedback` | Read what she's asked for; set status and reply |

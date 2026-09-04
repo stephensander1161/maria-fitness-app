@@ -11,6 +11,10 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 const PUBLIC_PATHS = new Set([
   "/login",
   "/api/login",
+  // Sign-up is claiming an invitation, and the person claiming it has no
+  // session yet. Neither path can add an address — see lib/signup.ts.
+  "/signup",
+  "/api/auth/signup",
   // The OAuth round trip must reach these while signed out. They are the
   // only other doors, and both end in the same invite check.
   "/api/auth/google",

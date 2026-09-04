@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { exchangeCode, statesMatch, type Pending } from "@/lib/oauth";
-import { audit } from "@/lib/audit";
+import { audit, maskEmail } from "@/lib/audit";
 import { checkLoginAllowed, clientIp } from "@/lib/limits";
 
 export const runtime = "nodejs";
@@ -96,10 +96,4 @@ export async function GET(req: Request) {
 
   await audit("login.success", { req, detail: { userId: user.id, via: "google" } });
   return Response.redirect(new URL("/", req.url), 302);
-}
-
-/** "m***@gmail.com" — first letter and domain, nothing else. */
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  return `${local?.slice(0, 1) ?? ""}***@${domain ?? ""}`;
 }

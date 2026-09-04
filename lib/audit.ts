@@ -18,6 +18,11 @@ export type AuditEventName =
   | "login.success"
   | "login.failure"
   | "login.rate_limited"
+  // Claiming an invitation with a password of one's own. A failure is a
+  // refusal — uninvited, already claimed, or disabled — and is recorded the
+  // way a failed sign-in is, because it is the same door being tried.
+  | "signup.success"
+  | "signup.failure"
   | "logout"
   | "budget.changed"
   // A device registered for notifications. Recorded because it is a new
@@ -36,7 +41,7 @@ export type AuditEventName =
   | "onboarding.completed"
   | "spend.ceiling_reached";
 
-const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "data.deleted"];
+const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "signup.failure", "data.deleted"];
 
 /** Never let logging break the request it is describing. */
 export async function audit(
@@ -55,6 +60,16 @@ export async function audit(
   } catch (err) {
     console.error("[audit] failed to record", event, err);
   }
+}
+
+/**
+ * "m***@gmail.com" — first letter and domain, nothing else. Enough to tell
+ * "she used her other address" from a stranger, without the log becoming a
+ * record of strangers' addresses.
+ */
+export function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  return `${local?.slice(0, 1) ?? ""}***@${domain ?? ""}`;
 }
 
 function clientAddress(req: Request): string {

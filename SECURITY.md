@@ -26,6 +26,17 @@ A failed sign-in verifies against a dummy hash when the address is unknown, so a
 missing account costs the same ~200ms as a wrong password and response time
 cannot be used to enumerate accounts. Every failure returns the same message.
 
+There is no open registration. The accounts table is the allowlist, and the only
+thing that adds to it is `npm run user -- invite` (or `add`). `/signup` lets an
+invited person choose their own password rather than have one typed for them:
+it claims an invitation that nobody has used — no password, never linked to
+Google, never signed in — and refuses everything else with one message, so the
+form cannot be used to read the list. The claim is a conditional update, so two
+sign-ups for one address cannot both land. The residual risk is the window
+between an invitation and its first use, during which anyone who knew the
+address could claim it; invite people when they are about to sign in, and
+`npm run user -- list` shows who has and hasn't.
+
 Sessions are checked in two layers. The edge middleware verifies the signature
 and expiry — cheap, and enough to turn away anyone without a valid token before
 any code runs. A stateless token cannot know that an account was disabled a

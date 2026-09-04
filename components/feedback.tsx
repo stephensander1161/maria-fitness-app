@@ -43,7 +43,7 @@ export function Feedback() {
   const [open, setOpen] = useState(false);
 
   // Same reason as the tab bar: nothing but the form should be reachable here.
-  if (path === "/login" || path === "/welcome" || path === "/") return null;
+  if (path === "/login" || path === "/signup" || path === "/welcome" || path === "/") return null;
 
   return (
     <>
@@ -100,7 +100,7 @@ export function FeedbackGlyph({ size = 17 }: { size?: number }) {
 export function FeedbackNavItem() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  if (path === "/login" || path === "/welcome" || path === "/") return null;
+  if (path === "/login" || path === "/signup" || path === "/welcome" || path === "/") return null;
 
   return (
     <>

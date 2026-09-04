@@ -89,6 +89,8 @@ suite("the gate denies by default", () => {
     expect(listed).toEqual([
       "/api/auth/google",
       "/api/auth/google/callback",
+      // Sign-up claims an invitation; it cannot add an address. lib/signup.ts.
+      "/api/auth/signup",
       "/api/login",
       "/apple-icon",
       "/favicon.ico",
@@ -98,6 +100,7 @@ suite("the gate denies by default", () => {
       "/login",
       "/manifest.webmanifest",
       "/robots.txt",
+      "/signup",
       "/sw.js",
     ]);
   });

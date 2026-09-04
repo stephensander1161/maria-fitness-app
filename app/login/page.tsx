@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LoginForm } from "@/components/login-form";
 import { googleConfigured } from "@/lib/oauth";
 
@@ -39,6 +40,12 @@ export default async function LoginPage({
       )}
 
       <LoginForm google={googleConfigured()} />
+
+      {/* Invited but without a password yet — the one case sign-in cannot help with. */}
+      <p className="mt-6 text-[13px] text-faint">
+        Invited?{" "}
+        <Link href="/signup" className="text-muted underline underline-offset-2">Set up your account</Link>
+      </p>
     </div>
   );
 }

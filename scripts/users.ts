@@ -3,7 +3,7 @@
  *
  *   npm run user -- list
  *   npm run user -- add her@example.com "Maria"      # prompts for a password
- *   npm run user -- invite her@example.com "Maria"   # Google sign-in only
+ *   npm run user -- invite her@example.com "Maria"   # Google, or she sets a password at /signup
  *   npm run user -- passwd her@example.com
  *   npm run user -- signout-everywhere her@example.com
  *   npm run user -- disable her@example.com
@@ -88,8 +88,9 @@ async function main() {
       await db.insert(profiles).values({ userId: created.id, name: nameArg ?? null });
 
       console.log(`✓ ${email} invited as ${created.role}.`);
-      console.log("  They sign in with Continue with Google. To add a password as");
-      console.log(`  a fallback: npm run user -- passwd ${email}`);
+      console.log("  They sign in with Continue with Google, or choose their own password");
+      console.log("  at /signup — that page claims an invitation and can never add one.");
+      console.log(`  To set a password for them instead: npm run user -- passwd ${email}`);
       break;
     }
 
