@@ -46,7 +46,34 @@ jobs:
         run: npm test
 
       - name: Dependency audit (production)
-        run: npm audit --omit=dev --audit-level=high
+        # npm's advisory endpoint is flaky, and it takes the whole pipeline
+        # down with it: two runs in one evening failed here, one on ECONNRESET
+        # and one on a read timeout, neither of them a vulnerability. A gate
+        # that goes red for reasons unrelated to the change is a gate people
+        # learn to ignore, which costs more than the flake does.
+        #
+        # So: retry a network error, and never let one read as a clean audit.
+        # A real finding still fails on the first attempt — the retry only
+        # applies to the handful of errors that mean "could not ask".
+        run: |
+          unreachable='ECONNRESET|network timeout|audit endpoint returned an error|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up'
+          for attempt in 1 2 3; do
+            if out="$(npm audit --omit=dev --audit-level=high 2>&1)"; then
+              echo "$out"
+              exit 0
+            fi
+            if echo "$out" | grep -qiE "$unreachable"; then
+              echo "::warning::npm advisory endpoint unreachable (attempt $attempt of 3) — retrying"
+              sleep $((attempt * 15))
+              continue
+            fi
+            # Anything else is the audit doing its job.
+            echo "$out"
+            exit 1
+          done
+          echo "$out"
+          echo "::error::Could not reach npm's advisory endpoint after 3 attempts. That is a registry outage, not a clean audit — re-run when it is back."
+          exit 1
 
       # Dev-only advisories shouldn't block a deploy, but shouldn't be silent.
       - name: Dependency audit (all, advisory)
