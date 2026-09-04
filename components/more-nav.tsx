@@ -30,13 +30,16 @@ const gear = (
   </>
 );
 
-export function MoreNav({ isOwner }: { isOwner: boolean }) {
+export function MoreNav({ isOwner, recovering }: { isOwner: boolean; recovering: boolean }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
   if (CHROMELESS.includes(path)) return null;
 
   const items: Item[] = [
+    ...(recovering
+      ? [{ href: "/recovery", label: "Recovery", icon: <path d="M12 20s-7-4.5-7-9.2A4 4 0 0 1 12 8a4 4 0 0 1 7 2.8C19 15.5 12 20 12 20Z" /> } as Item]
+      : []),
     { href: "/friends", label: "Friends", icon: <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.6a3.5 3.5 0 0 1 0 6.8" /> },
     { href: "/settings", label: "Settings", icon: gear },
     ...(isOwner

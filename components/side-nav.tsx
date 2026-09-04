@@ -18,7 +18,7 @@ import type { Title } from "@/lib/titles";
  */
 const CHROMELESS = new Set(["/login", "/signup", "/welcome"]);
 
-export function SideNav({ name, title, isOwner = false }: { name: string | null; title: Title; isOwner?: boolean }) {
+export function SideNav({ name, title, isOwner = false, recovering = false }: { name: string | null; title: Title; isOwner?: boolean; recovering?: boolean }) {
   const path = usePathname();
   if (CHROMELESS.has(path)) return null;
 
@@ -77,6 +77,21 @@ export function SideNav({ name, title, isOwner = false }: { name: string | null;
         see RefreshOnFocus.
       */}
       <div className="mt-auto space-y-1 pt-4">
+        {recovering && (
+          <Link
+            href="/recovery"
+            aria-current={path.startsWith("/recovery") ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors ${
+              path.startsWith("/recovery") ? "bg-accent-soft text-accent" : "text-faint hover:bg-raised hover:text-muted"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 20s-7-4.5-7-9.2A4 4 0 0 1 12 8a4 4 0 0 1 7 2.8C19 15.5 12 20 12 20Z" />
+            </svg>
+            Recovery
+          </Link>
+        )}
         {isOwner && (
           <Link
             href="/admin"

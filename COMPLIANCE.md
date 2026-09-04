@@ -48,6 +48,15 @@ Read it as an honest inventory, not a certificate.
 | `email_verified`, `aud`, `iss` and `exp` all checked on the id_token | `lib/oauth.ts` |
 | OAuth `state` in a short-lived httpOnly cookie, compared in constant time, plus PKCE | `lib/oauth.ts` |
 
+### Safety-critical guidance
+
+| Control | Where |
+|---|---|
+| Postpartum training is gated on clinical clearance: without it the app declines to write a programme at all, whatever the elapsed time | `lib/postpartum.ts` |
+| Pelvic floor symptoms stop progression and route to a physiotherapist rather than being trained around; impact requires clearance, ~12 weeks and no symptoms | `lib/postpartum.ts`, `tests/postpartum.test.ts` |
+| A breastfeeding target adds the energy cost of feeding and cannot fall below 1800 kcal | `lib/nutrition.ts` |
+| Each of these rails was mutation-tested — removed on purpose, and the suite fails | `tests/postpartum.test.ts` |
+
 ### CC6.6 / CC6.7 — Boundary and transmission
 
 - CSP permitting **no external origin at all**. `connect-src 'self'` means that

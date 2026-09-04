@@ -90,6 +90,22 @@ export default async function SettingsPage() {
             />
           </Group>
 
+          <Group title="Recovery">
+            <section className="card p-5">
+              <h2 className="text-[15px] font-semibold">Coming back from childbirth</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                Telling the app where you are changes which movements it puts in your plan and
+                which it leaves out, and what it does with your calories if you are feeding.
+              </p>
+              <Link
+                href="/recovery"
+                className="mt-3 inline-block rounded-xl border border-line px-4 py-2.5 text-[13px] font-medium text-muted transition-colors hover:bg-raised"
+              >
+                Recovery
+              </Link>
+            </section>
+          </Group>
+
           <Group title="Friends">
             {/* The phone has no sidebar, so this is the way in there. */}
             <section className="card p-5">

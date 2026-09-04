@@ -91,6 +91,22 @@ export const profiles = pgTable("profiles", {
    * instead of living in one browser's storage.
    */
   theme: text("theme"),
+  /**
+   * Coming back from childbirth. Null birth date means she has not told the
+   * app she is postpartum, and everything here stays out of her way.
+   *
+   * `postpartumClearedAt` is the gate rather than a note: until a clinician
+   * has checked her, the app does not write her a programme. See
+   * lib/postpartum.ts — this is the part of the app where being wrong costs
+   * years rather than a week.
+   */
+  postpartumBirthDate: date("postpartum_birth_date"),
+  postpartumDelivery: text("postpartum_delivery", { enum: ["vaginal", "caesarean"] }),
+  postpartumClearedAt: date("postpartum_cleared_at"),
+  /** Roughly 450-500 kcal a day. Never a rounding error in her targets. */
+  breastfeeding: boolean("breastfeeding").default(false).notNull(),
+  /** Leaking, heaviness, doming, pain, bleeding — each changes what is safe. */
+  postpartumSymptoms: jsonb("postpartum_symptoms").$type<string[]>().default([]).notNull(),
   /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
   /** How her food is measured — portions, ingredients, oven temperatures.

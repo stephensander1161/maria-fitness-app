@@ -96,6 +96,7 @@ export const runPlanSetup = defineTool({
             daysPerWeek: changes.daysPerWeek,
             units: profile.units,
             goalWeightKg: profile.goalWeightKg,
+            breastfeeding: profile.breastfeeding,
           })
         : null;
 

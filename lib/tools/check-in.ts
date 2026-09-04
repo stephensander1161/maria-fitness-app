@@ -141,6 +141,7 @@ export const runCheckIn = defineTool({
       daysPerWeek: profile.daysPerWeek ?? 3,
       units,
       goalWeightKg: profile.goalWeightKg,
+      breastfeeding: profile.breastfeeding,
     });
     const bmr = formula.maintenanceCalories / (profile.daysPerWeek && profile.daysPerWeek >= 4 ? 1.55 : 1.375);
 

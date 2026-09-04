@@ -2313,4 +2313,5 @@ export const EXERCISES: Seed[] = [
     safetyNote: "A release, not a stretch to win. Hold behind the thighs if reaching the feet rounds your back.",
     easier: ["childs-pose"],
   },
+
 ];

@@ -27,6 +27,7 @@ import * as transcript from "./transcript";
 import * as shopping from "./shopping";
 import * as friends from "./friends";
 import * as appearance from "./appearance";
+import * as postpartum from "./postpartum";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -162,6 +163,8 @@ const all: Tool[] = [
   friends.getFriendStats,
   appearance.listThemes,
   appearance.setTheme,
+  postpartum.setPostpartumStatus,
+  postpartum.getPostpartumPlan,
 ];
 
 // Plain comparison, not localeCompare: the ordering must not depend on the

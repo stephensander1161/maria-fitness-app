@@ -1,4 +1,5 @@
 import { inToCm } from "@/lib/units";
+import { LACTATION_CALORIE_FLOOR, LACTATION_KCAL } from "@/lib/postpartum";
 
 /**
  * Starting calorie and protein targets, from her own numbers.
@@ -24,6 +25,12 @@ export type TargetInput = {
    * had asked for, on day one, with the app cheerfully calling it their plan.
    */
   goalWeightKg?: number | null;
+  /**
+   * Feeding costs roughly 450-500 kcal a day. Left out, a deficit computed
+   * from maintenance is a much bigger one than it looks, and milk supply is
+   * what pays for it.
+   */
+  breastfeeding?: boolean;
 };
 
 /** Which way she is trying to go. */
@@ -71,7 +78,10 @@ export function nutritionTargets(input: TargetInput): {
   // Lightly active: a few training days plus ordinary life. Not an athlete
   // multiplier, because assuming she moves more than she does inflates the
   // target and stalls the deficit.
-  const maintenance = bmr * (input.daysPerWeek >= 4 ? 1.55 : 1.375);
+  const activity = bmr * (input.daysPerWeek >= 4 ? 1.55 : 1.375);
+  // Added to what she burns *before* any deficit, because it is energy leaving
+  // her body whether or not anyone accounted for it.
+  const maintenance = activity + (input.breastfeeding ? LACTATION_KCAL : 0);
 
   const direction = goalDirection(input.weightKg, input.goalWeightKg);
 
@@ -97,7 +107,10 @@ export function nutritionTargets(input: TargetInput): {
       // Holding is not "no plan": it is maintenance, which is what
       // recomposition actually asks for.
       : direction === "hold" ? rounded(maintenance)
-        : Math.max(CALORIE_FLOOR, rounded(maintenance - deficit));
+        : Math.max(
+            input.breastfeeding ? LACTATION_CALORIE_FLOOR : CALORIE_FLOOR,
+            rounded(maintenance - deficit),
+          );
 
   // ~1.6g per kg. It protects muscle in a deficit and supports building it in
   // a surplus — the meta-analytic plateau sits around here either way, so the

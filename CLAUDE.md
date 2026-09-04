@@ -137,6 +137,37 @@ nulls as zeros always fails in the direction that reads as *her* failure —
 under-reported fibre, an invented deficit, a day she "barely ate". That is the
 worst possible direction for this particular app to be wrong in.
 
+## Coming back from childbirth
+
+`lib/postpartum.ts`, `lib/tools/postpartum.ts`, `/recovery`, and a step in
+onboarding. This is the part of the app where being wrong costs years rather
+than a week: loading a pelvic floor that is not ready, or crunching an
+abdominal wall that is still remodelling, leaves people leaking or with a
+prolapse. Three rules, all tested and each confirmed to fail when removed:
+
+1. **Clearance is a gate, not a formality.** Without `postpartumClearedAt` she
+   stays in the `early` stage however many weeks have passed, and the app does
+   not write or adjust a programme — it says walk and breathe, and says those
+   count. Time does not promote her; the check does, because the check is what
+   rules out what an app cannot see.
+2. **Symptoms stop the progression.** Leaking, heaviness, doming, pain, or
+   bleeding that had stopped mean assess, never push through — and the app says
+   supervised pelvic floor training is first-line and it *works* in the same
+   breath, because "go see someone" alone reads as a door closing.
+3. **Impact needs all three**: cleared, about twelve weeks, and no symptoms.
+   Wanting to run is not a fourth condition.
+
+Breastfeeding is not a rounding error: ~450 kcal a day is added to maintenance
+*before* any deficit, and `LACTATION_CALORIE_FLOOR` (1800) replaces the usual
+1200. Without it the app hands a feeding mother a far bigger deficit than it
+thinks, and supply is what pays.
+
+**The library already had this content.** Eleven postpartum movements were
+seeded long before the feature, and the first attempt here added parallel
+copies under new slugs — `pelvic-floor-lift` beside `pelvic-floor-activation`.
+`tests/exercises.test.ts` caught the duplicates. Reach for existing slugs; the
+stage lists in `lib/tools/postpartum.ts` are checked against the seed.
+
 ## Which way she is going
 
 This app was written weight-loss-first, and for a long time that was not a

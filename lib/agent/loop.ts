@@ -5,6 +5,7 @@ import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
+import { postpartumSignal, type PostpartumSymptom } from "@/lib/postpartum";
 import { profileToday } from "@/lib/profile";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
@@ -89,12 +90,20 @@ export async function* runCoach(
     preppedSummary(profile.id, her),
     goalDirectionSignal(profile),
   ]);
+  // Not a promise: everything it needs is already on the profile.
+  const recovery = postpartumSignal({
+    birthDate: profile.postpartumBirthDate,
+    delivery: profile.postpartumDelivery,
+    clearedAt: profile.postpartumClearedAt,
+    breastfeeding: profile.breastfeeding,
+    symptoms: (profile.postpartumSymptoms ?? []) as PostpartumSymptom[],
+  }, her);
   const system = buildSystem(
     profile,
     // Her direction sits with the weight, because that is where getting it
     // backwards does the damage: the app was weight-loss-first everywhere, and
     // told someone trying to gain that their rising scale was a problem.
-    [snapshot, plan, weight, aim, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
+    [recovery, snapshot, plan, weight, aim, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
       fridge, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
     opts.speakingTo ?? null,

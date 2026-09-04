@@ -20,14 +20,27 @@ const EQUIPMENT = [
   "pull-up bar", "full gym", "bodyweight only",
 ] as const;
 
+/** Her words, matched to lib/postpartum.ts symptoms in the onboard route. */
+const PP_SYMPTOMS = [
+  "leaking", "heaviness", "doming", "pain", "bleeding",
+] as const;
+
 const COMMON_LIMITS = ["knees", "lower back", "shoulders", "wrists", "neck", "hips"] as const;
 const COMMON_DIETS = ["vegetarian", "vegan", "gluten-free", "dairy-free", "pescatarian", "halal", "kosher"] as const;
 
-type Step = 0 | 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 export function Onboarding({ defaultName }: { defaultName: string | null }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(0);
+  // Recovery from childbirth. Asked rather than inferred, and only of people
+  // it could apply to — see the step itself for why the questions are these.
+  const [gaveBirth, setGaveBirth] = useState(false);
+  const [birthDate, setBirthDate] = useState("");
+  const [delivery, setDelivery] = useState<"vaginal" | "caesarean" | "">("");
+  const [ppCleared, setPpCleared] = useState<"yes" | "no" | "">("");
+  const [breastfeeding, setBreastfeeding] = useState<"yes" | "no" | "">("");
+  const [ppSymptoms, setPpSymptoms] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +106,17 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
           motivation: motivation.trim() || undefined,
           units, foodUnits,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          ...(gaveBirth && birthDate
+            ? {
+                postpartum: {
+                  birthDate,
+                  delivery: delivery || undefined,
+                  clearedForExercise: ppCleared === "yes",
+                  breastfeeding: breastfeeding === "yes",
+                  symptoms: ppSymptoms,
+                },
+              }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -205,6 +229,64 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
       )}
 
       {step === 3 && (
+        /*
+         * Asked, never inferred. The app cannot see this and guessing from age
+         * and sex would be both wrong and insulting — but not asking is worse,
+         * because the answer changes which movements are safe. Everything here
+         * is optional and the whole step collapses to one tap for anyone it
+         * does not apply to.
+         *
+         * "Sex" is the closest thing on file, and it is not the same question,
+         * so the step is offered to everyone who has not said male rather than
+         * being gated on a guess.
+         */
+        <Screen title="Recovery" sub="So the plan is right for where your body actually is. Skip if it doesn't apply.">
+          <Field label="Have you given birth in the last two years?">
+            <Chips options={["no", "yes"]} value={[gaveBirth ? "yes" : "no"]}
+              onPick={(v) => setGaveBirth(v === "yes")} />
+          </Field>
+
+          {gaveBirth && (
+            <>
+              <Field label="Roughly when?">
+                <input
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  aria-label="Date you gave birth"
+                  className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-[15px] focus:border-accent focus:outline-none"
+                />
+              </Field>
+              <Field label="How was the birth?">
+                <Chips options={["vaginal", "caesarean"]} value={delivery ? [delivery] : []}
+                  onPick={(v) => setDelivery(v as "vaginal" | "caesarean")} />
+              </Field>
+              <Field label="Has a doctor, midwife or physio cleared you for exercise?">
+                {/* The gate. Until this is yes, the app will not write a
+                    programme — it says walk and breathe, and says why. */}
+                <Chips options={["not yet", "yes"]} value={ppCleared === "yes" ? ["yes"] : ppCleared === "no" ? ["not yet"] : []}
+                  onPick={(v) => setPpCleared(v === "yes" ? "yes" : "no")} />
+              </Field>
+              <Field label="Are you breastfeeding?">
+                {/* Roughly 450-500 kcal a day. Left out, the app would hand
+                    her a far bigger deficit than it thinks it is. */}
+                <Chips options={["no", "yes"]} value={breastfeeding ? [breastfeeding] : []}
+                  onPick={(v) => setBreastfeeding(v as "yes" | "no")} />
+              </Field>
+              <Field label="Any of these? Nothing here is unusual, and each one changes what's safe.">
+                <Chips options={[...PP_SYMPTOMS]} value={ppSymptoms} multi
+                  onPick={(v) => toggle(ppSymptoms, setPpSymptoms, v)} />
+              </Field>
+              <p className="text-[12px] leading-relaxed text-muted">
+                This app is not a substitute for a pelvic health physiotherapist. If you have
+                any of the above, it will tell you to get assessed rather than train around it.
+              </p>
+            </>
+          )}
+        </Screen>
+      )}
+
+      {step === 4 && (
         <Screen title="Anything I should work around?" sub="All optional — skip it if nothing applies.">
           <Field label="Joints or areas that complain">
             <Chips options={[...COMMON_LIMITS]} value={injuries} multi
@@ -248,11 +330,11 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
           </button>
         )}
         <button
-          onClick={() => (step === 3 ? finish() : setStep((s) => (s + 1) as Step))}
+          onClick={() => (step === 4 ? finish() : setStep((s) => (s + 1) as Step))}
           disabled={step === 0 && !name.trim()}
           className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
         >
-          {step === 3 ? "Build my plan" : "Next"}
+          {step === 4 ? "Build my plan" : "Next"}
         </button>
       </div>
     </div>
@@ -277,7 +359,7 @@ function Building() {
 
 const Progress = ({ step }: { step: number }) => (
   <div className="mb-8 flex gap-1.5">
-    {[0, 1, 2, 3].map((i) => (
+    {[0, 1, 2, 3, 4].map((i) => (
       <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-accent" : "bg-raised"}`} />
     ))}
   </div>

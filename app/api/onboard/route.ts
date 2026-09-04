@@ -36,6 +36,18 @@ const Body = z.object({
   /** Kitchen units; null or absent follows `units`. See lib/food-units.ts. */
   foodUnits: z.enum(["imperial", "metric"]).nullable().optional(),
   timezone: z.string().optional(),
+  /**
+   * Recovery from childbirth. Optional, and absent for most people — but when
+   * it is here it changes which movements are safe, so it is saved before the
+   * plan is built rather than after.
+   */
+  postpartum: z.object({
+    birthDate: z.string(),
+    delivery: z.enum(["vaginal", "caesarean"]).optional(),
+    clearedForExercise: z.boolean().default(false),
+    breastfeeding: z.boolean().default(false),
+    symptoms: z.array(z.enum(["leaking", "heaviness", "doming", "pain", "bleeding"])).default([]),
+  }).optional(),
 });
 
 /**
@@ -91,6 +103,18 @@ export async function POST(req: Request) {
     markOnboarded: true,
   }, ctx);
 
+  // Before the plan is generated, not after: what she answered here decides
+  // which movements are safe to put in it.
+  if (input.postpartum) {
+    await runTool("set_postpartum_status", {
+      birthDate: input.postpartum.birthDate,
+      delivery: input.postpartum.delivery,
+      clearedForExercise: input.postpartum.clearedForExercise,
+      breastfeeding: input.postpartum.breastfeeding,
+      symptoms: input.postpartum.symptoms,
+    }, ctx);
+  }
+
   // Her starting weight is also her first data point, or the progress chart
   // begins empty on day one.
   const today = profileToday({ timezone: input.timezone ?? null });
@@ -110,6 +134,7 @@ export async function POST(req: Request) {
     daysPerWeek: input.daysPerWeek,
     units: u,
     goalWeightKg: weightIn(input.goalWeight, u),
+    breastfeeding: input.postpartum?.breastfeeding ?? false,
   });
 
   const week = weekStart(today);

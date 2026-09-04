@@ -9,6 +9,8 @@
  * from here, because the fallback is a spinner that says nothing.
  */
 export const TOOL_LABELS: Record<string, string> = {
+  set_postpartum_status: "noting where you are in recovery",
+  get_postpartum_plan: "checking what is right for your recovery",
   list_themes: "looking at the themes", set_theme: "changing how the app looks",
   get_share_code: "finding your friend code", reset_share_code: "issuing a new friend code",
   add_friend: "sending that friend request", list_friends: "checking your friends",
