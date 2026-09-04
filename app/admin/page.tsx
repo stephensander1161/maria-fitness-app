@@ -34,6 +34,41 @@ export default async function AdminPage() {
       </header>
 
       <div className="space-y-3">
+        {/* First, because it is the only thing here that might need doing
+            something about. Absence is stated rather than rendered as nothing:
+            "nothing to flag" and "the check is broken" must not look alike. */}
+        <section className={`card p-5 ${data.signals.some((s) => s.level === "alert") ? "border-miss/50" : ""}`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-[15px] font-semibold">Worth a look</h2>
+            <span className="text-[11px] uppercase tracking-widest text-faint">last 30 days</span>
+          </div>
+          {data.signals.length === 0 ? (
+            <p className="mt-2 text-[13px] text-muted">
+              Nothing to flag. No failed-attempt bursts, no rate limiting, no uninvited
+              addresses and no activity from an account the database does not have.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {data.signals.map((sig, i) => (
+                <li key={i} className="border-t border-line/60 pt-3 first:border-0 first:pt-0">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
+                      sig.level === "alert" ? "bg-miss-soft text-miss"
+                        : sig.level === "watch" ? "bg-hold-soft text-hold"
+                        : "bg-raised text-faint"
+                    }`}>
+                      {sig.level}
+                    </span>
+                    <span className="text-[14px] font-medium">{sig.title}</span>
+                    <span className="text-[11px] tabular-nums text-faint">{sig.lastAt}</span>
+                  </div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">{sig.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="card grid grid-cols-2 gap-x-6 gap-y-4 p-5 sm:grid-cols-4">
           <Figure label="Accounts" value={String(data.totals.accounts)} />
           <Figure label="Signed in" value={String(data.totals.active30d)} sub="last 30 days" />
@@ -115,11 +150,6 @@ export default async function AdminPage() {
           )}
         </section>
 
-        <p className="px-1 pt-1 text-[12px] leading-relaxed text-faint">
-          Counts and dates only. This screen never shows anyone&apos;s weight, measurements,
-          photos, meals or coach conversation — those are theirs, and being the owner is not
-          consent to read them.
-        </p>
       </div>
     </>
   );

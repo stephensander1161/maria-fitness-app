@@ -41,6 +41,7 @@ Read it as an honest inventory, not a certificate.
 | Sharing training between accounts is opt-in both ways, carries training only (no weight, measurements, photos, food or conversation), and a *pending* request reveals nothing | `lib/friends.ts`, `tests/friends.test.ts` |
 | Friends are found by a resettable share code, never by email — so no signed-in account can test whether an address has an account here | `profiles.share_code` |
 | The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `app/admin/page.tsx` |
+| The audit log is read, not only written: the console flags failed-attempt bursts, a success that followed them, rate limiting, uninvited addresses and ids no longer in the database | `lib/security-signals.ts` |
 | Google sign-in as an identity provider only, invite-only: proving who someone is does not create an account | `lib/oauth.ts` |
 | Sign-up claims an invitation, never creates one: the address must already exist as an unused invite (no password, never linked to Google, never signed in); every refusal returns the same message; the claim is a conditional update so it cannot land twice; the same brute-force ceilings as sign-in | `lib/signup.ts`, `app/api/auth/signup/route.ts` |
 | `email_verified`, `aud`, `iss` and `exp` all checked on the id_token | `lib/oauth.ts` |
@@ -233,8 +234,15 @@ review and no privileged-access management. Deploy approval is mechanical,
 not human: CI gates it, but the same person writes the code and holds the
 token, and manual `vercel deploy` from a workstation is still possible.
 
-**Alerting.** The audit log is written but nothing watches it. A brute-force
-attempt would be recorded and no one would be told.
+**Alerting.** Partly closed. The owner console reads the log and flags what is
+worth a second look — a sign-in that followed a run of guesses from the same
+address, bursts of failures, the rate limiter firing, uninvited addresses,
+attempts to claim an account already in use, attempts on a disabled account,
+Google callbacks that did not match the browser that started them, and
+activity recorded against an account id the database no longer has
+(`lib/security-signals.ts`). **Nothing pushes.** It is seen when someone opens
+the console, so a brute-force attempt at 3am is recorded and waits to be
+noticed rather than waking anybody.
 
 **Formal incident response.** No documented severity levels, notification
 timelines, or post-incident review process.

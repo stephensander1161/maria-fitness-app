@@ -346,6 +346,15 @@ adult's weigh-ins is the same failure the friends feature prevents, with no
 consent step at all. `lib/admin.ts` counts rows rather than selecting them,
 and `tests/admin.test.ts` fails on a body column appearing there.
 
+`lib/security-signals.ts` is the half that reads the audit log back —
+COMPLIANCE.md used to say outright that nothing watched it. The hard part is
+**not crying wolf**: a console that flags something every visit is one nobody
+reads, so every signal carries its innocent explanation, one burst produces
+one line however many sign-ins followed, and an id missing from the database
+says "almost always a deleted account" rather than "attack". Two mutation
+checks earned their keep here — a five-failures test passed with the sliding
+window replaced by a plain total, because a coarser filter was doing the work.
+
 No tools, deliberately: `users` is out of the model's reach, so this is a
 page-only read model and no prompt can reach it. That is also why `/admin` is
 the one screen with no `AskCoach` — the coach cannot answer about data no tool

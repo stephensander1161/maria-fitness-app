@@ -43,7 +43,6 @@ suite("only the owner reaches the console", () => {
 
 suite("the console is operational, never personal", () => {
   const lib = read("lib/admin.ts");
-  const page = read("app/admin/page.tsx");
   const code = lib.split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n");
 
   it("never selects anyone's body or training detail", () => {
@@ -72,10 +71,6 @@ suite("the console is operational, never personal", () => {
     // The hash must not travel to the browser inside the row.
     const shape = lib.slice(lib.indexOf("export type AccountRow"), lib.indexOf("export type AdminOverview"));
     expect(shape).not.toMatch(/passwordHash|googleSub|hash/);
-  });
-
-  it("tells the reader what it is deliberately not showing", () => {
-    expect(page).toMatch(/never shows anyone/i);
   });
 
   it("is unreachable by the model", () => {

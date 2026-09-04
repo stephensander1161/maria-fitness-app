@@ -5,6 +5,7 @@ import {
   auditLog, feedback, mealLogs, messages, profiles, setLogs, usageDaily, users, weighIns, workouts,
 } from "@/lib/db/schema";
 import { currentUser } from "@/lib/session";
+import { securitySignals, type Signal } from "@/lib/security-signals";
 import { addDays, today, type ISODate } from "@/lib/date";
 import type { User } from "@/lib/db/schema";
 
@@ -62,6 +63,8 @@ export type AdminOverview = {
   accounts: AccountRow[];
   totals: { accounts: number; active30d: number; spendTodayMicros: number; spend30dMicros: number };
   recentEvents: { at: string; event: string; severity: string; ip: string | null; detail: string | null }[];
+  /** What the log is worth telling someone about — see lib/security-signals.ts. */
+  signals: (Omit<Signal, "lastAt"> & { lastAt: string })[];
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 16).replace("T", " ") : null);
@@ -154,11 +157,26 @@ export async function adminOverview(): Promise<AdminOverview> {
     };
   }));
 
+  // Two different reads of the same log. The table shows the last handful;
+  // the analysis needs the whole window, or a burst of failures from a month
+  // ago is invisible the moment twenty-five newer events exist.
   const events = await db
     .select().from(auditLog)
     .where(gte(auditLog.at, since30))
     .orderBy(desc(auditLog.at))
-    .limit(25);
+    .limit(1000);
+
+  // The owner opening their own console is not news, and one row per visit
+  // would push the events that matter off the bottom of the table.
+  const interesting = events.filter((e) => e.event !== "admin.viewed");
+
+  const signals = securitySignals(
+    interesting.map((e) => ({
+      at: e.at, event: e.event, severity: e.severity, ip: e.ip,
+      detail: e.detail as Record<string, unknown> | null,
+    })),
+    new Set(accountRows.map((u) => u.userId)),
+  );
 
   return {
     accounts,
@@ -170,7 +188,8 @@ export async function adminOverview(): Promise<AdminOverview> {
       spendTodayMicros: accounts.reduce((n, a) => n + a.spendTodayMicros, 0),
       spend30dMicros: accounts.reduce((n, a) => n + a.spend30dMicros, 0),
     },
-    recentEvents: events.map((e) => ({
+    signals: signals.map((sig) => ({ ...sig, lastAt: iso(sig.lastAt)! })),
+    recentEvents: interesting.slice(0, 25).map((e) => ({
       at: iso(e.at)!,
       event: e.event,
       severity: e.severity,
