@@ -19,5 +19,5 @@ export async function SideNavGate() {
   // The eyebrow above her name used to say "Coach", which is the app's name
   // and tells her nothing about herself.
   const title = await titleStats(profile.id, profileToday(profile));
-  return <SideNav name={user.name ?? profile.name} title={title} />;
+  return <SideNav name={user.name ?? profile.name} title={title} isOwner={user.role === "owner"} />;
 }

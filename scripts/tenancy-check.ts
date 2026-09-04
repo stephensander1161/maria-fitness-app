@@ -19,7 +19,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  mealPlans, meals, mealLogs, goals, photos, preppedPortions, profiles, users,
+  mealPlans, meals, mealLogs, friendships, goals, photos, preppedPortions, profiles, users,
 } from "@/lib/db/schema";
 import { registry, runTool } from "@/lib/tools";
 import { instantiateMealPlan, pickMealTemplate, pickWorkoutTemplate, instantiateWorkoutPlan } from "@/lib/templates";
@@ -82,6 +82,8 @@ const READS: Record<string, Record<string, unknown>> = {
   get_next_targets: {}, export_transcript: { days: 1 },
   get_coach_usage: {}, list_feedback: {}, get_boost: {}, suggest_meals: {}, suggest_exercises: {},
   get_exercise_history: { slug: "goblet-squat" }, find_recipes: { ingredient: "chicken" },
+  // A and B are strangers here, so both of these must come back empty.
+  list_friends: {}, get_friend_stats: {}, get_share_code: {},
   search_exercises: { query: "squat" }, list_templates: {}, suggest_template: {},
 };
 
@@ -180,6 +182,56 @@ async function main() {
     if (bIds.mealId) {
       const [m] = await db.select({ title: meals.title }).from(meals).where(eq(meals.id, bIds.mealId));
       if (m?.title === "hijacked") failures.push("swap_meal: B's meal was rewritten by A");
+    }
+
+    // 3. Friends: a stranger, and then a *pending* request, must both see
+    //    nothing. Asking is not seeing — that is the whole rule.
+    // Minted through the tool, as each of them — the READS sweep only ever
+    // runs as A, so B would otherwise still have no code to hand over.
+    const aCode = await runTool("get_share_code", {}, ctxA) as { code?: string };
+    const bCode = await runTool("get_share_code", {}, { profileId: b.profileId }) as { code?: string };
+    if (!aCode?.code || !bCode?.code) failures.push("get_share_code did not mint a code");
+
+    const asked = await runTool("add_friend", { code: bCode?.code ?? "" }, ctxA) as { ok?: boolean };
+    if (asked?.ok !== true) failures.push(`add_friend refused a valid code: ${JSON.stringify(asked)}`);
+
+    const [pending] = await db.select({ id: friendships.id }).from(friendships)
+      .where(eq(friendships.requesterId, a.profileId)).limit(1);
+    if (!pending) failures.push("add_friend recorded no request");
+    else {
+      const peek = await runTool("get_friend_stats", { friendshipId: pending.id }, ctxA) as { ok?: boolean };
+      if (peek?.ok !== false) failures.push("get_friend_stats served a PENDING request — asking must not be seeing");
+      // A cannot accept their own request on B's behalf.
+      const selfAccept = await runTool("respond_to_friend_request",
+        { friendshipId: pending.id, accept: true }, ctxA) as { ok?: boolean };
+      if (selfAccept?.ok !== false) failures.push("a requester accepted their own friend request");
+      const [still] = await db.select({ status: friendships.status }).from(friendships)
+        .where(eq(friendships.id, pending.id)).limit(1);
+      if (still?.status !== "pending") failures.push(`friendship left as ${still?.status} after a self-accept`);
+
+      // Once B accepts, A sees training — and still nothing of B's body.
+      await runTool("respond_to_friend_request", { friendshipId: pending.id, accept: true }, { profileId: b.profileId });
+      const seen = await runTool("get_friend_stats", { friendshipId: pending.id }, ctxA) as
+        { ok?: boolean; friend?: Record<string, unknown> };
+      if (seen?.ok !== true) failures.push("get_friend_stats refused an accepted friend");
+      // The key set, not a substring sweep: a bare "90" also matches the hex
+      // of a random uuid, which is a false alarm, while a new field carrying
+      // her weight would slip through a list of numbers nobody updated.
+      const ALLOWED = new Set([
+        "friendshipId", "name", "title", "sessionsThisWeek", "setsThisWeek",
+        "streakWeeks", "sessionsAllTime", "bestLifts", "hasEverLogged",
+      ]);
+      const extra = Object.keys(seen?.friend ?? {}).filter((k) => !ALLOWED.has(k));
+      if (extra.length) failures.push(`get_friend_stats returned unexpected fields: ${extra.join(", ")}`);
+      const lifts = (seen?.friend?.bestLifts ?? []) as Record<string, unknown>[];
+      const liftExtra = [...new Set(lifts.flatMap((l) => Object.keys(l)))]
+        .filter((k) => !["exercise", "weight", "reps", "unit"].includes(k));
+      if (liftExtra.length) failures.push(`bestLifts carried: ${liftExtra.join(", ")}`);
+      // And none of B's distinctive rows came along.
+      const text = JSON.stringify(seen?.friend ?? {});
+      for (const marker of ["-lunch-marker", "-goal-marker", "-batch-marker", "-feedback-marker"]) {
+        if (text.includes(marker)) failures.push(`get_friend_stats leaked "${marker}" — friends see training only`);
+      }
     }
 
     console.log(`checked ${Object.keys(READS).length} read tools and ${attempts.length} id-taking writes`);

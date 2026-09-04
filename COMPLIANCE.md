@@ -38,6 +38,9 @@ Read it as an honest inventory, not a certificate.
 | Global revocation by secret rotation | `AUTH_SECRET` |
 | Brute-force ceilings, per-IP **and** global — `x-forwarded-for` is client-supplied, so a per-IP limit alone can be rotated around | `lib/limits.ts` |
 | Every tool handler scoped to a server-supplied `profileId`, never a client-supplied one | `lib/tools/` |
+| Sharing training between accounts is opt-in both ways, carries training only (no weight, measurements, photos, food or conversation), and a *pending* request reveals nothing | `lib/friends.ts`, `tests/friends.test.ts` |
+| Friends are found by a resettable share code, never by email — so no signed-in account can test whether an address has an account here | `profiles.share_code` |
+| The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `app/admin/page.tsx` |
 | Google sign-in as an identity provider only, invite-only: proving who someone is does not create an account | `lib/oauth.ts` |
 | Sign-up claims an invitation, never creates one: the address must already exist as an unused invite (no password, never linked to Google, never signed in); every refusal returns the same message; the claim is a conditional update so it cannot land twice; the same brute-force ceilings as sign-in | `lib/signup.ts`, `app/api/auth/signup/route.ts` |
 | `email_verified`, `aud`, `iss` and `exp` all checked on the id_token | `lib/oauth.ts` |

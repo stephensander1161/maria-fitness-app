@@ -307,6 +307,50 @@ excuses". `tests/system-prompt.test.ts` asserts every tone still carries the
 non-negotiables and that no voice licenses shaming her — the fun voice to
 write is exactly the one that quietly turns into shame.
 
+## Sharing training with a friend
+
+`lib/friends.ts`, `lib/tools/friends.ts`, `/friends`. Two people agree, and
+each can then see the other's **training**: sessions this week, hard sets,
+streak, lifetime sessions, rank and the week's heaviest lifts.
+
+- **Training crosses, a body never does.** No weight, no measurements, no
+  photos, no food, no cycle, no injury, nothing from the conversation. The
+  `FriendTraining` type is the control — there is no field that could carry
+  one — and `tests/friends.test.ts` fails the build if a body word appears in
+  that shape or a body table is read in that module.
+- **Asking is not seeing.** `canSeeTraining` requires `accepted`; a pending
+  request reveals nothing at all, or the request itself becomes the leak. The
+  tenancy check exercises exactly that, plus a requester trying to accept
+  their own request.
+- **Found by code, never by email.** `profiles.share_code` is Crockford
+  base32, minted lazily, reset at will. An email lookup would make any
+  signed-in account an oracle for "does this address have an account", and
+  the address lives on `users`, which is out of the model's reach. An unknown
+  code and her own code give the same answer, so the field cannot be swept.
+- **Her week in her timezone; his lifts in the reader's units.** Both are easy
+  to get backwards and both are wrong every single time if you do.
+- Symmetric by construction. There is no one-way follow: "he sees my sessions
+  and I cannot see his" invites comparison without consent.
+
+## The owner's console
+
+`/admin`, gated by `requireOwner()` on `users.role`. Middleware only proves a
+valid session, and every member has one, so the role check is the whole gate.
+`npm run user -- role <email> owner|member` grants it and refuses to remove
+the last owner.
+
+It is **operational, not personal**: accounts, how each signs in, whether they
+have started, activity counts, coach spend, and the audit log. Never anyone's
+weight, measurements, photos, meals or conversation — an owner reading another
+adult's weigh-ins is the same failure the friends feature prevents, with no
+consent step at all. `lib/admin.ts` counts rows rather than selecting them,
+and `tests/admin.test.ts` fails on a body column appearing there.
+
+No tools, deliberately: `users` is out of the model's reach, so this is a
+page-only read model and no prompt can reach it. That is also why `/admin` is
+the one screen with no `AskCoach` — the coach cannot answer about data no tool
+exposes, and offering would be a promise the app cannot keep.
+
 ## Accounts
 
 `users` holds accounts; `profiles` holds training data, one per account. The

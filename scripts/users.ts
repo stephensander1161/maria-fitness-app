@@ -4,6 +4,7 @@
  *   npm run user -- list
  *   npm run user -- add her@example.com "Maria"      # prompts for a password
  *   npm run user -- invite her@example.com "Maria"   # Google, or she sets a password at /signup
+ *   npm run user -- role her@example.com owner    # owner = admin console
  *   npm run user -- passwd her@example.com
  *   npm run user -- signout-everywhere her@example.com
  *   npm run user -- disable her@example.com
@@ -13,7 +14,7 @@
  * a command line lands in shell history and in the process table.
  */
 import { createInterface } from "node:readline/promises";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, users } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/password";
@@ -116,6 +117,28 @@ async function main() {
       break;
     }
 
+    case "role": {
+      // Owner is the admin role: it is what /admin checks, and nothing else
+      // in the app reads it. Deliberately not a tool — `users` is out of the
+      // model's reach, so no prompt can promote anyone.
+      const wanted = nameArg;
+      if (wanted !== "owner" && wanted !== "member") {
+        throw new Error("Usage: npm run user -- role <email> owner|member");
+      }
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!user) throw new Error(`No account for ${email}.`);
+      if (user.role === "owner" && wanted === "member") {
+        const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(users)
+          .where(eq(users.role, "owner"));
+        // Removing the last owner locks the console for everyone, and no
+        // screen can put it back — only this script can.
+        if (n <= 1) throw new Error("That is the only owner. Promote someone else first.");
+      }
+      await db.update(users).set({ role: wanted }).where(eq(users.id, user.id));
+      console.log(`✓ ${email} is now ${wanted}.`);
+      break;
+    }
+
     case "disable":
     case "enable": {
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
@@ -136,6 +159,7 @@ async function main() {
   npm run user -- add <email> [name]
   npm run user -- invite <email> [name]
   npm run user -- passwd <email>
+  npm run user -- role <email> owner|member
   npm run user -- signout-everywhere <email>
   npm run user -- disable <email>
   npm run user -- enable <email>`);

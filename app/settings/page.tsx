@@ -6,6 +6,7 @@ import { UnitsSettings } from "@/components/units-settings";
 import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
 import { AiOpinion } from "@/components/ai-opinion";
+import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
 import { RestSettings } from "@/components/rest-settings";
 import { WeighInReminder } from "@/components/weigh-in-reminder";
@@ -84,6 +85,23 @@ export default async function SettingsPage() {
                 cookingSkill: profile.cookingSkill,
               }}
             />
+          </Group>
+
+          <Group title="Friends">
+            {/* The phone has no sidebar, so this is the way in there. */}
+            <section className="card p-5">
+              <h2 className="text-[15px] font-semibold">Training with friends</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                Share sessions, streaks and best lifts with people you know. They never see your
+                weight, measurements, photos or food.
+              </p>
+              <Link
+                href="/friends"
+                className="mt-3 inline-block rounded-xl border border-line px-4 py-2.5 text-[13px] font-medium text-muted transition-colors hover:bg-raised"
+              >
+                Friends
+              </Link>
+            </section>
           </Group>
 
           <Group title="Your account">

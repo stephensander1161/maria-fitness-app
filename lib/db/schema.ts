@@ -159,8 +159,63 @@ export const profiles = pgTable("profiles", {
   /** She said not now. The invitation stops; the setup itself is still there
    *  whenever she asks for it. */
   planSetupSkippedAt: timestamp("plan_setup_skipped_at", { withTimezone: true }),
+  /**
+   * How someone adds her as a friend: a short code she reads out or texts.
+   *
+   * Deliberately not her email address. Looking a person up by email would
+   * make any signed-in account an oracle for "does this address have an
+   * account here", and the address itself lives on `users`, which is out of
+   * the model's reach on purpose. A code is deny-by-default — nobody can
+   * reach her unless she hands it over — and `reset_share_code` takes it
+   * back. Null until she first asks for one; minted lazily.
+   */
+  shareCode: text("share_code"),
   createdAt: createdAt(),
-});
+}, (t) => [
+  // Nullable, and NULLs are distinct in Postgres, so every profile without a
+  // code coexists happily. The uniqueness that matters is between real codes.
+  uniqueIndex("profiles_share_code").on(t.shareCode),
+]);
+
+/**
+ * Two people who have agreed to see each other's training.
+ *
+ * Symmetric by construction: one row covers the pair, and accepting it lets
+ * each of them see the other. There is no one-way follow, because "she can
+ * see my sessions and I cannot see hers" is a shape that invites comparison
+ * without consent.
+ *
+ * **Training only.** What a friend can see is defined in lib/friends.ts and is
+ * sessions, streak, hard sets and best lifts. Never weight, never
+ * measurements, never photos, never food, never the coach conversation, never
+ * an injury. Body data is the reason this app is careful, and a social feature
+ * is exactly where it would leak first.
+ *
+ * Declining deletes the row rather than remembering a refusal. Nobody can ask
+ * without a code she gave them, so the useful escape is resetting the code,
+ * not keeping a permanent record of a no.
+ */
+export const friendships = pgTable(
+  "friendships",
+  {
+    id: id(),
+    /** Who asked. Kept, rather than storing the pair in sorted order, because
+     *  "she wants to see your training" and "you asked her" are different
+     *  sentences and the screen has to say the right one. */
+    requesterId: uuid("requester_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    addresseeId: uuid("addressee_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["pending", "accepted"] }).default("pending").notNull(),
+    createdAt: createdAt(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (t) => [
+    // One row per ordered pair. The handler checks the other direction too, so
+    // two people who both send a request end up joined rather than doubled.
+    uniqueIndex("friendships_pair").on(t.requesterId, t.addresseeId),
+    index("friendships_addressee").on(t.addresseeId, t.status),
+    index("friendships_requester").on(t.requesterId, t.status),
+  ],
+);
 
 /**
  * What she cooked in bulk and has left.

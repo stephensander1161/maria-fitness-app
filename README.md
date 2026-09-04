@@ -105,6 +105,15 @@ cannot add an address that was never invited.
 Open http://localhost:3000. The coach opens the conversation itself and runs
 onboarding — there is no setup form.
 
+### Sharing and administration
+
+`/friends` lets two accounts share **training only** — sessions, streak, hard
+sets and best lifts — after both agree. People are added by a short code, not
+by email, and nothing about a body ever crosses. `/admin` is the owner's
+console: accounts, activity, coach spend and the security log, with none of
+anyone's personal data. Grant the role with
+`npm run user -- role <email> owner`.
+
 ### Scripts
 
 | Command | Does |
@@ -117,6 +126,7 @@ onboarding — there is no setup form.
 | `npm run user -- add <email> [name]` | Create an account (prompts for a password) |
 | `npm run user -- invite <email> [name]` | Create an account with no password: they sign in with Google, or choose a password at `/signup`. Access is invite-only — that page can claim an invitation, never create one |
 | `npm run user -- passwd <email>` | Change a password; signs that account out everywhere |
+| `npm run user -- role <email> owner\|member` | Grant or remove the owner role, which is what unlocks `/admin`. Refuses to remove the last owner |
 | `npm run user -- signout-everywhere <email>` | Revoke one account's sessions |
 | `npm run feedback` | Read what she's asked for; set status and reply |
 | `npm run backup` | Dump all her data to `backups/` as JSON |

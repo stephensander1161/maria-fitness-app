@@ -9,6 +9,10 @@
  * from here, because the fallback is a spinner that says nothing.
  */
 export const TOOL_LABELS: Record<string, string> = {
+  get_share_code: "finding your friend code", reset_share_code: "issuing a new friend code",
+  add_friend: "sending that friend request", list_friends: "checking your friends",
+  respond_to_friend_request: "answering that request", remove_friend: "removing that friend",
+  get_friend_stats: "checking how your friends are training",
   get_profile: "reading your profile", update_profile: "saving your details",
   log_cycle_event: "noting that down", get_cycle_status: "checking where you are in your cycle",
   log_weight: "logging your weigh-in", get_weight_history: "checking your weight trend",

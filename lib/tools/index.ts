@@ -25,6 +25,7 @@ import * as deload from "./deload-tools";
 import * as setup from "./setup";
 import * as transcript from "./transcript";
 import * as shopping from "./shopping";
+import * as friends from "./friends";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -151,6 +152,13 @@ const all: Tool[] = [
   nutrition.listSavedMeals,
   nutrition.removeSavedMeal,
   profile.updateProfile,
+  friends.getShareCode,
+  friends.resetShareCode,
+  friends.addFriend,
+  friends.listFriends,
+  friends.respondToFriendRequest,
+  friends.removeFriend,
+  friends.getFriendStats,
 ];
 
 // Plain comparison, not localeCompare: the ordering must not depend on the

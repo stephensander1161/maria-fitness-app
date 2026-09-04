@@ -12,7 +12,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
-  complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements, messages,
+  complaints, cycleEvents, factViews, feedback, friendships, goals, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
   pushSubscriptions, savedMeals, setLogs, shoppingExtras,
   usageDaily, weighIns, workouts,
@@ -25,6 +25,7 @@ const TABLES = {
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
   messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
+  friendships,
 };
 
 const ORDER = Object.keys(TABLES) as (keyof typeof TABLES)[];

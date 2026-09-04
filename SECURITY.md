@@ -55,6 +55,17 @@ Revocation: `npm run user -- signout-everywhere <email>`, disabling an account,
 or changing its password all invalidate that account's sessions immediately and
 leave everyone else's alone. Rotating `AUTH_SECRET` invalidates all of them.
 
+Data reaching another person has exactly two paths, both opt-in. **Friends**
+(`lib/friends.ts`) share training only — sessions, streak, hard sets, best
+lifts — after both sides agree; a pending request discloses nothing, either
+side can end it, and people are found by a resettable code rather than by
+email, so the feature cannot be used to test whether an address has an account.
+**The owner console** (`/admin`, gated on `users.role`) summarises accounts,
+activity counts, spend and the audit log; it never shows anyone's weight,
+measurements, photos, meals or conversation, and every view is recorded as
+`admin.viewed`. Neither path is reachable by the model: no tool touches
+`users`, and the console has no tools at all.
+
 What the database holds about her: account and credentials (`users`), training
 and food data, tape measurements, progress photos as blobs, the coach
 conversation, and — since the niggle log — what she has reported as hurting.

@@ -38,6 +38,20 @@ export type AuditEventName =
    *  shopping list to Instacart. Detail carries where and how many, never what. */
   | "data.shared"
   | "data.deleted"
+  /**
+   * Sharing training with another account. Recorded because it is the only
+   * path by which one profile's data reaches a different person, so "who could
+   * see what, and from when" has to be answerable. Ids only — never a name,
+   * never a code, and never any of the training itself.
+   */
+  | "friend.requested"
+  | "friend.accepted"
+  | "friend.declined"
+  | "friend.removed"
+  | "friend.code_reset"
+  /** The owner opened the console that summarises other people's accounts.
+   *  Reaching data that is not your own is recorded, even in summary. */
+  | "admin.viewed"
   | "onboarding.completed"
   | "spend.ceiling_reached";
 

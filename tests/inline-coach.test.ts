@@ -67,7 +67,10 @@ suite("asking the coach never means leaving the screen", () => {
     // it existed for is unchanged and is what is checked here: from any
     // screen, asking about that screen must not mean leaving it.
     const pages = fs.readdirSync("app", { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !["api", "login", "signup", "welcome"].includes(e.name))
+      // "admin" is the owner's operations console, not one of her screens: no
+      // tool exposes any of it — `users` is deliberately out of the model's
+      // reach — so an AskCoach there would offer help the coach cannot give.
+      .filter((e) => e.isDirectory() && !["api", "admin", "login", "signup", "welcome"].includes(e.name))
       .map((e) => path.join("app", e.name, "page.tsx"))
       .filter((f) => fs.existsSync(f));
 

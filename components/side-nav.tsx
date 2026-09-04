@@ -18,7 +18,7 @@ import type { Title } from "@/lib/titles";
  */
 const CHROMELESS = new Set(["/login", "/signup", "/welcome"]);
 
-export function SideNav({ name, title }: { name: string | null; title: Title }) {
+export function SideNav({ name, title, isOwner = false }: { name: string | null; title: Title; isOwner?: boolean }) {
   const path = usePathname();
   if (CHROMELESS.has(path)) return null;
 
@@ -77,6 +77,34 @@ export function SideNav({ name, title }: { name: string | null; title: Title }) 
         see RefreshOnFocus.
       */}
       <div className="mt-auto space-y-1 pt-4">
+        {isOwner && (
+          <Link
+            href="/admin"
+            aria-current={path.startsWith("/admin") ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors ${
+              path.startsWith("/admin") ? "bg-accent-soft text-accent" : "text-faint hover:bg-raised hover:text-muted"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 3 4 6.5v5c0 4.4 3.4 8.4 8 9.5 4.6-1.1 8-5.1 8-9.5v-5L12 3Z" />
+            </svg>
+            Admin
+          </Link>
+        )}
+        <Link
+          href="/friends"
+          aria-current={path.startsWith("/friends") ? "page" : undefined}
+          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors ${
+            path.startsWith("/friends") ? "bg-accent-soft text-accent" : "text-faint hover:bg-raised hover:text-muted"
+          }`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.6a3.5 3.5 0 0 1 0 6.8" />
+          </svg>
+          Friends
+        </Link>
         <Link
           href="/settings"
           aria-current={path.startsWith("/settings") ? "page" : undefined}
