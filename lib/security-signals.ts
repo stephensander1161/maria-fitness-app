@@ -50,6 +50,25 @@ const NEW_IP_MS = 7 * 86_400_000;
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null;
 
+/**
+ * A request that came from the machine serving it.
+ *
+ * This matters because the development server writes to the same database
+ * production reads, so an afternoon of local testing lands in the same
+ * security log as real traffic. Loopback cannot be reached from the internet —
+ * Vercel stamps a real client address on everything — so an address like this
+ * is somebody working on the app, and ranking it as an attack is precisely the
+ * crying wolf the rest of this file is written to avoid.
+ *
+ * It is set aside rather than dropped: hidden things cannot be checked, and
+ * "no signals" and "signals I quietly binned" must not look the same.
+ */
+export function isLocalAddress(ip: string | null): boolean {
+  if (!ip) return false;
+  const bare = ip.trim().toLowerCase().replace(/^::ffff:/, "");
+  return bare === "::1" || bare === "localhost" || /^127\./.test(bare);
+}
+
 const reasonOf = (e: AuditEvent): string =>
   typeof e.detail?.reason === "string" ? e.detail.reason : "";
 
@@ -69,7 +88,12 @@ export function securitySignals(
   now: Date = new Date(),
 ): Signal[] {
   const out: Signal[] = [];
-  const sorted = [...events].sort((a, b) => a.at.getTime() - b.at.getTime());
+  const all = [...events].sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  // Everything below judges remote traffic only. Local requests are summarised
+  // once at the bottom, as context rather than as an incident.
+  const local = all.filter((e) => isLocalAddress(e.ip));
+  const sorted = all.filter((e) => !isLocalAddress(e.ip));
   const failures = sorted.filter((e) => e.event === "login.failure" || e.event === "signup.failure");
   const successes = sorted.filter((e) => e.event === "login.success" || e.event === "signup.success");
 
@@ -206,7 +230,7 @@ export function securitySignals(
       title: "Google sign-in did not complete cleanly",
       detail: mismatch > 0
         ? `${mismatch} callback${mismatch === 1 ? "" : "s"} arrived without matching the browser that started it. Usually a stale tab or a link opened twice; it is also the shape of a forged callback, which is why the check exists.`
-        : `${oauth.length} exchange${oauth.length === 1 ? "" : "s"} with Google failed. Normally a expired code or a network blip on the way back.`,
+        : `${oauth.length} exchange${oauth.length === 1 ? "" : "s"} with Google failed. Normally an expired code or a network blip on the way back.`,
       count: oauth.length,
       lastAt: oauth[oauth.length - 1].at,
       ip: oauth[oauth.length - 1].ip,
@@ -234,6 +258,20 @@ export function securitySignals(
         ip,
       });
     }
+  }
+
+  /* ── work done on this machine ──────────────────────────────────────── */
+  if (local.length > 0) {
+    const failed = local.filter((e) => e.event.endsWith(".failure") || e.event === "login.rate_limited").length;
+    out.push({
+      kind: "local_activity",
+      level: "note",
+      title: "Activity from this machine",
+      detail: `${local.length} event${local.length === 1 ? "" : "s"} from a loopback address${failed ? `, ${failed} of them failed sign-ins or throttling` : ""}. That is the development server, which writes to this same database — it cannot be reached from the internet, so none of it is counted above.`,
+      count: local.length,
+      lastAt: local[local.length - 1].at,
+      ip: local[local.length - 1].ip,
+    });
   }
 
   const rank: Record<SignalLevel, number> = { alert: 0, watch: 1, note: 2 };

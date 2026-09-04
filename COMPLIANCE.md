@@ -42,6 +42,7 @@ Read it as an honest inventory, not a certificate.
 | Friends are found by a resettable share code, never by email — so no signed-in account can test whether an address has an account here | `profiles.share_code` |
 | The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `app/admin/page.tsx` |
 | The audit log is read, not only written: the console flags failed-attempt bursts, a success that followed them, rate limiting, uninvited addresses and ids no longer in the database | `lib/security-signals.ts` |
+| Loopback traffic is treated as local development rather than as an incident, and stated as such — the dev server shares the production database, so testing would otherwise raise real alerts | `lib/security-signals.ts` |
 | Google sign-in as an identity provider only, invite-only: proving who someone is does not create an account | `lib/oauth.ts` |
 | Sign-up claims an invitation, never creates one: the address must already exist as an unused invite (no password, never linked to Google, never signed in); every refusal returns the same message; the claim is a conditional update so it cannot land twice; the same brute-force ceilings as sign-in | `lib/signup.ts`, `app/api/auth/signup/route.ts` |
 | `email_verified`, `aud`, `iss` and `exp` all checked on the id_token | `lib/oauth.ts` |

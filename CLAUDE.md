@@ -346,6 +346,16 @@ adult's weigh-ins is the same failure the friends feature prevents, with no
 consent step at all. `lib/admin.ts` counts rows rather than selecting them,
 and `tests/admin.test.ts` fails on a body column appearing there.
 
+**The dev server writes to the production log.** `npm run dev` points at the
+same database, so an afternoon of local testing lands in the same audit log
+the console reads — and it did: a probe run of four wrong passwords followed
+by a correct one raised a red alert on the live console. Loopback addresses
+are therefore set aside as local development and summarised as one note rather
+than ranked as an incident. Set aside, not dropped: "no signals" and "signals
+quietly binned" must never look the same. Note the near-miss in
+`isLocalAddress` — a looser test than `/^127\./` also swallows 12.7.0.1, which
+would silently stop reporting a real address.
+
 `lib/security-signals.ts` is the half that reads the audit log back —
 COMPLIANCE.md used to say outright that nothing watched it. The hard part is
 **not crying wolf**: a console that flags something every visit is one nobody

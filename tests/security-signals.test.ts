@@ -219,6 +219,63 @@ suite("somewhere new", () => {
   });
 });
 
+suite("work done on this machine", () => {
+  // The dev server writes to the same database production reads, so an
+  // afternoon of testing lands in the same log as real traffic. Ranking that
+  // as an attack is the crying wolf everything else here avoids — and it
+  // actually happened: a probe run raised a red alert on the live console.
+  const localFail = (mins: number, ip = "::1") =>
+    ev({ event: "login.failure", severity: "warn", at: ago(mins), ip, detail: { reason: "bad_password" } });
+  const localOk = (mins: number, ip = "::1") =>
+    ev({ event: "login.success", at: ago(mins), ip, detail: { userId: "known-1" } });
+
+  it("does not raise an alert for a burst from loopback", () => {
+    const events = [localFail(30), localFail(28), localFail(26), localFail(24), localFail(22), localOk(20)];
+    const signals = securitySignals(events, KNOWN, NOW);
+    expect(signals.every((s) => s.level === "note")).toBe(true);
+    expect(kinds(signals)).not.toContain("success_after_failures");
+    expect(kinds(signals)).not.toContain("repeated_failures");
+  });
+
+  it("says so rather than hiding it, because silence and binned are not the same", () => {
+    const sig = securitySignals([localFail(30), localFail(28)], KNOWN, NOW)
+      .find((s) => s.kind === "local_activity");
+    expect(sig?.level).toBe("note");
+    expect(sig?.count).toBe(2);
+    expect(sig?.detail).toMatch(/development server/i);
+  });
+
+  it("recognises every way loopback is written", () => {
+    for (const ip of ["::1", "127.0.0.1", "127.1.2.3", "::ffff:127.0.0.1", "LOCALHOST", " ::1 "]) {
+      const signals = securitySignals(
+        [localFail(30, ip), localFail(28, ip), localFail(26, ip), localFail(24, ip), localFail(22, ip)],
+        KNOWN, NOW);
+      expect(kinds(signals), ip).not.toContain("repeated_failures");
+    }
+  });
+
+  it("is not fooled by an address that merely starts with a 1", () => {
+    // 12.7.0.1 and 127.0.0.1 differ by a dot. Treating a real address as local
+    // would silently stop reporting a real attack.
+    const events = [localFail(30, "12.7.0.1"), localFail(28, "12.7.0.1"), localFail(26, "12.7.0.1"),
+                    localFail(24, "12.7.0.1"), localFail(22, "12.7.0.1")];
+    expect(kinds(securitySignals(events, KNOWN, NOW))).toContain("repeated_failures");
+  });
+
+  it("still reports a real attack happening alongside local work", () => {
+    // The important half: setting local noise aside must not deafen it.
+    const events = [
+      localFail(40), localFail(38), localFail(36), localFail(34), localFail(32), localOk(30),
+      failure(20, { ip: "198.51.100.9" }), failure(18, { ip: "198.51.100.9" }),
+      failure(16, { ip: "198.51.100.9" }), success(14, { ip: "198.51.100.9" }),
+    ];
+    const signals = securitySignals(events, KNOWN, NOW);
+    const alert = signals.find((s) => s.level === "alert");
+    expect(alert?.kind).toBe("success_after_failures");
+    expect(alert?.ip).toBe("198.51.100.9");
+  });
+});
+
 suite("ordering", () => {
   it("puts what needs acting on above what is merely context", () => {
     const events = [
