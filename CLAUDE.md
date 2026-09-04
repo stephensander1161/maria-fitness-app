@@ -137,6 +137,36 @@ nulls as zeros always fails in the direction that reads as *her* failure —
 under-reported fibre, an invented deficit, a day she "barely ate". That is the
 worst possible direction for this particular app to be wrong in.
 
+## Which way she is going
+
+This app was written weight-loss-first, and for a long time that was not a
+default but an assumption: `nutritionTargets` subtracted a deficit without ever
+looking at the goal weight, so someone whose goal was *above* what they weighed
+got the exact opposite of what they asked for on day one, and the coach talked
+about fat loss while they were trying to gain.
+
+`goalDirection(currentKg, goalKg)` is now the one place that decides, with a
+one-kilo band either side:
+
+- **gain** — a surplus, and a deliberately small one. Fat comes off about as
+  fast as the deficit allows, but muscle goes on at a rate the body sets and
+  eating past it adds fat rather than speed. ~0.25% of body weight a week, so
+  the gain cap in `proposeTarget` is a *third* of the loss cap. The asymmetry
+  is the point.
+- **hold** — maintenance. "Get to 75" and "stay at 75" are the same request,
+  and it is what most people mean by building muscle. A still scale here is
+  the plan working.
+- **lose** — the deficit, unchanged, floor and all.
+
+Protein does not move with the direction: ~1.6g/kg is the plateau either way,
+and pretending otherwise would invent a distinction the evidence does not
+support.
+
+`goalDirectionSignal` states it in the volatile block, in her units, because
+the model will not infer it reliably from two numbers and that block is the
+thing it believes completely. The persona carries the rule for all three
+directions without interpolating anything, so it stays cacheable.
+
 ## What she burns is measured, not predicted
 
 `lib/expenditure.ts`. Mifflin-St Jeor set her first target and was wrong on day

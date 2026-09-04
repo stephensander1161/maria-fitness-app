@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { currentTheme } from "@/lib/current-theme";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
-import { Feedback } from "@/components/feedback";
+import { MoreNavGate } from "@/components/more-nav-gate";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { SideNavGate } from "@/components/side-nav-gate";
@@ -84,9 +84,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <MobileGreeting />
                 {children}
                 <DailyFact />
-                {/* The end of the page, where feedback belongs — it used to
-                    float over whatever was down here. */}
-                <Feedback />
+                {/* The end of the page, where these belong — they used to
+                    float over whatever was down here. Phone only: a desktop
+                    has the same destinations in the sidebar. */}
+                <MoreNavGate />
               </div>
             </PullToRefresh>
           </main>

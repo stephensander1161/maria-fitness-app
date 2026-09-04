@@ -137,7 +137,16 @@ export const updateProfile = defineTool({
     if (input.cookingSkill !== undefined) patch.cookingSkill = input.cookingSkill;
     if (input.units !== undefined) patch.units = input.units;
     if (input.foodUnits !== undefined) patch.foodUnits = input.foodUnits === "same" ? null : input.foodUnits;
-    if (input.markOnboarded && !p.onboardedAt) patch.onboardedAt = new Date();
+    if (input.markOnboarded && !p.onboardedAt) {
+      patch.onboardedAt = new Date();
+      // First-run onboarding asks the *same* questions as run_plan_setup —
+      // days a week, session length, equipment, injuries, food — and builds
+      // the week from them. So the setup has happened, and the invitation on
+      // the Train screen must not go on asking for it: she answered all of
+      // that ten seconds ago, and being asked again reads as the app not
+      // having listened. Re-running it stays available from Settings.
+      if (!p.planSetupAt) patch.planSetupAt = new Date();
+    }
 
     await db.update(profiles).set(patch).where(eq(profiles.id, ctx.profileId));
 

@@ -95,6 +95,7 @@ export const runPlanSetup = defineTool({
             sex: profile.sex ?? "female",
             daysPerWeek: changes.daysPerWeek,
             units: profile.units,
+            goalWeightKg: profile.goalWeightKg,
           })
         : null;
 

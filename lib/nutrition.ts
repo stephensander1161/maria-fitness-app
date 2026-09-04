@@ -14,7 +14,43 @@ export type TargetInput = {
   sex: "female" | "male" | "other";
   daysPerWeek: number;
   units: "imperial" | "metric";
+  /**
+   * Where she wants to end up. This decides whether the target is a deficit,
+   * a surplus, or maintenance — see goalDirection.
+   *
+   * It used to be absent, and the consequence was not subtle: every target
+   * this function produced was a deficit, so someone whose goal weight was
+   * *above* their current weight was handed the exact opposite of what they
+   * had asked for, on day one, with the app cheerfully calling it their plan.
+   */
+  goalWeightKg?: number | null;
 };
+
+/** Which way she is trying to go. */
+export type GoalDirection = "lose" | "gain" | "hold";
+
+/**
+ * Losing, gaining, or holding.
+ *
+ * The band is a kilo either side, matching directionMatchesGoal: inside that,
+ * "get to 70" and "stay at 70" are the same request, and the honest answer is
+ * to eat at maintenance and let training change the composition. That case is
+ * not a fudge — it is what most people mean by "build muscle", and prescribing
+ * a deficit for it is how an app talks someone out of the thing they came for.
+ */
+export function goalDirection(
+  currentKg: number,
+  goalKg: number | null | undefined,
+  bandKg = 1,
+): GoalDirection {
+  // No goal on file: this app is weight-loss-first, and a deficit is what
+  // every caller got before goals were consulted at all. Stated rather than
+  // implied, so the fallback is a decision and not an accident.
+  if (goalKg === null || goalKg === undefined) return "lose";
+  if (goalKg > currentKg + bandKg) return "gain";
+  if (goalKg < currentKg - bandKg) return "lose";
+  return "hold";
+}
 
 /** Below this, a plan stops being one she can live on. Never crossed. */
 export const CALORIE_FLOOR = 1200;
@@ -23,6 +59,7 @@ export function nutritionTargets(input: TargetInput): {
   calorieTarget: number;
   proteinTargetG: number;
   maintenanceCalories: number;
+  direction: GoalDirection;
 } {
   const heightCm = input.units === "imperial" ? inToCm(input.heightIn) : input.heightIn;
 
@@ -36,17 +73,39 @@ export function nutritionTargets(input: TargetInput): {
   // target and stalls the deficit.
   const maintenance = bmr * (input.daysPerWeek >= 4 ? 1.55 : 1.375);
 
+  const direction = goalDirection(input.weightKg, input.goalWeightKg);
+
   // Around 0.75% of body weight per week — sustainable rather than fast, and
   // bounded so neither a very small nor a very large person gets an absurd one.
   const deficit = Math.min(750, Math.max(300, input.weightKg * 7.7));
 
-  const calorieTarget = Math.max(CALORIE_FLOOR, Math.round((maintenance - deficit) / 10) * 10);
+  /**
+   * A surplus is deliberately much smaller than the deficit, and that
+   * asymmetry is the point rather than an oversight.
+   *
+   * Fat is lost about as fast as the deficit allows, but muscle is built at a
+   * rate the body sets, and eating past that rate adds fat rather than
+   * speeding anything up. ~0.25% of body weight a week is the usual
+   * lean-gain figure; at 7700 kcal per kg that is roughly 2.75 kcal per kg of
+   * her a day. Bounded at both ends for the same reason as the deficit.
+   */
+  const surplus = Math.min(450, Math.max(200, input.weightKg * 2.75));
 
-  // ~1.6g per kg protects muscle during a deficit; past that the benefit
-  // plateaus and it only costs money.
+  const rounded = (n: number) => Math.round(n / 10) * 10;
+  const calorieTarget =
+    direction === "gain" ? rounded(maintenance + surplus)
+      // Holding is not "no plan": it is maintenance, which is what
+      // recomposition actually asks for.
+      : direction === "hold" ? rounded(maintenance)
+        : Math.max(CALORIE_FLOOR, rounded(maintenance - deficit));
+
+  // ~1.6g per kg. It protects muscle in a deficit and supports building it in
+  // a surplus — the meta-analytic plateau sits around here either way, so the
+  // number does not move with the direction and pretending otherwise would
+  // just cost her money.
   const proteinTargetG = Math.round((input.weightKg * 1.6) / 5) * 5;
 
-  return { calorieTarget, proteinTargetG, maintenanceCalories: Math.round(maintenance) };
+  return { calorieTarget, proteinTargetG, maintenanceCalories: Math.round(maintenance), direction };
 }
 
 /**

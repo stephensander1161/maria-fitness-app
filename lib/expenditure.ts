@@ -32,7 +32,7 @@
  *    jumping to it, so one heavy week does not whip her target around.
  */
 
-import { CALORIE_FLOOR } from "./nutrition";
+import { CALORIE_FLOOR, type GoalDirection } from "./nutrition";
 import { weightTrend, type WeighIn } from "./trend";
 import type { ISODate } from "./date";
 
@@ -170,7 +170,13 @@ export type TargetProposal = {
   uncapped: number;
   /** Set when a rail moved the number, so it can be said out loud. */
   limitedBy: "bmr" | "floor" | "rate" | null;
+  /**
+   * How fast, per week, as a magnitude — never signed. Callers render it
+   * straight ("0.5kg a week"), so a minus sign here would leak into her
+   * screen; `direction` is what says which way it goes.
+   */
   rateKgPerWeek: number;
+  direction: GoalDirection;
   note: string;
 };
 
@@ -186,37 +192,73 @@ export function proposeTarget(
   tdee: number,
   weightKg: number,
   bmr: number,
-  opts: { rateKgPerWeek?: number } = {},
+  opts: { rateKgPerWeek?: number; direction?: GoalDirection } = {},
 ): TargetProposal {
-  // 0.75% of body weight a week, the same bound the starting targets use.
-  const maxRate = Math.round(weightKg * 0.0075 * 100) / 100;
-  const rate = Math.min(opts.rateKgPerWeek ?? maxRate, maxRate);
+  const direction = opts.direction ?? "lose";
 
-  const uncapped = Math.round((tdee - (rate * KCAL_PER_KG) / 7) / 10) * 10;
+  // Holding is the whole proposal: eat what she burns, and let training change
+  // the composition. Nothing to cap, and nothing to talk her below.
+  if (direction === "hold") {
+    const held = Math.round(Math.max(tdee, CALORIE_FLOOR, bmr) / 10) * 10;
+    return {
+      calorieTarget: held,
+      uncapped: Math.round(tdee / 10) * 10,
+      limitedBy: null,
+      rateKgPerWeek: 0,
+      direction,
+      note: "About what you burn — steady weight, while training changes what it is made of.",
+    };
+  }
+
+  /**
+   * The cap is not symmetric, and that is deliberate.
+   *
+   * Fat comes off about as fast as the deficit allows. Muscle goes on at a
+   * rate the body sets, and eating past it adds fat rather than speeding
+   * anything up — so the gain cap is a third of the loss cap. Someone asking
+   * to bulk faster is asking to bulk fatter, and the honest answer is to say
+   * so rather than to hand over the number.
+   */
+  const maxRate = direction === "gain"
+    ? Math.round(weightKg * 0.0025 * 100) / 100
+    : Math.round(weightKg * 0.0075 * 100) / 100;
+  const rate = Math.min(Math.abs(opts.rateKgPerWeek ?? maxRate), maxRate);
+  const perDay = (rate * KCAL_PER_KG) / 7;
+
+  const uncapped = Math.round((direction === "gain" ? tdee + perDay : tdee - perDay) / 10) * 10;
   const bmrFloor = Math.round(bmr);
   const floor = Math.max(CALORIE_FLOOR, bmrFloor);
 
   let calorieTarget = uncapped;
   let limitedBy: TargetProposal["limitedBy"] = null;
-  if (opts.rateKgPerWeek !== undefined && opts.rateKgPerWeek > maxRate) limitedBy = "rate";
+  if (opts.rateKgPerWeek !== undefined && Math.abs(opts.rateKgPerWeek) > maxRate) limitedBy = "rate";
   if (calorieTarget < floor) {
     calorieTarget = Math.round(floor / 10) * 10;
     limitedBy = bmrFloor > CALORIE_FLOOR ? "bmr" : "floor";
   }
 
-  const actualRate = Math.round(((tdee - calorieTarget) * 7 / KCAL_PER_KG) * 100) / 100;
+  // A magnitude either way: the sense lives in `direction` and in the note.
+  const actualRate = Math.abs(
+    Math.round(((calorieTarget - tdee) * 7 / KCAL_PER_KG) * 100) / 100,
+  );
+  const gaining = direction === "gain";
   return {
     calorieTarget,
     uncapped,
     limitedBy,
     rateKgPerWeek: actualRate,
+    direction,
     note:
       limitedBy === "bmr"
         ? "Held at what you burn at rest — going under that costs muscle, bone and your cycle, and no rate of loss is worth it."
         : limitedBy === "floor"
           ? "Held at the floor this app will not go below."
           : limitedBy === "rate"
-            ? `Capped at ${maxRate}kg a week — faster than that is mostly muscle and water.`
-            : `About ${actualRate}kg a week.`,
+            ? gaining
+              ? `Capped at ${maxRate}kg a week — faster than that is mostly fat, not muscle.`
+              : `Capped at ${maxRate}kg a week — faster than that is mostly muscle and water.`
+            : gaining
+              ? `About ${actualRate}kg a week on.`
+              : `About ${actualRate}kg a week off.`,
   };
 }

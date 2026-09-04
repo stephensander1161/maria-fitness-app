@@ -140,12 +140,18 @@ export const runCheckIn = defineTool({
       age, sex: profile.sex ?? "female",
       daysPerWeek: profile.daysPerWeek ?? 3,
       units,
+      goalWeightKg: profile.goalWeightKg,
     });
     const bmr = formula.maintenanceCalories / (profile.daysPerWeek && profile.daysPerWeek >= 4 ? 1.55 : 1.375);
 
     // Lean mass where the tape allows it, resting burn otherwise.
     const lean = await leanMassFloor(ctx.profileId);
-    const proposal = proposeTarget(measured.tdee, weightKg, Math.max(bmr, lean ?? 0));
+    // The measurement says what she burns; her goal says which side of it to
+    // land on. Without this the check-in proposed a deficit to someone who had
+    // told the app they wanted to gain.
+    const proposal = proposeTarget(measured.tdee, weightKg, Math.max(bmr, lean ?? 0), {
+      direction: formula.direction,
+    });
     const current = plan?.calorieTarget ?? null;
 
     return {
@@ -162,7 +168,10 @@ export const runCheckIn = defineTool({
       currentTarget: current,
       proposedTarget: proposal.calorieTarget,
       proposedProteinG: formula.proteinTargetG,
-      expectedRate: `${weightOut(proposal.rateKgPerWeek, units)}${unit} a week`,
+      // "0.5kg a week" is ambiguous the moment gaining is possible.
+      expectedRate: proposal.direction === "hold"
+        ? "steady"
+        : `${weightOut(proposal.rateKgPerWeek, units)}${unit} a week ${proposal.direction === "gain" ? "on" : "off"}`,
       limitedBy: proposal.limitedBy,
       note: proposal.note,
       floor: Math.max(CALORIE_FLOOR, Math.round(bmr), lean ?? 0),

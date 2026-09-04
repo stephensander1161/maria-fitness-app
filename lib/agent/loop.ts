@@ -4,7 +4,7 @@ import { anthropicTools, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { buildSystem } from "./system";
-import { goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
+import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
 import { profileToday } from "@/lib/profile";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { planSummary } from "@/lib/views";
@@ -78,7 +78,7 @@ export async function* runCoach(
   // nothing — so it asks her to retype the session she just finished, which is
   // the exact failure todaySnapshot exists to prevent.
   const her = profileToday(profile);
-  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge] = await Promise.all([
+  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge, aim] = await Promise.all([
     todaySnapshot(profile.id, profile.units, her),
     planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
@@ -87,10 +87,14 @@ export async function* runCoach(
     complaintSummary(profile.id),
     cycleSignal(profile.id, her),
     preppedSummary(profile.id, her),
+    goalDirectionSignal(profile),
   ]);
   const system = buildSystem(
     profile,
-    [snapshot, plan, weight, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
+    // Her direction sits with the weight, because that is where getting it
+    // backwards does the damage: the app was weight-loss-first everywhere, and
+    // told someone trying to gain that their rising scale was a problem.
+    [snapshot, plan, weight, aim, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
       fridge, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
     opts.speakingTo ?? null,

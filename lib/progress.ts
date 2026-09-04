@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/schema";
 import { addDays, dayIndex, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
+import { goalDirection } from "@/lib/nutrition";
 import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
 
@@ -590,6 +591,46 @@ const MIN_RECOMP_DAYS = 14;
  * completely — so when the data cannot support a direction this says so
  * rather than naming one.
  */
+/**
+ * Which way she is trying to go, stated outright.
+ *
+ * The app was written weight-loss-first, and it showed everywhere: every
+ * starting target was a deficit, and the coach talked about fat loss to
+ * someone whose goal weight was *above* what they weighed. The model will not
+ * infer this reliably from two numbers in a profile, and the state block is
+ * the one thing it believes completely — so this says it in a sentence, in her
+ * units, with what it implies for the target.
+ */
+export async function goalDirectionSignal(
+  profile: { id: string; units: Units; goalWeightKg: number | null; startWeightKg: number | null },
+): Promise<string> {
+  const [latest] = await db
+    .select({ weightKg: weighIns.weightKg })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, profile.id))
+    .orderBy(desc(weighIns.date))
+    .limit(1);
+
+  const currentKg = latest?.weightKg ?? profile.startWeightKg;
+  if (currentKg === null || currentKg === undefined) return "";
+  if (profile.goalWeightKg === null) {
+    return "Goal: no goal weight on file. Ask before assuming she wants to lose weight.";
+  }
+
+  const unit = weightLabel(profile.units);
+  const now = `${weightOut(currentKg, profile.units)}${unit}`;
+  const want = `${weightOut(profile.goalWeightKg, profile.units)}${unit}`;
+  const direction = goalDirection(currentKg, profile.goalWeightKg);
+
+  if (direction === "gain") {
+    return `Goal: SHE WANTS TO GAIN. She is ${now} and her goal is ${want}. Her calorie target should be a SURPLUS, not a deficit. Do not talk about losing fat as though it is what she asked for, and do not read a rising scale as a problem — it is the plan. Keep the surplus small: muscle goes on at a rate her body sets, and eating past it adds fat rather than speeding anything up.`;
+  }
+  if (direction === "hold") {
+    return `Goal: SHE WANTS TO HOLD. She is ${now} and her goal is ${want} — the same weight, within a kilo. That is maintenance and recomposition: eat about what she burns, train hard, and expect the scale to sit still while what it is made of changes. A flat scale here is success, not a stall.`;
+  }
+  return `Goal: she wants to lose. She is ${now} and her goal is ${want}.`;
+}
+
 export async function weightSignal(
   profileId: string,
   units: Units,

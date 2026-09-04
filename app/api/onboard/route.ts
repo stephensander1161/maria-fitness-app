@@ -98,8 +98,10 @@ export async function POST(req: Request) {
 
   await audit("onboarding.completed", { req, detail: { userId: user.id } });
 
-  // Targets from her own numbers: a deficit she can hold, and enough protein to
-  // keep muscle while losing fat.
+  // Targets from her own numbers, in the direction she actually asked for.
+  // She types a goal weight on this very form: if it is above what she weighs
+  // now, she is asking to gain, and handing her a deficit would be the app
+  // ignoring the answer it just collected.
   const targets = nutritionTargets({
     weightKg: currentKg,
     heightIn: input.heightIn,
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
     sex: input.sex,
     daysPerWeek: input.daysPerWeek,
     units: u,
+    goalWeightKg: weightIn(input.goalWeight, u),
   });
 
   const week = weekStart(today);

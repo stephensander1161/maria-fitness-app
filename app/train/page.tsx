@@ -48,6 +48,10 @@ export default async function TrainPage({
 
   // Once, unless she asks for it again: the invitation goes when she has been
   // through the setup or said not now, and lives on Progress from then on.
+  // Onboarding asks these questions too and stamps planSetupAt, so this is an
+  // invitation for a profile that has genuinely never been through either —
+  // an account created before the first-run form existed. Anyone who filled
+  // that in has already answered all of it.
   const invite = profile.planSetupAt === null && profile.planSetupSkippedAt === null;
 
   return (
