@@ -241,7 +241,7 @@ export function Measurements({ sites, unit }: { sites: SiteProgress[]; unit: str
             <button
               onClick={save}
               disabled={saving || Object.values(values).every((v) => !v)}
-              className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-ink disabled:opacity-40"
+              className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-on-accent disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save"}
             </button>

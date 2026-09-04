@@ -135,7 +135,7 @@ export function FriendsClient({
           <button
             type="submit"
             disabled={busy === "add" || !code.trim()}
-            className="rounded-xl bg-accent px-4 py-2.5 text-[14px] font-semibold text-ink disabled:opacity-40"
+            className="rounded-xl bg-accent px-4 py-2.5 text-[14px] font-semibold text-on-accent disabled:opacity-40"
           >
             {busy === "add" ? "Asking…" : "Ask"}
           </button>
@@ -157,7 +157,7 @@ export function FriendsClient({
                       action("respond_to_friend_request", { friendshipId: r.friendshipId, accept: true }),
                       "Couldn't accept that.")}
                     disabled={busy === r.friendshipId}
-                    className="rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-ink disabled:opacity-50"
+                    className="rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-on-accent disabled:opacity-50"
                   >
                     Accept
                   </button>

@@ -250,7 +250,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
         <button
           onClick={() => (step === 3 ? finish() : setStep((s) => (s + 1) as Step))}
           disabled={step === 0 && !name.trim()}
-          className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-40"
+          className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
         >
           {step === 3 ? "Build my plan" : "Next"}
         </button>

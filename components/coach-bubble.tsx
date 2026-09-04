@@ -37,7 +37,7 @@ export function CoachBubble({ name }: { name: string | null }) {
         <button
           onClick={() => setOpen(true)}
           aria-label="Ask your coach"
-          className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-ink shadow-lg shadow-ink/50 transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
+          className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-on-accent shadow-lg shadow-scrim/50 transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
           // Above the tab bar on a phone; the tab bar is gone on a desktop, so
           // the inline style is overridden by the md: classes above.
           style={{ bottom: "calc(4.25rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
@@ -123,7 +123,7 @@ function CoachSheet({
       role="dialog"
       aria-modal="true"
       aria-label="Your coach"
-      className="fixed inset-0 z-[80] flex flex-col justify-end bg-ink/70 backdrop-blur-sm md:items-end md:justify-center md:p-6"
+      className="fixed inset-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-end md:justify-center md:p-6"
     >
       {/*
         A sheet from the bottom edge is right under a thumb and wrong under a
@@ -134,7 +134,7 @@ function CoachSheet({
       <div
         ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(46rem,88dvh)] md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60"
+        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(46rem,88dvh)] md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60"
         data-no-pull-to-refresh=""
       >
         {clearing && (
@@ -159,7 +159,7 @@ function CoachSheet({
                   setError(actionMessage(err, "Couldn't clear the conversation — try again."));
                 }
               }}
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-ink"
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-on-accent"
             >
               Start fresh
             </button>

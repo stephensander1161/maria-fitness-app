@@ -237,7 +237,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
             <button
               onClick={save}
               disabled={busy}
-              className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-ink disabled:opacity-40"
+              className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-on-accent disabled:opacity-40"
             >
               {busy ? "Saving…" : "Save photo"}
             </button>

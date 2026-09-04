@@ -292,6 +292,34 @@ server loop, because the two copies had drifted twenty tools apart.
 `tests/accessibility.test.ts` enforces the first four, including the contrast
 ratios, computed from the tokens rather than eyeballed.
 
+## Seven looks, one set of contrast floors
+
+`lib/theme.ts` lists them, `app/globals.css` holds the palettes as
+`html[data-theme="…"]` blocks, `profiles.theme` stores the choice, and
+`lib/current-theme.ts` stamps it on `<html>` **on the server** so the first
+paint is already right. A script that reads localStorage after load is how a
+light-mode user gets a black flash on every navigation, and this app knows who
+she is before it sends a byte.
+
+Every token is a **role**, never a colour: `accent` is "the thing she taps".
+Three of them are easy to conflate, and light mode made it impossible:
+
+- `ink` is the deepest *chrome* surface — the tab bar, a full-screen overlay.
+  It follows the theme, so it is near-white in a light one.
+- `scrim` is the wash behind a modal and the colour of a shadow. Always dark:
+  a light scrim over a light page separates nothing.
+- `on-accent` is the label on a solid accent, beat or miss chip. It cannot be
+  `ink`, and this is not a preference — a light theme needs an accent dark
+  enough to read on white *and* a label readable on that accent, and the
+  arithmetic says no single colour does both.
+
+`tests/accessibility.test.ts` parses the tokens out of the CSS and holds
+**every** theme to the same floors, including 7:1 for body text. A second
+palette is the easiest way to ship an unreadable app: the eye says "that looks
+nice" at exactly the ratio the standard rejects, and nobody re-checks the
+sixth theme. That is why the app offers a fixed list rather than a colour
+picker — an arbitrary colour cannot be held to anything.
+
 ## Three voices, one set of rules
 
 `profiles.coach_tone` picks the register — encouraging, plain, or gym-floor —

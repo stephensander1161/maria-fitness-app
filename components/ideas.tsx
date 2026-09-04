@@ -89,7 +89,7 @@ export function Ideas({
               key={k.key}
               onClick={() => choose(k.key)}
               className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                kind === k.key ? "bg-accent text-ink" : "text-muted"
+                kind === k.key ? "bg-accent text-on-accent" : "text-muted"
               }`}
             >
               {k.label}

@@ -105,7 +105,7 @@ export function SignupForm() {
       <button
         type="submit"
         disabled={busy || !ready}
-        className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-40"
+        className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
       >
         {busy ? "Setting up…" : "Create my password"}
       </button>

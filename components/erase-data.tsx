@@ -80,7 +80,7 @@ export function EraseData() {
             <button
               onClick={erase}
               disabled={busy || typed.trim().toLowerCase() !== PHRASE}
-              className="flex-1 rounded-xl bg-miss py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+              className="flex-1 rounded-xl bg-miss py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-40"
             >
               {busy ? "Erasing…" : "Erase everything"}
             </button>

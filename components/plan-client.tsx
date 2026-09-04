@@ -165,7 +165,7 @@ export function PlanClient({
 
             {day === mealWeek.todayIndex && (
               <Link href="/eat"
-                className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-ink">
+                className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-on-accent">
                 Log today&rsquo;s food
               </Link>
             )}

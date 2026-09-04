@@ -3,6 +3,8 @@ import { runTool } from "@/lib/tools";
 import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
+import { ThemePicker } from "@/components/theme-picker";
+import { themeOf } from "@/lib/theme";
 import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
 import { AiOpinion } from "@/components/ai-opinion";
@@ -57,6 +59,7 @@ export default async function SettingsPage() {
           </Group>
 
           <Group title="How things are shown">
+            <ThemePicker current={themeOf(profile.theme).id} />
             <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
           </Group>
 

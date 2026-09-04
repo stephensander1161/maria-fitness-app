@@ -97,7 +97,7 @@ export function Library({
             scroll={false}
             aria-current={tab === k ? "page" : undefined}
             className={`rounded-full py-2.5 text-center text-[13px] font-medium transition-colors ${
-              tab === k ? "bg-accent text-ink" : "text-muted hover:bg-raised"
+              tab === k ? "bg-accent text-on-accent" : "text-muted hover:bg-raised"
             }`}
           >
             {label}

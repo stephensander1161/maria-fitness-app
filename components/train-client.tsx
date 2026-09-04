@@ -295,7 +295,7 @@ export function TrainClient({
             {finishEarly ? (
               <div className="flex items-center justify-center gap-2">
                 <button onClick={() => void finish()} disabled={finishing}
-                  className="rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-ink disabled:opacity-50">
+                  className="rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-on-accent disabled:opacity-50">
                   {finishing ? "Finishing…" : "Yes, I'm done"}
                 </button>
                 <button onClick={() => setFinishEarly(false)}
@@ -307,7 +307,7 @@ export function TrainClient({
               <button
                 onClick={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
                 disabled={finishing}
-                className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-50"
+                className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-50"
               >
                 {finishing ? "Finishing…" : "Finish workout"}
               </button>
@@ -460,7 +460,7 @@ function ChangeMovement({
         <button
           onClick={change}
           disabled={busy || !slug}
-          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-40"
         >
           {busy ? "Changing…" : chosen ? `It was ${chosen.name}` : "Pick a movement"}
         </button>
@@ -538,7 +538,7 @@ function SetEditor({
       )}
       <div className="mt-3 flex items-center gap-2">
         <button onClick={() => run("save")} disabled={busy !== null}
-          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-50">
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-50">
           {busy === "save" ? "Saving…" : "Save"}
         </button>
         <button onClick={onCancel} disabled={busy !== null}
@@ -753,7 +753,7 @@ export function ExerciseCard({
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
-            <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-ink"
+            <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-on-accent"
               aria-label="Target sets complete">✓</span>
           )}
           {exercise.extra && (
@@ -880,7 +880,7 @@ export function ExerciseCard({
             isQueued
               ? "border border-dashed border-accent bg-accent-soft text-accent"
               : s
-                ? "bg-accent text-ink"
+                ? "bg-accent text-on-accent"
                 : "border border-dashed border-edge text-faint"
           }`;
 
@@ -1025,7 +1025,7 @@ export function ExerciseCard({
             <button
               onClick={() => logSet()}
               disabled={saving}
-              className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink active:opacity-80 disabled:opacity-50"
+              className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
             >
               {saving ? "Saving…" : `Log set ${setCount + 1}`}
             </button>

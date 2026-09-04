@@ -147,7 +147,7 @@ function Sheet({
 
   return (
     <div onClick={onClose} role="dialog" aria-modal="true" aria-label={`The coach on your ${label}`}
-      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm">
+      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-scrim/70 backdrop-blur-sm">
       <div ref={panel} onClick={(e) => e.stopPropagation()}
         // A real height, not a maximum.
         //
@@ -156,7 +156,7 @@ function Sheet({
         // under her thumb as the reply streamed in. A fixed height makes this
         // the flex column it is meant to be: header, a scroller that owns the
         // overflow, and the composer pinned outside it.
-        className="flex h-[86dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line md:h-[min(44rem,86dvh)] md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface"
+        className="flex h-[86dvh] w-full max-w-lg flex-col rounded-t-3xl border-t border-line md:h-[min(44rem,86dvh)] md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60 bg-surface"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { currentTheme } from "@/lib/current-theme";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
 import { Feedback } from "@/components/feedback";
@@ -17,8 +18,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-export const viewport: Viewport = {
-  themeColor: "#0b0e13",
+/**
+ * The status-bar colour follows the theme. A dark bar over a light app is the
+ * giveaway that a theme was bolted on, and on an installed PWA it is the only
+ * chrome there is.
+ */
+export async function generateViewport(): Promise<Viewport> {
+  const theme = await currentTheme();
+  return { ...viewportBase, themeColor: theme.themeColor };
+}
+
+const viewportBase: Viewport = {
   width: "device-width",
   initialScale: 1,
   // Deliberately not capped: the app leans on 10-13px text and she should
@@ -27,9 +37,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Stamped server-side so the first paint is already her palette — no script,
+  // no flash. See lib/current-theme.ts.
+  const theme = await currentTheme();
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme.id} style={{ colorScheme: theme.scheme }}>
       {/*
         Two layouts, not one that stretches.
 

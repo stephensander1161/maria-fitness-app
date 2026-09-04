@@ -24,7 +24,7 @@ export function ThreadMessages({
       {messages.map((m) =>
         m.role === "user" ? (
           <div key={m.id} className="flex justify-end">
-            <div className={`max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2.5 ${size} text-ink`}>
+            <div className={`max-w-[85%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2.5 ${size} text-on-accent`}>
               {m.text}
             </div>
           </div>
@@ -99,7 +99,7 @@ export function Composer({
         <button
           type="submit"
           disabled={busy || !value.trim()}
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-accent text-ink transition-opacity disabled:opacity-30"
+          className="grid size-12 shrink-0 place-items-center rounded-full bg-accent text-on-accent transition-opacity disabled:opacity-30"
           aria-label="Send"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"

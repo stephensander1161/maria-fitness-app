@@ -1,9 +1,31 @@
 @import "tailwindcss";
 
-/* A committed dark theme: this is used one-handed, in a gym, often at 6am.
-   High contrast, big targets, no theme flash. */
+/* ── Colour ───────────────────────────────────────────────────────────────
+   Seven themes, one set of names. Everything below is a *role*, never a
+   colour: `accent` is "the thing she taps", not "orange". That is what lets a
+   theme be swapped by rewriting nineteen custom properties and nothing else.
+
+   Three roles are easy to conflate and were, until light mode made it
+   impossible:
+
+     • `ink`    — the deepest *chrome* surface: the tab bar, a full-screen
+                  overlay. It follows the theme, so it is near-white in a light
+                  one. Content sits on it, so its text must be readable there.
+     • `scrim`  — the dark wash behind a modal, and the colour of a shadow.
+                  Always dark, in every theme, because a light scrim over a
+                  light page separates nothing.
+     • `on-accent` — text on a solid accent, beat or miss chip. It cannot be
+                  `ink`: a light theme needs an accent dark enough to read on
+                  white *and* a label readable on the accent, and no single
+                  colour does both.
+
+   Every theme is held to the same contrast floors by
+   tests/accessibility.test.ts, which computes them from these tokens rather
+   than trusting the eye. A new theme that fails them fails the build. */
 @theme {
+  /* ── midnight — the default. Built for a gym at 6am: dark, high contrast. */
   --color-ink: #05070a;
+  --color-scrim: #05070a;
   --color-base: #0b0e13;
   --color-surface: #141920;
   --color-raised: #1c232c;
@@ -25,6 +47,7 @@
 
   --color-accent: #ff6a45;
   --color-accent-soft: #3a1d16;
+  --color-on-accent: #05070a;
   --color-beat: #34d399;
   --color-beat-soft: #0f2f26;
   --color-hold: #fbbf24;
@@ -38,10 +61,175 @@
   --radius-card: 1rem;
 }
 
-:root { color-scheme: dark; }
+/* The wash behind everything. A flat fill is the default; a theme may set a
+   gradient instead. Fixed, so it belongs to the window rather than sliding
+   under a long page. */
+:root {
+  color-scheme: dark;
+  --app-wash: var(--color-base);
+  --app-glow: radial-gradient(120% 80% at 50% -10%, color-mix(in oklab, var(--color-accent) 12%, transparent), transparent 70%);
+}
+
+/* ── daylight — plain light. The one people mean by "light mode". */
+html[data-theme="daylight"] {
+  color-scheme: light;
+  --color-ink: #ffffff;
+  --color-scrim: #0b0e13;
+  --color-base: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-raised: #e9edf2;
+  --color-line: #d5dbe3;
+  --color-edge: #79838f;
+  --color-text: #10151b;
+  --color-muted: #4b5563;
+  --color-faint: #59636f;
+  --color-accent: #c2410c;
+  --color-accent-soft: #fff1ea;
+  --color-on-accent: #ffffff;
+  --color-beat: #15803d;
+  --color-beat-soft: #eafaf0;
+  --color-hold: #a16207;
+  --color-hold-soft: #fdf6e6;
+  --color-miss: #b91c1c;
+  --color-miss-soft: #fdeceb;
+  --app-wash: var(--color-base);
+}
+
+/* ── paper — warm light, easier under a bright window than pure white. */
+html[data-theme="paper"] {
+  color-scheme: light;
+  --color-ink: #fffdf7;
+  --color-scrim: #1a160f;
+  --color-base: #f4efe4;
+  --color-surface: #fffdf7;
+  --color-raised: #e7e0d0;
+  --color-line: #dcd3c1;
+  --color-edge: #7a7364;
+  --color-text: #22201b;
+  --color-muted: #524c3f;
+  --color-faint: #5f594a;
+  --color-accent: #9a4a17;
+  --color-accent-soft: #f9ecdd;
+  --color-on-accent: #fffdf7;
+  --color-beat: #1f6b35;
+  --color-beat-soft: #e8f3e6;
+  --color-hold: #8a6116;
+  --color-hold-soft: #f7eed9;
+  --color-miss: #a32626;
+  --color-miss-soft: #f8e5e2;
+  --app-wash: linear-gradient(180deg, #f7f3ea 0%, var(--color-base) 55%);
+}
+
+/* ── ember — warm dark, with a low fire at the top of the page. */
+html[data-theme="ember"] {
+  --color-ink: #0d0705;
+  --color-scrim: #0d0705;
+  --color-base: #150d0a;
+  --color-surface: #201511;
+  --color-raised: #2c1e18;
+  --color-line: #4a352c;
+  --color-edge: #8a6a5c;
+  --color-text: #f7ece6;
+  --color-muted: #b39b90;
+  --color-faint: #ab9186;
+  --color-accent: #ff7a45;
+  --color-accent-soft: #401f14;
+  --color-on-accent: #150d0a;
+  --color-beat: #45d17f;
+  --color-beat-soft: #102b1d;
+  --color-hold: #f5b83d;
+  --color-hold-soft: #33260c;
+  --color-miss: #f87171;
+  --color-miss-soft: #3a1a1a;
+  --app-wash: radial-gradient(120% 75% at 50% 0%, #2a1410 0%, var(--color-base) 60%);
+}
+
+/* ── tide — cool and deep, the calmest of the dark ones. */
+html[data-theme="tide"] {
+  --color-ink: #050c14;
+  --color-scrim: #050c14;
+  --color-base: #08131e;
+  --color-surface: #0f1e2c;
+  --color-raised: #17293a;
+  --color-line: #2f4457;
+  --color-edge: #64809a;
+  --color-text: #e6f0f8;
+  --color-muted: #9ab0c4;
+  --color-faint: #93a8bc;
+  --color-accent: #38bdf8;
+  --color-accent-soft: #10304a;
+  --color-on-accent: #050c14;
+  --color-beat: #34d399;
+  --color-beat-soft: #0d2f28;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: linear-gradient(165deg, #0b1c2c 0%, var(--color-base) 45%, #0a1620 100%);
+}
+
+/* ── dusk — violet, and the accent furthest from the green that means done. */
+html[data-theme="dusk"] {
+  --color-ink: #07050d;
+  --color-scrim: #07050d;
+  --color-base: #0e0a18;
+  --color-surface: #171226;
+  --color-raised: #211a33;
+  --color-line: #3b3252;
+  --color-edge: #7b6f9c;
+  --color-text: #eee9f8;
+  --color-muted: #a99cc4;
+  --color-faint: #a396bd;
+  --color-accent: #c084fc;
+  --color-accent-soft: #2c1b45;
+  --color-on-accent: #07050d;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #fb7185;
+  --color-miss-soft: #35151f;
+  --app-wash: radial-gradient(130% 80% at 15% 0%, #251640 0%, var(--color-base) 55%);
+}
+
+/* ── contrast — for glare, and for anyone who needs more than the floors.
+   Deliberately flat: a gradient behind text is the first thing to go when
+   the requirement is "readable in direct sun". */
+html[data-theme="contrast"] {
+  --color-ink: #000000;
+  --color-scrim: #000000;
+  --color-base: #000000;
+  --color-surface: #0d0d0d;
+  --color-raised: #1a1a1a;
+  --color-line: #4d4d4d;
+  --color-edge: #a6a6a6;
+  --color-text: #ffffff;
+  --color-muted: #d4d4d4;
+  --color-faint: #c9c9c9;
+  --color-accent: #ffb020;
+  --color-accent-soft: #3a2600;
+  --color-on-accent: #000000;
+  --color-beat: #4ade80;
+  --color-beat-soft: #06301c;
+  --color-hold: #fde047;
+  --color-hold-soft: #332b00;
+  --color-miss: #ff8a8a;
+  --color-miss-soft: #3d1414;
+  --app-wash: var(--color-base);
+}
+
+html {
+  background: var(--color-base);
+}
+
+body {
+  /* The theme's wash — a flat fill unless the theme sets a gradient. Fixed, so
+     it belongs to the window rather than sliding under a long page. */
+  background: var(--app-wash);
+  background-attachment: fixed;
+}
 
 html, body {
-  background: var(--color-base);
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

@@ -86,7 +86,7 @@ export function LoginForm({ google }: { google: boolean }) {
       <button
         type="submit"
         disabled={busy || !email || !password}
-        className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-40"
+        className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
       >
         {busy ? "Checking…" : "Enter"}
       </button>

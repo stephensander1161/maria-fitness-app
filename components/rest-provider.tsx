@@ -218,14 +218,14 @@ function LogReminder({ rest, onDismiss }: { rest: Rest; onDismiss: () => void })
       className="fixed inset-x-0 z-40 flex justify-center px-4"
       style={{ bottom: "calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
     >
-      <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-accent/40 bg-surface/95 py-2 pl-4 pr-2 shadow-lg shadow-ink/50 backdrop-blur">
+      <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-accent/40 bg-surface/95 py-2 pl-4 pr-2 shadow-lg shadow-scrim/50 backdrop-blur">
         <p className="min-w-0 flex-1 truncate text-[12px] text-muted">
           Log your {rest.name} set
         </p>
         <Link
           href="/train"
           onClick={onDismiss}
-          className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-ink"
+          className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-on-accent"
         >
           Log it
         </Link>

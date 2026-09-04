@@ -296,7 +296,7 @@ function EditLog({
         <button
           onClick={save}
           disabled={busy}
-          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-40"
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -561,7 +561,7 @@ function QuickAdd({
         <button
           onClick={save}
           disabled={busy || !what.trim()}
-          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+          className="flex-1 rounded-xl bg-accent py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-40"
         >
           {busy ? "Logging…" : "Log it"}
         </button>

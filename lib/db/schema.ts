@@ -84,6 +84,13 @@ export const profiles = pgTable("profiles", {
    */
   coachTone: text("coach_tone", { enum: ["encouraging", "plain", "hype"] })
     .default("plain").notNull(),
+  /**
+   * Which palette the app renders in. Null means the default; an unrecognised
+   * value falls back rather than rendering unstyled — see lib/theme.ts.
+   * Stored per profile, so it follows her between her phone and a laptop
+   * instead of living in one browser's storage.
+   */
+  theme: text("theme"),
   /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
   /** How her food is measured — portions, ingredients, oven temperatures.

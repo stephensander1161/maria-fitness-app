@@ -71,34 +71,100 @@ suite("contrast", () => {
     const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
     return (x + 0.05) / (y + 0.05);
   };
-  const token = (name: string) => {
-    const m = read("app/globals.css").match(new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, "i"));
-    if (!m) throw new Error(`no --color-${name}`);
-    return m[1];
+
+  /**
+   * Every theme, not only the default one.
+   *
+   * A second palette is the easiest way to ship an unreadable app: the eye
+   * says "that looks nice" at exactly the ratio the standard rejects, and
+   * nobody re-checks the sixth theme. So the tokens are parsed out of the CSS
+   * and every theme is held to the same floors. A pretty theme that fails
+   * them fails the build, which is the whole reason the app offers a fixed
+   * list rather than a colour picker.
+   */
+  const css = read("app/globals.css");
+  const tokensIn = (block: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const m of block.matchAll(/--color-([a-z-]+):\s*(#[0-9a-fA-F]{6})/g)) {
+      out[m[1]] = m[2].toLowerCase();
+    }
+    return out;
   };
 
-  it("faint text clears 4.5:1 on every surface it sits on", () => {
-    // It carries the inactive tab labels, every placeholder, and the calorie
-    // target she eats against — all at 10-13px, so no large-text exemption.
-    for (const bg of ["base", "surface", "raised"]) {
-      expect(ratio(token("faint"), token(bg)), `faint on ${bg}`).toBeGreaterThanOrEqual(4.5);
+  // The @theme block is the default palette; each html[data-theme] block
+  // overrides it, so a theme inherits whatever it does not restate.
+  const base = tokensIn(css.slice(css.indexOf("@theme {"), css.indexOf("--radius-card")));
+  const themes: Record<string, Record<string, string>> = { midnight: base };
+  for (const m of css.matchAll(/html\[data-theme="([a-z]+)"\]\s*\{([\s\S]*?)\n\}/g)) {
+    themes[m[1]] = { ...base, ...tokensIn(m[2]) };
+  }
+
+  it("finds every theme the app offers", () => {
+    // Without this, a parse that silently found nothing would make every
+    // check below pass by iterating an empty list — a test that guards air.
+    const names = Object.keys(themes);
+    expect(names.length).toBeGreaterThan(1);
+    expect(names).toContain("midnight");
+    expect(names).toContain("daylight");
+    for (const [name, t] of Object.entries(themes)) {
+      for (const tok of ["base", "surface", "raised", "text", "muted", "faint", "edge",
+        "accent", "on-accent", "beat", "hold", "miss", "ink"]) {
+        expect(t[tok], `${name} is missing --color-${tok}`).toBeTruthy();
+      }
     }
   });
 
-  it("a control's outline clears 3:1, because an unticked box is information", () => {
-    // --color-line stays decorative (dividers, card edges). --color-edge is
-    // the boundary of something she has to see to use: an unticked checkbox,
-    // a set not yet logged, an input.
-    for (const bg of ["base", "surface", "raised"]) {
-      expect(ratio(token("edge"), token(bg)), `edge on ${bg}`).toBeGreaterThanOrEqual(3);
-    }
-  });
+  for (const [name, t] of Object.entries(themes)) {
+    it(`${name}: faint text clears 4.5:1 on every surface it sits on`, () => {
+      // It carries the inactive tab labels, every placeholder and the calorie
+      // target she eats against, all at 10-13px, so no large-text exemption.
+      // `ink` is included because the tab bar is painted with it.
+      for (const bg of ["base", "surface", "raised", "ink"]) {
+        expect(ratio(t.faint, t[bg]), `faint on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
 
-  it("muted text and the accent still pass where they already did", () => {
-    expect(ratio(token("muted"), token("base"))).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(token("accent"), token("base"))).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(token("ink"), token("accent"))).toBeGreaterThanOrEqual(4.5);
-  });
+    it(`${name}: a control's outline clears 3:1, because an unticked box is information`, () => {
+      // --color-line stays decorative. --color-edge is the boundary of
+      // something she has to see to use: an unticked box, an input.
+      for (const bg of ["base", "surface", "raised"]) {
+        expect(ratio(t.edge, t[bg]), `edge on ${bg}`).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it(`${name}: body text is comfortable, not merely legal`, () => {
+      // 7:1 is the AAA floor, and this is text she reads for minutes at a time.
+      for (const bg of ["base", "surface", "ink"]) {
+        expect(ratio(t.text, t[bg]), `text on ${bg}`).toBeGreaterThanOrEqual(7);
+      }
+    });
+
+    it(`${name}: muted text and the accent still pass where they already did`, () => {
+      expect(ratio(t.muted, t.base)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(t.muted, t.surface)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(t.accent, t.base)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(t.accent, t.surface)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${name}: a label on a solid chip is readable, whichever chip it is`, () => {
+      // This is why `on-accent` exists instead of reusing `ink`: a light theme
+      // needs an accent dark enough to read on white *and* a label readable on
+      // the accent, and no one colour does both.
+      for (const solid of ["accent", "beat", "miss"]) {
+        expect(ratio(t["on-accent"], t[solid]), `on-accent on ${solid}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${name}: a status colour is readable on its own soft chip and on the page`, () => {
+      for (const status of ["accent", "beat", "hold", "miss"]) {
+        expect(ratio(t[status], t[`${status}-soft`]), `${status} on ${status}-soft`)
+          .toBeGreaterThanOrEqual(4.5);
+      }
+      for (const status of ["beat", "hold", "miss"]) {
+        expect(ratio(t[status], t.base), `${status} on base`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
 });
 
 /**

@@ -153,11 +153,11 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6 bg-scrim/70 backdrop-blur-sm"
       onClick={onClose} role="dialog" aria-modal="true" aria-label="Send feedback">
       <div ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface p-5"
+        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60 bg-surface p-5"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""
@@ -196,7 +196,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
             <button
               onClick={submit}
               disabled={saving || !body.trim()}
-              className="mt-2 w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-ink disabled:opacity-40"
+              className="mt-2 w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
             >
               {saving ? "Sending…" : "Send"}
             </button>

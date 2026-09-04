@@ -112,7 +112,7 @@ export function KitchenGrid({ items, hasMealPlan }: { items: Item[]; hasMealPlan
             onClick={() => run("add_to_pantry", { items: [{ item: query.trim() }] }, "Couldn't add that.")
               .then(() => setQuery(""))}
             disabled={busy !== null}
-            className="shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-ink disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-on-accent disabled:opacity-40"
           >
             Add
           </button>

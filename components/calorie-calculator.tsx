@@ -171,7 +171,7 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
         <button
           type="submit"
           disabled={busy || !query.trim()}
-          className="shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-ink disabled:opacity-40"
+          className="shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-on-accent disabled:opacity-40"
         >
           {busy ? "…" : "Look up"}
         </button>

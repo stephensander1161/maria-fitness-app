@@ -9,7 +9,7 @@ export default function NotFound() {
         The link may be out of date. Your plan and everything you&rsquo;ve logged are fine.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        <Link href="/train" className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-ink">
+        <Link href="/train" className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-on-accent">
           Today&rsquo;s session
         </Link>
         <Link href="/learn" className="rounded-full border border-line px-5 py-2.5 text-[14px] text-muted">

@@ -24,7 +24,7 @@ export default function ErrorScreen({
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <button
           onClick={reset}
-          className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-ink"
+          className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-on-accent"
         >
           Try again
         </button>

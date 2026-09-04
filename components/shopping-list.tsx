@@ -321,7 +321,7 @@ export function ShoppingList({
                       >
                         <span
                           className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border ${
-                            on ? "border-accent bg-accent text-ink" : "border-edge"
+                            on ? "border-accent bg-accent text-on-accent" : "border-edge"
                           }`}
                         >
                           {on && (

@@ -74,7 +74,7 @@ function Segment({ options, value, onPick }: {
       {options.map(([v, label]) => (
         <button key={v} onClick={() => v !== value && onPick(v)} role="radio" aria-checked={v === value}
           className={`min-h-9 whitespace-nowrap rounded-full px-3 text-[12px] font-medium transition-colors ${
-            v === value ? "bg-accent text-ink" : "text-muted"
+            v === value ? "bg-accent text-on-accent" : "text-muted"
           }`}>
           {label}
         </button>

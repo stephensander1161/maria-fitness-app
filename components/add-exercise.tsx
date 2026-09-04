@@ -96,7 +96,7 @@ export function AddExercise({
           <button
             onClick={add}
             disabled={saving}
-            className="w-full rounded-xl bg-accent py-3 text-[14px] font-semibold text-ink disabled:opacity-40"
+            className="w-full rounded-xl bg-accent py-3 text-[14px] font-semibold text-on-accent disabled:opacity-40"
           >
             {saving ? "Adding…" : `Add ${chosen.name}`}
           </button>

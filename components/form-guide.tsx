@@ -48,11 +48,11 @@ export function FormGuide({
       role="dialog"
       aria-modal="true"
       aria-label={`How to do ${name}`}
-      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-ink/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-end justify-center md:items-center md:p-6 bg-scrim/70 backdrop-blur-sm"
     >
       <div ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-ink/60 bg-surface p-5"
+        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60 bg-surface p-5"
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""

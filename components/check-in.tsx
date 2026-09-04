@@ -140,7 +140,7 @@ export function CheckIn() {
             <button
               onClick={accept}
               disabled={applying}
-              className="rounded-full bg-accent px-4 py-2.5 text-[13px] font-semibold text-ink disabled:opacity-40"
+              className="rounded-full bg-accent px-4 py-2.5 text-[13px] font-semibold text-on-accent disabled:opacity-40"
             >
               {applying ? "Saving…" : `Use ${result.proposedTarget} kcal`}
             </button>

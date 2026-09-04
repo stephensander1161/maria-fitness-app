@@ -129,7 +129,7 @@ export default async function ProgressPage() {
                     aria-hidden={!m.achievedAt}
                     aria-label={m.achievedAt ? "Achieved" : undefined}
                     className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${
-                      m.achievedAt ? "border-beat bg-beat text-ink" : "border-edge text-transparent"
+                      m.achievedAt ? "border-beat bg-beat text-on-accent" : "border-edge text-transparent"
                     }`}
                   >
                     {m.achievedAt ? "✓" : ""}

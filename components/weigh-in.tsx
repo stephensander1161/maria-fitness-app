@@ -151,7 +151,7 @@ export function WeighIn({
         </p>
         <button
           onClick={() => setOpen(true)}
-          className="mt-3 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-ink active:opacity-80"
+          className="mt-3 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-on-accent active:opacity-80"
         >
           Weigh in
         </button>
@@ -175,7 +175,7 @@ export function WeighIn({
         <button onClick={() => { setOpen(false); setError(null); }}
           className="rounded-xl border border-line py-3 text-[14px] text-muted">Cancel</button>
         <button onClick={save} disabled={saving}
-          className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-ink disabled:opacity-50">
+          className="rounded-xl bg-accent py-3 text-[14px] font-semibold text-on-accent disabled:opacity-50">
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
