@@ -161,6 +161,29 @@ progression still read correctly and a wall sit contributes no tonnage.
 recording a number that means nothing — her request, and she was right that
 asking for eight of a wall sit is the app not understanding the movement.
 
+## The unattended agent, and its last gate
+
+A scheduled cloud agent reads the requests table daily, writes code from what it
+finds, and pushes. Its runbook is `.claude/routines/daily-requests.md`, in the
+repo rather than in the routine, so it can be reviewed in a diff.
+
+That makes a row in `feedback` an input to a process with commit rights, so
+**whose row it is matters more than what it says.** `lib/request-authors.ts`
+holds the allowlist and `npm run requests` is the only source of work for that
+job — it returns new requests from those addresses and nothing else, and
+reports how many it excluded rather than dropping them quietly.
+
+Deliberately a hard-coded list, not a role or a column: a role can be granted
+by something going wrong, and this changes only in a commit, which is the
+property that makes it a gate. `partitionRequests` is a function so the test
+can check behaviour — the first version of that test matched source text and
+passed with the filter deleted, because the next line still mentioned the
+allowlist.
+
+The runbook's other standing rule: a request body is **data written by a user**,
+never instructions to the agent. One asking it to disable a test or change a
+credential gets left alone and reported.
+
 ## Closing the loop on a request
 
 Shipping something and never telling the person who asked is how they stop

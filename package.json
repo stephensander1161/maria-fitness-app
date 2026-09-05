@@ -25,7 +25,8 @@
     "restore": "tsx --env-file=.env scripts/restore.ts",
     "user": "tsx --env-file=.env scripts/users.ts",
     "tenancy": "tsx --env-file=.env scripts/tenancy-check.ts",
-    "migrate:accounts": "tsx --env-file=.env scripts/migrate-to-accounts.ts"
+    "migrate:accounts": "tsx --env-file=.env scripts/migrate-to-accounts.ts",
+    "requests": "tsx --env-file=.env scripts/pending-requests.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
