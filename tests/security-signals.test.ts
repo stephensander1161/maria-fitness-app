@@ -276,6 +276,44 @@ suite("work done on this machine", () => {
   });
 });
 
+suite("where it came from, and who", () => {
+  it("says the place next to the address when the platform knew it", () => {
+    // An address on its own answers nothing. The first real alert on this
+    // console was seven failures then a success, and resolving it took a
+    // database query — the answer was the owner's father mistyping his own
+    // address. The place is what makes that legible on the screen.
+    const events = [
+      failure(30, { ip: "203.0.113.7", location: "Calgary, AB, CA" }),
+      failure(28, { ip: "203.0.113.7", location: "Calgary, AB, CA" }),
+      failure(26, { ip: "203.0.113.7", location: "Calgary, AB, CA" }),
+      success(25, { ip: "203.0.113.7", location: "Calgary, AB, CA" }),
+    ];
+    const alert = securitySignals(events, KNOWN, NOW).find((s) => s.level === "alert");
+    expect(alert?.detail).toContain("Calgary, AB, CA");
+  });
+
+  it("falls back to the bare address when it did not", () => {
+    // Local development has no such headers, and "unknown" would imply a
+    // lookup that failed rather than one that was never made.
+    const events = [failure(30), failure(28), failure(26), success(25)];
+    const alert = securitySignals(events, KNOWN, NOW).find((s) => s.level === "alert");
+    expect(alert?.detail).toContain("203.0.113.7");
+    expect(alert?.detail).not.toContain("(");
+  });
+
+  it("names the addresses that were refused, in full", () => {
+    const events = [ev({
+      event: "login.failure", severity: "warn", at: ago(15), location: "Edmonton, AB, CA",
+      detail: { reason: "not_invited", email: "geoff.sander@telus.net" },
+    })];
+    const sig = securitySignals(events, KNOWN, NOW).find((s) => s.kind === "uninvited");
+    expect(sig?.detail).toContain("geoff.sander@telus.net");
+    expect(sig?.detail).toContain("Edmonton, AB, CA");
+    // And frames it the way it usually turns out, rather than as an intrusion.
+    expect(sig?.detail).toMatch(/mistyping/i);
+  });
+});
+
 suite("ordering", () => {
   it("puts what needs acting on above what is merely context", () => {
     const events = [

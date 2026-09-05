@@ -930,6 +930,17 @@ export const auditLog = pgTable(
     severity: text("severity", { enum: ["info", "warn"] }).default("info").notNull(),
     /** Truncated and never joined to anything — enough to spot a pattern. */
     ip: text("ip"),
+    /**
+     * Roughly where the request came from — "Calgary, AB, CA".
+     *
+     * Read straight off the headers the platform already attaches to every
+     * request, so it costs nothing and sends nothing anywhere. An address on
+     * its own is unreadable; "somewhere in Alberta" is what turns a red alert
+     * into "that will be Dad" without opening a terminal. City precision and
+     * no finer: the latitude and longitude are in those headers too and are
+     * more than anyone needs to answer that question.
+     */
+    location: text("location"),
     userAgent: text("user_agent"),
     /** Small structured payload. Never credentials, never her body data. */
     detail: jsonb("detail").$type<Record<string, unknown>>(),

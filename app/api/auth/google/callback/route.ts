@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { exchangeCode, statesMatch, type Pending } from "@/lib/oauth";
-import { audit, maskEmail } from "@/lib/audit";
+import { audit, refusedAddress } from "@/lib/audit";
 import { checkLoginAllowed, clientIp } from "@/lib/limits";
 
 export const runtime = "nodejs";
@@ -71,9 +71,9 @@ export async function GET(req: Request) {
   // account — without this, anyone with a Google account could sign up and
   // start spending the API key.
   if (!user) {
-    // Masked: enough to tell "she used her other address" from a stranger,
-    // without the log becoming a record of strangers' addresses.
-    await audit("login.failure", { req, detail: { reason: "not_invited", email: maskEmail(identity.email) } });
+    // In full, so the console can say which address knocked without
+    // anyone opening a database. See refusedAddress.
+    await audit("login.failure", { req, detail: { reason: "not_invited", email: refusedAddress(identity.email) } });
     return back(req, "not_invited");
   }
   if (user.disabledAt) {

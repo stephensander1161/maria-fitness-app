@@ -62,7 +62,7 @@ export type AccountRow = {
 export type AdminOverview = {
   accounts: AccountRow[];
   totals: { accounts: number; active30d: number; spendTodayMicros: number; spend30dMicros: number };
-  recentEvents: { at: string; event: string; severity: string; ip: string | null; detail: string | null }[];
+  recentEvents: { at: string; event: string; severity: string; ip: string | null; location: string | null; detail: string | null }[];
   /** What the log is worth telling someone about — see lib/security-signals.ts. */
   signals: (Omit<Signal, "lastAt"> & { lastAt: string })[];
 };
@@ -172,7 +172,7 @@ export async function adminOverview(): Promise<AdminOverview> {
 
   const signals = securitySignals(
     interesting.map((e) => ({
-      at: e.at, event: e.event, severity: e.severity, ip: e.ip,
+      at: e.at, event: e.event, severity: e.severity, ip: e.ip, location: e.location,
       detail: e.detail as Record<string, unknown> | null,
     })),
     new Set(accountRows.map((u) => u.userId)),
@@ -194,6 +194,7 @@ export async function adminOverview(): Promise<AdminOverview> {
       event: e.event,
       severity: e.severity,
       ip: e.ip,
+      location: e.location,
       // Whatever the event carried, already scrubbed of credentials and body
       // data at the point it was written — see lib/audit.ts.
       detail: e.detail ? JSON.stringify(e.detail) : null,

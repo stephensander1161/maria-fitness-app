@@ -530,6 +530,19 @@ quietly binned" must never look the same. Note the near-miss in
 `isLocalAddress` — a looser test than `/^127\./` also swallows 12.7.0.1, which
 would silently stop reporting a real address.
 
+**Addresses are recorded in full, and so is roughly where from.** Both used to
+be less: the email was masked to `m***@gmail.com` and there was no location at
+all. The first real alert this console produced — seven failures then a
+success — took a database query to resolve, and the answer was the owner's
+father mistyping his own address four times before signing in with Google.
+Neither the mask nor a bare IP could tell that story, which is the whole job of
+the screen. The location comes off the headers the platform already sets, so
+there is no lookup and no new third party; city precision and no finer, because
+the coordinates are in those headers too and nobody needs them. What is typed
+as a password is still never recorded — a log of near-misses is a wordlist, and
+that rule has not moved. The loosening is in COMPLIANCE.md rather than left as
+silent drift.
+
 `lib/security-signals.ts` is the half that reads the audit log back —
 COMPLIANCE.md used to say outright that nothing watched it. The hard part is
 **not crying wolf**: a console that flags something every visit is one nobody

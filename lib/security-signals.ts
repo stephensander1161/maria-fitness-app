@@ -18,6 +18,8 @@ export type AuditEvent = {
   event: string;
   severity: string;
   ip: string | null;
+  /** "Calgary, AB, CA" where the platform knew it. Null locally. */
+  location?: string | null;
   detail: Record<string, unknown> | null;
 };
 
@@ -69,6 +71,16 @@ export function isLocalAddress(ip: string | null): boolean {
   return bare === "::1" || bare === "localhost" || /^127\./.test(bare);
 }
 
+/**
+ * "137.186.240.194 (Calgary, AB, CA)".
+ *
+ * The address on its own answers nothing. The place is what turns a red alert
+ * into "that will be Dad" — which is exactly what the first real alert on this
+ * console turned out to be.
+ */
+const whereFrom = (e: AuditEvent): string =>
+  e.location ? `${e.ip} (${e.location})` : `${e.ip}`;
+
 const reasonOf = (e: AuditEvent): string =>
   typeof e.detail?.reason === "string" ? e.detail.reason : "";
 
@@ -117,7 +129,7 @@ export function securitySignals(
       kind: "success_after_failures",
       level: "alert",
       title: "A sign-in succeeded right after failed attempts",
-      detail: `${before.length} failures from ${ok.ip} in the two hours before this succeeded. Innocently, that is someone who forgot their password and got there in the end. If it was not you, change that password now — it also signs every session out.`,
+      detail: `${before.length} failures from ${whereFrom(ok)} in the two hours before this succeeded. Innocently, that is someone who forgot their password and got there in the end. If it was not you, change that password now — it also signs every session out.`,
       count: before.length,
       lastAt: ok.at,
       ip: ok.ip,
@@ -135,7 +147,7 @@ export function securitySignals(
       kind: "repeated_failures",
       level: "watch",
       title: "Repeated failed sign-ins from one address",
-      detail: `${worst.length} failures from ${ip} inside an hour. The per-address ceiling is ten an hour and the global one two hundred, so this was throttled, not open — but a burst like this is someone trying, not someone mistyping.`,
+      detail: `${worst.length} failures from ${whereFrom(worst[worst.length - 1])} inside an hour. The per-address ceiling is ten an hour and the global one two hundred, so this was throttled, not open — but a burst like this is someone trying, not someone mistyping.`,
       count: worst.length,
       lastAt: worst[worst.length - 1].at,
       ip,
@@ -162,11 +174,12 @@ export function securitySignals(
     const who = [...new Set(uninvited
       .map((e) => (typeof e.detail?.email === "string" ? e.detail.email : null))
       .filter((x): x is string => Boolean(x)))];
+    const places = [...new Set(uninvited.map((e) => e.location).filter(Boolean))];
     out.push({
       kind: "uninvited",
       level: "watch",
       title: "Someone tried to get in with an address that was never invited",
-      detail: `${uninvited.length} attempt${uninvited.length === 1 ? "" : "s"}${who.length ? ` from ${who.join(", ")}` : ""}. Access is invite-only, so this was refused. It is worth knowing because it means somebody knows this app is here.`,
+      detail: `${uninvited.length} attempt${uninvited.length === 1 ? "" : "s"}${who.length ? ` using ${who.join(", ")}` : ""}${places.length ? `, from ${places.join(" and ")}` : ""}. Access is invite-only, so this was refused. Most of these are somebody in the house mistyping their own address; a name you do not recognise, from a place you do not, is the one worth reading twice.`,
       count: uninvited.length,
       lastAt: uninvited[uninvited.length - 1].at,
       ip: uninvited[uninvited.length - 1].ip,
@@ -239,9 +252,11 @@ export function securitySignals(
 
   /* ── a successful sign-in from somewhere not seen before ────────────── */
   const firstSeen = new Map<string, Date>();
+  const firstLocation = new Map<string, string>();
   for (const s of successes) {
     if (!s.ip) continue;
     if (!firstSeen.has(s.ip)) firstSeen.set(s.ip, s.at);
+    if (s.location && !firstLocation.has(s.ip)) firstLocation.set(s.ip, s.location);
   }
   if (firstSeen.size > 1) {
     for (const [ip, at] of firstSeen) {
@@ -252,7 +267,7 @@ export function securitySignals(
         kind: "new_location",
         level: "note",
         title: "First sign-in from a new address",
-        detail: `${ip} had not been seen before. A new phone, a different network or a trip all look like this, so it is context rather than a problem.`,
+        detail: `${ip}${firstLocation.get(ip) ? ` (${firstLocation.get(ip)})` : ""} had not been seen before. A new phone, a different network or a trip all look like this, so it is context rather than a problem.`,
         count: successes.filter((s) => s.ip === ip).length,
         lastAt: at,
         ip,

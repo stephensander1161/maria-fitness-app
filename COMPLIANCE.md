@@ -41,6 +41,8 @@ Read it as an honest inventory, not a certificate.
 | Sharing training between accounts is opt-in both ways, carries training only (no weight, measurements, photos, food or conversation), and a *pending* request reveals nothing | `lib/friends.ts`, `tests/friends.test.ts` |
 | Friends are found by a resettable share code, never by email — so no signed-in account can test whether an address has an account here | `profiles.share_code` |
 | The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `app/admin/page.tsx` |
+| A refused sign-in records the address in full, and roughly where the request came from (city/region/country, from platform headers — no third party, no coordinates). A deliberate loosening: the masked form could not tell a mistyped family address from a stranger, which was the first real alert this console produced | `lib/audit.ts` |
+| What was typed as a password is still never recorded, hashed or otherwise | `app/api/login/route.ts` |
 | The audit log is read, not only written: the console flags failed-attempt bursts, a success that followed them, rate limiting, uninvited addresses and ids no longer in the database | `lib/security-signals.ts` |
 | Loopback traffic is treated as local development rather than as an incident, and stated as such — the dev server shares the production database, so testing would otherwise raise real alerts | `lib/security-signals.ts` |
 | Google sign-in as an identity provider only, invite-only: proving who someone is does not create an account | `lib/oauth.ts` |

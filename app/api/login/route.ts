@@ -5,7 +5,7 @@ import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 import { checkLoginAllowed, clientIp } from "@/lib/limits";
-import { audit } from "@/lib/audit";
+import { audit, refusedAddress } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -49,6 +49,11 @@ export async function POST(req: Request) {
     await audit("login.failure", {
       req,
       detail: {
+        // Which address was tried, so the console can say "that is Dad
+        // mistyping" without anyone opening a database. Never what was typed
+        // as the password — that rule has not moved, because a log of
+        // near-misses is a wordlist.
+        email: email ? refusedAddress(email) : null,
         reason: !user
           ? "unknown_email"
           : user.disabledAt

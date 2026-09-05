@@ -5,7 +5,7 @@ import { users } from "@/lib/db/schema";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { checkLoginAllowed, clientIp } from "@/lib/limits";
-import { audit, maskEmail } from "@/lib/audit";
+import { audit, refusedAddress } from "@/lib/audit";
 import { claimable, parseSignup } from "@/lib/signup";
 
 export const runtime = "nodejs";
@@ -42,10 +42,9 @@ export async function POST(req: Request) {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const refusal = claimable(user ?? null);
   if (refusal) {
-    // Masked, as the Google callback masks it: enough to tell "she used her
-    // other address" from a stranger, never a record of strangers' addresses.
+    // In full, so the console can say which address tried. See refusedAddress.
     const detail = refusal === "not_invited"
-      ? { reason: refusal, email: maskEmail(email) }
+      ? { reason: refusal, email: refusedAddress(email) }
       : { reason: refusal, userId: user.id };
     await audit("signup.failure", { req, detail });
     return Response.json({ error: REFUSED }, { status: 403 });

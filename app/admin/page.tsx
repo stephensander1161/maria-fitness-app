@@ -126,12 +126,13 @@ export default async function AdminPage() {
             <p className="mt-3 text-[13px] text-faint">Nothing recorded in the last 30 days.</p>
           ) : (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-left text-[12px]">
+              <table className="w-full min-w-[44rem] text-left text-[12px]">
                 <thead className="text-faint">
                   <tr>
                     <th className="py-1 pr-3 font-medium">When</th>
                     <th className="py-1 pr-3 font-medium">Event</th>
                     <th className="py-1 pr-3 font-medium">From</th>
+                    <th className="py-1 pr-3 font-medium">Where</th>
                     <th className="py-1 font-medium">Detail</th>
                   </tr>
                 </thead>
@@ -141,6 +142,12 @@ export default async function AdminPage() {
                       <td className="py-1.5 pr-3 tabular-nums text-muted">{e.at}</td>
                       <td className={`py-1.5 pr-3 ${e.severity === "warn" ? "text-miss" : "text-text"}`}>{e.event}</td>
                       <td className="py-1.5 pr-3 text-faint">{e.ip ?? "—"}</td>
+                      <td className="py-1.5 pr-3 text-faint">
+                        {/* Blank locally: a request from this machine has no
+                            place worth recording, and "unknown" would imply
+                            the lookup failed. */}
+                        {e.location ?? "—"}
+                      </td>
                       <td className="py-1.5 text-faint">{e.detail ?? "—"}</td>
                     </tr>
                   ))}

@@ -114,13 +114,30 @@ suite("what must never be written down", () => {
     ).toEqual([]);
   });
 
-  it("logs a masked address rather than her email", () => {
-    // The Google callback needs to say *which* address was refused an invite,
-    // and does it as m***@gmail.com.
+  it("records which address was refused, in full and on purpose", () => {
+    // This used to assert masking, and the reasoning was sound until it met a
+    // real alert: seven failures then a success took a database query to
+    // resolve, and the answer was the owner's father mistyping his address.
+    // The masked form could not tell that story. The loosening is deliberate,
+    // written down in COMPLIANCE.md, and goes through one named function so it
+    // cannot drift into "everything gets logged".
     const callback = read("app/api/auth/google/callback/route.ts");
-    expect(callback).toMatch(/maskEmail/);
-    const detail = callback.slice(callback.indexOf("not_invited") - 200, callback.indexOf("not_invited") + 200);
-    expect(detail).not.toMatch(/detail:\s*\{[^}]*\bemail\b\s*\}/);
+    expect(callback).toMatch(/refusedAddress\(identity\.email\)/);
+    expect(read("app/api/auth/signup/route.ts")).toMatch(/refusedAddress\(email\)/);
+
+    // The address is normalised and bounded, never taken raw.
+    const fn = read("lib/audit.ts");
+    const body = fn.slice(fn.indexOf("export function refusedAddress"));
+    expect(body).toMatch(/toLowerCase\(\)/);
+    expect(body).toMatch(/slice\(0, 200\)/);
+  });
+
+  it("still never records what they typed as a password", () => {
+    // The rule that did not move: a log of near-misses is a wordlist.
+    const login = read("app/api/login/route.ts");
+    const audits = [...login.matchAll(/audit\([\s\S]{0,400}?\)\;/g)].map((m) => m[0]).join("\n");
+    expect(audits).not.toMatch(/\bpassword\b\s*[,}]/);
+    expect(audits).not.toMatch(/passwordHash:/);
   });
 
   it("truncates the user agent instead of fingerprinting", () => {
