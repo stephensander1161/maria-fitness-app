@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { TABS } from "./tab-bar";
 import { FeedbackNavItem } from "./feedback";
 import { SignOutNavItem } from "./sign-out";
+import { Wordmark } from "./logo";
 import type { Title } from "@/lib/titles";
 
 /**
@@ -28,6 +29,9 @@ export function SideNav({ name, title, isOwner = false, recovering = false }: { 
       className="hidden w-56 shrink-0 flex-col border-r border-line bg-surface/40 px-3 py-6 md:flex md:h-dvh md:overflow-y-auto"
     >
       <div className="px-3 pb-6">
+        {/* The app, then the person. Her rank sits under her name, where it
+            always did — this only puts something above it that is not her. */}
+        <Wordmark size={26} className="mb-4 text-text" />
         {name && <p className="truncate text-[15px] font-semibold">{name}</p>}
         {/*
           A rank she earns by turning up, in place of the app's own name. It

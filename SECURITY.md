@@ -117,7 +117,7 @@ call isn't resent forever.
 ## Application surface
 
 - The API key is read only in server code (`lib/env.ts`) and never reaches the browser.
-- Coach output renders through `components/rich-text.tsx`, which builds React
+- The coach's output renders through `components/rich-text.tsx`, which builds React
   nodes. Nothing in the app uses `dangerouslySetInnerHTML`. The only markup
   it will build from model text is bold, code, lists, and `https:` links —
   no other scheme becomes an href.

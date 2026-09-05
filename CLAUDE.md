@@ -1,4 +1,4 @@
-# Coach — working notes
+# Plate — working notes
 
 Agent-first fitness app. Next.js 16 App Router, Drizzle + Postgres (Neon),
 Anthropic SDK. Single user; `lib/profile.ts` resolves "her" and is the only
@@ -414,6 +414,29 @@ server loop, because the two copies had drifted twenty tools apart.
 
 `tests/accessibility.test.ts` enforces the first four, including the contrast
 ratios, computed from the tokens rather than eyeballed.
+
+## The mark
+
+`components/logo.tsx` draws it from theme tokens; `lib/brand.ts` holds the
+geometry so the PNG icon routes render the same thing without their own copy.
+The app is **Plate** — a barbell plate and a dinner plate, which is the only
+name that covers both halves of what it does. The AI inside it is still "your
+coach", and that wording stays: they are different things and the app should
+not call itself the same word as the thing it contains.
+
+Two rules the drawing has to keep:
+
+- **Plates are perpendicular to the bar and thicker than it.** The first
+  version used short strokes at a lazy angle and every viewer saw a bone. The
+  path data is written out with the perpendicular computed, not eyeballed.
+- **It is redrawn below 22px, not scaled down.** Three strokes inside eleven
+  usable pixels is mush, so `barbellFor()` swaps in a shorter, fatter bar for
+  a favicon. An icon is not the big mark made small.
+
+The gradient id is derived from the mark, never a counter: incrementing a
+module-level variable during render is a side effect React is entitled to run
+twice, and the lint rule was right to refuse it. Two marks sharing an id is
+fine because they define the same gradient over the same box.
 
 ## Seven looks, one set of contrast floors
 

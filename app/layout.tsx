@@ -13,9 +13,9 @@ import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 
 export const metadata: Metadata = {
-  title: "Coach",
-  description: "Your strength and nutrition coach",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Coach" },
+  title: "Plate",
+  description: "Lifting and eating, in one place",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Plate" },
   robots: { index: false, follow: false, nocache: true },
 };
 

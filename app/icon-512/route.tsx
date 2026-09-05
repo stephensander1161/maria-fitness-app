@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { BARBELL, BRAND_ACCENT, BRAND_ACCENT_FADED, BRAND_INK } from "@/lib/brand";
 
 export const runtime = "edge";
 
@@ -15,12 +16,16 @@ export function GET() {
       <div
         style={{
           width: "100%", height: "100%", display: "flex",
-          alignItems: "center", justifyContent: "center", background: "#0b0e13",
+          alignItems: "center", justifyContent: "center",
+          background: `linear-gradient(135deg, ${BRAND_ACCENT} 0%, ${BRAND_ACCENT_FADED} 100%)`,
+          borderRadius: 149,
         }}
       >
-        <svg width="352" height="352" viewBox="0 0 24 24" fill="none"
-          stroke="#ff6a45" strokeWidth="2.2" strokeLinecap="round">
-          <path d="M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11" />
+        <svg width="369" height="369" viewBox="0 0 48 48" fill="none">
+          <g stroke={BRAND_INK} strokeLinecap="round">
+            <path d={BARBELL.bar.d} strokeWidth={BARBELL.bar.width} />
+            <path d={BARBELL.plates.d} strokeWidth={BARBELL.plates.width} />
+          </g>
         </svg>
       </div>
     ),

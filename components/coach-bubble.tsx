@@ -167,7 +167,7 @@ function CoachSheet({
         )}
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line/60 px-4 py-3">
           <h2 className="truncate text-[17px] font-semibold">
-            {name ? `Hey, ${name}` : "Coach"}
+            {name ? `Hey, ${name}` : "Your coach"}
           </h2>
           <div className="flex items-center gap-2">
             <button

@@ -1,4 +1,4 @@
-# Coach
+# Plate
 
 An agent-first fitness and nutrition app built for one person. The Anthropic API
 drives it: the coach interviews her, writes her training and meal plans, adapts
@@ -22,7 +22,7 @@ both surfaces gain it at once.
 
 ```
 app/
-  page.tsx              Coach — the home screen, chat + onboarding
+  page.tsx              the home screen, chat + onboarding
   train/                Fast-log workout surface (steppers, set dots)
   plan/                 The week: training days and meals
   progress/             Weight trend, tape measurements, week review, milestones

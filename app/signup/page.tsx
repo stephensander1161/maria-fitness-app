@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 import { SignupForm } from "@/components/signup-form";
 
-export const metadata = { title: "Coach" };
+export const metadata = { title: "Plate" };
 
 /**
  * Sign-up, by invitation.
@@ -13,10 +14,7 @@ export const metadata = { title: "Coach" };
 export default function SignupPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-6 pb-24">
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)"
-        strokeWidth="1.6" strokeLinecap="round" className="mb-6">
-        <path d="M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11" />
-      </svg>
+      <Logo size={64} className="mb-6" />
       <h1 className="text-2xl font-bold tracking-tight">Set up your account</h1>
       <p className="mb-8 mt-1 max-w-xs text-center text-sm text-muted">
         Coach is by invitation. Use the email address you were invited with and choose a password.

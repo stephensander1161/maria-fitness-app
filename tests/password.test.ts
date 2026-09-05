@@ -1,7 +1,14 @@
 import { describe as suite, expect, it } from "vitest";
 import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 
-suite("password hashing", () => {
+/**
+ * scrypt here is deliberately expensive — N=2^17, about 200ms and 128MB per
+ * call — so a test doing six of them can pass in a second on its own and blow
+ * vitest's five-second default when the whole suite runs in parallel. It did:
+ * one flake on a security test, which is the worst kind to teach anyone to
+ * ignore. The work and the assertions are unchanged; only the clock is.
+ */
+suite("password hashing", { timeout: 30_000 }, () => {
   it("round-trips a correct password", async () => {
     const hash = await hashPassword("correct horse battery staple");
     expect(await verifyPassword("correct horse battery staple", hash)).toBe(true);

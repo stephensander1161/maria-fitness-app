@@ -3,7 +3,7 @@ import type { ISODate } from "@/lib/date";
 /**
  * A rank that goes up as she keeps showing up.
  *
- * The sidebar used to say "Coach" above her name, which is the app's name and
+ * The sidebar used to say the app's own name above her name, which
  * tells her nothing. This says something about her instead, and it changes —
  * a small reason to look at it.
  *
