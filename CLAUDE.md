@@ -161,11 +161,18 @@ progression still read correctly and a wall sit contributes no tonnage.
 recording a number that means nothing — her request, and she was right that
 asking for eight of a wall sit is the app not understanding the movement.
 
-## The unattended agent, and its last gate
+## Picking up requests, and the last gate
 
-A scheduled cloud agent reads the requests table daily, writes code from what it
-finds, and pushes. Its runbook is `.claude/routines/daily-requests.md`, in the
-repo rather than in the routine, so it can be reviewed in a diff.
+`/requests` — a local skill, `.claude/skills/requests/SKILL.md`. It reads what
+people filed, builds what is buildable, ships it, and replies.
+
+It was briefly a scheduled cloud agent and should not be again. Local is the
+better shape for two reasons that are not about convenience: the production
+database credential never leaves this machine, and nothing reaches a live app
+while nobody is watching. The cost is that it only runs when the terminal is
+open, which for an app three people use is the right trade. Being present also
+means the skill can *ask* when a request is ambiguous, where the unattended
+version could only skip.
 
 That makes a row in `feedback` an input to a process with commit rights, so
 **whose row it is matters more than what it says.** `lib/request-authors.ts`

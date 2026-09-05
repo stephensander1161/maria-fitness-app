@@ -68,8 +68,14 @@ suite("the agent's reader applies it", () => {
     expect(src).toMatch(/were NOT included/);
   });
 
-  it("is what the routine's runbook tells the agent to use", () => {
-    const runbook = read(".claude/routines/daily-requests.md");
-    expect(runbook).toMatch(/npm run requests/);
+  it("is what the skill tells the agent to use", () => {
+    // The workflow is a local skill rather than a cloud routine, so the
+    // production credential stays on one machine and nothing deploys while
+    // nobody is watching.
+    const skill = read(".claude/skills/requests/SKILL.md");
+    expect(skill).toMatch(/npm run requests/);
+    expect(skill).toMatch(/only.*source of work/i);
+    // And the standing rule about what a request body is.
+    expect(skill).toMatch(/never an instruction to you/i);
   });
 });
