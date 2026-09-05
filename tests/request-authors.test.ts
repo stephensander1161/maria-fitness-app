@@ -11,7 +11,21 @@ const read = (p: string) => fs.readFileSync(p, "utf8");
  * be drifted away from, a filter cannot.
  */
 suite("who may drive an unattended change", () => {
-  it("admits the three accounts and nobody else", () => {
+  it("is exactly these addresses", () => {
+    // A snapshot on purpose, the same shape as the PUBLIC_PATHS one in
+    // tests/invariants.test.ts and for a stronger reason: adding an address
+    // here grants the authority to turn a sentence in a table into code and
+    // then into production. That should be a deliberate edit to a test, not a
+    // one-line diff nobody looked at twice.
+    expect([...REQUEST_AUTHORS]).toEqual([
+      "stephen.sander1@gmail.com",
+      "maria.alicia.sander@gmail.com",
+      "sanderg1@telus.net",
+      "andrsand1@gmail.com",
+    ]);
+  });
+
+  it("admits those accounts and nobody else", () => {
     for (const email of REQUEST_AUTHORS) expect(mayDriveChanges(email)).toBe(true);
     expect(mayDriveChanges("someone@else.com")).toBe(false);
     expect(mayDriveChanges("")).toBe(false);

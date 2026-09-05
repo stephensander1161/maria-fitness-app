@@ -20,6 +20,7 @@ export const REQUEST_AUTHORS: readonly string[] = [
   "stephen.sander1@gmail.com",
   "maria.alicia.sander@gmail.com",
   "sanderg1@telus.net",
+  "andrsand1@gmail.com",
 ] as const;
 
 /** Case and whitespace are normalised the same way sign-in normalises them. */
