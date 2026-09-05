@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
@@ -69,12 +69,20 @@ export type TodayExercise = {
    * the number. Where a load is possible the field is simply there.
    */
   loadable: boolean;
+  /**
+   * Held rather than counted — a plank, a wall sit, a carry. Seconds are the
+   * unit, and asking for eight reps of a wall sit is the app not understanding
+   * the movement. Her words, and she was right.
+   */
+  isHold: boolean;
   /** Drives the wireframe figure's fallback when the name matches no pattern. */
   category: string;
   /** Logged today but not on the plan — an extra she added, or one she removed
    *  from the schedule after already training it. Never hide logged work. */
   extra: boolean;
   targetSets: number; targetReps: number; targetWeight: number | null;
+  /** For a hold: the seconds to aim for. Null for anything counted. */
+  targetHoldSeconds: number | null;
   restSeconds: number; notes: string | null;
   lastTime: { date: ISODate; sets: { reps: number; weight: number | null }[] } | null;
   loggedToday: { setNumber: number; reps: number; weight: number | null }[];
@@ -116,8 +124,10 @@ export async function todayView(profileId: string, units: Units, date = today())
   const items = await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category,
+    isHold: exercises.isHold,
     equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
+    targetHoldSeconds: planExercises.targetHoldSeconds,
     targetWeightKg: planExercises.targetWeightKg,
     restSeconds: planExercises.restSeconds, notes: planExercises.notes,
   }).from(planExercises)
@@ -145,6 +155,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
         bodyweight: exercises.bodyweight, category: exercises.category,
+        isHold: exercises.isHold,
         equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       }).from(exercises).where(inArray(exercises.id, extraIds))
     : [];
@@ -154,6 +165,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ...extras.map((e) => ({
       ...e, extra: true,
       targetSets: 0, targetReps: 0, targetWeightKg: null as number | null,
+      targetHoldSeconds: null as number | null,
       restSeconds: 90, notes: null as string | null,
     })),
   ];
@@ -192,8 +204,10 @@ export async function todayView(profileId: string, units: Units, date = today())
       return {
         slug: i.slug, name: i.name, bodyweight: i.bodyweight,
         loadable: canHoldWeight(i.equipment),
+        isHold: i.isHold ?? false,
         category: i.category, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
+        targetHoldSeconds: i.targetHoldSeconds ?? null,
         targetWeight: weightOut(i.targetWeightKg, units),
         restSeconds: restSecondsFor(
           rest,
@@ -767,3 +781,25 @@ export async function savedMealsView(profileId: string) {
 }
 
 export type SavedMeal = Awaited<ReturnType<typeof savedMealsView>>[number];
+
+
+/**
+ * Things she asked for that have since shipped and that she has not been told
+ * about yet.
+ *
+ * A read model rather than a query in the component: components in this app
+ * never touch the database, and tests/invariants.test.ts enforces it — which
+ * is how this ended up here rather than inline, and rightly.
+ */
+export async function shippedForProfile(profileId: string) {
+  const { feedback } = await import("@/lib/db/schema");
+  return db.select({ id: feedback.id, request: feedback.body, reply: feedback.reply })
+    .from(feedback)
+    .where(and(
+      eq(feedback.profileId, profileId),
+      eq(feedback.status, "shipped"),
+      isNull(feedback.acknowledgedAt),
+    ))
+    .orderBy(desc(feedback.resolvedAt))
+    .limit(3);
+}

@@ -19,6 +19,7 @@ type Plan = {
   avoid?: { what: string; why: string }[];
   impact?: { ready: boolean; because: string };
   symptoms?: { symptom: string; means: string; do: string }[];
+  conditions?: { name: string; what: string; training: string; symptom: string }[];
   seePhysio?: boolean;
   energy?: string | null;
   nonNegotiable?: string;
@@ -159,6 +160,31 @@ export default async function RecoveryPage() {
               <section className="card p-5">
                 <h2 className="text-[15px] font-semibold">Eating while feeding</h2>
                 <p className="mt-1 text-[13px] leading-relaxed text-muted">{plan.energy}</p>
+              </section>
+            )}
+
+            {/* Named, because these are the words she will have been given —
+                "doming" is what the app can see, "diastasis recti" is what she
+                was told she has. */}
+            {plan.conditions && plan.conditions.length > 0 && (
+              <section className="card p-5">
+                <h2 className="text-[15px] font-semibold">The two you have probably heard of</h2>
+                <ul className="mt-3 space-y-4">
+                  {plan.conditions.map((c) => (
+                    <li key={c.name} className="border-t border-line/60 pt-4 first:border-0 first:pt-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <p className="text-[14px] font-medium">{c.name}</p>
+                        {plan.symptoms?.some((s) => s.symptom === c.symptom) && (
+                          <span className="rounded-full bg-hold-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-hold">
+                            you reported this
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[13px] leading-relaxed text-muted">{c.what}</p>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-text">{c.training}</p>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 

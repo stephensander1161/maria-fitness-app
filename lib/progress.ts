@@ -6,6 +6,7 @@ import {
 import { addDays, dayIndex, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
 import { goalDirection } from "@/lib/nutrition";
+import { burnForSession, weeklyBurn, type DailyBurn, type LoggedSet } from "@/lib/burn";
 import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
 
@@ -601,6 +602,59 @@ const MIN_RECOMP_DAYS = 14;
  * the one thing it believes completely — so this says it in a sentence, in her
  * units, with what it implies for the target.
  */
+/**
+ * What her sessions have probably cost, day by day.
+ *
+ * Body weight comes from the nearest weigh-in rather than her starting weight,
+ * because the estimate scales with it and a figure from six months ago is the
+ * wrong body. It is an estimate throughout — see lib/burn.ts for why it is
+ * never allowed near a calorie target.
+ */
+export async function burnByDay(
+  profileId: string,
+  from: ISODate,
+  to: ISODate,
+  fallbackKg: number,
+): Promise<DailyBurn[]> {
+  const rows = await db
+    .select({
+      date: workouts.date,
+      met: exercises.met,
+      category: exercises.category,
+      reps: setLogs.reps,
+      holdSeconds: setLogs.holdSeconds,
+    })
+    .from(setLogs)
+    .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
+    .where(and(eq(workouts.profileId, profileId), gte(workouts.date, from), lte(workouts.date, to)));
+
+  const [latest] = await db
+    .select({ weightKg: weighIns.weightKg })
+    .from(weighIns).where(eq(weighIns.profileId, profileId))
+    .orderBy(desc(weighIns.date)).limit(1);
+  const kg = latest?.weightKg ?? fallbackKg;
+
+  const byDate = new Map<string, LoggedSet[]>();
+  for (const r of rows) {
+    const list = byDate.get(r.date) ?? [];
+    list.push({ met: r.met, category: r.category, reps: r.reps, holdSeconds: r.holdSeconds });
+    byDate.set(r.date, list);
+  }
+  return [...byDate.entries()]
+    .map(([date, sets]) => {
+      const b = burnForSession(sets, kg);
+      return { date: date as ISODate, kcal: b.kcal, sets: b.sets };
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+/** This week's burn, for the Progress screen and the coach. */
+export async function burnThisWeek(profileId: string, week: ISODate, fallbackKg: number) {
+  const days = await burnByDay(profileId, week, addDays(week, 6), fallbackKg);
+  return { ...weeklyBurn(days), days };
+}
+
 export async function goalDirectionSignal(
   profile: { id: string; units: Units; goalWeightKg: number | null; startWeightKg: number | null },
 ): Promise<string> {

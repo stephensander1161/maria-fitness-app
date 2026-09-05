@@ -7,6 +7,10 @@ type Seed = {
   formCues: string[]; commonMistakes: string[]; safetyNote?: string;
   easier?: string[]; harder?: string[];
   unilateral?: boolean; bodyweight?: boolean;
+  /** Held, not counted: seconds are the unit. */
+  isHold?: boolean;
+  /** Metabolic equivalent; omit to take the category default. */
+  met?: number;
 };
 
 /**
@@ -166,6 +170,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "wall-sit", name: "Wall Sit", category: "isolation",
+    isHold: true,
     primaryMuscles: ["quads"], equipment: ["bodyweight"], bodyweight: true,
     formCues: ["Back flat against a wall, slide down until your thighs are parallel to the floor.", "Knees directly above ankles.", "Hold and breathe normally."],
     commonMistakes: ["Resting hands on the thighs to take the load off."],
@@ -589,6 +594,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "superman-hold", name: "Superman Hold", category: "core",
+    isHold: true,
     primaryMuscles: ["lower back", "glutes"], equipment: ["bodyweight", "mat"], bodyweight: true,
     formCues: [
       "Lie face down, arms out in front, forehead just off the mat.",
@@ -1058,6 +1064,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "dead-hang", name: "Dead Hang", category: "mobility",
+    isHold: true,
     primaryMuscles: ["grip", "lats", "shoulders"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
     formCues: [
       "Overhand grip, hands shoulder-width, feet off the floor.",
@@ -1199,6 +1206,7 @@ export const EXERCISES: Seed[] = [
   // ── Loaded carries ────────────────────────────────────────────────────────
   {
     slug: "farmer-carry", name: "Farmer Carry", category: "compound",
+    isHold: true,
     primaryMuscles: ["grip", "core", "upper back", "quads"], equipment: ["dumbbell", "kettlebell"],
     formCues: [
       "A dumbbell in each hand, arms hanging, shoulders pulled down and back.",
@@ -1214,6 +1222,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "suitcase-carry", name: "Suitcase Carry", category: "compound",
+    isHold: true,
     primaryMuscles: ["core", "obliques", "grip"], equipment: ["dumbbell", "kettlebell"], unilateral: true,
     formCues: [
       "One weight in one hand, nothing in the other.",
@@ -1230,6 +1239,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "front-rack-carry", name: "Front-Rack Carry", category: "compound",
+    isHold: true,
     primaryMuscles: ["core", "upper back", "shoulders"], equipment: ["dumbbell", "kettlebell"],
     formCues: [
       "Hold the weights at chest height, elbows in and ribs tucked down.",
@@ -1245,6 +1255,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "overhead-carry", name: "Overhead Carry", category: "compound",
+    isHold: true,
     primaryMuscles: ["shoulders", "core", "upper back"], equipment: ["dumbbell", "kettlebell"], unilateral: true,
     formCues: [
       "Press one weight overhead and lock the elbow, biceps beside your ear.",
@@ -1263,6 +1274,7 @@ export const EXERCISES: Seed[] = [
   // ── Core ──────────────────────────────────────────────────────────────────
   {
     slug: "plank", name: "Plank", category: "core",
+    isHold: true,
     primaryMuscles: ["core", "shoulders"], equipment: ["bodyweight", "mat"], bodyweight: true,
     formCues: [
       "Elbows under shoulders, forearms flat.",
@@ -1275,6 +1287,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "side-plank", name: "Side Plank", category: "core",
+    isHold: true,
     primaryMuscles: ["obliques", "core"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
     formCues: ["Elbow directly under the shoulder, feet stacked or staggered.", "Lift the hips until the body is a straight line.", "Push the bottom shoulder away from the ear."],
     commonMistakes: ["Letting the hips drift backward.", "Sinking into the bottom shoulder."],
@@ -1296,6 +1309,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "hollow-hold", name: "Hollow Body Hold", category: "core",
+    isHold: true,
     primaryMuscles: ["core"], equipment: ["bodyweight", "mat"], bodyweight: true,
     formCues: ["On your back, press the lower back into the floor.", "Lift the shoulder blades and legs off the floor.", "Lower the legs only as far as the back stays flat."],
     commonMistakes: ["Lower back peeling off the floor — raise the legs higher to regress."],
@@ -2249,6 +2263,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "wall-plank", name: "Wall Plank", category: "core",
+    isHold: true,
     primaryMuscles: ["deep core", "shoulders"], equipment: ["bodyweight", "wall"], bodyweight: true,
     tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
     formCues: [
@@ -2266,6 +2281,7 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "incline-plank", name: "Incline Plank", category: "core",
+    isHold: true,
     primaryMuscles: ["deep core", "shoulders"], equipment: ["bodyweight", "chair"], bodyweight: true,
     tags: ["postpartum", "post-partum", "postnatal", "after baby", "diastasis", "diastasis recti", "pelvic floor", "core rebuild"],
     formCues: [

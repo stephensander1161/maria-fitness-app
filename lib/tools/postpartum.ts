@@ -5,7 +5,7 @@ import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { todayForProfile } from "@/lib/profile";
 import {
-  avoidAt, checkOverdue, energyNote, impactReady, redFlags, stageFor, summarise,
+  avoidAt, checkOverdue, CONDITIONS, energyNote, impactReady, redFlags, stageFor, summarise,
   SYMPTOM_GUIDANCE, SYMPTOM_LABELS, type PostpartumStatus, type PostpartumSymptom,
 } from "@/lib/postpartum";
 
@@ -122,6 +122,8 @@ export const getPostpartumPlan = defineTool({
       symptoms: s.symptoms.map((sx) => ({ symptom: sx, means: SYMPTOM_LABELS[sx], do: SYMPTOM_GUIDANCE[sx] })),
       seePhysio: redFlags(s).length > 0,
       energy: energyNote(s),
+      // Named, because these are the words she will have been given.
+      conditions: CONDITIONS,
       // The sentence that has to survive every rewrite.
       nonNegotiable:
         "This app is not a substitute for a pelvic health physiotherapist. Leaking, heaviness, doming, pain, or bleeding that had stopped mean stop and get assessed — never push through them.",

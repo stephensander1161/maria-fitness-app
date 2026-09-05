@@ -4,6 +4,8 @@ import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
+import { BurnCard } from "@/components/burn-card";
+import { burnByDay } from "@/lib/progress";
 import { foodUnitsOf } from "@/lib/food-units";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +23,11 @@ export default async function EatPage() {
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
 
-  const [dayFood, mealWeek, saved] = await Promise.all([
+  const [dayFood, mealWeek, saved, burnToday] = await Promise.all([
     dayFoodView(profile.id, her),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
     savedMealsView(profile.id),
+    burnByDay(profile.id, her, her, profile.startWeightKg ?? 70),
   ]);
 
   const today = mealWeek.days.find((d) => d.dayOfWeek === mealWeek.todayIndex) ?? null;
@@ -50,6 +53,21 @@ export default async function EatPage() {
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}
         foodUnits={mealWeek.foodUnits}
       />
+
+      {/*
+        Below the food, deliberately. It is information about her day, not an
+        allowance — the caveat in the card says so, because the moment a burn
+        figure sits next to an intake figure people start subtracting one from
+        the other, and this app's expenditure number already contains training.
+      */}
+      <div className="mt-3 max-w-xl">
+        <BurnCard
+          title="Training today"
+          kcal={burnToday.reduce((n, d) => n + d.kcal, 0)}
+          sub="burned"
+          sessions={burnToday.length}
+        />
+      </div>
     </>
   );
 }

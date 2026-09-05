@@ -496,6 +496,19 @@ export const exercises = pgTable(
       enum: ["compound", "isolation", "cardio", "mobility", "core"],
     }).notNull(),
     primaryMuscles: jsonb("primary_muscles").$type<string[]>().default([]).notNull(),
+    /**
+     * A hold rather than a count. A wall sit does not have reps, and asking
+     * for eight of them is the app not understanding the movement — her words:
+     * "for things such as planks or wall sits, switch to seconds instead."
+     */
+    isHold: boolean("is_hold").default(false).notNull(),
+    /**
+     * Metabolic equivalent, for estimating what a session costs. Null falls
+     * back to the category default in lib/burn.ts. It is an estimate and every
+     * surface that shows it says so — the app's real expenditure number is
+     * measured from intake and weight change, not from this.
+     */
+    met: real("met"),
     /** Search terms that are not the name or a muscle — "postpartum",
      *  "diastasis", "physio". Without these the library holds exactly the
      *  right movement for a complaint and cannot be found by its name. */
@@ -660,6 +673,8 @@ export const planExercises = pgTable(
     sortOrder: integer("sort_order").default(0).notNull(),
     targetSets: integer("target_sets").notNull(),
     targetReps: integer("target_reps").notNull(),
+    /** For a hold: the seconds to aim for. Null for anything counted. */
+    targetHoldSeconds: integer("target_hold_seconds"),
     /** Null until she has a working weight; the coach fills it from history. */
     targetWeightKg: real("target_weight_kg"),
     restSeconds: integer("rest_seconds").default(90).notNull(),
@@ -700,6 +715,14 @@ export const setLogs = pgTable(
      * and rounding it up claims one she did not.
      */
     reps: real("reps").notNull(),
+    /**
+     * How long the hold lasted, for movements that are held rather than
+     * counted. When this is set, `reps` is the number of holds — usually 1 —
+     * and the seconds are the thing that actually moved. Kept separate rather
+     * than stuffed into reps, because "reps: 45" meaning forty-five seconds is
+     * exactly the kind of number that reads wrong everywhere else in the app.
+     */
+    holdSeconds: integer("hold_seconds"),
     /**
      * Reps in reserve: how many more she could have done. One tap, and it is
      * what turns "3×8 @ 40kg" from a number into a signal — the same set at
@@ -879,6 +902,13 @@ export const feedback = pgTable(
     reply: text("reply"),
     createdAt: createdAt(),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    /**
+     * She has seen that it shipped and said whether it actually fixed it.
+     * Until this is set, the app shows her a small note about it — which is
+     * the only way the loop closes: shipping something and never telling the
+     * person who asked is how they stop asking.
+     */
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
   },
   (t) => [index("feedback_profile_status").on(t.profileId, t.status)],
 );

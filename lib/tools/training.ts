@@ -386,7 +386,10 @@ export const logSet = defineTool({
     "Record one completed set. Opens today's session automatically if needed. Returns how this set compares to the last time she trained that movement — use that comparison in your reply, including when it is down.",
   input: z.object({
     exerciseSlug: z.string(),
-    reps: z.number().describe("Whole reps, or a half when she got part-way through the last one"),
+    reps: z.number().optional()
+      .describe("Whole reps, or a half when she got part-way through the last one. Leave out for a hold and pass holdSeconds instead."),
+    holdSeconds: z.number().optional()
+      .describe("For a movement that is held rather than counted — a plank, a wall sit, a carry. Seconds, not reps."),
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight movements"),
     rpe: z.number().nullable().optional().describe("1–10 perceived effort, if she mentions it"),
     rir: z.number().nullable().optional()
@@ -400,6 +403,23 @@ export const logSet = defineTool({
     const units = await unitsOf(ctx);
     const [ex] = await db.select().from(exercises).where(eq(exercises.slug, input.exerciseSlug)).limit(1);
     if (!ex) return { ok: false, error: `Unknown slug '${input.exerciseSlug}'. Use search_exercises.` };
+
+
+    // A plank does not have reps, and asking for eight of them is the app not
+    // understanding the movement. Her words: "for things such as planks or
+    // wall sits, switch to seconds instead."
+    if (ex.isHold && input.holdSeconds === undefined && input.reps !== undefined) {
+      return {
+        ok: false,
+        error: `${ex.name} is held, not counted. Pass holdSeconds (how long she held it) rather than reps.`,
+      };
+    }
+    if (!ex.isHold && input.reps === undefined) {
+      return { ok: false, error: `${ex.name} is counted, not held. Pass reps.` };
+    }
+    if (input.reps === undefined && input.holdSeconds === undefined) {
+      return { ok: false, error: "Pass reps for a counted movement, or holdSeconds for a hold." };
+    }
 
     const when = input.date ?? (await todayFor(ctx));
     if (isFuture(when, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
@@ -418,7 +438,11 @@ export const logSet = defineTool({
       // onConflictDoNothing on the client key: a retry of a request that actually
       // landed returns nothing here, and we report success without logging twice.
       const inserted = await tx.insert(setLogs).values({
-        workoutId: w.id, exerciseId: ex.id, setNumber: n + 1, reps: input.reps,
+        workoutId: w.id, exerciseId: ex.id, setNumber: n + 1,
+        // For a hold, one set is one hold: the seconds are what moved, and
+        // reps stays a count so every other query still reads correctly.
+        reps: input.reps ?? 1,
+        holdSeconds: input.holdSeconds ?? null,
         weightKg,
         rpe: input.rpe ?? null,
         // "That was everything" is rir 0; saying nothing is null. The

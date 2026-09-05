@@ -187,12 +187,24 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
             // Through the offline-aware path, exactly as the card does: a set
             // logged in a basement with no signal is still a set she did.
             await logSetOrQueue(
-              setInput(go.slug, set.reps, set.weight, undefined, go.date as ISODate | undefined),
+              setInput(
+                go.slug,
+                set.holdSeconds === undefined ? set.reps ?? 0 : { holdSeconds: set.holdSeconds },
+                set.weight,
+                undefined,
+                go.date as ISODate | undefined,
+              ),
             );
             // And straight back into the next rest, which is the point of
             // logging here rather than on the card.
             setGo(null);
-            write({ ...go, endsAt: Date.now() + go.seconds * 1000, reps: set.reps, weight: set.weight });
+            // Seed the next rest with whatever she just did, in its own unit.
+            write({
+              ...go,
+              endsAt: Date.now() + go.seconds * 1000,
+              reps: set.holdSeconds ?? set.reps ?? go.reps,
+              weight: set.weight,
+            });
             setAwaiting(null);
             startTransition(() => router.refresh());
           }}

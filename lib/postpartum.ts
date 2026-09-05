@@ -200,6 +200,29 @@ export function energyNote(s: PostpartumStatus): string | null {
   return `Feeding costs roughly ${LACTATION_KCAL} kcal a day, so that is added to what you burn before any deficit is worked out, and the target never goes below ${LACTATION_CALORIE_FLOOR}. Cutting hard while feeding is how supply drops.`;
 }
 
+/**
+ * The two things people actually come here having been told they have.
+ *
+ * The app spoke only in symptoms — "heaviness", "doming" — and she asked for
+ * the words she had been given: pelvic organ prolapse, diastasis recti. Naming
+ * them is not a diagnosis, it is the app meeting her where the conversation
+ * already is, and saying what training does and does not do about each.
+ */
+export const CONDITIONS: { name: string; what: string; training: string; symptom: PostpartumSymptom }[] = [
+  {
+    name: "Diastasis recti",
+    symptom: "doming",
+    what: "The gap down the middle of your abdomen. Essentially every pregnancy produces some separation by the third trimester — it is connective tissue stretching to make room, which is what it is built to do, not damage. For most it narrows substantially over the following months.",
+    training: "The work is about how that seam holds tension, not about closing a number. Breathing, then the deep abdominal wall, then load added slowly enough that the midline stays flat. Doming under a movement means it is currently too much, so reduce it — it is a signal, not a failure.",
+  },
+  {
+    name: "Pelvic organ prolapse",
+    symptom: "heaviness",
+    what: "A heaviness, dragging or bulging feeling, caused by the support structures being stretched by pregnancy and birth. It is common, it is graded, and grade does not decide how much it bothers you.",
+    training: "Pelvic floor muscle training is first-line and it genuinely helps, but this one needs assessing rather than self-managing: what to load, and how much, depends on what is actually going on. Get seen, then train with someone who knows what they found.",
+  },
+];
+
 /** One sentence for the top of the screen and for the coach's state block. */
 export function summarise(s: PostpartumStatus, asOf: ISODate): string {
   if (!s.birthDate) return "";

@@ -3,6 +3,7 @@ import { currentTheme } from "@/lib/current-theme";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
 import { MoreNavGate } from "@/components/more-nav-gate";
+import { ShippedNoteGate } from "@/components/shipped-note-gate";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { SideNavGate } from "@/components/side-nav-gate";
@@ -93,6 +94,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
         </div>
         </RestProvider>
+        {/* Things she asked for that have shipped — see shipped-note.tsx. */}
+        <ShippedNoteGate />
         <RefreshOnFocus />
         <InstallApp />
         <TabBar />

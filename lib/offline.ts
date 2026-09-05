@@ -23,7 +23,10 @@ const CLAIM_TTL_MS = 30_000;
 
 export type PendingSetInput = {
   exerciseSlug: string;
-  reps: number;
+  /** Omitted for a hold, where the seconds are what moved. */
+  reps?: number;
+  /** Seconds, for a movement that is held rather than counted. */
+  holdSeconds?: number;
   weight: number | null;
   /** How many she had left. Omitted when she did not say — never sent as 0. */
   rir?: number;
@@ -187,14 +190,15 @@ export const deviceZone = (): string => {
  */
 export const setInput = (
   exerciseSlug: string,
-  reps: number,
+  /** Reps for a counted movement, or `{ holdSeconds }` for a hold. */
+  done: number | { holdSeconds: number },
   weight: number | null,
   /** Reps in reserve. Undefined means she did not say, which is not zero. */
   rir?: number | null,
   date?: ISODate,
 ): PendingSetInput => ({
   exerciseSlug,
-  reps,
+  ...(typeof done === "number" ? { reps: done } : { holdSeconds: done.holdSeconds }),
   weight,
   ...(rir === undefined || rir === null ? {} : { rir }),
   date: date ?? today(deviceZone()),

@@ -137,6 +137,38 @@ nulls as zeros always fails in the direction that reads as *her* failure —
 under-reported fibre, an invented deficit, a day she "barely ate". That is the
 worst possible direction for this particular app to be wrong in.
 
+## What a session cost
+
+`lib/burn.ts`, shown on Eat, on Progress, and through `get_calories_burned`.
+Two rules, and the second is the one that matters:
+
+- **It is an estimate**, from metabolic equivalents measured on other people.
+  Two people of the same weight doing the same session differ by a third. Every
+  surface says "about", and the caveat travels with the number rather than
+  living in a footnote.
+- **It is never added to what she can eat.** The app's real expenditure figure
+  comes from `lib/expenditure.ts`, measured from intake against her weight
+  trend — and that measurement *already contains* her training. Adding a burn
+  estimate on top counts the same session twice and hands her hundreds of
+  imaginary calories, which is precisely what makes fitness trackers useless.
+  `tests/burn.test.ts` fails if `lib/burn.ts` is ever imported by the nutrition
+  or expenditure modules.
+
+Holds are seconds, not reps. `exercises.is_hold` marks them and
+`set_logs.hold_seconds` stores them; `reps` stays a count, so volume and
+progression still read correctly and a wall sit contributes no tonnage.
+`log_set` refuses reps for a hold and seconds for a count rather than
+recording a number that means nothing — her request, and she was right that
+asking for eight of a wall sit is the app not understanding the movement.
+
+## Closing the loop on a request
+
+Shipping something and never telling the person who asked is how they stop
+asking. A `feedback` row marked `shipped` with a `reply` shows that person a
+small bubble — theirs alone, by construction — asking whether it is fixed.
+"Not quite" reopens the request with what they added, so nobody has to write
+it out twice. `feedback.acknowledged_at` is what makes it go away.
+
 ## Coming back from childbirth
 
 `lib/postpartum.ts`, `lib/tools/postpartum.ts`, `/recovery`, and a step in

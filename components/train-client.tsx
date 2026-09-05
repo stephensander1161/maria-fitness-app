@@ -123,7 +123,13 @@ export function TrainClient({
       // Seeded with what she just did, which is what she is most likely to do
       // again — the GO screen logs the next set from here without her going
       // back to the card for the numbers.
-      reps: last?.reps ?? exercise.targetReps,
+      isHold: exercise.isHold,
+      // Seconds for a hold, reps otherwise — the GO screen reads isHold and
+      // labels the field accordingly, so this number must already be in the
+      // right unit. A wall sit seeded with "3 reps" is nonsense either way.
+      reps: exercise.isHold
+        ? last?.reps ?? exercise.targetHoldSeconds ?? 30
+        : last?.reps ?? exercise.targetReps,
       weight: last?.weight ?? exercise.targetWeight,
       loadable: !exercise.bodyweight || exercise.loadable,
       date,
@@ -650,8 +656,10 @@ export function ExerciseCard({
     }
     wasMet.current = targetMet;
   }, [targetMet]);
+  // Volume is load × reps, which a hold does not have. A wall sit contributes
+  // no tonnage and pretending it does would inflate the number silently.
   const todayVolume = Math.round(
-    [...done, ...queued].reduce((n, s) => n + (s.weight ?? 0) * s.reps, 0),
+    [...done, ...queued].reduce((n, s) => n + (s.weight ?? 0) * (s.reps ?? 0), 0),
   );
 
   async function removeFromToday() {
@@ -694,7 +702,13 @@ export function ExerciseCard({
         // Zero is not a weight. An untouched field on a movement she did with
         // nothing in her hands is bodyweight, and recording it as "0 kg" is
         // the same class of lie as counting an unknown as a zero.
-        setInput(exercise.slug, reps, loaded && weight > 0 ? weight : null, rir, date as ISODate | undefined),
+        setInput(
+          exercise.slug,
+          exercise.isHold ? { holdSeconds: reps } : reps,
+          loaded && weight > 0 ? weight : null,
+          rir,
+          date as ISODate | undefined,
+        ),
       );
       // Whether that was the last set she planned for this movement.
       onLogged(

@@ -27,6 +27,11 @@ export type Rest = {
    * screen that knew them.
    */
   unit: string;
+  /**
+   * Held rather than counted. When true the GO screen asks for seconds and
+   * `reps` seeds that instead — a wall sit does not have eight of anything.
+   */
+  isHold?: boolean;
   /** What to seed the entry with: her last set of this movement. */
   reps: number;
   weight: number | null;

@@ -30,10 +30,11 @@ export function GoScreen({
 }: {
   rest: Rest;
   /** Log the set she just did and start the next rest. */
-  onLog: (set: { reps: number; weight: number | null }) => Promise<void>;
+  onLog: (set: { reps?: number; holdSeconds?: number; weight: number | null }) => Promise<void>;
   onDismiss: () => void;
 }) {
   const { name, slug, category } = rest;
+  const held = rest.isHold === true;
   const [reps, setReps] = useState(rest.reps);
   const [weight, setWeight] = useState(rest.weight ?? 0);
   const [busy, setBusy] = useState(false);
@@ -57,7 +58,12 @@ export function GoScreen({
     setBusy(true);
     setError(null);
     try {
-      await onLog({ reps, weight: rest.loadable && weight > 0 ? weight : null });
+      // Seconds for a hold, reps for everything else. The tool refuses the
+      // wrong one rather than quietly recording a number that means nothing.
+      await onLog({
+        ...(held ? { holdSeconds: reps } : { reps }),
+        weight: rest.loadable && weight > 0 ? weight : null,
+      });
     } catch (err) {
       setError(actionMessage(err, "That didn't log — try again."));
       setBusy(false);
@@ -114,13 +120,13 @@ export function GoScreen({
               />
             )}
             <NumberField
-              label="Reps"
+              label={held ? "Seconds" : "Reps"}
               value={reps}
               onChange={setReps}
-              step={1}
-              decimals
-              min={0.5}
-              max={500}
+              step={held ? 5 : 1}
+              decimals={!held}
+              min={held ? 5 : 0.5}
+              max={held ? 900 : 500}
             />
           </div>
 

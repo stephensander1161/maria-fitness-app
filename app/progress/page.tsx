@@ -7,6 +7,8 @@ import {
 } from "@/lib/progress";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
+import { BurnCard } from "@/components/burn-card";
+import { burnThisWeek } from "@/lib/progress";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate, weekStart } from "@/lib/date";
 import { weightTrend } from "@/lib/trend";
@@ -28,7 +30,7 @@ export default async function ProgressPage() {
 
   const her = profileToday(profile);
 
-  const [history, milestones, review, streak, sites, library, progression, eating] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, progression, eating, burn] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -38,6 +40,7 @@ export default async function ProgressPage() {
     photoLibrary(profile.id),
     exerciseProgression(profile.id, u, { asOf: her }),
     nutritionTrend(profile.id, 14, her),
+    burnThisWeek(profile.id, weekStart(her), profile.startWeightKg ?? 70),
   ]);
 
   // The trend, not this morning's reading: a day's weight moves on water,
@@ -163,6 +166,14 @@ export default async function ProgressPage() {
       */}
       <div className="lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-4">
       <div>
+      <div className="mb-3">
+        <BurnCard
+          title="Training cost this week"
+          kcal={burn.total}
+          sub="this week"
+          sessions={burn.sessions}
+        />
+      </div>
       <section className="card mb-3 p-5">
         <div className="flex items-end justify-between">
           <div>
