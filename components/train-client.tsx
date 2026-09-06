@@ -168,9 +168,40 @@ export function TrainClient({
     }
   }
 
+  /**
+   * The lock on a past day, and the way out of it.
+   *
+   * This used to live only in the main return, which meant a *past rest day*
+   * had neither an add button nor the Edit that would bring one back: no
+   * exercises, so the early return fired; past, so `editable` was false. A
+   * dead end, and the one people hit — "I cannot add a workout to a rest day"
+   * is exactly what that looks like from outside.
+   *
+   * It is defined here and rendered by every branch instead, so the lock and
+   * its key are never separated again.
+   */
+  const lockBanner = past ? (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
+      <p className="min-w-0 text-[12px] text-faint">
+        {unlocked
+          ? "Editing a day that has already been."
+          : "A day that has already been. Locked so a stray tap cannot change it."}
+      </p>
+      <button
+        onClick={() => setUnlocked(!unlocked)}
+        className={`shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+          unlocked ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted hover:bg-raised"
+        }`}
+      >
+        {unlocked ? "Done editing" : "Edit"}
+      </button>
+    </div>
+  ) : null;
+
   if (view.isRest && view.exercises.length === 0) {
     return (
       <div className="space-y-4">
+        {lockBanner}
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
         {editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
@@ -179,6 +210,7 @@ export function TrainClient({
   if (!view.hasPlan || view.exercises.length === 0) {
     return (
       <div className="space-y-4">
+        {lockBanner}
         <Empty
           title="No workout planned"
           body="Ask your coach to build your week — it takes about a minute."
@@ -193,30 +225,14 @@ export function TrainClient({
             "What should I do today?",
           ]}
         />
-        {view.hasPlan && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+        {view.hasPlan && editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {past && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
-          <p className="min-w-0 text-[12px] text-faint">
-            {unlocked
-              ? "Editing a session you have already done."
-              : "A session you have already done. Locked so a stray tap cannot change it."}
-          </p>
-          <button
-            onClick={() => setUnlocked(!unlocked)}
-            className={`shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-              unlocked ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted hover:bg-raised"
-            }`}
-          >
-            {unlocked ? "Done editing" : "Edit"}
-          </button>
-        </div>
-      )}
+      {lockBanner}
 
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
