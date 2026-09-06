@@ -497,6 +497,17 @@ export const exercises = pgTable(
     }).notNull(),
     primaryMuscles: jsonb("primary_muscles").$type<string[]>().default([]).notNull(),
     /**
+     * Apparatus without which the movement is simply impossible.
+     *
+     * `equipment` is a list of *alternatives* — a goblet squat takes a
+     * dumbbell or a kettlebell. That reading breaks for anything needing a
+     * fixture plus a load: a weighted pull-up lists a bar, a dumbbell and a
+     * belt, and "any of these" let it through to someone who owns dumbbells
+     * and no bar. They were shown the weighted variant while the plain pull-up
+     * it is built on was hidden, which is backwards.
+     */
+    requires: text("requires"),
+    /**
      * A hold rather than a count. A wall sit does not have reps, and asking
      * for eight of them is the app not understanding the movement — her words:
      * "for things such as planks or wall sits, switch to seconds instead."

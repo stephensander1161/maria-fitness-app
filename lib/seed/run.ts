@@ -25,7 +25,7 @@ async function main() {
       safetyNote: e.safetyNote ?? null,
       easierAlternatives: e.easier ?? [], harderAlternatives: e.harder ?? [],
       unilateral: e.unilateral ?? false, bodyweight: e.bodyweight ?? false,
-      isHold: e.isHold ?? false, met: e.met ?? null,
+      isHold: e.isHold ?? false, met: e.met ?? null, requires: e.requires ?? null,
     };
     await db.insert(exercises).values(row)
       .onConflictDoUpdate({ target: exercises.slug, set: row });

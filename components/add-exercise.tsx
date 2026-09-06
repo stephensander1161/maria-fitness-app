@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
 import { MovementPicker } from "./movement-picker";
-import type { PickableExercise } from "@/lib/views";
+import type { Pickable, PickableExercise } from "@/lib/views";
 
 /**
  * Add one movement to today.
@@ -19,9 +19,9 @@ import type { PickableExercise } from "@/lib/views";
  * the drawing says what the movement is before the name does.
  */
 export function AddExercise({
-  groups, dayOfWeek, label,
+  pickable, dayOfWeek, label,
 }: {
-  groups: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   /** 0=Monday. Omit for today, which is what the Train screen means. */
   dayOfWeek?: number;
   label?: string;
@@ -34,7 +34,7 @@ export function AddExercise({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const all = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const all = useMemo(() => pickable.groups.flatMap((g) => g.items), [pickable]);
   const chosen = all.find((i) => i.slug === slug);
 
   async function add() {
@@ -75,7 +75,7 @@ export function AddExercise({
     <section className="card space-y-4 p-4">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <MovementPicker groups={groups} value={slug} onPick={setSlug} />
+          <MovementPicker pickable={pickable} value={slug} onPick={setSlug} />
         </div>
         <button onClick={close} className="shrink-0 px-2 py-2 text-[13px] text-muted">Cancel</button>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { MealWeekView, PickableExercise, TodayView, WeekView } from "@/lib/views";
+import type { MealWeekView, Pickable, PickableExercise, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
 import { DayTitle } from "./day-title";
@@ -31,7 +31,7 @@ export function PlanClient({
   /** The selected day, when it is not today. */
   otherDay: TodayView;
   otherDate: string;
-  pickable: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   targets: NextTarget[];
 }) {
   const isToday = day === week.todayIndex;

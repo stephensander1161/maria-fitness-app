@@ -2,7 +2,7 @@
 
 import { AddExercise } from "./add-exercise";
 import { PlannedExerciseRow } from "./planned-exercise-row";
-import type { PickableExercise, TodayView } from "@/lib/views";
+import type { Pickable, PickableExercise, TodayView } from "@/lib/views";
 
 /**
  * A day that is not today: something to arrange, or something to look back at.
@@ -16,7 +16,7 @@ export function PlannedDay({
   view, pickable, dayOfWeek, past,
 }: {
   view: TodayView;
-  pickable: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   /** 0=Monday. Which day of the plan the add and remove buttons act on. */
   dayOfWeek: number;
   past: boolean;
@@ -48,7 +48,7 @@ export function PlannedDay({
             : "A rest day for now. Add a movement and it becomes a training day; take the last one off again and it goes back to being rest."}
         </p>
       )}
-      <AddExercise groups={pickable} dayOfWeek={dayOfWeek} label={`+ Add to ${view.dayName}`} />
+      <AddExercise pickable={pickable} dayOfWeek={dayOfWeek} label={`+ Add to ${view.dayName}`} />
     </>
   );
 }

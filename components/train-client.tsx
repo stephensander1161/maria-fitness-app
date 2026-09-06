@@ -15,7 +15,7 @@ import {
 import type { ISODate } from "@/lib/date";
 import { askToNotify, unlockAudio } from "@/components/rest-timer";
 import { useRest } from "@/components/rest-provider";
-import type { PickableExercise, TodayExercise, TodayView } from "@/lib/views";
+import type { Pickable, PickableExercise, TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
 
@@ -45,7 +45,7 @@ export function TrainClient({
   isToday = true,
 }: {
   view: TodayView;
-  pickable: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   targets?: NextTarget[];
   /** The day on screen. Every write from these cards is filed against it. */
   date?: string;
@@ -203,7 +203,7 @@ export function TrainClient({
       <div className="space-y-4">
         {lockBanner}
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
-        {editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+        {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }
@@ -225,7 +225,7 @@ export function TrainClient({
             "What should I do today?",
           ]}
         />
-        {view.hasPlan && editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+        {view.hasPlan && editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }
@@ -274,7 +274,7 @@ export function TrainClient({
       ))}
       </div>
 
-      {editable && <AddExercise groups={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+      {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
 
       {/*
         Finishing is offered when there is a session to finish, not while she
@@ -440,7 +440,7 @@ function ChangeMovement({
   exercise, pickable, setCount, date, onDone, onCancel,
 }: {
   exercise: TodayExercise;
-  pickable: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   setCount: number;
   date?: string;
   onDone: () => void;
@@ -449,7 +449,7 @@ function ChangeMovement({
   const [slug, setSlug] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const chosen = pickable.flatMap((g) => g.items).find((i) => i.slug === slug);
+  const chosen = pickable.groups.flatMap((g) => g.items).find((i) => i.slug === slug);
 
   async function change() {
     if (!slug) return;
@@ -476,7 +476,7 @@ function ChangeMovement({
           </span>
         )}
       </p>
-      <MovementPicker groups={pickable} value={slug} onPick={setSlug} />
+      <MovementPicker pickable={pickable} value={slug} onPick={setSlug} />
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
       <div className="mt-3 flex items-center gap-2">
         <button
@@ -596,7 +596,7 @@ export function ExerciseCard({
   onLogged, onRetryPending, onRemoved,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
-  pickable: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   /** The day this card writes to. Undefined means her today. */
   date?: string;
   /** False on a day that has not happened yet — nothing to record there. */

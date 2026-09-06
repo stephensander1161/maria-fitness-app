@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
-import type { PickableExercise } from "@/lib/views";
+import type { Pickable, PickableExercise } from "@/lib/views";
 
 /** The gym name she typed, when it is not the name on the card. */
 function aliasFor(tags: string[], q: string): string | null {
@@ -25,9 +25,9 @@ function aliasFor(tags: string[], q: string): string | null {
  * which are the same question asked twice.
  */
 export function MovementPicker({
-  groups, value, onPick, emptyHint,
+  pickable, value, onPick, emptyHint,
 }: {
-  groups: { group: string; items: PickableExercise[] }[];
+  pickable: Pickable;
   value: string;
   onPick: (slug: string) => void;
   /** What to say when a search matches nothing. */
@@ -36,6 +36,7 @@ export function MovementPicker({
   const [group, setGroup] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
+  const { groups, unavailable } = pickable;
   const all = useMemo(
     () => groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.group }))),
     [groups],
@@ -53,6 +54,20 @@ export function MovementPicker({
     }
     return group ? all.filter((i) => i.group === group) : [];
   }, [all, group, q]);
+
+  /**
+   * Matches she cannot do yet, and the one thing in the way.
+   *
+   * Silently hiding these is what made searching "pull up" baffling: someone
+   * with dumbbells and no bar saw the two weighted variants and nothing else,
+   * because those list a dumbbell among their equipment. Saying what is
+   * missing is both an explanation and a to-do.
+   */
+  const blocked = useMemo(() => {
+    if (!q) return [];
+    return unavailable.filter((i) =>
+      i.name.toLowerCase().includes(q) || i.tags.some((t) => t.includes(q)));
+  }, [unavailable, q]);
 
   return (
     <div className="space-y-4">
@@ -82,6 +97,15 @@ export function MovementPicker({
             </button>
           ))}
         </div>
+      )}
+
+      {blocked.length > 0 && (
+        <p className="rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
+          {blocked.length} more {blocked.length === 1 ? "match needs" : "matches need"}{" "}
+          <span className="text-text">{[...new Set(blocked.map((b) => b.missing))].join(" or ")}</span>,
+          which isn&apos;t on your equipment list — {blocked.slice(0, 4).map((b) => b.name).join(", ")}
+          {blocked.length > 4 ? " and more" : ""}. Add it in plan setup and they appear here.
+        </p>
       )}
 
       {shown.length > 0 && (

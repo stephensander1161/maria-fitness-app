@@ -132,6 +132,25 @@ suite("finding the movement for a complaint", () => {
   });
 
   // This content is offered for a complaint, so it must say when to stop.
+  it("never offers a variation whose apparatus it is hiding", () => {
+    // `equipment` reads as "any of these will do", which is right for a
+    // dumbbell or a kettlebell and wrong for a bar you hang from. A weighted
+    // pull-up lists bar, dumbbell and belt, so someone owning dumbbells and no
+    // bar was shown the weighted variant while the plain pull-up it is built
+    // on was hidden — a harder movement outranking its own parent.
+    const barred = EXERCISES.filter((e) => e.equipment.some((x) => /pull-up bar/i.test(x)));
+    expect(barred.length).toBeGreaterThan(15);
+    const unmarked = barred
+      // An assisted-pull-up machine is its own apparatus and needs no bar.
+      .filter((e) => !e.equipment.some((x) => /machine/i.test(x)))
+      .filter((e) => e.requires !== "pull-up bar")
+      .map((e) => e.slug);
+    expect(
+      unmarked,
+      `these hang from a bar but do not require one: ${unmarked.join(", ")}`,
+    ).toEqual([]);
+  });
+
   it("gives every tagged rehab movement a safety note", () => {
     const missing = EXERCISES
       .filter((e) => (e.tags ?? []).some((t) => /physio|postpartum|rehab/.test(t)))

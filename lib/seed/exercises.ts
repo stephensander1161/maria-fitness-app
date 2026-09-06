@@ -7,6 +7,8 @@ type Seed = {
   formCues: string[]; commonMistakes: string[]; safetyNote?: string;
   easier?: string[]; harder?: string[];
   unilateral?: boolean; bodyweight?: boolean;
+  /** Apparatus without which it cannot be done at all. */
+  requires?: string;
   /** Held, not counted: seconds are the unit. */
   isHold?: boolean;
   /** Metabolic equivalent; omit to take the category default. */
@@ -918,7 +920,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "assisted-pull-up", name: "Assisted Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["machine", "resistance band", "pull-up bar"],
-    formCues: ["Hands just outside shoulder width, palms forward.", "Pull your shoulder blades down before your elbows bend.", "Drive your elbows toward your ribs and bring your chin over the bar.", "Lower all the way down under control."],
+        formCues: ["Hands just outside shoulder width, palms forward.", "Pull your shoulder blades down before your elbows bend.", "Drive your elbows toward your ribs and bring your chin over the bar.", "Lower all the way down under control."],
     commonMistakes: ["Kipping with the legs to get up.", "Stopping halfway down and losing the best part of the rep."],
     easier: ["lat-pulldown", "negative-pull-up", "inverted-row"], harder: ["pull-up"],
   },
@@ -1065,7 +1067,8 @@ export const EXERCISES: Seed[] = [
   {
     slug: "dead-hang", name: "Dead Hang", category: "mobility",
     isHold: true,
-    primaryMuscles: ["grip", "lats", "shoulders"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["grip", "lats", "shoulders"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     formCues: [
       "Overhand grip, hands shoulder-width, feet off the floor.",
       "Let the shoulders rise toward the ears first, then gently pull them down without bending the arms.",
@@ -1081,7 +1084,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "negative-pull-up", name: "Negative Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     formCues: [
       "Step or jump up so your chin starts above the bar.",
       "Hold at the top for a beat with the shoulder blades pulled down.",
@@ -1102,7 +1106,8 @@ export const EXERCISES: Seed[] = [
   // without guessing.
   {
     slug: "scapular-pull-up", name: "Scapular Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "shoulder", "beginner", "progression"],
     formCues: [
       "Hang at full stretch with straight arms, hands just outside shoulder width.",
@@ -1120,6 +1125,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "band-assisted-pull-up", name: "Band-Assisted Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "resistance band"],
+    requires: "pull-up bar",
     tags: ["pull up", "pullup", "back", "band", "progression"],
     formCues: [
       "Loop a band over the bar and put one foot or knee in the bottom of it.",
@@ -1136,7 +1142,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "jumping-pull-up", name: "Jumping Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "progression"],
     formCues: [
       "Set the bar so you can reach it standing, or use a box.",
@@ -1152,7 +1159,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "chin-up", name: "Chin-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "chin up", "back", "biceps"],
     formCues: [
       "Palms facing you, hands about shoulder width, full hang to start.",
@@ -1169,7 +1177,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "neutral-grip-pull-up", name: "Neutral-Grip Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "shoulder", "shoulder friendly"],
     formCues: [
       "Palms facing each other on parallel handles, full hang to start.",
@@ -1185,7 +1194,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "wide-grip-pull-up", name: "Wide-Grip Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "upper back", "biceps"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "upper back", "biceps"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "lats"],
     formCues: [
       "Hands well outside shoulder width, palms forward.",
@@ -1202,7 +1212,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "close-grip-pull-up", name: "Close-Grip Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "biceps"],
     formCues: [
       "Hands about a hand's width apart, palms forward.",
@@ -1218,6 +1229,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "commando-pull-up", name: "Commando Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back", "core"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar",
     bodyweight: true, unilateral: true,
     tags: ["pull up", "pullup", "back", "core"],
     formCues: [
@@ -1235,6 +1247,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "archer-pull-up", name: "Archer Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar",
     bodyweight: true, unilateral: true,
     tags: ["pull up", "pullup", "back", "advanced", "one arm"],
     formCues: [
@@ -1253,6 +1266,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "weighted-pull-up", name: "Weighted Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "dumbbell", "weight belt"],
+    requires: "pull-up bar",
     tags: ["pull up", "pullup", "back", "strength", "loaded"],
     formCues: [
       "Add load with a belt, a dumbbell between the feet, or a pack.",
@@ -1270,6 +1284,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "weighted-chin-up", name: "Weighted Chin-Up", category: "compound",
     primaryMuscles: ["biceps", "lats", "upper back"], equipment: ["pull-up bar", "dumbbell", "weight belt"],
+    requires: "pull-up bar",
     tags: ["pull up", "pullup", "chin up", "back", "biceps", "loaded"],
     formCues: [
       "Palms facing you, load on a belt or held between the feet.",
@@ -1284,7 +1299,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "towel-pull-up", name: "Towel Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "forearms", "biceps"], equipment: ["pull-up bar", "towel", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "forearms", "biceps"], equipment: ["pull-up bar", "towel", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "grip", "forearms"],
     formCues: [
       "Hang two towels over the bar, one in each hand.",
@@ -1299,7 +1315,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "l-sit-pull-up", name: "L-Sit Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "core", "biceps", "hip flexors"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "core", "biceps", "hip flexors"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "core", "advanced"],
     formCues: [
       "Hang with the legs straight out in front, toes up, holding an L.",
@@ -1315,6 +1332,7 @@ export const EXERCISES: Seed[] = [
   {
     slug: "one-arm-pull-up-negative", name: "One-Arm Negative", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar",
     bodyweight: true, unilateral: true,
     tags: ["pull up", "pullup", "back", "advanced", "one arm"],
     formCues: [
@@ -1331,7 +1349,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "muscle-up", name: "Muscle-Up", category: "compound",
-    primaryMuscles: ["lats", "chest", "triceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "chest", "triceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "advanced"],
     formCues: [
       "Pull explosively, aiming to bring the bar to your lower chest rather than your chin.",
@@ -1347,7 +1366,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "kipping-pull-up", name: "Kipping Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "upper back", "core"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "upper back", "core"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     tags: ["pull up", "pullup", "back", "crossfit"],
     formCues: [
       "Swing from the shoulders in a controlled arc, not a flail from the hips.",
@@ -1363,7 +1383,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "pull-up", name: "Pull-Up", category: "compound",
-    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     formCues: [
       "Hands just outside shoulder width, palms forward, full hang to start.",
       "Pull the shoulder blades down and back before the elbows bend.",
@@ -1704,7 +1725,8 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "hanging-knee-raise", name: "Hanging Knee Raise", category: "core",
-    primaryMuscles: ["core", "hip flexors", "grip"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    primaryMuscles: ["core", "hip flexors", "grip"], equipment: ["pull-up bar", "bodyweight"],
+    requires: "pull-up bar", bodyweight: true,
     formCues: [
       "Hang from a bar with the shoulders pulled down away from the ears.",
       "Tuck the ribs and stop the body swinging before the first rep.",

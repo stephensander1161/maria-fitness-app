@@ -372,14 +372,18 @@ export type PickableExercise = {
  * and offered a toggle between "everything" and her first listed piece of kit,
  * which told her nothing useful.
  */
-export async function pickableExercises(
-  equipment: string[],
-): Promise<{ group: string; items: PickableExercise[] }[]> {
+export type Pickable = {
+  groups: { group: string; items: PickableExercise[] }[];
+  /** Matches she cannot do yet, with the one thing standing in the way. */
+  unavailable: { slug: string; name: string; tags: string[]; missing: string }[];
+};
+
+export async function pickableExercises(equipment: string[]): Promise<Pickable> {
   const rows = await db
     .select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
-      tags: exercises.tags,
+      tags: exercises.tags, requires: exercises.requires,
     })
     .from(exercises)
     .orderBy(asc(exercises.name));
@@ -387,21 +391,43 @@ export async function pickableExercises(
   const hers = (equipment.length ? equipment : ["bodyweight"]).map((e) => e.toLowerCase());
   const hasGym = hers.some((h) => h.includes("full gym"));
 
-  const usable = rows.filter((r) => {
+  const owns = (thing: string) => {
+    const n = thing.toLowerCase();
+    return hers.some((h) => n.includes(h.replace(/s$/, "")) || h.includes(n.replace(/s$/, "")));
+  };
+
+  const can = (r: { equipment: string[]; requires: string | null }) => {
+    // A hard requirement is a fixture, not an alternative. `equipment` reads as
+    // "any of these will do", which is right for a dumbbell or a kettlebell and
+    // wrong for a bar you hang from: a weighted pull-up lists bar, dumbbell and
+    // belt, so someone with dumbbells and no bar was shown the weighted variant
+    // while the plain pull-up it is built on was hidden.
+    if (r.requires && !hasGym && !owns(r.requires)) return false;
     const needs = r.equipment.map((e) => e.toLowerCase());
     // Anything needing nothing but a body and a floor is always available.
     if (needs.every((n) => /bodyweight|mat|floor|wall|chair|outdoors|none/.test(n))) return true;
     if (hasGym) return true;
-    return needs.some((n) =>
-      hers.some((h) => n.includes(h.replace(/s$/, "")) || h.includes(n.replace(/s$/, ""))),
-    );
-  });
+    return needs.some(owns);
+  };
+
+  const usable = rows.filter(can);
+  /**
+   * What she cannot currently do, and the one thing standing in the way.
+   *
+   * Carried rather than dropped: searching "pull up" and getting two odd
+   * results is more baffling than getting none, and a filter she cannot see
+   * working is one she assumes is broken. The picker says what is missing and
+   * she can go and add it.
+   */
+  const unavailable = rows
+    .filter((r) => !can(r) && r.requires)
+    .map((r) => ({ slug: r.slug, name: r.name, tags: r.tags ?? [], missing: r.requires! }));
 
   // Grouped by what it works, not by whether a textbook calls it compound.
   // "Compound" had sixty-three movements in it, which is not a group — it is
   // the whole library with a label on. Nobody looks for an isolation
   // exercise; they look for something for their shoulders.
-  return LIBRARY_GROUP_ORDER.flatMap((group) => {
+  const groups = LIBRARY_GROUP_ORDER.flatMap((group) => {
     const items = usable
       .filter((r) => groupForExercise(r) === group)
       .map(({ slug, name, category, primaryMuscles, tags }) => ({
@@ -409,6 +435,7 @@ export async function pickableExercises(
       }));
     return items.length ? [{ group, items }] : [];
   });
+  return { groups, unavailable };
 }
 
 export type DayFoodView = {
