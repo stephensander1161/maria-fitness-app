@@ -22,6 +22,12 @@ export default function SignupPage() {
 
       <SignupForm />
 
+      <p className="mt-5 max-w-xs text-center text-[12px] leading-relaxed text-faint">
+        By continuing you agree to the{" "}
+        <Link href="/terms" className="underline underline-offset-2">terms</Link> and{" "}
+        <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link>.
+      </p>
+
       <p className="mt-6 text-[13px] text-faint">
         Already set up?{" "}
         <Link href="/login" className="text-muted underline underline-offset-2">Sign in</Link>

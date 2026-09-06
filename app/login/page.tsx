@@ -39,6 +39,12 @@ export default async function LoginPage({
 
       <LoginForm google={googleConfigured()} />
 
+      <p className="mt-5 max-w-xs text-center text-[12px] leading-relaxed text-faint">
+        By continuing you agree to the{" "}
+        <Link href="/terms" className="underline underline-offset-2">terms</Link> and{" "}
+        <Link href="/privacy" className="underline underline-offset-2">privacy policy</Link>.
+      </p>
+
       {/* Invited but without a password yet — the one case sign-in cannot help with. */}
       <p className="mt-6 text-[13px] text-faint">
         Invited?{" "}

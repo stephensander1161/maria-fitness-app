@@ -10,6 +10,7 @@ import { PlanSetupButton } from "@/components/plan-setup";
 import { AiOpinion } from "@/components/ai-opinion";
 import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
+import { DeleteAccount } from "@/components/delete-account";
 import { RestSettings } from "@/components/rest-settings";
 import { WeighInReminder } from "@/components/weigh-in-reminder";
 import { vapidPublicKey } from "@/lib/push";
@@ -124,8 +125,14 @@ export default async function SettingsPage() {
           </Group>
 
           <Group title="Your account">
-            {/* Last, and the only thing here that cannot be undone. */}
+            {/* Last, and the only two things here that cannot be undone. */}
             <EraseData />
+            <DeleteAccount />
+            <p className="mt-3 px-1 text-[12px] text-faint">
+              <Link href="/privacy" className="underline underline-offset-2">Privacy</Link>
+              {" · "}
+              <Link href="/terms" className="underline underline-offset-2">Terms</Link>
+            </p>
           </Group>
         </div>
       </div>

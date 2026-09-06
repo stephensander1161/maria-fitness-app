@@ -52,6 +52,9 @@ export type AuditEventName =
   /** The owner opened the console that summarises other people's accounts.
    *  Reaching data that is not your own is recorded, even in summary. */
   | "admin.viewed"
+  /** She deleted her own account. Id only — the row is gone by the time
+   *  anyone reads this, and that is the point. */
+  | "account.deleted"
   | "onboarding.completed"
   | "spend.ceiling_reached";
 

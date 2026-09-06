@@ -234,6 +234,36 @@ async function main() {
       }
     }
 
+    // 4. Deleting the account deletes everything. The privacy policy says so,
+    //    so it is asserted against the live schema rather than believed: a
+    //    table added without cascade would orphan rows the policy says are
+    //    gone. B is deleted here and the cleanup below tolerates it.
+    {
+      const bBefore = await db.execute(sql`
+        select (select count(*) from profiles where user_id = ${b.userId}) as profiles,
+               (select count(*) from workouts w join profiles p on p.id = w.profile_id where p.user_id = ${b.userId}) as workouts,
+               (select count(*) from meal_logs m join profiles p on p.id = m.profile_id where p.user_id = ${b.userId}) as meals,
+               (select count(*) from feedback f join profiles p on p.id = f.profile_id where p.user_id = ${b.userId}) as feedback,
+               (select count(*) from friendships fr join profiles p on (p.id = fr.requester_id or p.id = fr.addressee_id) where p.user_id = ${b.userId}) as friendships
+      `) as unknown as Record<string, string>[];
+      const had = Object.values(bBefore[0]).map(Number);
+      if (had.every((n) => n === 0)) failures.push("cascade check: B had nothing to delete, so the check proves nothing");
+      await db.delete(users).where(eq(users.id, b.userId));
+      const orphans = await db.execute(sql`
+        select 'profiles' as t, count(*) as n from profiles where user_id = ${b.userId}
+        union all select 'workouts', count(*) from workouts where profile_id = ${b.profileId}
+        union all select 'set_logs', count(*) from set_logs s join workouts w on w.id = s.workout_id where w.profile_id = ${b.profileId}
+        union all select 'meal_logs', count(*) from meal_logs where profile_id = ${b.profileId}
+        union all select 'weigh_ins', count(*) from weigh_ins where profile_id = ${b.profileId}
+        union all select 'messages', count(*) from messages where profile_id = ${b.profileId}
+        union all select 'feedback', count(*) from feedback where profile_id = ${b.profileId}
+        union all select 'friendships', count(*) from friendships where requester_id = ${b.profileId} or addressee_id = ${b.profileId}
+        union all select 'usage_daily', count(*) from usage_daily where profile_id = ${b.profileId}
+      `) as unknown as { t: string; n: string }[];
+      for (const o of orphans) if (Number(o.n) > 0) failures.push(`cascade check: ${o.n} ${o.t} row(s) survived deleting the account`);
+      b = null;
+    }
+
     console.log(`checked ${Object.keys(READS).length} read tools and ${attempts.length} id-taking writes`);
     if (untested.length) console.log(`not exercised (write tools or need real input): ${untested.join(", ")}`);
   } finally {

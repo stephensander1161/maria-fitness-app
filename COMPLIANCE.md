@@ -59,6 +59,19 @@ Read it as an honest inventory, not a certificate.
 | A breastfeeding target adds the energy cost of feeding and cannot fall below 1800 kcal | `lib/nutrition.ts` |
 | Each of these rails was mutation-tested — removed on purpose, and the suite fails | `tests/postpartum.test.ts` |
 
+### Privacy rights and the store
+
+| Control | Where |
+|---|---|
+| A public privacy policy that is generated from the same lists the code is tested against — third parties from `THIRD_PARTIES`, collected data from `COLLECTED` | `/privacy`, `lib/legal.ts`, `tests/legal.test.ts` |
+| Terms of use carrying the health disclaimer: a coach, not a clinician | `/terms` |
+| Self-service account deletion, immediate and permanent; one statement, everything cascades, asserted against the live schema by the tenancy check | `app/api/auth/account`, `scripts/tenancy-check.ts` |
+| Deletion is a route, never a tool: a prompt cannot say "delete my account" on her behalf, and the confirmation is typed | `app/api/auth/account/route.ts` |
+| The last owner cannot delete themselves, so the app is never left without a console | same |
+| No analytics, tracking or advertising SDKs, asserted | `tests/legal.test.ts` |
+
+See APP-STORE.md for what the store would additionally require.
+
 ### CC6.6 / CC6.7 — Boundary and transmission
 
 - CSP permitting **no external origin at all**. `connect-src 'self'` means that

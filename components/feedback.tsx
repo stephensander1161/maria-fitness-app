@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isChromeless } from "@/lib/chromeless";
 import { action, actionMessage } from "@/lib/client";
 import { useDialog } from "@/lib/use-dialog";
 
@@ -58,7 +59,7 @@ export function FeedbackGlyph({ size = 17 }: { size?: number }) {
 export function FeedbackNavItem() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  if (path === "/login" || path === "/signup" || path === "/welcome" || path === "/") return null;
+  if (isChromeless(path)) return null;
 
   return (
     <>

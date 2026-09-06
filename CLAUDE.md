@@ -557,6 +557,26 @@ page-only read model and no prompt can reach it. That is also why `/admin` is
 the one screen with no `AskCoach` — the coach cannot answer about data no tool
 exposes, and offering would be a promise the app cannot keep.
 
+## The legal pages are generated from facts, not written
+
+`/privacy` and `/terms` render from `lib/legal.ts`: the third parties, what is
+collected, what a friend can see, the contact, the date. `tests/legal.test.ts`
+holds that file to the code — every outbound host in the source has to be a
+named third party, every sensitive table has to be admitted to in her words,
+and the "no analytics" claim is checked against the layout and package.json.
+When the app changes, change `lib/legal.ts` and the policy follows; a policy
+that has fallen behind the code is worse than none, because it is believed.
+
+**Account deletion is a route, not a tool.** `users` is out of the model's
+reach, and "delete my account" is the one sentence a prompt must never say on
+her behalf. She types the phrase; the route refuses the last owner; everything
+cascades from the account row and the tenancy check asserts that against the
+live schema. `erase_all_data` is different: it keeps the account so she can
+come back to an empty app.
+
+APP-STORE.md is the honest split between what is done and what needs an Apple
+account, including the 4.8 rule that Google sign-in obliges Sign in with Apple.
+
 ## Accounts
 
 `users` holds accounts; `profiles` holds training data, one per account. The

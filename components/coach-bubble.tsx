@@ -24,12 +24,12 @@ import { FeedbackGlyph, FeedbackSheet } from "./feedback";
  * tab version grew the page instead, so the newest message sat under the fixed
  * composer and she had to scroll down to read what had just been said.
  */
-const HIDE_ON = ["/login", "/signup", "/welcome"];
+import { isChromeless } from "@/lib/chromeless";
 
 export function CoachBubble({ name }: { name: string | null }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  if (HIDE_ON.includes(path)) return null;
+  if (isChromeless(path)) return null;
 
   return (
     <>

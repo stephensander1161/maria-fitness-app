@@ -99,9 +99,11 @@ suite("the gate denies by default", () => {
       "/icon-512",
       "/login",
       "/manifest.webmanifest",
+      "/privacy",
       "/robots.txt",
       "/signup",
       "/sw.js",
+      "/terms",
     ]);
   });
 

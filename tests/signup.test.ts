@@ -147,8 +147,11 @@ suite("the screen is reachable and chromeless", () => {
   });
 
   it("shows no app chrome to someone who is not signed in", () => {
-    for (const f of ["components/side-nav.tsx", "components/tab-bar.tsx", "components/coach-bubble.tsx", "components/feedback.tsx"]) {
-      expect(read(f), f).toMatch(/"\/signup"/);
+    // One shared list now, because four hand-kept copies missed a screen
+    // twice. The page is on the list, and every chrome component reads it.
+    expect(read("lib/chromeless.ts")).toMatch(/"\/signup"/);
+    for (const f of ["components/side-nav.tsx", "components/tab-bar.tsx", "components/coach-bubble.tsx", "components/feedback.tsx", "components/more-nav.tsx"]) {
+      expect(read(f), f).toMatch(/isChromeless\(path\)/);
     }
   });
 

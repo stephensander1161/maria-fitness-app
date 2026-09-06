@@ -19,7 +19,7 @@ import { FeedbackGlyph, FeedbackSheet } from "./feedback";
  *   • never offer the screen she is already on. "Settings" on the Settings
  *     page is a dead link that costs a tap to discover.
  */
-const CHROMELESS = ["/login", "/signup", "/welcome", "/"];
+import { isChromeless } from "@/lib/chromeless";
 
 type Item = { href: string; label: string; icon: React.ReactNode };
 
@@ -34,7 +34,7 @@ export function MoreNav({ isOwner, recovering }: { isOwner: boolean; recovering:
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
-  if (CHROMELESS.includes(path)) return null;
+  if (isChromeless(path)) return null;
 
   const items: Item[] = [
     ...(recovering

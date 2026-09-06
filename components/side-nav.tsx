@@ -17,11 +17,11 @@ import type { Title } from "@/lib/titles";
  * anything and there is no thumb. Same destinations, moved to where a mouse
  * already is.
  */
-const CHROMELESS = new Set(["/login", "/signup", "/welcome"]);
+import { isChromeless } from "@/lib/chromeless";
 
 export function SideNav({ name, title, isOwner = false, recovering = false }: { name: string | null; title: Title; isOwner?: boolean; recovering?: boolean }) {
   const path = usePathname();
-  if (CHROMELESS.has(path)) return null;
+  if (isChromeless(path)) return null;
 
   return (
     <nav

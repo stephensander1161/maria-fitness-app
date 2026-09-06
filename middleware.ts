@@ -15,6 +15,10 @@ const PUBLIC_PATHS = new Set([
   // session yet. Neither path can add an address — see lib/signup.ts.
   "/signup",
   "/api/auth/signup",
+  // Legal pages. Read by someone deciding whether to sign up, and by an app
+  // store reviewer who has no account. They hold no data of hers.
+  "/privacy",
+  "/terms",
   // The OAuth round trip must reach these while signed out. They are the
   // only other doors, and both end in the same invite check.
   "/api/auth/google",
