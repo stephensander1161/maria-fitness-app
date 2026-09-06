@@ -1094,6 +1094,273 @@ export const EXERCISES: Seed[] = [
     ],
     easier: ["assisted-pull-up", "inverted-row"], harder: ["pull-up"],
   },
+  // ── Pull-up variations ────────────────────────────────────────────────────
+  // Ordered as a progression rather than a list, because that is how anyone
+  // actually gets a first pull-up: hang, then learn the shoulder position,
+  // then the top half, then the whole thing, then load it. Every entry points
+  // at its neighbours so the coach can move her a step in either direction
+  // without guessing.
+  {
+    slug: "scapular-pull-up", name: "Scapular Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "shoulder", "beginner", "progression"],
+    formCues: [
+      "Hang at full stretch with straight arms, hands just outside shoulder width.",
+      "Without bending your elbows at all, pull your shoulder blades down and back.",
+      "Your body rises an inch or two. That is the whole rep.",
+      "Let the shoulders rise again under control, staying in charge of the hang.",
+    ],
+    commonMistakes: [
+      "Bending the elbows, which turns it into a tiny pull-up and skips the thing being trained.",
+      "Shrugging up instead of pulling down — the shoulders go away from the ears, not toward them.",
+    ],
+    safetyNote: "This is the position every pull-up starts from. If your shoulders will not do it yet, that is the reason the first pull-up is not coming.",
+    easier: ["dead-hang"], harder: ["negative-pull-up", "assisted-pull-up"],
+  },
+  {
+    slug: "band-assisted-pull-up", name: "Band-Assisted Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "resistance band"],
+    tags: ["pull up", "pullup", "back", "band", "progression"],
+    formCues: [
+      "Loop a band over the bar and put one foot or knee in the bottom of it.",
+      "Hands just outside shoulder width, full hang, shoulder blades down first.",
+      "Drive the elbows toward your ribs until your chin clears the bar.",
+      "Lower all the way to straight arms — the band helps most at the bottom, which is where you need it.",
+    ],
+    commonMistakes: [
+      "Using a band so thick it does the whole rep; you want help, not a lift.",
+      "Bouncing out of the bottom on the band's recoil rather than pulling.",
+    ],
+    safetyNote: "Step into the band, do not jump into it. A band snapping off a foot mid-rep is the common injury here.",
+    easier: ["negative-pull-up", "inverted-row"], harder: ["pull-up", "chin-up"],
+  },
+  {
+    slug: "jumping-pull-up", name: "Jumping Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "progression"],
+    formCues: [
+      "Set the bar so you can reach it standing, or use a box.",
+      "Jump just hard enough to help — the aim is to work, not to be launched.",
+      "Finish the last part of the pull with your back, not the jump.",
+      "Lower under control, which is where most of the training is.",
+    ],
+    commonMistakes: [
+      "Jumping so hard the arms do nothing at all.",
+      "Dropping off the bar at the top instead of lowering.",
+    ],
+    easier: ["inverted-row"], harder: ["negative-pull-up", "pull-up"],
+  },
+  {
+    slug: "chin-up", name: "Chin-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "chin up", "back", "biceps"],
+    formCues: [
+      "Palms facing you, hands about shoulder width, full hang to start.",
+      "Pull the shoulder blades down before the elbows bend.",
+      "Drive the elbows down to your sides until your chin clears the bar.",
+      "Lower all the way to straight arms.",
+    ],
+    commonMistakes: [
+      "Leading with the chin instead of the chest.",
+      "Stopping short of the full hang, which removes the hardest part of the range.",
+    ],
+    safetyNote: "Usually the easiest of the grips, because the biceps help most. It is the sensible one to chase a first rep with.",
+    easier: ["band-assisted-pull-up", "negative-pull-up"], harder: ["pull-up", "weighted-chin-up"],
+  },
+  {
+    slug: "neutral-grip-pull-up", name: "Neutral-Grip Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "shoulder", "shoulder friendly"],
+    formCues: [
+      "Palms facing each other on parallel handles, full hang to start.",
+      "Shoulder blades down and back, then pull.",
+      "Bring your chest toward your hands rather than your chin toward the bar.",
+      "Lower to straight arms under control.",
+    ],
+    commonMistakes: [
+      "Letting the shoulders roll forward at the bottom instead of staying set.",
+    ],
+    safetyNote: "The kindest grip on a cranky shoulder or elbow — the forearms sit where the joint prefers them. Worth trying before giving pull-ups up.",
+    easier: ["band-assisted-pull-up", "chin-up"], harder: ["pull-up"],
+  },
+  {
+    slug: "wide-grip-pull-up", name: "Wide-Grip Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "upper back", "biceps"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "lats"],
+    formCues: [
+      "Hands well outside shoulder width, palms forward.",
+      "Pull the shoulder blades down first, then lead with the chest.",
+      "Aim to touch the bar at the collarbone rather than the chin.",
+      "Lower to a full hang.",
+    ],
+    commonMistakes: [
+      "Going so wide the range collapses to a few inches.",
+      "Shrugging up rather than pulling the shoulder blades down.",
+    ],
+    safetyNote: "Harder than it looks, and less forgiving on the shoulder. Own the standard grip before living here.",
+    easier: ["pull-up"], harder: ["weighted-pull-up", "archer-pull-up"],
+  },
+  {
+    slug: "close-grip-pull-up", name: "Close-Grip Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "biceps"],
+    formCues: [
+      "Hands about a hand's width apart, palms forward.",
+      "Full hang, shoulder blades down, then pull.",
+      "Bring your upper chest toward the bar.",
+      "Lower all the way down.",
+    ],
+    commonMistakes: [
+      "Letting the elbows flare out sideways rather than driving down.",
+    ],
+    easier: ["chin-up"], harder: ["pull-up", "weighted-pull-up"],
+  },
+  {
+    slug: "commando-pull-up", name: "Commando Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back", "core"], equipment: ["pull-up bar", "bodyweight"],
+    bodyweight: true, unilateral: true,
+    tags: ["pull up", "pullup", "back", "core"],
+    formCues: [
+      "Stand along the bar rather than across it, one hand in front of the other.",
+      "Pull up so your head passes one side of the bar, shoulder toward your hands.",
+      "Lower under control, then do the next rep to the other side.",
+      "Keep the hips still — the body wants to twist and that is what you are resisting.",
+    ],
+    commonMistakes: [
+      "Swinging the legs to get around the bar.",
+      "Doing every rep to the strong side.",
+    ],
+    easier: ["pull-up"], harder: ["archer-pull-up"],
+  },
+  {
+    slug: "archer-pull-up", name: "Archer Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    bodyweight: true, unilateral: true,
+    tags: ["pull up", "pullup", "back", "advanced", "one arm"],
+    formCues: [
+      "Take a wide grip, palms forward.",
+      "Pull up toward one hand while the other arm straightens out along the bar.",
+      "The straight arm guides rather than pulls.",
+      "Lower under control and alternate sides.",
+    ],
+    commonMistakes: [
+      "Bending the straight arm, which turns it back into a wide pull-up.",
+      "Chasing this before a clean set of five strict pull-ups.",
+    ],
+    safetyNote: "A long way up the ladder. If the reaching shoulder complains, come back to wide-grip and add reps instead.",
+    easier: ["wide-grip-pull-up", "commando-pull-up"], harder: ["one-arm-pull-up-negative"],
+  },
+  {
+    slug: "weighted-pull-up", name: "Weighted Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "dumbbell", "weight belt"],
+    tags: ["pull up", "pullup", "back", "strength", "loaded"],
+    formCues: [
+      "Add load with a belt, a dumbbell between the feet, or a pack.",
+      "Full hang to start, shoulder blades down before the elbows bend.",
+      "Chin clears the bar, then lower all the way under control.",
+      "Add small increments — this gets heavy faster than it feels like it should.",
+    ],
+    commonMistakes: [
+      "Loading before the bodyweight version is genuinely clean through full range.",
+      "Cutting the bottom of the range once it gets heavy.",
+    ],
+    safetyNote: "Take the weight off before your last rep gets ugly. Dropping out of a loaded hang is how elbows get hurt.",
+    easier: ["pull-up"], harder: ["l-sit-pull-up"],
+  },
+  {
+    slug: "weighted-chin-up", name: "Weighted Chin-Up", category: "compound",
+    primaryMuscles: ["biceps", "lats", "upper back"], equipment: ["pull-up bar", "dumbbell", "weight belt"],
+    tags: ["pull up", "pullup", "chin up", "back", "biceps", "loaded"],
+    formCues: [
+      "Palms facing you, load on a belt or held between the feet.",
+      "Full hang, shoulder blades down, then drive the elbows to your sides.",
+      "Chin over the bar, then lower all the way.",
+    ],
+    commonMistakes: [
+      "Adding weight faster than the range holds up.",
+    ],
+    safetyNote: "The heaviest most people will ever pull. Warm the elbows up first.",
+    easier: ["chin-up"], harder: ["weighted-pull-up"],
+  },
+  {
+    slug: "towel-pull-up", name: "Towel Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "forearms", "biceps"], equipment: ["pull-up bar", "towel", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "grip", "forearms"],
+    formCues: [
+      "Hang two towels over the bar, one in each hand.",
+      "Grip low enough that your knuckles are below the bar.",
+      "Pull until your hands reach your chest.",
+      "Lower under control; your grip will give out before your back does.",
+    ],
+    commonMistakes: [
+      "Doing these to failure every session — grip recovers slower than you expect.",
+    ],
+    easier: ["pull-up"], harder: ["weighted-pull-up"],
+  },
+  {
+    slug: "l-sit-pull-up", name: "L-Sit Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "core", "biceps", "hip flexors"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "core", "advanced"],
+    formCues: [
+      "Hang with the legs straight out in front, toes up, holding an L.",
+      "Hold the L for the whole set — it does not get to drop between reps.",
+      "Pull until the chin clears the bar.",
+      "Lower all the way with the legs still up.",
+    ],
+    commonMistakes: [
+      "Letting the legs sink as the set goes on, which is the set finishing early.",
+    ],
+    easier: ["pull-up"], harder: ["muscle-up"],
+  },
+  {
+    slug: "one-arm-pull-up-negative", name: "One-Arm Negative", category: "compound",
+    primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
+    bodyweight: true, unilateral: true,
+    tags: ["pull up", "pullup", "back", "advanced", "one arm"],
+    formCues: [
+      "Get to the top with both hands, then let go with one.",
+      "Lower as slowly as you can on the working arm.",
+      "Keep the shoulder pulled down — do not let it hang loose at the bottom.",
+      "One or two per side is a real session.",
+    ],
+    commonMistakes: [
+      "Free-falling the last third, which is the part that builds it.",
+    ],
+    safetyNote: "The elbow takes everything here. Build to it over months, and stop the set the moment you cannot control the descent.",
+    easier: ["archer-pull-up"], harder: ["muscle-up"],
+  },
+  {
+    slug: "muscle-up", name: "Muscle-Up", category: "compound",
+    primaryMuscles: ["lats", "chest", "triceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "advanced"],
+    formCues: [
+      "Pull explosively, aiming to bring the bar to your lower chest rather than your chin.",
+      "As you reach the top, roll the wrists over and drive the chest forward.",
+      "Press out to straight arms above the bar.",
+      "Reverse it slowly rather than dropping off.",
+    ],
+    commonMistakes: [
+      "Attempting it before a strict pull-up to the sternum and a clean dip exist separately.",
+    ],
+    safetyNote: "The transition is where shoulders get hurt. Build the pull and the dip on their own first, and learn the roll-over on rings or a low bar you can stand out of.",
+    easier: ["l-sit-pull-up", "pull-up"],
+  },
+  {
+    slug: "kipping-pull-up", name: "Kipping Pull-Up", category: "compound",
+    primaryMuscles: ["lats", "upper back", "core"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
+    tags: ["pull up", "pullup", "back", "crossfit"],
+    formCues: [
+      "Swing from the shoulders in a controlled arc, not a flail from the hips.",
+      "Time the pull to the front of the swing so the momentum helps rather than jerks.",
+      "Push away from the bar at the top to set up the next rep.",
+    ],
+    commonMistakes: [
+      "Using it to hit rep counts a strict pull-up cannot yet reach.",
+      "Letting the shoulders go slack at the bottom of each swing.",
+    ],
+    safetyNote: "Included because people ask for it, with the honest caveat: it moves load off the muscles and onto the shoulder at speed, and it is the pull-up variation that hurts the most people. Earn several strict reps first, and skip it entirely if your shoulder already complains.",
+    easier: ["pull-up"],
+  },
   {
     slug: "pull-up", name: "Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"], bodyweight: true,
