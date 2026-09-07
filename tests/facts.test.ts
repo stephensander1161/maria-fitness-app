@@ -53,5 +53,8 @@ suite("sleep facts after ten at night", () => {
     expect(lib).toMatch(/preferredTopic\(hour, Math\.random\(\)\)/);
     // A preferred topic recycles its own before widening to everything.
     expect(lib.indexOf("if (!row && topic)")).toBeLessThan(lib.indexOf("where(and(...filters))\n"));
+    // …and the daytime re-read pool leaves the night's subject out, or a few
+    // late evenings make every afternoon about sleep as well.
+    expect(lib).toMatch(/isNull\(facts\.topic\)/);
   });
 });

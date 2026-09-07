@@ -1,4 +1,4 @@
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { facts, factViews, type Fact } from "@/lib/db/schema";
 import { today, type ISODate } from "@/lib/date";
@@ -87,13 +87,17 @@ export async function factForDay(
   if (shownToday.length === 0) return pickUnseenFact(profileId, asOf);
 
   // After that, anything she has seen before — at random, and not the one
-  // still on the screen she is leaving.
-  const [row] = await db
+  // still on the screen she is leaving. Minus the night's subject: a few
+  // late evenings mark every sleep fact as seen, and without this the
+  // daytime re-reads were nearly all about sleep too — 39 of 40 in a probe.
+  // Widened only if she has read nothing else.
+  const reread = (all: boolean) => db
     .select({ category: facts.category, text: facts.text, source: facts.source })
     .from(factViews)
     .innerJoin(facts, eq(factViews.factId, facts.id))
-    .where(eq(factViews.profileId, profileId))
+    .where(all ? eq(factViews.profileId, profileId) : and(eq(factViews.profileId, profileId), isNull(facts.topic)))
     .orderBy(sql`random()`)
     .limit(1);
+  const [row] = (await reread(false)).length ? await reread(false) : await reread(true);
   return row ?? null;
 }
