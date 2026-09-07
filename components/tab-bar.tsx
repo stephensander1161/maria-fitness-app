@@ -26,7 +26,12 @@ export function TabBar() {
 
   return (
     // Thumb-first, and hidden the moment there is a sidebar instead.
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl md:hidden">
+    // `bottom` is what the browser's own toolbar covers — 0 everywhere except
+    // Chrome on iOS, which lays its toolbar over the page. lib/viewport-cover.ts.
+    <nav
+      className="fixed inset-x-0 z-50 border-t border-line bg-ink/90 backdrop-blur-xl md:hidden"
+      style={{ bottom: "var(--covered-bottom, 0px)" }}
+    >
       <div
         className="mx-auto grid max-w-lg grid-cols-6"
         style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}

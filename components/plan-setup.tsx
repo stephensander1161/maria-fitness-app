@@ -283,7 +283,7 @@ function PlanSetupSheet({ defaults, onClose }: { defaults: SetupDefaults; onClos
         onClick={(e) => e.stopPropagation()}
         className="relative max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-t border-line md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60 bg-surface p-5"
         data-no-pull-to-refresh=""
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
+        style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 1.25rem) + var(--covered-bottom, 0px))" }}
       >
         {stage === null && (
           <>

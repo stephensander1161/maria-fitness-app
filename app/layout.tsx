@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { currentTheme } from "@/lib/current-theme";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
+import { ViewportCover } from "@/components/viewport-cover";
 import { MoreNavGate } from "@/components/more-nav-gate";
 import { ShippedNoteGate } from "@/components/shipped-note-gate";
 import { InstallApp } from "@/components/install-app";
@@ -99,6 +100,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <RefreshOnFocus />
         <InstallApp />
         <TabBar />
+        <ViewportCover />
       </body>
     </html>
   );

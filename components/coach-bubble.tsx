@@ -40,7 +40,7 @@ export function CoachBubble({ name }: { name: string | null }) {
           className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-on-accent shadow-lg shadow-scrim/50 transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
           // Above the tab bar on a phone; the tab bar is gone on a desktop, so
           // the inline style is overridden by the md: classes above.
-          style={{ bottom: "calc(4.25rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
+          style={{ bottom: "calc(4.25rem + max(env(safe-area-inset-bottom), 0.5rem) + var(--covered-bottom, 0px))" }}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -242,7 +242,7 @@ function CoachSheet({
 
         <div
           className="shrink-0 border-t border-line/60 px-4 pt-2.5"
-          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+          style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 0.75rem) + var(--covered-bottom, 0px))" }}
         >
           <AllowanceNote leftPct={allowance} />
           <Composer value={input} onChange={setInput} onSubmit={say} busy={busy} autoFocus />

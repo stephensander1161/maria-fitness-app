@@ -160,7 +160,7 @@ function Sheet({
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}>
+        style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 1rem) + var(--covered-bottom, 0px))" }}>
         <div className="flex items-baseline justify-between px-5 pb-3 pt-5">
           <h2 className="text-[17px] font-semibold">
             {mode === "read" ? `On your ${label}` : "Your coach"}

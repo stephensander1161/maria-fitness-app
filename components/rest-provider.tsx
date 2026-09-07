@@ -228,7 +228,7 @@ function LogReminder({ rest, onDismiss }: { rest: Rest; onDismiss: () => void })
   return (
     <div
       className="fixed inset-x-0 z-40 flex justify-center px-4"
-      style={{ bottom: "calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem))" }}
+      style={{ bottom: "calc(4.5rem + max(env(safe-area-inset-bottom), 0.5rem) + var(--covered-bottom, 0px))" }}
     >
       <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-accent/40 bg-surface/95 py-2 pl-4 pr-2 shadow-lg shadow-scrim/50 backdrop-blur">
         <p className="min-w-0 flex-1 truncate text-[12px] text-muted">

@@ -56,7 +56,7 @@ export function FormGuide({
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
+        style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 1.25rem) + var(--covered-bottom, 0px))" }}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">

@@ -120,7 +120,7 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
         // This sheet scrolls inside itself, so the page-level pull gesture
         // must leave it alone.
         data-no-pull-to-refresh=""
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
+        style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 1.25rem) + var(--covered-bottom, 0px))" }}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[17px] font-semibold">Tell us</h2>
