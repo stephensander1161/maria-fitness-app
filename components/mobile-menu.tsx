@@ -28,17 +28,18 @@ import { TABS } from "./tab-bar";
  * of exactly that strip — the owner opened the app in a browser whose bottom
  * bar covered it and could not reach Train or Plan at all. Every screen has
  * to be reachable from something in normal flow, and this button is it.
+ *
+ * The sheet drops from the top, under the button that opened it, rather than
+ * rising from the bottom like the other sheets. The bottom is where that
+ * browser toolbar lives, and a panel pressed against it read as stuck there;
+ * a menu that appears where the finger already is does not.
  */
 export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recovering: boolean }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const { signOut, busy, error } = useSignOut();
-  const panel = useDialog(() => setOpen(false));
 
   if (isChromeless(path)) return null;
-  const items = moreItems(isOwner, recovering).filter((i) => !path.startsWith(i.href));
 
   return (
     <>
@@ -55,9 +56,38 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
       </button>
 
       {open && (
+        <MenuSheet
+          path={path}
+          isOwner={isOwner}
+          recovering={recovering}
+          onClose={() => setOpen(false)}
+          onFeedback={() => { setOpen(false); setFeedback(true); }}
+        />
+      )}
+      {feedback && <FeedbackSheet path={path} onClose={() => setFeedback(false)} />}
+    </>
+  );
+}
+
+/**
+ * Mounted only while open. The dialog hook locks the page's scrolling for as
+ * long as its component lives, so it has to live exactly as long as the
+ * sheet — called from the button's component it would have held every page
+ * still from the moment the greeting rendered.
+ */
+function MenuSheet({
+  path, isOwner, recovering, onClose, onFeedback,
+}: { path: string; isOwner: boolean; recovering: boolean; onClose: () => void; onFeedback: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const { signOut, busy, error } = useSignOut();
+  const panel = useDialog(onClose);
+  const items = moreItems(isOwner, recovering).filter((i) => !path.startsWith(i.href));
+
+  return (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-scrim/70 backdrop-blur-sm md:items-center md:p-6"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-[60] flex items-start justify-center bg-scrim/70 backdrop-blur-sm md:items-center md:p-6"
+          style={{ touchAction: "none" }}
+          onClick={onClose}
           role="dialog"
           aria-modal="true"
           aria-label="Menu"
@@ -65,8 +95,8 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
           <div
             ref={panel}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-t-3xl border-t border-line bg-surface p-3 md:rounded-2xl md:border"
-            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
+            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-b-3xl border-b border-line bg-surface p-3 md:rounded-2xl md:border"
+            style={{ paddingTop: "max(env(safe-area-inset-top), 0.75rem)", touchAction: "pan-y" }}
           >
             {/* The screens the bottom bar carries, for when the bottom bar is
                 under something. Same list, so they cannot disagree. */}
@@ -77,7 +107,7 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
                   <li key={tab.href}>
                     <Link
                       href={tab.href}
-                      onClick={() => setOpen(false)}
+                      onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[12px] font-medium transition-colors active:bg-raised ${
                         active ? "text-accent" : "text-text"
@@ -98,7 +128,7 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
                 <li key={i.href}>
                   <Link
                     href={i.href}
-                    onClick={() => setOpen(false)}
+                    onClick={onClose}
                     className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-colors active:bg-raised"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -111,7 +141,7 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
               ))}
               <li>
                 <button
-                  onClick={() => { setOpen(false); setFeedback(true); }}
+                  onClick={onFeedback}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] transition-colors active:bg-raised"
                 >
                   <span className="text-muted"><FeedbackGlyph size={18} /></span>
@@ -150,8 +180,5 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
             </ul>
           </div>
         </div>
-      )}
-      {feedback && <FeedbackSheet path={path} onClose={() => setFeedback(false)} />}
-    </>
   );
 }

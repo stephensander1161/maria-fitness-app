@@ -23,6 +23,29 @@ suite("the phone reaches the whole app", () => {
     expect(menu).not.toMatch(/href="\/(train|plan|eat|progress|kitchen|learn)"/);
   });
 
+  it("holds the page still while a dialog is open, and scrolls the panel instead", () => {
+    // A thumb on the phone menu was scrolling the Train screen underneath.
+    const hook = read("lib/use-dialog.ts");
+    expect(hook).toMatch(/root\.style\.overflow = "hidden"/);
+    // Put back exactly as it was, not blanked: a page that set its own
+    // overflow would otherwise lose it after the first dialog.
+    expect(hook).toMatch(/root\.style\.overflow = was\.overflow/);
+    // Pinned at her offset and put back there, not sent to the top.
+    expect(hook).toMatch(/body\.style\.top = `-\$\{y\}px`/);
+    expect(hook).toMatch(/window\.scrollTo\(0, y\)/);
+    // Giving focus back must not scroll to the button at the top either.
+    expect(hook).toMatch(/opener\?\.focus\?\.\(\{ preventScroll: true \}\)/);
+    const menu = read("components/mobile-menu.tsx");
+    expect(menu).toMatch(/overscroll-contain/);
+    expect(menu).toMatch(/max-h-\[85dvh\]/);
+    expect(menu).toMatch(/items-start/);
+    // The lock lives as long as the component that calls the hook. Called
+    // from the always-mounted button, it held every page still from the
+    // moment the greeting rendered — the hook belongs to the sheet.
+    expect(menu.indexOf("useDialog(")).toBeGreaterThan(menu.indexOf("function MenuSheet"));
+    expect(menu.slice(menu.indexOf("export function MobileMenu"), menu.indexOf("function MenuSheet"))).not.toMatch(/useDialog\(/);
+  });
+
   it("puts the menu at the top, where it can be found without scrolling", () => {
     expect(read("components/mobile-greeting.tsx")).toMatch(/<MobileMenu /);
     // ...and it is a real dialog: trapped focus, Escape, focus restored.
