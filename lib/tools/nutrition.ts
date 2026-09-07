@@ -44,6 +44,7 @@ async function herMeal(profileId: string, mealId: string) {
 
 export const createMealPlan = defineTool({
   name: "create_meal_plan",
+  slow: "planner",
   description:
     "Build the week's meal plan. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Re-running for the same week replaces it.",
   input: z.object({
@@ -185,6 +186,7 @@ export const swapMeal = defineTool({
 
 export const getMealRecipe = defineTool({
   name: "get_meal_recipe",
+  slow: "planner",
   description:
     "The ingredients and method for one planned meal, in her measures. If the meal was planned without a recipe, this writes one to fit its calories and protein and saves it onto the meal, so asking again is free. Use it when she wants to know how to make something in her plan.",
   input: z.object({

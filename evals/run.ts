@@ -10,6 +10,7 @@ import { honesty } from "./cases/honesty";
 import { noFalseClaims } from "./cases/no-false-claims";
 import { grounding } from "./cases/grounding";
 import { alreadyLogged } from "./cases/already-logged";
+import { addingExercise, addingFood } from "./cases/adding";
 
 /**
  * Behavioural regression suite for the coach.
@@ -22,7 +23,7 @@ import { alreadyLogged } from "./cases/already-logged";
  * the only kind that can catch the coach lying about what it did.
  */
 
-const CASES: EvalCase[] = [onboarding, honesty, noFalseClaims, grounding, alreadyLogged];
+const CASES: EvalCase[] = [onboarding, honesty, noFalseClaims, grounding, alreadyLogged, addingFood, addingExercise];
 
 const ZERO: UsageDelta = {
   inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicros: 0,

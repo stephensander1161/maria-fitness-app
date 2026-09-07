@@ -18,6 +18,14 @@ export type Tool<S extends z.ZodType = z.ZodType> = {
    * profileId. It only removes the tool from the model's tool list.
    */
   uiOnly?: string;
+  /**
+   * Set on a tool whose handler makes its own model call — the planners.
+   * Tens of seconds each, inside a route allowed sixty. The agent loop's
+   * turn guard (lib/agent/guard.ts) admits at most one per turn and none
+   * when the turn no longer has the time for it; a second one used to run
+   * straight into the function's wall and leave the transcript unanswerable.
+   */
+  slow?: "planner";
   /** Handlers are plain async functions — the UI calls them directly, and so
    *  does the agent loop. One implementation, two callers, no drift. */
   handler: (input: z.infer<S>, ctx: ToolContext) => Promise<unknown>;

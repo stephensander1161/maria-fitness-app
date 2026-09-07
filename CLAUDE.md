@@ -352,6 +352,25 @@ there are five weigh-ins in the last fortnight and one in the last three days;
 because she happened to weigh in bloated is the exact failure this app is
 built not to have.
 
+## What one turn may do
+
+`lib/agent/guard.ts`, pure and tested. The loop had a ceiling on iterations
+and nothing on time, repetition or fan-out — and the turn that broke a real
+conversation was a meal plan and five food lookups fired together forty
+seconds in, into a function that dies at sixty. Now, per turn: an exact
+repeat of a call is refused; at most one `slow: "planner"` tool runs, and
+only in the first ten seconds; nothing starts after forty; six calls per
+step, twenty-four per turn. A refused call is never run — it gets an error
+`tool_result` that says what to do instead, because a refusal the model
+cannot read just gets retried. The persona's "Adding things is one step"
+section is the other half: log what she said in the same turn, add an
+exercise with `add_exercise_to_day` per day, never rebuild a week for an
+addition. `evals/cases/adding.ts` holds both to the live model.
+
+Mark any tool whose handler calls the planner with `slow: "planner"`;
+`tests/guard.test.ts` counts the planner calls in each tools file against
+the marks.
+
 ## Context injected into the prompt
 
 `lib/agent/loop.ts` assembles a volatile state block (today's logged sets, the

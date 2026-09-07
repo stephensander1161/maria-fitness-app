@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
-import { anthropicTools, runTool, type ToolContext } from "@/lib/tools";
+import { anthropicTools, registry, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
+import { TurnGuard } from "./guard";
 import { recordError } from "@/lib/errors";
 import { buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
@@ -138,6 +139,8 @@ export async function* runCoach(
 
   try {
     let emittedText = false;
+    // Time, repetition and fan-out, per turn — see lib/agent/guard.ts.
+    const guard = new TurnGuard(Date.now(), (name) => registry.get(name)?.slow === "planner");
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       // Re-checked each iteration, not just once per turn. The loop runs up
@@ -195,14 +198,22 @@ export async function* runCoach(
         (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
       );
 
+      // Refused calls are answered, never run: a repeat of a call this turn,
+      // a second planner, or anything at all once the turn is out of time.
+      const admissions = guard.admit(calls, Date.now());
+      const admitted = admissions.filter((a) => a.refusal === null).map((a) => a.call);
+
       // Say what is running before it runs. These used to be emitted after
       // the await, so "logging your set" appeared at the moment it finished.
-      for (const call of calls) yield { type: "tool", name: call.name, status: "running" };
+      for (const call of admitted) yield { type: "tool", name: call.name, status: "running" };
 
       // Run in parallel, but return every result in one user message — splitting
       // them teaches the model to stop batching tool calls.
       const results = await Promise.all(
-        calls.map(async (call): Promise<Anthropic.ToolResultBlockParam> => {
+        admissions.map(async ({ call, refusal }): Promise<Anthropic.ToolResultBlockParam> => {
+          if (refusal !== null) {
+            return { type: "tool_result", tool_use_id: call.id, is_error: true, content: refusal };
+          }
           try {
             const result = await runTool(call.name, call.input, ctx);
             return {
@@ -224,7 +235,7 @@ export async function* runCoach(
       await saveMessage(profile.id, "user", results);
       conversation.push({ role: "user", content: results });
 
-      for (const call of calls) yield { type: "tool", name: call.name, status: "done" };
+      for (const call of admitted) yield { type: "tool", name: call.name, status: "done" };
     }
 
     yield { type: "error", message: "The coach got stuck in a loop. Try rephrasing that." };

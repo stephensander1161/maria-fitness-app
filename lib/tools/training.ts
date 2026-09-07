@@ -105,6 +105,7 @@ const planExerciseInput = z.object({
 
 export const createWeeklyPlan = defineTool({
   name: "create_weekly_plan",
+  slow: "planner",
   description:
     "Build or replace the training plan for a week. You describe the intent; a dedicated planner writes the actual week from her profile, equipment and injuries, and from the real exercise library — so you do not need to pick movements or look up slugs yourself. Takes a few seconds. Re-running for the same week replaces it.",
   input: z.object({
