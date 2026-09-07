@@ -38,7 +38,58 @@ export async function loadHistory(profileId: string): Promise<Anthropic.MessageP
     content: r.content as Anthropic.ContentBlockParam[],
   })) satisfies Anthropic.MessageParam[];
 
-  return trimToValidEnd(trimToValidStart(elidePayloads(ordered)));
+  return trimToValidEnd(answerOrphans(trimToValidStart(elidePayloads(ordered))));
+}
+
+/**
+ * Give every unanswered `tool_use` the `tool_result` the API insists on.
+ *
+ * `trimToValidEnd` below handles the orphan at the *end* of the transcript.
+ * It cannot handle the same orphan one turn later: her next message is saved
+ * before the history is loaded, so by then the dangling assistant turn is in
+ * the middle, followed by a plain user message, and the API rejected every
+ * turn from then on — "tool_use ids were found without tool_result blocks",
+ * shown to her verbatim, forever. That is the transcript this repairs: a
+ * meal plan and five food lookups, killed by the function's wall.
+ *
+ * Each orphan gets an error result saying it was interrupted, in a user
+ * message inserted right after the assistant turn. The model reads it as
+ * what it is and answers her latest message; nothing is deleted from what
+ * she can see, and nothing is invented about what the tool would have said.
+ */
+function answerOrphans(list: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const out: Anthropic.MessageParam[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const m = list[i];
+    out.push(m);
+    if (m.role !== "assistant" || typeof m.content === "string") continue;
+    const uses = m.content.filter((b): b is Anthropic.ToolUseBlockParam => typeof b === "object" && b.type === "tool_use");
+    if (uses.length === 0) continue;
+
+    const next = list[i + 1];
+    const answered = new Set(
+      next && next.role === "user" && typeof next.content !== "string"
+        ? next.content.filter((b) => typeof b === "object" && b.type === "tool_result").map((b) => (b as Anthropic.ToolResultBlockParam).tool_use_id)
+        : [],
+    );
+    const orphans = uses.filter((u) => !answered.has(u.id));
+    if (orphans.length === 0) continue;
+
+    const results: Anthropic.ToolResultBlockParam[] = orphans.map((u) => ({
+      type: "tool_result",
+      tool_use_id: u.id,
+      is_error: true,
+      content: "[interrupted before this tool finished — no result was recorded; call it again if it still matters]",
+    }));
+    if (next && next.role === "user" && typeof next.content !== "string" && answered.size > 0) {
+      // A partial answer: complete it in place rather than splitting it.
+      out.push({ role: "user", content: [...results, ...next.content] });
+      i++;
+    } else {
+      out.push({ role: "user", content: results });
+    }
+  }
+  return out;
 }
 
 /**
@@ -157,4 +208,4 @@ export async function hasHistory(profileId: string): Promise<boolean> {
 }
 
 /** Window-shaping internals, exercised directly by tests/history.test.ts. */
-export const __test = { trimToValidStart, trimToValidEnd, elidePayloads };
+export const __test = { trimToValidStart, trimToValidEnd, elidePayloads, answerOrphans };

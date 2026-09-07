@@ -61,6 +61,7 @@ export function AskCoach({
             busy={busy}
             error={error}
             compact
+            onReplay={send}
           />
           <div ref={end} />
         </div>

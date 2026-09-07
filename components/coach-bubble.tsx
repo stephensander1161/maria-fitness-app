@@ -224,6 +224,7 @@ function CoachSheet({
             activity={activity}
             busy={busy}
             error={error}
+            onReplay={say}
           />
 
           {loadFailed && (

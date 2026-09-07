@@ -200,6 +200,7 @@ function Sheet({
               activity={activity}
               busy={busy && messages.length > 0}
               error={error}
+              onReplay={(text) => void send(text, path)}
             />
           )}
           <div ref={end} className="h-2" />

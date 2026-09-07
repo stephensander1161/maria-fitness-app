@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { anthropicTools, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
+import { recordError } from "@/lib/errors";
 import { buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
 import { postpartumSignal, type PostpartumSymptom } from "@/lib/postpartum";
@@ -228,12 +229,21 @@ export async function* runCoach(
 
     yield { type: "error", message: "The coach got stuck in a loop. Try rephrasing that." };
   } catch (err) {
+    // Specific in the log, generic to her. The API's own message used to be
+    // shown verbatim — a wall of tool ids and a request id, which is both
+    // reconnaissance and unreadable. It goes to app_errors, where the admin
+    // console lists it; she gets a sentence and a way to try again.
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[coach]", detail);
+    await recordError({
+      route: "/api/chat", method: "POST", kind: "coach",
+      message: (err instanceof Anthropic.APIError ? `${err.status} ` : "") + detail.slice(0, 500),
+      stack: err instanceof Error && err.stack ? err.stack.slice(0, 4000) : null,
+    }).catch(() => {});
     const message =
-      err instanceof Anthropic.APIError
-        ? `Coach unavailable (${err.status}): ${err.message}`
-        : err instanceof Error
-          ? err.message
-          : "Something went wrong.";
+      err instanceof Anthropic.APIError && (err.status === 529 || err.status === 429)
+        ? "The coach is busy right now. Try again in a minute."
+        : "The coach could not answer that. Try sending it again.";
     yield { type: "error", message };
   }
 }

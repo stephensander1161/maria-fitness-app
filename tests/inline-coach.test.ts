@@ -93,3 +93,14 @@ suite("asking the coach never means leaving the screen", () => {
     ).toEqual([]);
   });
 });
+
+suite("she can send an earlier message again", () => {
+  it("every thread that can send offers a replay on her messages", () => {
+    const thread = fs.readFileSync("components/coach-thread.tsx", "utf8");
+    expect(thread).toMatch(/aria-label="Send this again"/);
+    expect(thread).toMatch(/onClick=\{\(\) => onReplay\(m\.text\)\}/);
+    for (const f of ["components/coach-bubble.tsx", "components/ask-coach.tsx", "components/ai-opinion.tsx"]) {
+      expect(fs.readFileSync(f, "utf8"), `${f} renders the thread without onReplay`).toMatch(/onReplay=\{/);
+    }
+  });
+});

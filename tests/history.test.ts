@@ -1,4 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
+import fs from "node:fs";
 import type Anthropic from "@anthropic-ai/sdk";
 import { __test } from "@/lib/agent/history";
 
@@ -46,5 +47,65 @@ suite("the replayed window is always valid at both ends", () => {
 
   it("returns nothing rather than an invalid window", () => {
     expect(__test.trimToValidStart([answered("t0")])).toEqual([]);
+  });
+});
+
+suite("an orphaned tool call anywhere in the window is answered", () => {
+  const orphanResult = (id: string) => expect.objectContaining({ type: "tool_result", tool_use_id: id, is_error: true });
+
+  it("inserts an error result after an assistant turn nobody answered", () => {
+    // Her next message was saved before the history was loaded, so the
+    // orphan is in the middle by the time anyone looks — trimToValidEnd
+    // cannot see it, and every turn 400ed with "tool_use ids were found
+    // without tool_result blocks", shown to her verbatim.
+    const out = __test.answerOrphans([user("plan my meals"), calling("t1"), user("hello?")]);
+    expect(out.map((m) => m.role)).toEqual(["user", "assistant", "user", "user"]);
+    expect(out[2].content).toEqual([orphanResult("t1")]);
+    expect(out[3]).toEqual(user("hello?"));
+  });
+
+  it("completes a partial answer in place rather than splitting it", () => {
+    const two: Anthropic.MessageParam = {
+      role: "assistant",
+      content: [
+        { type: "tool_use", id: "a", name: "get_plan", input: {} },
+        { type: "tool_use", id: "b", name: "get_meal_plan", input: {} },
+      ],
+    };
+    const out = __test.answerOrphans([user("x"), two, answered("a"), assistant("done")]);
+    expect(out).toHaveLength(4);
+    const content = out[2].content as Anthropic.ContentBlockParam[];
+    expect(content).toHaveLength(2);
+    expect(content).toContainEqual(orphanResult("b"));
+    expect(content).toContainEqual(expect.objectContaining({ type: "tool_result", tool_use_id: "a", content: "{}" }));
+  });
+
+  it("leaves a properly answered transcript exactly as it was", () => {
+    const list = [user("x"), calling("t1"), answered("t1"), assistant("done"), user("more")];
+    expect(__test.answerOrphans(list)).toEqual(list);
+  });
+
+  it("does not invent a result — it says the call was interrupted", () => {
+    const [, , fix] = __test.answerOrphans([user("x"), calling("t1"), user("y")]);
+    const block = (fix.content as Anthropic.ToolResultBlockParam[])[0];
+    expect(block.content).toMatch(/interrupted/);
+    expect(block.is_error).toBe(true);
+  });
+});
+
+suite("what she is told when the coach fails", () => {
+  it("is a sentence, never the API's own message", () => {
+    const src = fs.readFileSync("lib/agent/loop.ts", "utf8");
+    const code = src.split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n");
+    expect(code).not.toMatch(/Coach unavailable \(\$\{err\.status\}\)/);
+    // In the catch block, what is yielded to her is chosen without reading
+    // the error's text. (A tool's own error still goes to the model as a
+    // tool_result — that is a different audience.)
+    const tail = code.slice(code.lastIndexOf("catch (err)"));
+    const chosen = tail.slice(tail.indexOf("const message ="), tail.indexOf("yield"));
+    expect(chosen).not.toMatch(/err\.message|detail|String\(err\)/);
+    // …and the specifics go where the admin console reads them.
+    expect(code).toMatch(/recordError\(\{/);
+    expect(code).toMatch(/route: "\/api\/chat"/);
   });
 });
