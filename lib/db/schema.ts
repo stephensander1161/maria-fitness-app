@@ -460,8 +460,15 @@ export const photos = pgTable(
     /** Front/side/back, so like is compared with like. Optional — an unlabelled
      *  photo is better than no photo. */
     pose: text("pose", { enum: ["front", "side", "back"] }),
-    /** Base64 JPEG payload, without the `data:image/jpeg;base64,` prefix. */
-    data: text("data").notNull(),
+    /**
+     * Base64 JPEG payload, without the `data:image/jpeg;base64,` prefix — or
+     * null when the image is in the blob store instead. Exactly one of
+     * `data` and `blobKey` is set. Kept nullable rather than dropped: without
+     * a store the app still works, and it did this way for a year.
+     */
+    data: text("data"),
+    /** Where the image is in the private blob store (lib/blob.ts). */
+    blobKey: text("blob_key"),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
     createdAt: createdAt(),
@@ -933,6 +940,34 @@ export const feedback = pgTable(
  * the passphrase, or that her data was exported. Append-only by convention —
  * nothing in the app updates or deletes a row here, and it survives db:reset.
  */
+/**
+ * Server errors, kept by the app about itself.
+ *
+ * There was no error monitoring at all: a route that threw was a line in
+ * Vercel's function log that nobody opened, and the first anyone knew was a
+ * person saying "it broke". Next's `onRequestError` hook (instrumentation.ts)
+ * lands every unhandled render and route error here; the admin console reads
+ * it back. No third party, because that would be one more place her requests
+ * go — and this holds the route and the message, never the request body,
+ * never a header, never a cookie.
+ */
+export const appErrors = pgTable(
+  "app_errors",
+  {
+    id: id(),
+    at: timestamp("at", { withTimezone: true }).defaultNow().notNull(),
+    /** The route pattern ("/train", "/api/chat"), not the URL — a URL can carry an id. */
+    route: text("route").notNull(),
+    method: text("method").notNull(),
+    /** render | route | action | proxy — Next's classification. */
+    kind: text("kind").notNull(),
+    message: text("message").notNull(),
+    /** Truncated; enough to find the line, not the whole trace. */
+    stack: text("stack"),
+  },
+  (t) => [index("app_errors_at").on(t.at)],
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

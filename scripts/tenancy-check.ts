@@ -22,6 +22,7 @@ import {
   mealPlans, meals, mealLogs, friendships, goals, photos, preppedPortions, profiles, users,
 } from "@/lib/db/schema";
 import { registry, runTool } from "@/lib/tools";
+import { photoBytes } from "@/lib/photos";
 import { instantiateMealPlan, pickMealTemplate, pickWorkoutTemplate, instantiateWorkoutPlan } from "@/lib/templates";
 import { weekStart, today } from "@/lib/date";
 
@@ -54,6 +55,9 @@ async function makeAccount(email: string, name: string, weightKg: number): Promi
   await runTool("set_goal", { kind: "weight", targetValue: weightKg - 5, title: `${name}-goal-marker` }, ctx);
   await runTool("log_measurement", { measurements: [{ site: "waist", value: 70 + weightKg / 10 }] }, ctx);
   await runTool("log_cook_session", { title: `${name}-batch-marker`, portions: 4, caloriesPerPortion: 500 }, ctx);
+  // A photo, so the byte-serving path can be tried across accounts. The
+  // payload only has to pass the tool's shape check; nothing decodes it.
+  await runTool("add_progress_photo", { image: "data:image/jpeg;base64,/9j/4AAQSkZJRg==", width: 8, height: 8, pose: "front" }, ctx);
   return { userId: u.id, profileId: p.id, name, markers: [name, `${name}-lunch-marker`, `${name}-feedback-marker`, `${name}-goal-marker`, p.id, u.id] };
 }
 
@@ -182,6 +186,15 @@ async function main() {
     if (bIds.mealId) {
       const [m] = await db.select({ title: meals.title }).from(meals).where(eq(meals.id, bIds.mealId));
       if (m?.title === "hijacked") failures.push("swap_meal: B's meal was rewritten by A");
+    }
+
+    // 2b. The bytes of a photo go only to the profile it belongs to. The
+    //     route resolves the session to a profile and asks with that id;
+    //     this is the read it makes, tried with the wrong one.
+    if (!bIds.photoId) failures.push("photoBytes: could not find a B photo to try");
+    else {
+      if (await photoBytes(a.profileId, bIds.photoId)) failures.push("photoBytes: served B's photo to A");
+      if (!(await photoBytes(b.profileId, bIds.photoId))) failures.push("photoBytes: did not serve B's own photo to B");
     }
 
     // 3. Friends: a stranger, and then a *pending* request, must both see

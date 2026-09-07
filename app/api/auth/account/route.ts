@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { profiles, users } from "@/lib/db/schema";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { currentUser } from "@/lib/session";
 import { audit } from "@/lib/audit";
+import { forgetPhotoBlobs } from "@/lib/photos";
 
 export const runtime = "nodejs";
 
@@ -50,6 +51,11 @@ export async function DELETE(req: Request) {
   // Recorded before the row goes, so the id in the log is the id that was
   // deleted rather than one that never existed.
   await audit("account.deleted", { req, detail: { userId: user.id, role: user.role } });
+
+  // Her photographs in the blob store do not cascade with the rows. Swept
+  // first, while the rows still say where they are.
+  const owned = await db.select({ id: profiles.id }).from(profiles).where(eq(profiles.userId, user.id));
+  for (const p of owned) await forgetPhotoBlobs(p.id);
 
   await db.delete(users).where(eq(users.id, user.id));
 

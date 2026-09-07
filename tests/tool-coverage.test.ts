@@ -94,6 +94,8 @@ suite("tool registry", () => {
       // Written by the app about itself, never on her behalf. Exposing an
       // audit log to the model would let a prompt reach the security record.
       "auditLog",
+      // Same again: the server's own errors, read by the console only.
+      "appErrors",
       // Accounts and credentials. Managed by `npm run user`, deliberately
       // out of the model's reach — no prompt should be able to change a
       // password, enable an account, or read a hash.

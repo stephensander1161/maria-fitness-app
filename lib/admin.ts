@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/schema";
 import { currentUser } from "@/lib/session";
 import { securitySignals, type Signal } from "@/lib/security-signals";
+import { backupSignal, errorSignals, recentErrors, type ErrorGroup } from "@/lib/errors";
 import { addDays, today, type ISODate } from "@/lib/date";
 import type { User } from "@/lib/db/schema";
 
@@ -63,8 +64,11 @@ export type AdminOverview = {
   accounts: AccountRow[];
   totals: { accounts: number; active30d: number; spendTodayMicros: number; spend30dMicros: number };
   recentEvents: { at: string; event: string; severity: string; ip: string | null; location: string | null; detail: string | null }[];
-  /** What the log is worth telling someone about — see lib/security-signals.ts. */
+  /** What the log is worth telling someone about — see lib/security-signals.ts
+   *  and, for the app's own errors and the nightly backup, lib/errors.ts. */
   signals: (Omit<Signal, "lastAt"> & { lastAt: string })[];
+  /** The server's own errors, last seven days, one line per distinct message. */
+  errors: (Omit<ErrorGroup, "lastAt"> & { lastAt: string })[];
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 16).replace("T", " ") : null);
@@ -170,13 +174,25 @@ export async function adminOverview(): Promise<AdminOverview> {
   // would push the events that matter off the bottom of the table.
   const interesting = events.filter((e) => e.event !== "admin.viewed");
 
-  const signals = securitySignals(
-    interesting.map((e) => ({
-      at: e.at, event: e.event, severity: e.severity, ip: e.ip, location: e.location,
-      detail: e.detail as Record<string, unknown> | null,
-    })),
-    new Set(accountRows.map((u) => u.userId)),
-  );
+  const now = new Date();
+  const errors = await recentErrors();
+  const signals = [
+    ...securitySignals(
+      interesting.map((e) => ({
+        at: e.at, event: e.event, severity: e.severity, ip: e.ip, location: e.location,
+        detail: e.detail as Record<string, unknown> | null,
+      })),
+      new Set(accountRows.map((u) => u.userId)),
+    ),
+    // The app about itself: is it erroring, and is the nightly copy happening.
+    // Backup events are read from the full window, not the filtered one —
+    // the filter only drops the owner's own visits.
+    ...errorSignals(errors, now),
+    ...backupSignal(
+      events.map((e) => ({ at: e.at, event: e.event, detail: e.detail as Record<string, unknown> | null })),
+      now,
+    ),
+  ];
 
   return {
     accounts,
@@ -189,6 +205,7 @@ export async function adminOverview(): Promise<AdminOverview> {
       spend30dMicros: accounts.reduce((n, a) => n + a.spend30dMicros, 0),
     },
     signals: signals.map((sig) => ({ ...sig, lastAt: iso(sig.lastAt)! })),
+    errors: errors.map((g) => ({ ...g, lastAt: iso(g.lastAt)! })),
     recentEvents: interesting.slice(0, 25).map((e) => ({
       at: iso(e.at)!,
       event: e.event,

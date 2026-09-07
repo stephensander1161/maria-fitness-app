@@ -8,6 +8,7 @@ import { isChromeless } from "@/lib/chromeless";
 import { FeedbackGlyph, FeedbackSheet } from "./feedback";
 import { useSignOut } from "./sign-out";
 import { moreItems } from "./more-nav";
+import { TABS } from "./tab-bar";
 
 /**
  * The rest of the app, from the top of a phone screen.
@@ -21,6 +22,12 @@ import { moreItems } from "./more-nav";
  * shared with the bottom row (`moreItems`), so a new destination cannot reach
  * one and quietly miss the other — the failure that put Friends and Admin in
  * the sidebar and nowhere on a phone.
+ *
+ * The six main screens are here too, above the rest. The bottom bar is a
+ * `position: fixed` strip, and a phone browser's own toolbar can sit on top
+ * of exactly that strip — the owner opened the app in a browser whose bottom
+ * bar covered it and could not reach Train or Plan at all. Every screen has
+ * to be reachable from something in normal flow, and this button is it.
  */
 export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recovering: boolean }) {
   const path = usePathname();
@@ -61,6 +68,31 @@ export function MobileMenu({ isOwner, recovering }: { isOwner: boolean; recoveri
             className="w-full max-w-lg rounded-t-3xl border-t border-line bg-surface p-3 md:rounded-2xl md:border"
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
           >
+            {/* The screens the bottom bar carries, for when the bottom bar is
+                under something. Same list, so they cannot disagree. */}
+            <ul className="mb-2 grid grid-cols-3 gap-1 border-b border-line/60 pb-3" aria-label="Screens">
+              {TABS.map((tab) => {
+                const active = path.startsWith(tab.href);
+                return (
+                  <li key={tab.href}>
+                    <Link
+                      href={tab.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[12px] font-medium transition-colors active:bg-raised ${
+                        active ? "text-accent" : "text-text"
+                      }`}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d={tab.icon} />
+                      </svg>
+                      {tab.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
             <ul className="space-y-0.5">
               {items.map((i) => (
                 <li key={i.href}>

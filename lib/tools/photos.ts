@@ -5,6 +5,8 @@ import { photos } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { audit } from "@/lib/audit";
+import { blobConfigured, photoBlobKey, putPrivate } from "@/lib/blob";
+import { releasePhotoBlobs } from "@/lib/photos";
 import { defineTool } from "./define";
 
 /**
@@ -15,8 +17,13 @@ import { defineTool } from "./define";
  * tokens, resent on every subsequent turn of the conversation. One accidental
  * photo in the context window would cost more than a month of normal use and
  * would blow past the daily ceiling in lib/limits.ts. Tools return metadata;
- * the pixels only ever travel from the browser to Postgres and back to the
+ * the pixels only ever travel from the browser to storage and back to the
  * Progress screen (lib/photos.ts is the read model for that).
+ *
+ * Storage is the private blob store when the deployment has one, Postgres
+ * when it does not. A JPEG in a text column was fine for one person and would
+ * not be for ten: every photo was going through the database's connection
+ * pool and into the nightly dump. The row keeps the metadata either way.
  */
 
 /**
@@ -67,11 +74,21 @@ export const addProgressPhoto = defineTool({
       };
     }
 
+    // Store first, row second: a row pointing at a key that failed to write
+    // is a broken image, a written key with no row is an orphan the next
+    // sweep finds. The second is the recoverable one.
+    let blobKey: string | null = null;
+    if (blobConfigured()) {
+      blobKey = photoBlobKey(ctx.profileId);
+      await putPrivate(blobKey, Buffer.from(data, "base64"), "image/jpeg");
+    }
+
     const [row] = await db.insert(photos).values({
       profileId: ctx.profileId,
       date: when,
       pose: input.pose ?? null,
-      data,
+      data: blobKey ? null : data,
+      blobKey,
       width: input.width,
       height: input.height,
     }).returning({ id: photos.id, date: photos.date, pose: photos.pose });
@@ -126,8 +143,9 @@ export const deleteProgressPhoto = defineTool({
   handler: async (input, ctx) => {
     const [row] = await db.delete(photos)
       .where(and(eq(photos.id, input.photoId), eq(photos.profileId, ctx.profileId)))
-      .returning({ id: photos.id, date: photos.date });
+      .returning({ id: photos.id, date: photos.date, blobKey: photos.blobKey });
     if (!row) return { ok: false, error: "No photo with that id." };
+    await releasePhotoBlobs([row]);
     // Photographs of her body are the most sensitive rows in the database, and
     // the bulk delete records itself while this one did not. Count and date
     // only — never the image, never the pose.

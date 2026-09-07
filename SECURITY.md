@@ -73,7 +73,7 @@ measurements, photos, meals or conversation, and every view is recorded as
 `users`, and the console has no tools at all.
 
 What the database holds about her: account and credentials (`users`), training
-and food data, tape measurements, progress photos as blobs, the coach
+and food data, tape measurements, progress photos (in a private Vercel Blob store when the deployment has one, otherwise in Postgres), the coach
 conversation, and — since the niggle log — what she has reported as hurting.
 The last of those is the most sensitive thing here after the photos; it is
 readable by the coach, included in backups, and cascades on account deletion

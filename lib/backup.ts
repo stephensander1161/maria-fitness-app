@@ -1,5 +1,6 @@
-import { del, list, put } from "@vercel/blob";
+import { del, list } from "@vercel/blob";
 import { db } from "@/lib/db";
+import { blobConfigured, putPrivate } from "@/lib/blob";
 import {
   complaints, cycleEvents, factViews, feedback, friendships, goals, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
@@ -72,9 +73,6 @@ export async function dumpEverything(now = new Date()): Promise<Dump> {
   return { json, rows, tables };
 }
 
-/** Whether there is a blob store to write to. */
-export const blobConfigured = (): boolean => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-
 /** One a day, named by the day, so a re-run overwrites rather than doubles. */
 export const backupKey = (now: Date): string =>
   `${BACKUP_PREFIX}plate-${now.toISOString().slice(0, 10)}.json`;
@@ -95,6 +93,8 @@ export function staleBackups(
     .map((b) => b.pathname);
 }
 
+export { blobConfigured };
+
 export type BackupResult = { key: string; rows: number; kb: number; pruned: number };
 
 /**
@@ -105,12 +105,7 @@ export async function takeBackup(now = new Date()): Promise<BackupResult> {
   if (!blobConfigured()) throw new Error("No BLOB_READ_WRITE_TOKEN configured");
   const dump = await dumpEverything(now);
   const key = backupKey(now);
-  await put(key, dump.json, {
-    access: "private",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  await putPrivate(key, dump.json, "application/json");
 
   // Prune after the write, never before: a failed put must not also delete.
   const stored: { pathname: string; uploadedAt: Date }[] = [];

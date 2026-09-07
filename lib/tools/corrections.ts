@@ -7,6 +7,7 @@ import {
   setLogs, shoppingExtras, weighIns, workouts,
 } from "@/lib/db/schema";
 import { audit } from "@/lib/audit";
+import { forgetPhotoBlobs, releasePhotoBlobs } from "@/lib/photos";
 import { weekStart } from "@/lib/date";
 import { todayForProfile } from "@/lib/profile";
 import { defineTool } from "./define";
@@ -328,8 +329,9 @@ export const deleteProgressPhotos = defineTool({
     if (input.before) where.push(lte(photos.date, input.before));
     if (input.pose) where.push(eq(photos.pose, input.pose as "front" | "side" | "back"));
 
-    const removed = await db.delete(photos).where(and(...where)).returning({ id: photos.id });
+    const removed = await db.delete(photos).where(and(...where)).returning({ id: photos.id, blobKey: photos.blobKey });
     if (removed.length === 0) return { ok: false, error: "No photos matched that." };
+    await releasePhotoBlobs(removed);
 
     await audit("data.deleted", {
       detail: { profileId: ctx.profileId, scope: "photos", count: removed.length },
@@ -459,6 +461,8 @@ export const eraseAllData = defineTool({
     ),
   }),
   handler: async (_input, ctx) => {
+    // The stored images first, while the rows still say where they are.
+    await forgetPhotoBlobs(ctx.profileId);
     // Scoped in the query itself, every time — the profile row survives
     // because the account points at it, so the cascade cannot be relied on.
     let removed = 0;

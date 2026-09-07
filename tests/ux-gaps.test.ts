@@ -13,6 +13,16 @@ suite("the phone reaches the whole app", () => {
     expect(read("components/more-nav.tsx")).toMatch(/moreItems\(isOwner, recovering\)/);
   });
 
+  it("carries the six main screens too, from the same list as the bottom bar", () => {
+    // The bottom bar is position: fixed, and a phone browser's own toolbar
+    // can sit on top of it — the owner could not reach Train or Plan at all.
+    // The menu button is in normal flow, so every screen has to be in it.
+    const menu = read("components/mobile-menu.tsx");
+    expect(menu).toMatch(/import \{ TABS \} from "\.\/tab-bar"/);
+    expect(menu).toMatch(/TABS\.map\(/);
+    expect(menu).not.toMatch(/href="\/(train|plan|eat|progress|kitchen|learn)"/);
+  });
+
   it("puts the menu at the top, where it can be found without scrolling", () => {
     expect(read("components/mobile-greeting.tsx")).toMatch(/<MobileMenu /);
     // ...and it is a real dialog: trapped focus, Escape, focus restored.

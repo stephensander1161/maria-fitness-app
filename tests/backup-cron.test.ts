@@ -67,7 +67,7 @@ suite("the nightly backup", () => {
     expect(route).toMatch(/"backup\.failed"/);
     // The put comes before the prune: a failed write must not also delete.
     const lib = read("lib/backup.ts");
-    expect(lib.indexOf("await put(")).toBeLessThan(lib.indexOf("await del("));
-    expect(lib).toMatch(/access: "private"/);
+    expect(lib.indexOf("await putPrivate(")).toBeLessThan(lib.indexOf("await del("));
+    expect(read("lib/blob.ts")).toMatch(/access: "private"/);
   });
 });

@@ -45,7 +45,8 @@ export default async function AdminPage() {
           {data.signals.length === 0 ? (
             <p className="mt-2 text-[13px] text-muted">
               Nothing to flag. No failed-attempt bursts, no rate limiting, no uninvited
-              addresses and no activity from an account the database does not have.
+              addresses, no activity from an account the database does not have, no
+              server errors in the last day, and last night&apos;s backup was taken.
             </p>
           ) : (
             <ul className="mt-3 space-y-3">
@@ -116,6 +117,47 @@ export default async function AdminPage() {
             </p>
           </section>
         ))}
+
+        <section className="card p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-[15px] font-semibold">Errors</h2>
+            <span className="text-[11px] uppercase tracking-widest text-faint">last 7 days</span>
+          </div>
+          <p className="mt-1 text-[13px] text-muted">
+            What the server threw and nobody caught — the route and the message, never the request.
+          </p>
+          {data.errors.length === 0 ? (
+            <p className="mt-3 text-[13px] text-faint">
+              None recorded. Every unhandled render and route error lands here, so an empty list means a quiet week.
+            </p>
+          ) : (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-[12px]">
+                <thead className="text-faint">
+                  <tr>
+                    <th className="py-1 pr-3 font-medium">Last</th>
+                    <th className="py-1 pr-3 font-medium">Route</th>
+                    <th className="py-1 pr-3 font-medium">Times</th>
+                    <th className="py-1 font-medium">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.errors.map((e, i) => (
+                    <tr key={i} className="border-t border-line/60">
+                      <td className="py-1.5 pr-3 tabular-nums text-muted">{e.lastAt}</td>
+                      <td className="py-1.5 pr-3 text-text">
+                        <span className="text-faint">{e.method} </span>{e.route}
+                        <span className="ml-1 text-[10px] uppercase tracking-widest text-faint">{e.kind}</span>
+                      </td>
+                      <td className="py-1.5 pr-3 tabular-nums text-muted">{e.count}</td>
+                      <td className="max-w-[28rem] break-words py-1.5 text-faint">{e.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <section className="card p-5">
           <h2 className="text-[15px] font-semibold">Security log</h2>

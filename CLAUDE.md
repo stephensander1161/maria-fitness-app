@@ -161,6 +161,25 @@ progression still read correctly and a wall sit contributes no tonnage.
 recording a number that means nothing — her request, and she was right that
 asking for eight of a wall sit is the app not understanding the movement.
 
+## Where a photo lives
+
+A progress photo is the most sensitive row here after the conversation. It
+used to be a base64 JPEG in a text column, which was fine for one person and
+would not be for ten — every image through the connection pool and into the
+nightly dump. With a private Vercel Blob store configured (`lib/blob.ts`,
+`BLOB_READ_WRITE_TOKEN`) the bytes go there under an unguessable key and the
+row keeps `blob_key`; without one, `photos.data` still works. Either way the
+screen gets `/api/photos/[id]`, and that route asks `photoBytes(profileId, id)`
+— the profile in the query, never a check after the fact.
+
+Two rules that the tests hold: **a photo row is never deleted without its
+blob** — `releasePhotoBlobs` on the returned rows, or `forgetPhotoBlobs` on
+the profile *before* a cascade, because after the cascade nothing remembers
+the key — and **nothing but `lib/photos.ts` reads image bytes**. The nightly
+backup carries the rows and not the images, on purpose: the store is itself
+durable, and a second copy of her body every night is not a backup, it is a
+second store.
+
 ## Picking up requests, and the last gate
 
 `/requests` — a local skill, `.claude/skills/requests/SKILL.md`. It reads what

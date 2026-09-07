@@ -337,7 +337,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
                       selected === p.id ? "border-accent" : "border-line"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- data URI, nothing for the image optimiser to fetch */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- session-gated same-origin route; the optimiser has no session */}
                     <img
                       src={p.src}
                       alt={`${p.pose ?? "Progress"} photo from ${p.date}`}
@@ -389,7 +389,7 @@ export function ProgressPhotos({ photos, total }: { photos: ProgressPhoto[]; tot
 
 const Side = ({ label, photo }: { label: string; photo: ProgressPhoto }) => (
   <figure>
-    {/* eslint-disable-next-line @next/next/no-img-element -- data URI, nothing for the image optimiser to fetch */}
+    {/* eslint-disable-next-line @next/next/no-img-element -- session-gated same-origin route; the optimiser has no session */}
     <img
       src={photo.src}
       alt={`${label}: ${photo.pose ?? "progress"} photo from ${photo.date}`}

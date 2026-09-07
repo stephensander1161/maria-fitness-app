@@ -121,6 +121,14 @@ See APP-STORE.md for what the store would additionally require.
 - Append-only by convention, and it survives `db:reset`.
 - Application errors are logged server-side; clients receive generic messages,
   because stack traces and database errors are reconnaissance.
+- **Unhandled errors are recorded and read back.** `instrumentation.ts`
+  (`onRequestError`) writes every uncaught render, route, action and proxy
+  error to `app_errors` — route pattern, method, message, truncated stack;
+  never the request, a header or a cookie, which `tests/errors.test.ts`
+  checks by feeding the shaper a session cookie. Thirty days' retention. The
+  admin console lists the week's errors grouped by message and raises a
+  watch-level signal for any in the last day, and an alert when the nightly
+  backup fails or a note when it has not run. No third party.
 
 ### CC7.5 / A1.2 — Recovery
 
@@ -135,6 +143,14 @@ See APP-STORE.md for what the store would additionally require.
 - `db:reset` refuses to run without `--yes` and points at the backup first.
 - Development runs against a Neon branch (`DATABASE_URL_DEV`), chosen only by
   the dev server, so local work no longer reaches production rows.
+- **Progress photos live in the private blob store** (`photos.blob_key`) when
+  the deployment has one, and are served only through `/api/photos/[id]`,
+  which resolves the session to a profile and queries with that id — a photo
+  id alone fetches nothing, and someone else's id is a 404 indistinguishable
+  from a missing one. Every path that deletes a photo row releases its blob
+  (`releasePhotoBlobs`), and account deletion and `erase_all_my_data` sweep
+  the store before the cascade (`forgetPhotoBlobs`); `tests/photos.test.ts`
+  checks each site and `npm run tenancy` tries the cross-account read.
 
 **Service worker.** `public/sw.js` intercepts same-origin GETs. It is scoped
 to content-hashed build output only: documents, RSC payloads and `/api`
