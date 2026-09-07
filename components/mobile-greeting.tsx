@@ -3,6 +3,7 @@ import { getProfile } from "@/lib/profile";
 import { titleStats } from "@/lib/views";
 import { profileToday } from "@/lib/profile";
 import { APP_TIMEZONE, greetingFor, hourIn } from "@/lib/date";
+import { MobileMenu } from "./mobile-menu";
 
 /**
  * Who she is, at the top of a phone screen.
@@ -41,6 +42,9 @@ export async function MobileGreeting() {
         {title.name}
       </p>
       <span className="sr-only">{title.blurb}</span>
+      {/* The rest of the app. It used to be a row of pills at the end of every
+          page — half the app below the fold on the device most people use. */}
+      <MobileMenu isOwner={user.role === "owner"} recovering={profile.postpartumBirthDate !== null} />
     </div>
   );
 }

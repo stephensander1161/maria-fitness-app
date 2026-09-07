@@ -9,6 +9,7 @@
  * from here, because the fallback is a spinner that says nothing.
  */
 export const TOOL_LABELS: Record<string, string> = {
+  list_whats_new: "checking what is new", dismiss_whats_new: "noting that down",
   list_shipped_for_me: "checking what shipped for you", acknowledge_shipped: "noting that down",
   get_calories_burned: "working out what your training cost",
   set_postpartum_status: "noting where you are in recovery",

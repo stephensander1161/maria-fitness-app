@@ -239,6 +239,22 @@ suite("every mutation goes through the tool registry", () => {
     ).toEqual([]);
   });
 
+  it("no browser component imports a module that reaches the database", () => {
+    // Direct `@/lib/db` imports were already banned. This is the transitive
+    // case that actually happened: a "use client" component imported
+    // lib/limits for one constant, lib/limits imports the database, and
+    // postgres landed in the browser bundle — every page broke with "Can't
+    // resolve 'fs'". Type-only imports are erased and are fine.
+    const serverOnly = /^import (?!type )[^;]*from "@\/lib\/(db|limits|views|audit|admin|progress|expenditure|session|profile|tools|agent)(\/[^"]*)?";/m;
+    const offenders = walk("components")
+      .filter((f) => /^"use client";/.test(read(f)))
+      .filter((f) => serverOnly.test(read(f)));
+    expect(
+      offenders,
+      `these browser components import server-side modules: ${offenders.join(", ")}`,
+    ).toEqual([]);
+  });
+
   it("no component writes to the database at all", () => {
     const offenders = walk("components").filter((f) => /from "@\/lib\/db"/.test(read(f)));
     expect(offenders, `components must not touch the database: ${offenders.join(", ")}`).toEqual([]);

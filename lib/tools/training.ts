@@ -1,4 +1,5 @@
 import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { queryVariants } from "@/lib/search-terms";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -42,15 +43,22 @@ export const searchExercises = defineTool({
   handler: async (input) => {
     const filters = [];
     if (input.query) {
-      const q = `%${input.query}%`;
-      filters.push(or(
-        ilike(exercises.name, q),
-        ilike(exercises.slug, q),
-        sql`${exercises.primaryMuscles}::text ilike ${q}`,
-        // Tags carry the complaint — "diastasis", "postpartum", "physio" —
-        // which is how she and the coach actually look for this content.
-        sql`${exercises.tags}::text ilike ${q}`,
-      ));
+      // Every spelling of what was typed — "pull ups", "pull-up", "pullup" —
+      // so the model does not have to guess the library's hyphenation.
+      const variants = queryVariants(input.query);
+      if (variants.length) {
+        filters.push(or(...variants.flatMap((v) => {
+          const q = `%${v}%`;
+          return [
+            ilike(exercises.name, q),
+            ilike(exercises.slug, q),
+            sql`${exercises.primaryMuscles}::text ilike ${q}`,
+            // Tags carry the complaint — "diastasis", "postpartum", "physio" —
+            // which is how she and the coach actually look for this content.
+            sql`${exercises.tags}::text ilike ${q}`,
+          ];
+        })));
+      }
     }
     if (input.equipment) filters.push(sql`${exercises.equipment}::text ilike ${`%${input.equipment}%`}`);
     if (input.category) filters.push(eq(exercises.category, input.category));

@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/session";
 import { getProfile } from "@/lib/profile";
-import { shippedForProfile } from "@/lib/views";
+import { shippedForProfile, whatsNewForProfile } from "@/lib/views";
+import { WhatsNewNote } from "./whats-new-note";
 import { ShippedNote } from "./shipped-note";
 
 /**
@@ -16,7 +17,11 @@ export async function ShippedNoteGate() {
   const profile = await getProfile(user.id);
   if (!profile.onboardedAt) return null;
 
+  // One note at a time, and the personal one first: something she asked for
+  // outranks something that merely shipped.
   const items = await shippedForProfile(profile.id);
-  if (items.length === 0) return null;
-  return <ShippedNote items={items} />;
+  if (items.length > 0) return <ShippedNote items={items} />;
+  const fresh = await whatsNewForProfile(profile, user.role === "owner");
+  if (fresh.length === 0) return null;
+  return <WhatsNewNote items={fresh} />;
 }

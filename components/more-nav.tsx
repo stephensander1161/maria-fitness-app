@@ -21,7 +21,7 @@ import { FeedbackGlyph, FeedbackSheet } from "./feedback";
  */
 import { isChromeless } from "@/lib/chromeless";
 
-type Item = { href: string; label: string; icon: React.ReactNode };
+export type Item = { href: string; label: string; icon: React.ReactNode };
 
 const gear = (
   <>
@@ -30,22 +30,27 @@ const gear = (
   </>
 );
 
+/** Every destination a phone has beyond the tab bar, in one place. */
+export function moreItems(isOwner: boolean, recovering: boolean): Item[] {
+  return [
+    ...(recovering
+      ? [{ href: "/recovery", label: "Recovery", icon: <path d="M12 20s-7-4.5-7-9.2A4 4 0 0 1 12 8a4 4 0 0 1 7 2.8C19 15.5 12 20 12 20Z" /> }]
+      : []),
+    { href: "/friends", label: "Friends", icon: <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.6a3.5 3.5 0 0 1 0 6.8" /> },
+    { href: "/settings", label: "Settings", icon: gear },
+    ...(isOwner
+      ? [{ href: "/admin", label: "Admin", icon: <path d="M12 3 4 6.5v5c0 4.4 3.4 8.4 8 9.5 4.6-1.1 8-5.1 8-9.5v-5L12 3Z" /> }]
+      : []),
+  ];
+}
+
 export function MoreNav({ isOwner, recovering }: { isOwner: boolean; recovering: boolean }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
   if (isChromeless(path)) return null;
 
-  const items: Item[] = [
-    ...(recovering
-      ? [{ href: "/recovery", label: "Recovery", icon: <path d="M12 20s-7-4.5-7-9.2A4 4 0 0 1 12 8a4 4 0 0 1 7 2.8C19 15.5 12 20 12 20Z" /> } as Item]
-      : []),
-    { href: "/friends", label: "Friends", icon: <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.6a3.5 3.5 0 0 1 0 6.8" /> },
-    { href: "/settings", label: "Settings", icon: gear },
-    ...(isOwner
-      ? [{ href: "/admin", label: "Admin", icon: <path d="M12 3 4 6.5v5c0 4.4 3.4 8.4 8 9.5 4.6-1.1 8-5.1 8-9.5v-5L12 3Z" /> } as Item]
-      : []),
-  ].filter((i) => !path.startsWith(i.href));
+  const items = moreItems(isOwner, recovering).filter((i) => !path.startsWith(i.href));
 
   return (
     <>

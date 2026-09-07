@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
 import type { Pickable, PickableExercise } from "@/lib/views";
+import { matchesQuery } from "@/lib/search-terms";
 
 /** The gym name she typed, when it is not the name on the card. */
 function aliasFor(tags: string[], q: string): string | null {
@@ -46,11 +47,8 @@ export function MovementPicker({
 
   const shown = useMemo(() => {
     if (q) {
-      return all.filter((i) =>
-        i.name.toLowerCase().includes(q)
-        || i.muscles.some((m) => m.includes(q))
-        // The name she uses, which is often not the name it has.
-        || i.tags.some((t) => t.includes(q)));
+      // Spelling-tolerant: "pull ups", "pull-up" and "pullup" are one search.
+      return all.filter((i) => matchesQuery(q, i));
     }
     return group ? all.filter((i) => i.group === group) : [];
   }, [all, group, q]);
@@ -65,8 +63,7 @@ export function MovementPicker({
    */
   const blocked = useMemo(() => {
     if (!q) return [];
-    return unavailable.filter((i) =>
-      i.name.toLowerCase().includes(q) || i.tags.some((t) => t.includes(q)));
+    return unavailable.filter((i) => matchesQuery(q, i));
   }, [unavailable, q]);
 
   return (

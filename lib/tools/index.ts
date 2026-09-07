@@ -30,6 +30,7 @@ import * as appearance from "./appearance";
 import * as postpartum from "./postpartum";
 import * as burn from "./burn";
 import * as shipped from "./shipped";
+import * as whatsNew from "./whats-new";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -170,6 +171,8 @@ const all: Tool[] = [
   burn.getCaloriesBurned,
   shipped.listShippedForMe,
   shipped.acknowledgeShipped,
+  whatsNew.listWhatsNew,
+  whatsNew.dismissWhatsNew,
 ];
 
 // Plain comparison, not localeCompare: the ordering must not depend on the

@@ -107,6 +107,8 @@ export const profiles = pgTable("profiles", {
   breastfeeding: boolean("breastfeeding").default(false).notNull(),
   /** Leaking, heaviness, doming, pain, bleeding — each changes what is safe. */
   postpartumSymptoms: jsonb("postpartum_symptoms").$type<string[]>().default([]).notNull(),
+  /** The newest "what's new" entry she has dismissed — see lib/whats-new.ts. */
+  whatsNewSeen: text("whats_new_seen"),
   /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
   /** How her food is measured — portions, ingredients, oven temperatures.

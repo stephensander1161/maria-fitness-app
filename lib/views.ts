@@ -830,3 +830,14 @@ export async function shippedForProfile(profileId: string) {
     .orderBy(desc(feedback.resolvedAt))
     .limit(3);
 }
+
+
+/** The what's-new entries this person has not dismissed. */
+export async function whatsNewForProfile(profile: {
+  id: string; createdAt: Date; whatsNewSeen: string | null; postpartumBirthDate: string | null;
+}, owner: boolean) {
+  const { unseen } = await import("@/lib/whats-new");
+  return unseen(profile.whatsNewSeen, {
+    createdAt: profile.createdAt, recovering: profile.postpartumBirthDate !== null, owner,
+  });
+}

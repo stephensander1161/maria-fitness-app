@@ -70,6 +70,8 @@ export type CoachEvent =
   | { type: "text"; text: string }
   | { type: "tool"; name: string; status: "running" | "done" }
   | { type: "done" }
+  /** How much of today's coach allowance is left, sent as a turn ends. */
+  | { type: "allowance"; leftPct: number }
   | { type: "error"; message: string };
 
 /** Consume the coach's SSE stream as an async iterable of events. */

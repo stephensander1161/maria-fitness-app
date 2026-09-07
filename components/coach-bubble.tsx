@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
 import { useDialog } from "@/lib/use-dialog";
-import { Composer, ThreadMessages } from "./coach-thread";
+import { AllowanceNote, Composer, ThreadMessages } from "./coach-thread";
 import { Boost } from "./boost";
 import { FeedbackGlyph, FeedbackSheet } from "./feedback";
 
@@ -57,9 +57,7 @@ function CoachSheet({
   name, path, onClose,
 }: { name: string | null; path: string; onClose: () => void }) {
   const router = useRouter();
-  const {
-    messages, setMessages, streaming, activity, busy, error, setError, input, setInput, stream, send,
-  } = useCoachThread({
+  const { messages, setMessages, streaming, activity, busy, error, setError, input, setInput, stream, send, allowance } = useCoachThread({
     // A turn that ran tools changed something the screen behind this is
     // showing — "log that set" should tick the set off underneath.
     onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); },
@@ -246,6 +244,7 @@ function CoachSheet({
           className="shrink-0 border-t border-line/60 px-4 pt-2.5"
           style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}
         >
+          <AllowanceNote leftPct={allowance} />
           <Composer value={input} onChange={setInput} onSubmit={say} busy={busy} autoFocus />
         </div>
       </div>

@@ -7,7 +7,8 @@ import { buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
 import { postpartumSignal, type PostpartumSymptom } from "@/lib/postpartum";
 import { profileToday } from "@/lib/profile";
-import { checkSpendAllowed, recordUsage } from "@/lib/limits";
+import { checkSpendAllowed, recordUsage, todaySpend } from "@/lib/limits";
+import { allowanceLeftPct } from "@/lib/allowance-pct";
 import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
 import { cycleSignal } from "@/lib/tools/cycle-tools";
@@ -22,6 +23,8 @@ export type CoachEvent =
   | { type: "text"; text: string }
   | { type: "tool"; name: string; status: "running" | "done" }
   | { type: "done" }
+  /** How much of today's coach allowance is left, sent as a turn ends. */
+  | { type: "allowance"; leftPct: number }
   | { type: "error"; message: string };
 
 // Lazy for the same reason as the planner: importing this module must not
@@ -178,6 +181,11 @@ export async function* runCoach(
       conversation.push({ role: "assistant", content: assistantContent });
 
       if (message.stop_reason !== "tool_use") {
+        // Say how much is left before saying done, so the thread can warn
+        // her while she can still act on it. Usage for this turn is already
+        // recorded above, so the figure includes what she just spent.
+        const spend = await todaySpend(profile.id);
+        yield { type: "allowance", leftPct: allowanceLeftPct(spend.costMicros, spend.limitMicros) };
         yield { type: "done" };
         return;
       }

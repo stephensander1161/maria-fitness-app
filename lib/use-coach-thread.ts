@@ -26,6 +26,8 @@ export function useCoachThread(
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  /** Percent of today's allowance left, once a turn has told us. Null until then. */
+  const [allowance, setAllowance] = useState<number | null>(null);
   // Held in a ref so a caller can pass an inline arrow without re-creating
   // `stream` on every render — an effect that streams would run twice. Written
   // in an effect, not during render, because a render can be thrown away.
@@ -51,7 +53,8 @@ export function useCoachThread(
         else if (e.type === "tool") {
           if (e.status === "running") usedTools = true;
           setActivity(e.status === "running" ? TOOL_LABELS[e.name] ?? "working" : null);
-        } else if (e.type === "error") { setError(e.message); failed = true; }
+        } else if (e.type === "allowance") { setAllowance(e.leftPct); }
+        else if (e.type === "error") { setError(e.message); failed = true; }
       }
     } catch (err) {
       if (opts.signal?.aborted) return false;
@@ -97,6 +100,6 @@ export function useCoachThread(
 
   return {
     messages, setMessages, streaming, activity, busy, error, setError,
-    input, setInput, stream, send,
+    input, setInput, stream, send, allowance,
   };
 }

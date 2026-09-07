@@ -30,6 +30,7 @@ Read it as an honest inventory, not a certificate.
 | Fails closed — a missing `AUTH_SECRET` returns 503, never open access | `middleware.ts` |
 | Per-user accounts; passwords hashed with scrypt at OWASP's N=2^17, per-password salt, parameters recorded in the hash so they can be raised later | `lib/password.ts` |
 | Failed sign-in costs the same whether the address exists or not, so response time doesn't enumerate accounts | `app/api/login/route.ts` |
+| One stated exception: an invited address with no password yet is told so, because the flat message locked out a real invitee; strangers still get the flat message | `app/api/login/route.ts`, SECURITY.md |
 | Hashes upgraded transparently on next sign-in when parameters are raised | `lib/password.ts` |
 | Stateless signed session: `httpOnly` (unreachable from JS), `secure` in production, `sameSite=lax` (blocks cross-site POST, so no CSRF token is needed) | `lib/auth.ts` |
 | Two-layer session check: edge verifies signature and expiry, Node verifies the account still exists, is enabled, and hasn't been signed out everywhere | `middleware.ts`, `lib/session.ts` |

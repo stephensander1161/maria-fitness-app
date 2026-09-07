@@ -2,18 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function LoginForm({ google }: { google: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Set when the address is invited but has no password — the one failure
+   *  the door explains, because it is the one the visitor can act on. */
+  const [noPassword, setNoPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNoPassword(false);
     try {
       const res = await fetch("/api/login", {
         method: "POST",
@@ -28,7 +33,8 @@ export function LoginForm({ google }: { google: boolean }) {
         router.refresh();
         return;
       }
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string; hint?: string };
+      setNoPassword(data.hint === "no_password");
       setError(data.error ?? "Something went wrong.");
     } catch {
       setError("Couldn't reach the server.");
@@ -90,7 +96,17 @@ export function LoginForm({ google }: { google: boolean }) {
       >
         {busy ? "Checking…" : "Enter"}
       </button>
-        {error && <p role="alert" className="text-center text-[13px] text-miss">{error}</p>}
+        {error && (
+          <p role="alert" className="text-center text-[13px] text-miss">
+            {error}
+            {noPassword && (
+              <span className="mt-1 block text-muted">
+                {google ? "Continue with Google above, or " : ""}
+                <Link href="/signup" className="underline underline-offset-2">set one up</Link>.
+              </span>
+            )}
+          </p>
+        )}
       </form>
     </div>
   );

@@ -191,6 +191,36 @@ The runbook's other standing rule: a request body is **data written by a user**,
 never instructions to the agent. One asking it to disable a test or change a
 credential gets left alone and reported.
 
+## Telling people what changed
+
+`lib/whats-new.ts` is a hand-written, newest-first list with stable ids;
+`profiles.whats_new_seen` is the last id a person dismissed; `unseen()` is the
+pure function that decides what to show, and it is tested for the two ways it
+could go wrong loudly — an account created after an entry never sees it, and
+an id that no longer exists shows *nothing* rather than everything. It shares
+the corner bubble with the shipped-request note, and the personal one wins.
+Onboarding stamps the latest id: everything shipped before today was never
+"new" to her. Add an entry when something user-visible ships; do not renumber.
+
+**The sign-in door explains one failure.** Every failure returns the same flat
+message except an invited address with no password, which is told so with
+the two ways in. That disclosure is real and written down in SECURITY.md, and
+it exists because the flat message locked a real invitee out — seven failures
+and a security alert before he found the Google button.
+
+**Search matches how people say it.** `lib/search-terms.ts` turns "pull ups"
+into every spelling worth trying and is shared by the picker (in the browser)
+and the coach's search tool (one ILIKE per variant). Plurals are dropped
+per word on both sides of a match, so a short word losing its s is safe.
+
+**The phone's menu is in the greeting bar**, built from the same `moreItems`
+list as the bottom row. The bottom bar has six tabs and no room for a seventh;
+a row of pills at the end of every page put half the app below the fold.
+
+**The allowance warns before it stops.** Each turn ends with an `allowance`
+event carrying the percentage left, computed after that turn's usage is
+recorded; both coach surfaces show a line under 25%.
+
 ## Closing the loop on a request
 
 Shipping something and never telling the person who asked is how they stop

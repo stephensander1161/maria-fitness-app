@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCoachThread } from "@/lib/use-coach-thread";
-import { Composer, Suggestions, ThreadMessages } from "./coach-thread";
+import { AllowanceNote, Composer, Suggestions, ThreadMessages } from "./coach-thread";
 
 /**
  * Talk to the coach without leaving the screen you are on.
@@ -35,7 +35,7 @@ export function AskCoach({
   const thread = useCoachThread({
     onTurnEnd: ({ usedTools }) => { if (usedTools && refreshOnChange) router.refresh(); },
   });
-  const { messages, streaming, activity, busy, error, input, setInput, send } = thread;
+  const { messages, streaming, activity, busy, error, input, setInput, send, allowance } = thread;
 
   // Follow the answer as it comes in, but only once there is a conversation —
   // scrolling an untouched panel into view on page load would yank the page.
@@ -68,6 +68,7 @@ export function AskCoach({
 
       {!busy && <Suggestions items={suggestions} onPick={send} busy={busy} />}
 
+      <AllowanceNote leftPct={allowance} />
       <Composer
         value={input}
         onChange={setInput}

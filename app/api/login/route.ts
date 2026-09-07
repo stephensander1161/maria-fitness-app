@@ -44,6 +44,27 @@ export async function POST(req: Request) {
     ? await verifyPassword(password, user.passwordHash)
     : (await verifyPassword(password, DUMMY_HASH), false);
 
+  /**
+   * The one failure that says more.
+   *
+   * Every other failure returns one flat message, so the door cannot be used
+   * to learn which addresses exist. This case is different on purpose: the
+   * address *is* invited, it just has no password yet, and telling that
+   * person "that's not right" seven times is what actually happened — the
+   * owner's father typed his correct address four ways and got nowhere until
+   * he found the Google button. On an invite-only app with a handful of known
+   * accounts, what this discloses is that an invitation exists for an address
+   * the visitor already typed; what it saves is the invitee. The trade is
+   * written down in SECURITY.md.
+   */
+  if (user && !user.disabledAt && !user.passwordHash) {
+    await audit("login.failure", { req, detail: { email: refusedAddress(email), reason: "no_password_set" } });
+    return Response.json({
+      error: "That address is invited but has no password yet.",
+      hint: "no_password",
+    }, { status: 401 });
+  }
+
   if (!ok || !user || user.disabledAt) {
     // The attempt itself is never logged — a record of near-misses is a wordlist.
     await audit("login.failure", {
@@ -63,7 +84,7 @@ export async function POST(req: Request) {
               : "bad_password",
       },
     });
-    // Deliberately identical for every failure mode.
+    // Identical for every remaining failure mode.
     return Response.json({ error: "That's not right." }, { status: 401 });
   }
 

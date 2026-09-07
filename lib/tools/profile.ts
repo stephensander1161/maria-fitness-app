@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { LATEST_ID } from "@/lib/whats-new";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns, pushSubscriptions,
@@ -146,6 +147,8 @@ export const updateProfile = defineTool({
       // that ten seconds ago, and being asked again reads as the app not
       // having listened. Re-running it stays available from Settings.
       if (!p.planSetupAt) patch.planSetupAt = new Date();
+      // Everything shipped before today was never "new" to her.
+      patch.whatsNewSeen = LATEST_ID;
     }
 
     await db.update(profiles).set(patch).where(eq(profiles.id, ctx.profileId));

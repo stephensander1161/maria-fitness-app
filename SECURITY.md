@@ -24,7 +24,13 @@ on the next correct sign-in.
 
 A failed sign-in verifies against a dummy hash when the address is unknown, so a
 missing account costs the same ~200ms as a wrong password and response time
-cannot be used to enumerate accounts. Every failure returns the same message.
+cannot be used to enumerate accounts. Every failure returns the same message,
+with one deliberate exception: an address that is invited but has no password
+yet is told so, with the two ways in. That discloses that an invitation exists
+for an address the visitor already typed — a small thing on an invite-only app
+with a handful of accounts — and it exists because the alternative was
+observed: an invitee typed his correct address four ways, was told "that's not
+right" each time, and raised a security alert before finding the Google button.
 
 There is no open registration. The accounts table is the allowlist, and the only
 thing that adds to it is `npm run user -- invite` (or `add`). `/signup` lets an

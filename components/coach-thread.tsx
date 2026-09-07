@@ -1,5 +1,7 @@
 "use client";
 
+import { ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
+
 import type { Msg } from "@/lib/use-coach-thread";
 import { RichText } from "./rich-text";
 
@@ -131,5 +133,21 @@ export function Suggestions({
         </button>
       ))}
     </div>
+  );
+}
+
+
+/**
+ * A quiet line when today's allowance is running low. Null or plenty left
+ * renders nothing: the point is to be seen once, near the end, not to nag.
+ */
+export function AllowanceNote({ leftPct }: { leftPct: number | null }) {
+  if (leftPct === null || leftPct > ALLOWANCE_WARN_PCT) return null;
+  return (
+    <p className="px-1 pb-1 text-[11px] text-faint">
+      {leftPct === 0
+        ? "Today's coach allowance is used up. Everything else keeps working, and the coach is back tomorrow."
+        : `About ${leftPct}% of today's coach allowance left.`}
+    </p>
   );
 }
