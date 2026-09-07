@@ -4,13 +4,14 @@ import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
 } from "@/lib/db/schema";
 import { planMeals, writeRecipe } from "@/lib/agent/planner";
-import { DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, isFuture, weekStart } from "@/lib/date";
+import { APP_TIMEZONE, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, hourIn, isFuture, weekStart } from "@/lib/date";
 import { pickUnseenFact } from "@/lib/facts";
+import { preferredTopic } from "@/lib/fact-timing";
 import { nutritionTrend } from "@/lib/progress";
 import { pantryStock, recentMeals } from "@/lib/views";
 import { type ShoppingItem } from "@/lib/shopping";
 import { instacartConfigured } from "@/lib/instacart";
-import { foodUnitsFor, todayForProfile, ageFrom } from "@/lib/profile";
+import { foodUnitsFor, getProfileById, todayForProfile, ageFrom } from "@/lib/profile";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
@@ -404,10 +405,13 @@ export const getFact = defineTool({
   input: z.object({
     category: z.enum(["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health", "postpartum"])
       .optional().describe("Omit to let it pick"),
+    topic: z.enum(["sleep"]).optional().describe("A subject to prefer. Late at night this is preferred anyway."),
   }),
   handler: async (input, ctx) => {
+    const profile = await getProfileById(ctx.profileId);
+    const topic = input.topic ?? preferredTopic(hourIn(profile?.timezone ?? APP_TIMEZONE), Math.random());
     const fact = await pickUnseenFact(
-      ctx.profileId, await todayForProfile(ctx.profileId), input.category,
+      ctx.profileId, await todayForProfile(ctx.profileId), input.category, topic,
     );
     if (!fact) return { error: "No facts seeded yet." };
     return { category: fact.category, fact: fact.text, source: fact.source };

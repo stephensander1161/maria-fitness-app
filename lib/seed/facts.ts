@@ -5,6 +5,9 @@ type FactSeed = {
     | "womens_health" | "postpartum";
   text: string;
   source?: string;
+  /** "sleep" is shown more after ten at night — every slug with sleep in it
+   *  carries it, and tests/facts.test.ts checks that. */
+  topic?: "sleep";
 };
 
 /**
@@ -213,10 +216,10 @@ export const FACTS: FactSeed[] = [
     source: "Body composition measurement practice" },
 
   // ── Recovery ──────────────────────────────────────────────────────────────
-  { slug: "sleep-fat-loss", category: "recovery",
+  { slug: "sleep-fat-loss", topic: "sleep", category: "recovery",
     text: "Dieters sleeping 5.5 hours instead of 8.5 lost the same total weight — but 55% less of it was fat, and more of it was muscle. Sleep decides what kind of weight comes off.",
     source: "Nedeltcheva et al., Annals of Internal Medicine, 2010" },
-  { slug: "sleep-hunger", category: "recovery",
+  { slug: "sleep-hunger", topic: "sleep", category: "recovery",
     text: "One short night raises ghrelin and lowers leptin, which is a hormonal way of saying you'll be hungrier tomorrow and it isn't a willpower failure.",
     source: "Spiegel et al., Annals of Internal Medicine, 2004" },
   { slug: "doms-not-a-metric", category: "recovery",
@@ -231,23 +234,23 @@ export const FACTS: FactSeed[] = [
   { slug: "stress-recovery", category: "recovery",
     text: "High life stress measurably slows recovery from training — the same workout takes longer to bounce back from during a hard week. Scaling back during a rough patch is strategy, not weakness.",
     source: "Stults-Kolehmainen & Bartholomew, Medicine & Science in Sports & Exercise, 2012" },
-  { slug: "exercise-sleep-quality", category: "recovery",
+  { slug: "exercise-sleep-quality", topic: "sleep", category: "recovery",
     text: "Regular exercise improves both how fast you fall asleep and how deeply you sleep — and better sleep makes the next session better. It compounds in both directions.",
     source: "Kredlow et al., Journal of Behavioral Medicine, 2015" },
 
-  { slug: "sleep-duration-target", category: "recovery",
+  { slug: "sleep-duration-target", topic: "sleep", category: "recovery",
     text: "Seven to nine hours is the adult recommendation in every major guideline, and most people who function on five have simply stopped noticing they're impaired. Sleep is the highest-leverage recovery tool you have, and it's free.",
     source: "American Academy of Sleep Medicine" },
-  { slug: "caffeine-half-life", category: "recovery",
+  { slug: "caffeine-half-life", topic: "sleep", category: "recovery",
     text: "Caffeine has a half-life of about five hours, and in a controlled trial 400 mg taken six hours before bed still cut measured sleep by roughly an hour. The afternoon coffee costs you a night you won't connect it to.",
     source: "Drake et al., Journal of Clinical Sleep Medicine, 2013" },
-  { slug: "sleep-extension", category: "recovery",
+  { slug: "sleep-extension", topic: "sleep", category: "recovery",
     text: "Athletes who deliberately extend sleep get faster and more accurate — real performance gains from no extra training. Sleep is a training input, not just the absence of activity.",
     source: "Sleep extension research in athletes" },
-  { slug: "alcohol-sleep", category: "recovery",
+  { slug: "alcohol-sleep", topic: "sleep", category: "recovery",
     text: "Alcohol gets you to sleep faster and makes the sleep much worse, suppressing REM and fragmenting the second half of the night. That's why a night out tends to cost the next two training days rather than one.",
     source: "Sleep research on alcohol" },
-  { slug: "sleep-and-injury", category: "recovery",
+  { slug: "sleep-and-injury", topic: "sleep", category: "recovery",
     text: "Athletes sleeping under about eight hours get injured noticeably more often. Fatigue shows up as sloppy technique long before it shows up as feeling tired.",
     source: "Sleep and injury research in athletes" },
   { slug: "foam-rolling", category: "recovery",
@@ -378,7 +381,7 @@ export const FACTS: FactSeed[] = [
     text: "A baby goes from about 3.5kg to around 10kg in a year, and you carry them the whole way. That is textbook progressive overload — the same principle as adding a plate a month, except you cannot skip a session." },
   { slug: "pp-walking-counts", category: "postpartum",
     text: "In the early weeks a walk is genuine training, not a consolation prize. After the deconditioning of late pregnancy and birth, walking sits at a real percentage of your capacity — which is the definition of a training stimulus." },
-  { slug: "pp-sleep-strength", category: "postpartum",
+  { slug: "pp-sleep-strength", topic: "sleep", category: "postpartum",
     text: "Short sleep measurably lowers strength, power and how well you recover between sessions. On a broken night the right move is a lighter session, not a missed one — and that is a physiological fact, not an excuse." },
   { slug: "pp-return-stronger", category: "postpartum",
     text: "Plenty of athletes come back from pregnancy and go on to their best performances. Whatever else is true right now, having a baby is not the end of what your body can do — the evidence is firmly the other way." },

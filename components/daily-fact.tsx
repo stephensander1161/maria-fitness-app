@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/session";
 import { getProfile, profileToday } from "@/lib/profile";
 import { factForDay } from "@/lib/facts";
+import { APP_TIMEZONE, hourIn } from "@/lib/date";
 import { FactCard } from "@/components/fact-card";
 
 /**
@@ -20,7 +21,7 @@ export async function DailyFact() {
   const profile = await getProfile(user.id);
   if (!profile.onboardedAt) return null;
 
-  const fact = await factForDay(profile.id, profileToday(profile));
+  const fact = await factForDay(profile.id, profileToday(profile), hourIn(profile.timezone ?? APP_TIMEZONE));
   if (!fact) return null;
 
   return <FactCard first={fact} />;

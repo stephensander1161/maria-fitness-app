@@ -33,7 +33,7 @@ async function main() {
   console.log(`✓ ${EXERCISES.length} exercises`);
 
   for (const f of FACTS) {
-    const row = { slug: f.slug, category: f.category, text: f.text, source: f.source ?? null };
+    const row = { slug: f.slug, category: f.category, text: f.text, source: f.source ?? null, topic: f.topic ?? null };
     await db.insert(facts).values(row).onConflictDoUpdate({ target: facts.slug, set: row });
   }
   console.log(`✓ ${FACTS.length} facts`);

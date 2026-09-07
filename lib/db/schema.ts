@@ -888,6 +888,9 @@ export const facts = pgTable(
     }).notNull(),
     text: text("text").notNull(),
     source: text("source"),
+    /** Cross-cutting subject, where one matters to *when* a fact is shown.
+     *  "sleep" facts are preferred late at night — lib/fact-timing.ts. */
+    topic: text("topic", { enum: ["sleep"] }),
   },
   (t) => [uniqueIndex("facts_slug").on(t.slug)],
 );
