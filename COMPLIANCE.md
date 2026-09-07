@@ -26,14 +26,14 @@ Read it as an honest inventory, not a certificate.
 
 | Control | Where |
 |---|---|
-| Deny-by-default perimeter; every route gated before any handler runs | `middleware.ts` |
-| Fails closed — a missing `AUTH_SECRET` returns 503, never open access | `middleware.ts` |
+| Deny-by-default perimeter; every route gated before any handler runs | `proxy.ts` |
+| Fails closed — a missing `AUTH_SECRET` returns 503, never open access | `proxy.ts` |
 | Per-user accounts; passwords hashed with scrypt at OWASP's N=2^17, per-password salt, parameters recorded in the hash so they can be raised later | `lib/password.ts` |
 | Failed sign-in costs the same whether the address exists or not, so response time doesn't enumerate accounts | `app/api/login/route.ts` |
 | One stated exception: an invited address with no password yet is told so, because the flat message locked out a real invitee; strangers still get the flat message | `app/api/login/route.ts`, SECURITY.md |
 | Hashes upgraded transparently on next sign-in when parameters are raised | `lib/password.ts` |
 | Stateless signed session: `httpOnly` (unreachable from JS), `secure` in production, `sameSite=lax` (blocks cross-site POST, so no CSRF token is needed) | `lib/auth.ts` |
-| Two-layer session check: edge verifies signature and expiry, Node verifies the account still exists, is enabled, and hasn't been signed out everywhere | `middleware.ts`, `lib/session.ts` |
+| Two-layer session check: the proxy verifies signature and expiry, the handler verifies the account still exists, is enabled, and hasn't been signed out everywhere | `proxy.ts`, `lib/session.ts` |
 | Per-user revocation — `signout-everywhere`, disable, and password change all invalidate that account's sessions immediately, without touching anyone else's | `scripts/users.ts` |
 | Account disable retains history rather than deleting it | `users.disabledAt` |
 | Global revocation by secret rotation | `AUTH_SECRET` |
@@ -126,7 +126,15 @@ See APP-STORE.md for what the store would additionally require.
 
 - `npm run backup` / `npm run restore`, **verified by an actual round trip** —
   backed up, wiped, restored, every table count matched.
+- **Nightly, off-machine:** `/api/cron/backup` writes the same dump to a
+  private Vercel Blob store, thirty days' retention and never fewer than
+  three copies. Guarded by `CRON_SECRET` (`lib/cron.ts`), audited as
+  `backup.taken` / `backup.failed`; a missing store is a 503 and a warn-level
+  row, never a silent 200. `lib/backup.ts` is the one table list, and the
+  restore script imports it.
 - `db:reset` refuses to run without `--yes` and points at the backup first.
+- Development runs against a Neon branch (`DATABASE_URL_DEV`), chosen only by
+  the dev server, so local work no longer reaches production rows.
 
 **Service worker.** `public/sw.js` intercepts same-origin GETs. It is scoped
 to content-hashed build output only: documents, RSC payloads and `/api`
@@ -277,7 +285,8 @@ timelines, or post-incident review process.
 kept until someone deletes it.
 
 **Availability commitments.** No SLA, no uptime monitoring, no tested disaster
-recovery beyond the backup script, no RTO/RPO.
+recovery beyond the backup and restore scripts, no RTO/RPO. The nightly copy
+gives an RPO of a day in practice, but nobody has committed to it.
 
 **Encryption at rest** is whatever Neon provides by default; not independently
 verified or configured.
@@ -306,7 +315,7 @@ the bulk of it.
 
 These keep the implemented set from decaying:
 
-1. **New route, new gate.** `middleware.ts` denies by default. Adding to
+1. **New route, new gate.** `proxy.ts` denies by default. Adding to
    `PUBLIC_PATHS` exposes something publicly — treat it as a deliberate decision
    with a stated reason.
 2. **Security-relevant events get audited.** Anything touching authentication,

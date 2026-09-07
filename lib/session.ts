@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -8,13 +9,20 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 /**
  * The authoritative check, in two layers.
  *
- * Middleware verifies the signature and expiry on the edge — cheap, and enough
- * to turn away anyone without a valid token before any code runs. But a
- * stateless token cannot know that an account was disabled a minute ago, or
- * that she hit "sign out everywhere". That is what this does, in Node, where
- * the database is reachable.
+ * The proxy verifies the signature and expiry — cheap, and enough to turn
+ * away anyone without a valid token before any code runs. But a stateless
+ * token cannot know that an account was disabled a minute ago, or that she
+ * hit "sign out everywhere". That is what this does, where the database is
+ * reachable.
+ *
+ * Memoised per request with React's `cache()`. Seven pieces of the layout —
+ * the side nav, the tab bar, the greeting, the bubble, the daily fact, the
+ * shipped note, the theme — each ask who she is, and before this every one
+ * of them ran the same SELECT: fourteen identical queries per page, two of
+ * which were all that was needed. The cache is scoped to the request, so a
+ * disabled account is still caught on its next page, not its next deploy.
  */
-export async function currentUser(): Promise<User | null> {
+export const currentUser = cache(async (): Promise<User | null> => {
   const secret = process.env.AUTH_SECRET;
   if (!secret) return null;
 
@@ -24,12 +32,12 @@ export async function currentUser(): Promise<User | null> {
 
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
   return accountAccepts(user ?? null, session) ? user : null;
-}
+});
 
 /**
  * The half of the check the edge cannot do.
  *
- * Middleware verifies the signature and the expiry, because it has no
+ * The proxy verifies the signature and the expiry, because it has no
  * database. Whether the account still exists, is still enabled, and has not
  * been signed out everywhere since the token was issued is decided here — and
  * both layers are load-bearing, so this is pure and tested rather than four

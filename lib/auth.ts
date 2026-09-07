@@ -1,6 +1,6 @@
 /**
  * Single-user passphrase auth. Deliberately dependency-free and built on Web
- * Crypto only, so the exact same code runs in edge middleware (where the gate
+ * Crypto only, so the exact same code runs in the proxy (where the gate
  * has to live, before any route code executes) and in Node route handlers.
  *
  * The cookie is a stateless signed token: `<expiryMs>.<base64url hmac>`. No

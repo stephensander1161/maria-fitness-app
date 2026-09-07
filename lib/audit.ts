@@ -56,9 +56,14 @@ export type AuditEventName =
    *  anyone reads this, and that is the point. */
   | "account.deleted"
   | "onboarding.completed"
-  | "spend.ceiling_reached";
+  | "spend.ceiling_reached"
+  /** The nightly copy to the blob store: where it went and how big, never
+   *  what. A failure is warn-level so the console can say how stale the last
+   *  good one is — a backup job that fails silently is worse than none. */
+  | "backup.taken"
+  | "backup.failed";
 
-const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "signup.failure", "data.deleted"];
+const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "signup.failure", "data.deleted", "backup.failed"];
 
 /** Never let logging break the request it is describing. */
 export async function audit(

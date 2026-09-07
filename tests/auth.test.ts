@@ -183,7 +183,7 @@ describe("verifySessionToken", () => {
 
   it("fails closed on an empty secret", async () => {
     // Web Crypto refuses a zero-length HMAC key, so this rejects rather than
-    // resolving. Callers guard `!secret` before ever getting here (middleware
+    // resolving. Callers guard `!secret` before ever getting here (the proxy
     // returns 503), and the important property is that it can never return
     // true; if that guard were ever removed this would surface as a 500, not
     // as an open door.

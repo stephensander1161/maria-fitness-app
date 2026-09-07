@@ -25,11 +25,11 @@
     "restore": "tsx --env-file=.env scripts/restore.ts",
     "user": "tsx --env-file=.env scripts/users.ts",
     "tenancy": "tsx --env-file=.env scripts/tenancy-check.ts",
-    "migrate:accounts": "tsx --env-file=.env scripts/migrate-to-accounts.ts",
     "requests": "tsx --env-file=.env scripts/pending-requests.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
+    "@vercel/blob": "^2.8.0",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.3",
     "postgres": "^3.4.9",

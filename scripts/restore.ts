@@ -11,22 +11,10 @@ import fs from "node:fs";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import {
-  complaints, cycleEvents, factViews, feedback, friendships, goals, mealLogs, mealPlans, meals, measurements, messages,
-  pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
-  pushSubscriptions, savedMeals, setLogs, shoppingExtras,
-  usageDaily, weighIns, workouts,
-} from "@/lib/db/schema";
+import { profiles } from "@/lib/db/schema";
+import { BACKUP_TABLES as TABLES } from "@/lib/backup";
 
-// Same order as backup.ts: parents before children.
-const TABLES = {
-  profiles, weighIns, measurements, goals, photos, complaints, cycleEvents,
-  plans, planDays, planExercises,
-  workouts, setLogs,
-  mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
-  messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
-  friendships,
-};
+// The same list the dump is taken from, so the two cannot drift.
 
 const ORDER = Object.keys(TABLES) as (keyof typeof TABLES)[];
 

@@ -47,7 +47,7 @@ skipping. That is the main thing this has over the unattended version — use it
 Still refuse, and explain, anything that:
 
 - needs a destructive migration — dropping or retyping a column with data in it;
-- touches auth, spend limits, `middleware.ts` `PUBLIC_PATHS`, the audit log, or
+- touches auth, spend limits, `proxy.ts` `PUBLIC_PATHS`, the audit log, or
   anything under "Security invariants" in CLAUDE.md.
 
 Those want a person deciding, not a skill.

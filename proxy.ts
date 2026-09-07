@@ -5,8 +5,9 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
  * The gate. Everything is denied by default — new routes are protected the
  * moment they exist, without anyone remembering to add them to a list.
  *
- * Runs on the edge before any page or route handler, so an unauthenticated
- * request never reaches the database or the Anthropic API.
+ * Runs before any page or route handler, so an unauthenticated request never
+ * reaches the database or the Anthropic API. It deliberately has no database
+ * of its own: signature and expiry only, and lib/session.ts does the rest.
  */
 const PUBLIC_PATHS = new Set([
   "/login",
@@ -39,9 +40,17 @@ const PUBLIC_PATHS = new Set([
   // browser drops the registration. It contains no data of hers and caches
   // only content-hashed build assets — see public/sw.js.
   "/sw.js",
+  // Scheduled jobs. Vercel's scheduler has no session, so the gate has to let
+  // these through — and each route is its own guard: it refuses without a
+  // CRON_SECRET and refuses a caller who does not present it. Listed exactly,
+  // never as a prefix, and tests/invariants.test.ts checks that every path
+  // under app/api/cron carries that guard. Neither reached its handler before
+  // this: the gate answered 401 first, and the reminder never sent.
+  "/api/cron/reminders",
+  "/api/cron/backup",
 ]);
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
@@ -73,6 +82,6 @@ export const config = {
   // Everything except Next's own static output and the icon.
   // Only Next's own immutable build output is skipped, and only with the
   // trailing slash so /_next/staticfoo is still gated. Everything else runs
-  // through middleware and is matched against PUBLIC_PATHS exactly.
+  // through here and is matched against PUBLIC_PATHS exactly.
   matcher: ["/((?!_next/static/|_next/image/).*)"],
 };

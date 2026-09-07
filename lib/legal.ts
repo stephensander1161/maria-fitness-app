@@ -31,7 +31,7 @@ export const THIRD_PARTIES = [
   },
   {
     name: "Vercel",
-    what: "Hosts the app and serves every request. Vercel attaches an approximate location (city, region, country) to requests, which the app records only in its security log.",
+    what: "Hosts the app and serves every request, and holds a nightly backup of the database and your progress photos in private storage that only the app can read. Vercel attaches an approximate location (city, region, country) to requests, which the app records only in its security log.",
     optional: false,
   },
   {

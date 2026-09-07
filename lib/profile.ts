@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, type Profile } from "@/lib/db/schema";
@@ -8,8 +9,14 @@ import type { Units } from "@/lib/units";
 /**
  * Her training profile, created on first sign-in. One profile per account: the
  * account is who you are, the profile is what you're working on.
+ *
+ * Memoised per request, like `currentUser` — the layout asks for it seven
+ * times a page. The consequence to remember: **a write in the same request is
+ * not seen by a later `getProfile`.** Anything that updates the profile and
+ * then needs the new row reads it back with `getProfileById`, which is not
+ * cached. The onboarding route is the one place that does this.
  */
-export async function getProfile(userId: string): Promise<Profile> {
+export const getProfile = cache(async (userId: string): Promise<Profile> => {
   const [existing] = await db
     .select()
     .from(profiles)
@@ -20,7 +27,7 @@ export async function getProfile(userId: string): Promise<Profile> {
 
   const [created] = await db.insert(profiles).values({ userId }).returning();
   return created;
-}
+});
 
 export async function getProfileById(id: string): Promise<Profile | null> {
   const [p] = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);

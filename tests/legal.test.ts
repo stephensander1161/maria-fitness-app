@@ -58,7 +58,7 @@ suite("the privacy policy is true", () => {
   });
 
   it("is public and chromeless, because a reviewer has no account", () => {
-    const mw = read("middleware.ts");
+    const mw = read("proxy.ts");
     expect(mw).toMatch(/"\/privacy",/);
     expect(mw).toMatch(/"\/terms",/);
     expect(isChromeless("/privacy")).toBe(true);

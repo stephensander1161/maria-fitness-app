@@ -538,7 +538,7 @@ streak, lifetime sessions, rank and the week's heaviest lifts.
 
 ## The owner's console
 
-`/admin`, gated by `requireOwner()` on `users.role`. Middleware only proves a
+`/admin`, gated by `requireOwner()` on `users.role`. The proxy only proves a
 valid session, and every member has one, so the role check is the whole gate.
 `npm run user -- role <email> owner|member` grants it and refuses to remove
 the last owner.
@@ -614,8 +614,8 @@ account is who you are, the profile is what you're working on.
 
 - Server components call `requireUser()`; API routes call `currentUser()` and
   return 401. Never call `getProfile()` without a user id — it is scoped now.
-- Middleware only verifies the session signature and expiry, because the edge
-  has no database. Disabled accounts and "sign out everywhere" are enforced in
+- The proxy only verifies the session signature and expiry; it has no
+  database on purpose. Disabled accounts and "sign out everywhere" are enforced in
   `lib/session.ts`. Both layers are load-bearing; do not drop either.
 - `users` is deliberately out of the model's reach (asserted in
   tests/tool-coverage.test.ts). No prompt should be able to change a password,
@@ -654,9 +654,12 @@ document is worse than none, because it gets believed.
 
 ## Security invariants — do not regress these
 
-- `middleware.ts` denies by default. Never convert it to an allow-list of
+- `proxy.ts` denies by default. Never convert it to an allow-list of
   protected paths; new routes must be protected automatically. Adding to
   `PUBLIC_PATHS` exposes something publicly — treat it as a deliberate decision.
+  The cron paths are listed there because the scheduler has no session; each
+  one is its own guard through `cronRefusal()` in `lib/cron.ts`, and the
+  invariants test checks that every route under `app/api/cron` calls it.
 - A missing `AUTH_SECRET` must fail closed (503), never fall open.
 - Every model call goes through a spend gate **before** it is made, and every
   response's usage through `recordUsage()` after — including inside the tool

@@ -27,7 +27,7 @@ export function LoginForm({ google }: { google: boolean }) {
       });
       if (res.ok) {
         // The Set-Cookie lands before this runs, so the navigation carries the
-        // session and middleware lets it through. refresh() drops the cached
+        // session and the proxy lets it through. refresh() drops the cached
         // login render so the back button can't show a stale gate.
         router.replace("/");
         router.refresh();

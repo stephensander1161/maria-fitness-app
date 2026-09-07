@@ -68,7 +68,7 @@ suite("every model call is gated before it is made", () => {
 });
 
 suite("the gate denies by default", () => {
-  const src = read("middleware.ts");
+  const src = read("proxy.ts");
 
   it("is a public allowlist, never a protected list", () => {
     // An allowlist of *protected* paths means a new route is public until
@@ -91,6 +91,10 @@ suite("the gate denies by default", () => {
       "/api/auth/google/callback",
       // Sign-up claims an invitation; it cannot add an address. lib/signup.ts.
       "/api/auth/signup",
+      // The scheduler has no session. Each of these is its own guard — see
+      // the next test — and neither reached its handler before it was listed.
+      "/api/cron/backup",
+      "/api/cron/reminders",
       "/api/login",
       "/apple-icon",
       "/favicon.ico",
@@ -110,6 +114,47 @@ suite("the gate denies by default", () => {
   it("fails closed when AUTH_SECRET is missing", () => {
     expect(src).toMatch(/if \(!secret\)/);
     expect(src).toMatch(/status: 503/);
+  });
+
+  it("every cron route is public exactly once and guards itself", () => {
+    // A cron path is let through the gate without a session. The only thing
+    // standing between the internet and "take a backup now" or "send every
+    // reminder" is the route's own bearer check, so each one must call it —
+    // and each one listed must exist, or the list is a door to nothing.
+    const listed = [...src.matchAll(/^\s*"(\/api\/cron\/[^"]*)",/gm)].map((m) => m[1]).sort();
+    const onDisk = walk("app/api/cron")
+      .filter((f) => /route\.tsx?$/.test(f))
+      .map((f) => "/" + path.dirname(f).replace(/^app\//, ""))
+      .sort();
+    expect(listed).toEqual(onDisk);
+    for (const f of walk("app/api/cron").filter((f) => /route\.tsx?$/.test(f))) {
+      const route = read(f);
+      expect(route, `${f} must refuse through cronRefusal() before doing anything`).toMatch(/cronRefusal\(/);
+      // The refusal has to come before the work, not after it.
+      expect(route.indexOf("cronRefusal(")).toBeLessThan(route.search(/await (?!cronRefusal)/));
+    }
+    const guard = read("lib/cron.ts");
+    expect(guard).toMatch(/if \(!secret\)/);
+    expect(guard).toMatch(/status: 503/);
+  });
+});
+
+suite("who she is is asked once a page", () => {
+  it("currentUser and getProfile are memoised per request", () => {
+    // Seven pieces of the layout ask, and before this each ran its own
+    // SELECT: fourteen queries a page for two answers. `cache()` is scoped to
+    // the request, so nothing about revocation changes.
+    expect(read("lib/session.ts")).toMatch(/export const currentUser = cache\(/);
+    expect(read("lib/profile.ts")).toMatch(/export const getProfile = cache\(/);
+  });
+
+  it("a route that writes the profile and reads it back does so by id", () => {
+    // The memo means a later getProfile in the same request returns the row
+    // from before the update. The onboarding route is the one that does this.
+    const onboard = read("app/api/onboard/route.ts");
+    const after = onboard.slice(onboard.indexOf("update_profile"));
+    expect(after).not.toMatch(/await getProfile\(/);
+    expect(after).toMatch(/getProfileById\(/);
   });
 });
 

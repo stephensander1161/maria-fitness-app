@@ -1,7 +1,10 @@
 import { ImageResponse } from "next/og";
 import { BARBELL, BRAND_ACCENT, BRAND_ACCENT_FADED, BRAND_INK } from "@/lib/brand";
 
-export const runtime = "edge";
+// Node, like everything else. The two icon routes were the only edge
+// functions in the app — a second runtime for two PNGs, with its own cold
+// starts and its own subset of Node.
+export const runtime = "nodejs";
 
 /**
  * The home-screen icon, at the size Android asks for.

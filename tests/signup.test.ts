@@ -141,7 +141,7 @@ suite("the route applies the decision, and nothing looser", () => {
 
 suite("the screen is reachable and chromeless", () => {
   it("is public, both the page and its door", () => {
-    const mw = read("middleware.ts");
+    const mw = read("proxy.ts");
     expect(mw).toMatch(/"\/signup",/);
     expect(mw).toMatch(/"\/api\/auth\/signup",/);
   });

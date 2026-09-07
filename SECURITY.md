@@ -6,7 +6,7 @@ your Anthropic credits.
 
 ## Perimeter
 
-`middleware.ts` runs on the edge and **denies by default**. Only `/login`,
+`proxy.ts` runs before every handler and **denies by default**. Only `/login`,
 `/api/login`, `/robots.txt` and the PWA manifest are public; every other path —
 including any route added in future — is gated without anyone remembering to
 list it. An unauthenticated request never reaches the database or the model.
@@ -43,7 +43,7 @@ between an invitation and its first use, during which anyone who knew the
 address could claim it; invite people when they are about to sign in, and
 `npm run user -- list` shows who has and hasn't.
 
-Sessions are checked in two layers. The edge middleware verifies the signature
+Sessions are checked in two layers. The proxy verifies the signature
 and expiry — cheap, and enough to turn away anyone without a valid token before
 any code runs. A stateless token cannot know that an account was disabled a
 minute ago, so `lib/session.ts` re-checks in Node, where the database is

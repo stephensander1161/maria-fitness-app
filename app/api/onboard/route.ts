@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { currentUser } from "@/lib/session";
-import { getProfile, profileToday } from "@/lib/profile";
+import { getProfile, getProfileById, profileToday } from "@/lib/profile";
 import { weightIn } from "@/lib/units";
 import { nutritionTargets } from "@/lib/nutrition";
 import { runTool } from "@/lib/tools";
@@ -138,7 +138,10 @@ export async function POST(req: Request) {
   });
 
   const week = weekStart(today);
-  const fresh = await getProfile(user.id); // re-read: the update above is what selection matches on
+  // Re-read: the update above is what selection matches on. By id, because
+  // getProfile is memoised per request and would hand back the row from
+  // before the update.
+  const fresh = (await getProfileById(profile.id))!;
 
   // Templates first. Instantiating a ready-made week is instant and cannot
   // fail, where a model call is ~45 seconds and occasionally returns something

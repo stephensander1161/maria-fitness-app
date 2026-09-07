@@ -108,6 +108,8 @@ async function draft<S extends z.ZodType>(
     }],
     tool_choice: { type: "tool", name },
     messages: [{ role: "user", content: prompt }],
+  }, { signal: AbortSignal.timeout(PLANNER_DEADLINE_MS) }).catch((err: unknown) => {
+    throw plannerError(err);
   });
 
   // Planner spend is real and belongs on the same ledger as the chat turns.
@@ -203,6 +205,25 @@ const MEAL_SYSTEM = `You write weekly meal plans for one person, to be executed 
 Hard requirements: every day's meals must sum to within 100 kcal of the calorie target and must reach the protein target. A plan that quietly lands under target every day is one she will be hungry on and abandon. Never use an ingredient she has said she dislikes or cannot eat. Match her cooking confidence — if it is minimal, that means assembly, one pans, and shortcuts like rotisserie chicken, not knife skills.
 
 Vary the week. Repeating the same four dinners is how people stop cooking.`;
+
+/**
+ * A deadline inside the function's own. The route is allowed 60 seconds
+ * (vercel.json); a planner call with no timeout of its own would run to the
+ * platform's wall and be cut off there, and what she saw then was a spinner
+ * that never resolved and no message — the SDK would still have retried a
+ * slow request twice more if left to itself. Forty-five leaves room for the
+ * work around the call and turns the failure into a sentence.
+ */
+export const PLANNER_DEADLINE_MS = 45_000;
+
+/** Aborts become a sentence she can act on; everything else passes through. */
+export function plannerError(err: unknown): Error {
+  const name = err instanceof Error ? err.name : "";
+  if (name === "AbortError" || name === "TimeoutError" || name === "APIUserAbortError") {
+    return new Error("The planner took too long to answer. Try again in a moment — nothing was changed.");
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
 
 export async function planWeek(
   profile: Profile,

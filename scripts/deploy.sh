@@ -22,8 +22,8 @@ read_env() {
 }
 
 REQUIRED=(ANTHROPIC_API_KEY DATABASE_URL AUTH_SECRET APP_TIMEZONE)
-# APP_PASSPHRASE is only read by the one-time migration to accounts; it is
-# not needed in production and is better deleted once accounts exist.
+# CRON_SECRET and BLOB_READ_WRITE_TOKEN live in the Vercel project, not .env:
+# the scheduler and the blob store are production-only (see .env.example).
 OPTIONAL=(DAILY_COST_LIMIT_MICROS MAX_CHAT_PER_DAY MAX_CHAT_PER_MINUTE COACH_MODEL PLANNER_MODEL
           GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET)
 

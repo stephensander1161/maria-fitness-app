@@ -80,7 +80,7 @@ tab shows. Nothing links back to the Coach tab to ask a question.
 
 [COMPLIANCE.md](./COMPLIANCE.md) inventories the security controls against the
 SOC 2 Common Criteria — including, honestly, the ones that don't exist. The app
-is gated by edge middleware that denies every path by default, behind a
+is gated by a proxy that denies every path by default, behind a
 passphrase and a signed httpOnly cookie. A hard daily spend ceiling ($0.50 by
 default) is enforced before any model call, with real token usage recorded from
 every response. Full details in [SECURITY.md](./SECURITY.md).
@@ -138,15 +138,41 @@ anyone's personal data. Grant the role with
 ## Backups
 
 Neon's free tier has no point-in-time recovery, so a bad migration or a wrong
-`DELETE` is unrecoverable. Take a backup before anything destructive:
+`DELETE` is unrecoverable. Two copies exist:
+
+- **Nightly, off the machine.** `/api/cron/backup` runs at 09:00 UTC
+  (vercel.json) and writes the same dump to a *private* Vercel Blob store,
+  keeping thirty days and never fewer than three. Each run leaves a
+  `backup.taken` row in the audit log — or `backup.failed`, which the admin
+  console shows — so a job that stops is noticed rather than assumed.
+- **By hand, before anything destructive:**
 
 ```bash
-npm run backup                                   # -> backups/coach-<stamp>.json
-npm run restore -- backups/coach-20260831T2245.json
+npm run backup                                   # -> backups/plate-<stamp>.json
+npm run restore -- backups/plate-20260907T0900.json
+npx vercel blob get backups/plate-2026-09-07.json   # fetch a stored one
 ```
 
 `db:reset` refuses to run without `--yes` for the same reason. Backups contain
-her personal data and are gitignored — copy them somewhere durable.
+her personal data and are gitignored. `lib/backup.ts` is the one list of what
+goes in; the restore script imports it, so the two cannot drift.
+
+## A database for development
+
+`next dev` used to point at production, and everything done locally landed in
+the rows real people read. Make a Neon branch of the main database and give
+it to the dev server:
+
+```bash
+neon branches create --name dev          # or Neon console → Branches → New
+# paste its pooled connection string into .env as DATABASE_URL_DEV
+DATABASE_URL=$DATABASE_URL_DEV npm run db:push   # schema changes go to the branch first
+```
+
+Only the dev server reads `DATABASE_URL_DEV`. Scripts — `npm run requests`,
+`npm run user`, `npm run backup` — mean production and keep using
+`DATABASE_URL`. Without the variable the dev server still starts, on
+production, and prints a warning saying so.
 
 ## Feedback loop
 
