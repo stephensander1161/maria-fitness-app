@@ -94,16 +94,27 @@ suite("where he is", () => {
   });
 
   it("runs laps end to end and turns round", () => {
-    const s = activityState("laps", 0.5);
+    // From the near end there is no run-up, so this is a clean lap: out in
+    // four seconds, back in the next four.
+    const s = activityState("laps", 0.5, NEAR);
     const out = travel(s, 0);
     const far = travel(s, 4);
     const back = travel(s, 8);
-    expect(out.x).toBeLessThan(far.x);
+    expect(out.x).toBeCloseTo(NEAR, 5);
     expect(far.x).toBeGreaterThan(80);
-    expect(back.x).toBeCloseTo(out.x, 0);
+    expect(back.x).toBeCloseTo(NEAR, 0);
     // He faces the way he is going.
     expect(travel(s, 2).facing).toBe(1);
     expect(travel(s, 6).facing).toBe(-1);
+  });
+
+  it("and runs *to* the track from wherever he was standing", () => {
+    // Starting mid-floor, the first thing he does is cover the ground to an
+    // end — at lap pace, so it reads as part of the run rather than a jump.
+    const s = activityState("laps", 0.5, 50);
+    expect(travel(s, 0).x).toBeCloseTo(50, 5);
+    expect(travel(s, 1).x).toBeGreaterThan(50);
+    expect(travel(s, 2).x).toBeCloseTo(FAR, 0);
   });
 
   it("stays put for everything that is not travelling", () => {
@@ -489,5 +500,45 @@ suite("what he says and how big he is", () => {
     expect(c).toMatch(/const hungry = fullness !== null && fullness < 0\.7/);
     expect(c).toMatch(/\{hungry && \(/);
     expect(c).toMatch(/href="\/eat"/);
+  });
+});
+
+suite("he never skips", () => {
+  const near = (a: number, b: number, within = 0.6) => Math.abs(a - b) <= within;
+
+  it("starts every activity from where the last one left him", () => {
+    // The one that showed: laps returned the near end at elapsed 0 whatever
+    // `x` was, so finishing a set at the far end and starting a lap made him
+    // vanish from there and reappear at the other end of the strip.
+    for (const activity of ["walk", "laps", "set", "idle", "wave", "sleep", "think"] as Activity[]) {
+      for (const from of [8, 20, 50, 74, 92]) {
+        const s = activityState(activity, 0.5, from);
+        expect(travel(s, 0).x, `${activity} from ${from}`).toBeCloseTo(from, 5);
+      }
+    }
+  });
+
+  it("and moves continuously once he is going", () => {
+    // No frame may jump further than a stride. Sampled finely enough that a
+    // teleport of any size fails.
+    for (const activity of ["walk", "laps"] as Activity[]) {
+      for (const from of [8, 33, 61, 92]) {
+        const s = activityState(activity, 0.5, from);
+        let last = travel(s, 0).x;
+        for (let t = 0; t <= s.duration + 8; t += 0.05) {
+          const now = travel(s, t).x;
+          expect(near(now, last, 2), `${activity} from ${from} at ${t.toFixed(2)}`).toBe(true);
+          last = now;
+        }
+      }
+    }
+  });
+
+  it("runs the full floor once he has arrived", () => {
+    // The run-up must not become the whole lap: he still uses both ends.
+    const s = activityState("laps", 0.5, 50);
+    const xs = Array.from({ length: 400 }, (_, i) => travel(s, i * 0.05).x);
+    expect(Math.min(...xs)).toBeLessThan(NEAR + 2);
+    expect(Math.max(...xs)).toBeGreaterThan(FAR - 2);
   });
 });

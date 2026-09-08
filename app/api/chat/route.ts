@@ -8,9 +8,26 @@ import {
   buildPageContext, contextForPath, OPINION_PROMPT, type OpinionPage,
 } from "@/lib/page-context";
 
-/** Server-authored, so the browser can never put words in the system's mouth. */
-const OPENING_PROMPT =
-  "[The app has just been opened for the very first time. Introduce yourself briefly and warmly, then begin onboarding by asking what she is hoping to change and why it matters to her. Do not ask for numbers yet.]";
+/**
+ * Server-authored, so the browser can never put words in the system's mouth.
+ *
+ * There are two of these, and which one is sent turns on whether the account
+ * is actually onboarded — never on whether the transcript is empty. Clearing
+ * the conversation empties the transcript, and for months that was read as
+ * "the app has just been opened for the very first time": the coach was told
+ * to onboard someone with four months of training and a week already built,
+ * saw the state block flatly contradict it, and stopped to ask the user which
+ * was true. He was right, and it should never have been asked of him.
+ *
+ * No gendered pronouns in either. This app was written for one person and
+ * says "she" throughout; these two lines are sent to every account, and the
+ * first thing the coach did with a male user was point that out.
+ */
+const FIRST_RUN_PROMPT =
+  "[The app has just been opened for the very first time and this account has not been set up. Introduce yourself briefly and warmly, then begin onboarding by asking what they are hoping to change and why it matters to them. Do not ask for numbers yet.]";
+
+const RETURNING_PROMPT =
+  "[A fresh conversation with someone already set up and training — the previous transcript was cleared or has expired. Do NOT onboard them and do NOT ask what they want to achieve or how they train: it is all on file and in the state above. Greet them by name in one short line and go straight to what is in front of them today.]";
 
 export const runtime = "nodejs";
 // Hobby tier caps function duration at 60s. A coaching turn with tool calls
@@ -47,7 +64,9 @@ export async function POST(req: Request) {
     if (await hasHistory(profile.id)) {
       return Response.json({ error: "Already started" }, { status: 409 });
     }
-    text = OPENING_PROMPT;
+    // Onboarded is what makes it a first run. An empty transcript only means
+    // there is no conversation to continue.
+    text = profile.onboardedAt ? RETURNING_PROMPT : FIRST_RUN_PROMPT;
     silent = true;
   } else if (opinion) {
     if (!["train", "plan", "progress"].includes(opinion)) {

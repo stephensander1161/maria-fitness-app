@@ -420,12 +420,32 @@ export function travel(state: CompanionState, elapsed: number): { x: number; fac
     return { x: x + (toX - x) * t, facing: toX >= x ? 1 : -1 };
   }
 
-  // A lap every four seconds, ping-ponging between the ends of the stage.
+  // Laps: he runs to the far end, then ping-pongs between the two.
+  //
+  // The run-up is the whole point of this branch. It used to return NEAR at
+  // elapsed 0 whatever `x` was, so finishing a set at the far end and
+  // starting a lap made him vanish from there and reappear at the other end
+  // of the strip mid-stride — the skip that made him look broken. He now sets
+  // off from wherever he is, at lap pace, and only starts ping-ponging once
+  // he has arrived.
   const LAP_S = 4;
-  const cycle = (elapsed % (LAP_S * 2)) / LAP_S;
+  const speed = (FAR - NEAR) / LAP_S;
+  // Toward whichever end he is not at, so the run-up is a run rather than a
+  // step.
+  const first = x <= 50 ? FAR : NEAR;
+  const runUp = Math.abs(first - x) / speed;
+
+  if (elapsed < runUp) {
+    const t = elapsed / runUp;
+    return { x: x + (first - x) * t, facing: first >= x ? 1 : -1 };
+  }
+
+  const other = first === FAR ? NEAR : FAR;
+  const cycle = ((elapsed - runUp) % (LAP_S * 2)) / LAP_S;
   const out = cycle <= 1;
-  const t = out ? cycle : 2 - cycle;
-  return { x: NEAR + (FAR - NEAR) * t, facing: out ? 1 : -1 };
+  const [from, to] = out ? [first, other] : [other, first];
+  const t = out ? cycle : cycle - 1;
+  return { x: from + (to - from) * t, facing: to >= from ? 1 : -1 };
 }
 
 /**
