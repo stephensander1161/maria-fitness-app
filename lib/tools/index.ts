@@ -143,6 +143,7 @@ const all: Tool[] = [
   feedback.submitFeedback,
   training.removeExerciseFromDay,
   training.reorderDayExercises,
+  training.setExerciseTarget,
   foodTools.findRecipes,
   foodTools.lookupFood,
   nutrition.logMeal,

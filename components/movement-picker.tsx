@@ -45,6 +45,12 @@ export function MovementPicker({
 
   const q = query.trim().toLowerCase();
 
+  /** The one she has chosen, so its cues can be shown before she commits. */
+  const picked = useMemo(
+    () => pickable.groups.flatMap((g) => g.items).find((i) => i.slug === value) ?? null,
+    [pickable, value],
+  );
+
   const shown = useMemo(() => {
     if (q) {
       // Spelling-tolerant: "pull ups", "pull-up" and "pullup" are one search.
@@ -139,6 +145,28 @@ export function MovementPicker({
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* How to do the one she has picked, before she adds it. Choosing a
+          movement she has never done from a name and a wireframe is a guess,
+          and the guide this used to link to is part of the card now — which
+          is no help at the moment of choosing. */}
+      {picked && picked.formCues.length > 0 && (
+        <div className="mt-2 rounded-xl border border-line bg-raised/50 p-3">
+          <p className="mb-1.5 text-[10px] uppercase tracking-widest text-faint">{picked.name}</p>
+          <ol className="space-y-1 text-[12px] leading-relaxed text-muted">
+            {picked.formCues.slice(0, 3).map((c, n) => (
+              <li key={c} className="flex gap-2">
+                <span className="shrink-0 tabular-nums text-faint">{n + 1}</span>{c}
+              </li>
+            ))}
+          </ol>
+          {picked.safetyNote && (
+            <p className="mt-2 rounded-lg border border-hold/40 bg-hold-soft px-2.5 py-1.5 text-[11px] leading-relaxed text-hold">
+              {picked.safetyNote}
+            </p>
+          )}
         </div>
       )}
 

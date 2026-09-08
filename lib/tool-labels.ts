@@ -53,6 +53,7 @@ export const TOOL_LABELS: Record<string, string> = {
   estimate_recipe_from_photo: "reading the recipe",
   request_top_up: "asking for more allowance",
   reorder_day_exercises: "reordering the day",
+  set_exercise_target: "changing the target",
   lookup_food: "looking up the macros", find_recipes: "finding recipes",
   search_food_library: "searching the food library",
   search_ingredient: "looking that ingredient up",

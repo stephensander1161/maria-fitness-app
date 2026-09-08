@@ -190,8 +190,10 @@ suite("the movement she is working on comes forward", () => {
   it("holds its place in the grid so nothing jumps", () => {
     expect(card).toMatch(/setCollapsedHeight\(shell\.current\?\.offsetHeight\)/);
     expect(card).toMatch(/style=\{\{ height: collapsedHeight \}\}/);
-    // Every way in measures first.
-    expect(card).not.toMatch(/onClick=\{\(\) => setOpen\(true\)\}/);
+    // Every way into the *card* measures first. (The target editor has a
+    // setOpen of its own, which is a different, smaller thing.)
+    const cardOnly = card.slice(0, card.indexOf("function TargetEditor"));
+    expect(cardOnly).not.toMatch(/onClick=\{\(\) => setOpen\(true\)\}/);
   });
 
   it("animates, and stops when she has asked for less motion", () => {

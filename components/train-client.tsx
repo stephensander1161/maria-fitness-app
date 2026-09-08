@@ -536,6 +536,89 @@ export function TrainClient({
 }
 
 /**
+ * Changing what a movement is aiming for, after the fact.
+ *
+ * A target written by the planner last Sunday is a guess about a Tuesday it
+ * had not seen. Until now, changing one meant rebuilding the whole day or
+ * asking the coach to do it — for a number sitting right there on the card.
+ *
+ * Only the fields she touches are sent (`set_exercise_target` leaves the rest
+ * alone), so nudging the reps cannot quietly reset a weight.
+ */
+function TargetEditor({
+  slug, sets, reps, weight, unit, isHold, holdSeconds, dayOfWeek, onSaved,
+}: {
+  slug: string;
+  sets: number;
+  reps: number;
+  weight: number | null;
+  unit: string;
+  isHold: boolean;
+  holdSeconds: number | null;
+  dayOfWeek?: number;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [s, setS] = useState(sets);
+  const [r, setR] = useState(isHold ? holdSeconds ?? 30 : reps);
+  const [w, setW] = useState(weight ?? 0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await action("set_exercise_target", {
+        slug,
+        sets: s,
+        ...(isHold ? { holdSeconds: r } : { reps: r }),
+        weight: w > 0 ? w : null,
+        ...(dayOfWeek === undefined ? {} : { dayOfWeek }),
+      });
+      setOpen(false);
+      onSaved();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't save."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mx-4 mb-3 self-start rounded-lg border border-dashed border-edge px-3 py-1.5 text-[12px] text-muted active:bg-raised"
+      >
+        Change the target
+      </button>
+    );
+  }
+
+  return (
+    <div className="mx-4 mb-3 space-y-2 rounded-xl border border-line bg-raised/60 p-3">
+      <div className="grid grid-cols-3 gap-2">
+        <NumberField label="Sets" value={s} onChange={setS} step={1} min={1} max={20} />
+        <NumberField label={isHold ? "Seconds" : "Reps"} value={r} onChange={setR} step={isHold ? 5 : 1} min={1} max={900} />
+        <NumberField label={`Weight (${unit})`} value={w} onChange={setW} step={w >= 100 ? 5 : w >= 20 ? 2.5 : 1} min={0} max={2000} decimals />
+      </div>
+      {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
+      <div className="flex gap-2">
+        <button onClick={save} disabled={saving}
+          className="flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
+          {saving ? "Saving…" : "Save target"}
+        </button>
+        <button onClick={() => setOpen(false)} disabled={saving}
+          className="rounded-lg border border-edge px-3 text-[13px] text-muted disabled:opacity-50">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Start, a running clock, finish.
  *
  * Top of the screen and left of everything, because it is the frame the rest
@@ -1136,6 +1219,9 @@ export function ExerciseCard({
             training.
           */}
           <p className="mt-0.5 text-[13px] text-muted tabular">
+            {/* Tappable when the card is open: a target written a week ago by
+                a planner is a guess, and changing it meant rebuilding the day
+                or asking the coach. */}
             Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
             {(next ? next.target.weight : exercise.targetWeight) !== null &&
               ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
@@ -1285,6 +1371,20 @@ export function ExerciseCard({
             {removing ? "…" : "Remove"}
           </button>
         </div>
+      )}
+
+      {open && editable && (
+        <TargetEditor
+          slug={exercise.slug}
+          sets={exercise.targetSets}
+          reps={exercise.targetReps}
+          weight={exercise.targetWeight}
+          unit={unit}
+          isHold={exercise.isHold}
+          holdSeconds={exercise.targetHoldSeconds}
+          dayOfWeek={dayOfWeekOf(date)}
+          onSaved={onRemoved}
+        />
       )}
 
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}

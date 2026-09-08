@@ -430,6 +430,10 @@ export type PickableExercise = {
   muscles: string[];
   /** What people call it in a gym — searched, never shown. */
   tags: string[];
+  /** The setup cues, shown when she picks one: choosing a movement she has
+   *  never done from a name and a wireframe is a guess. */
+  formCues: string[];
+  safetyNote: string | null;
 };
 
 /**
@@ -452,6 +456,7 @@ export async function pickableExercises(equipment: string[]): Promise<Pickable> 
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       tags: exercises.tags, requires: exercises.requires,
+      formCues: exercises.formCues, safetyNote: exercises.safetyNote,
     })
     .from(exercises)
     .orderBy(asc(exercises.name));
@@ -498,8 +503,9 @@ export async function pickableExercises(equipment: string[]): Promise<Pickable> 
   const groups = LIBRARY_GROUP_ORDER.flatMap((group) => {
     const items = usable
       .filter((r) => groupForExercise(r) === group)
-      .map(({ slug, name, category, primaryMuscles, tags }) => ({
+      .map(({ slug, name, category, primaryMuscles, tags, formCues, safetyNote }) => ({
         slug, name, category, muscles: primaryMuscles, tags,
+        formCues: formCues ?? [], safetyNote: safetyNote ?? null,
       }));
     return items.length ? [{ group, items }] : [];
   });

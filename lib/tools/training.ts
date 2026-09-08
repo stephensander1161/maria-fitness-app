@@ -737,6 +737,48 @@ export const addExerciseToDay = defineTool({
   },
 });
 
+export const setExerciseTarget = defineTool({
+  name: "set_exercise_target",
+  description:
+    "Change what a movement is aiming for on a day of the plan — sets, reps or weight — without touching anything else on it. Use this for 'make it four sets', 'drop the curls to 8 reps', 'put the squats up to 30kg'. Anything you leave out keeps its current value. Defaults to today.",
+  input: z.object({
+    slug: z.string().describe("From get_plan"),
+    sets: z.number().int().min(1).max(20).optional(),
+    reps: z.number().int().min(1).max(500).optional(),
+    holdSeconds: z.number().int().min(5).max(900).optional().describe("For a held movement, instead of reps"),
+    weight: z.number().nullable().optional().describe("Her units; null clears it back to bodyweight"),
+    dayOfWeek: z.number().optional().describe("OMIT for today. 0=Monday … 6=Sunday."),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const units = await unitsOf(ctx);
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+
+    const [row] = await db.select({ id: planExercises.id, name: exercises.name })
+      .from(planExercises)
+      .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+      .where(and(eq(planExercises.planDayId, found.day.id), eq(exercises.slug, input.slug)))
+      .limit(1);
+    if (!row) return { ok: false, error: `${input.slug} is not on ${DAY_NAMES[found.dow]}. Call get_plan for what is.` };
+
+    // Only what she named. A target update that quietly reset the fields it
+    // was not given would be a rewrite wearing the word "change".
+    const patch: Record<string, unknown> = {};
+    if (input.sets !== undefined) patch.targetSets = input.sets;
+    if (input.reps !== undefined) patch.targetReps = input.reps;
+    if (input.holdSeconds !== undefined) patch.targetHoldSeconds = input.holdSeconds;
+    if (input.weight !== undefined) {
+      patch.targetWeightKg = input.weight === null ? null : weightIn(input.weight, units);
+    }
+    if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to change — give sets, reps, hold seconds or a weight." };
+
+    await db.update(planExercises).set(patch).where(eq(planExercises.id, row.id));
+    await rationaleNoLongerApplies(found.day.planId);
+    return { ok: true, exercise: row.name, day: DAY_NAMES[found.dow], changed: Object.keys(patch).length };
+  },
+});
+
 export const reorderDayExercises = defineTool({
   name: "reorder_day_exercises",
   description:
