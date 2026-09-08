@@ -29,6 +29,8 @@ function AskForMore() {
     return <p className="mt-2 text-[13px] text-muted">{said ?? "Asked."}</p>;
   }
   return (
+    // Its own line: inline after the sentence it follows, the two ran
+    // together into "…all still work.( Ask for more today )".
     <button
       type="button"
       disabled={state === "asking"}
@@ -43,7 +45,7 @@ function AskForMore() {
           setState("asked");
         }
       }}
-      className="mt-2 rounded-full border border-miss/40 px-3 py-1 text-[13px] font-medium text-miss disabled:opacity-50"
+      className="mt-2 block rounded-full border border-miss/40 px-3 py-1 text-[13px] font-medium text-miss disabled:opacity-50"
     >
       {state === "asking" ? "Asking…" : "Ask for more today"}
     </button>
