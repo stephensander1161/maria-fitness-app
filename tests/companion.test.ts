@@ -197,26 +197,32 @@ suite("the poses", () => {
 suite("he is the way in to the coach", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
-  it("leads her to the page's own coach panel, which is the one entry point", () => {
-    // Not a floating window: the app deliberately has one coach entry per
-    // screen, and it is the one that knows what screen it is on.
+  it("opens the chat window, on every screen", () => {
+    // He used to shout at a room with nobody in it. The only listeners were
+    // the inline panels — not on every screen, and up in the header when they
+    // are — so on most screens the tap did nothing, and on the rest something
+    // opened off-screen above her.
     expect(read("components/companion.tsx")).toMatch(/new CustomEvent\("coach:open"\)/);
-    // Two shapes of coach entry across the app, and both answer him: the
-    // inline panel on the screens that have one, and the header button that
-    // opens a sheet on the screens that do not.
-    const ask = read("components/ask-coach.tsx");
-    expect(ask).toMatch(/addEventListener\("coach:open", come\)/);
-    expect(ask).toMatch(/scrollIntoView\(\{ behavior: "smooth"/);
-    expect(ask).toMatch(/data-ask-coach=""/);
-    const opinion = read("components/ai-opinion.tsx");
-    expect(opinion).toMatch(/addEventListener\("coach:open", ask\)/);
-    expect(opinion).toMatch(/data-ask-coach=""/);
+    const bubble = read("components/coach-bubble.tsx");
+    expect(bubble).toMatch(/addEventListener\("coach:open", come\)/);
+    expect(bubble).toMatch(/const come = \(\) => setOpen\(true\)/);
   });
 
-  it("does nothing on the one screen with nowhere to send her", () => {
-    // Offering a tap that does nothing is worse than not offering it.
+  it("and one surface answers, not two", () => {
+    // Both inline panels used to listen for the same event, so on a screen
+    // with one, a tap opened a panel *and* the sheet.
+    expect(read("components/ask-coach.tsx")).not.toMatch(/addEventListener\("coach:open"/);
+    expect(read("components/ai-opinion.tsx")).not.toMatch(/addEventListener\("coach:open"/);
+  });
+
+  it("is tappable without sniffing the DOM for permission first", () => {
+    // The query ran once, on the frame after mount — which on a soft
+    // navigation is before the next page has rendered. It found nothing, and
+    // rendered him aria-hidden with no handler at all.
     const c = read("components/companion.tsx");
-    expect(c).toMatch(/document\.querySelector\("\[data-ask-coach\]"\)/);
+    expect(c).not.toMatch(/document\.querySelector\("\[data-ask-coach\]"\)/);
+    expect(c).not.toMatch(/hasPanel/);
+    expect(c).toMatch(/onClick=\{\(\) => window\.dispatchEvent\(new CustomEvent\("coach:open"\)\)\}/);
     expect(c).not.toMatch(/const Stage =/);
     expect(c).toMatch(/if \(!parts\.current\.spine\?\.isConnected\)/);
   });

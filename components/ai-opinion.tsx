@@ -28,18 +28,9 @@ import { TranscriptDownload } from "./transcript-export";
 export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"; label: string }) {
   const [open, setOpen] = useState<"read" | "ask" | null>(null);
 
-  // The companion at the bottom of the page is the coach's face; tapping him
-  // opens this, which is the coach entry point this screen actually has.
-  useEffect(() => {
-    const ask = () => setOpen("ask");
-    window.addEventListener("coach:open", ask);
-    return () => window.removeEventListener("coach:open", ask);
-  }, []);
-
   return (
     <>
-      {/* `data-ask-coach` is how the companion knows this screen has
-          somewhere to send her — see components/companion.tsx. */}
+      {/* `data-ask-coach` marks this as a coach entry in the page's own flow. */}
       <div data-ask-coach="" className="flex shrink-0 items-center gap-1.5">
         <button
           onClick={() => setOpen("read")}

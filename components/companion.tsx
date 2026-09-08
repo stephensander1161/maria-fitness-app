@@ -35,7 +35,6 @@ const MAX_CREW = 25;
 
 export function Companion({ tone = "plain" }: { tone?: Tone }) {
   const path = usePathname();
-  const [hasPanel, setHasPanel] = useState(false);
   const [busy, setBusy] = useState(false);
   /**
    * How many of him there are.
@@ -72,12 +71,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     try { window.localStorage.setItem(CREW_KEY, String(next)); } catch { /* fine */ }
   }
 
-  useEffect(() => {
-    const id = window.requestAnimationFrame(
-      () => setHasPanel(Boolean(document.querySelector("[data-ask-coach]"))),
-    );
-    return () => window.cancelAnimationFrame(id);
-  }, [path]);
+
 
   useEffect(() => {
     const on = () => setBusy(true);
@@ -98,12 +92,20 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     <div className="relative mt-6 rounded-2xl border border-line/60 bg-surface/40">
       {/* The strip itself is the way in to the coach. The two little buttons
           sit on top of it and stop the tap reaching it. */}
+      {/*
+        Always the way in, on every screen.
+        This used to sniff the DOM once, on the frame after mount, for an
+        inline coach panel — and render itself aria-hidden with no handler at
+        all when it did not find one. On a soft navigation the query ran
+        before the next page had mounted, so the commonest way to arrive at a
+        screen was also the way to get a companion you could not tap.
+      */}
       <button
         type="button"
-        {...(hasPanel
-          ? { onClick: () => window.dispatchEvent(new CustomEvent("coach:open")), "aria-label": label, title: label }
-          : { "aria-hidden": true, tabIndex: -1 })}
-        className={`group block w-full px-2 py-1 ${hasPanel ? "transition-colors hover:bg-surface/60" : ""}`}
+        onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
+        aria-label={label}
+        title={label}
+        className="group block w-full px-2 py-1 transition-colors hover:bg-surface/60"
       >
         <svg
           viewBox={`0 0 ${STAGE_W} 100`}
@@ -117,7 +119,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
             <Walker key={i} index={i} tone={tone} busy={busy} crowded={crew >= CROWD} />
           ))}
         </svg>
-        {hasPanel && <span className="sr-only">{label}</span>}
+        <span className="sr-only">{label}</span>
       </button>
 
       {/* Bottom corners of his world: one fewer, one more. */}

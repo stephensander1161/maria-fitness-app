@@ -417,6 +417,15 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    ring reads as a shadow around a grey card rather than as a green one. */
 .now-glow { animation: now-glow 2.4s ease-in-out infinite; border-color: var(--color-beat); }
 
+/* The same marker, not beating.
+   Before the session is started there is no rest counting down and nothing
+   is happening, so a card pulsing at her while she reads the day is urgency
+   about a workout that has not begun. Still, it says "you are here". */
+.now-still {
+  box-shadow: 0 0 0 3px var(--color-beat), 0 0 18px 4px color-mix(in srgb, var(--color-beat) 55%, transparent);
+  border-color: var(--color-beat);
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Still unmistakable, just still. */
   .now-glow {

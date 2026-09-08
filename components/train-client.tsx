@@ -459,6 +459,7 @@ export function TrainClient({
             onRetryPending={flush}
             onRemoved={() => router.refresh()}
             upNext={currentSlug === ex.slug}
+            live={view.startedAt !== null}
             beatSeconds={beat}
           />
         )}
@@ -529,6 +530,9 @@ export function TrainClient({
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
           upNext={currentSlug === ex.slug}
+          // Still until she starts. The beat is a rest counting down; before
+          // the clock is running there is no rest and nothing to hurry for.
+          live={view.startedAt !== null}
           beatSeconds={beat}
         />
       ))}
@@ -1020,7 +1024,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
-  onLogged, onRetryPending, onRemoved, upNext = false, dragging = false, onDragStart,
+  onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
   beatSeconds: beat = BEAT_CALM_S, offsetY = 0, asPage = false, href,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
@@ -1042,6 +1046,16 @@ export function ExerciseCard({
   onRemoved: () => void;
   /** The rest running right now is counting down to this movement. */
   upNext?: boolean;
+  /**
+   * Whether the session is actually under way.
+   *
+   * The marker beats like a heart counting down a rest. Before she has
+   * started there is no rest to count down and nothing is happening, so a
+   * card sat there pulsing at her while she was reading the day — urgency
+   * about a workout that has not begun. Still, it says "you are here"; beating,
+   * it says "go now", and only one of those is true before the clock starts.
+   */
+  live?: boolean;
   /** Being dragged to a new place in the day. */
   dragging?: boolean;
   /** Absent on a day she cannot edit — no handle is drawn. */
@@ -1288,7 +1302,7 @@ export function ExerciseCard({
         // Log button off the bottom of a phone — and the long-press drag ate
         // the scroll that would have reached it.
         open ? "flex flex-col" : ""
-      } ${upNext ? "border-beat now-glow" : ""
+      } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
       style={{
         // Sized to what is on screen, not to `dvh`. Chrome on iOS resolves
@@ -1296,7 +1310,7 @@ export function ExerciseCard({
         // sheet came out taller than the visible strip and opened with its
         // own title clipped away above the address bar.
         ...(open ? { maxHeight: SHEET_MAX } : {}),
-        ...(upNext ? { animationDuration: `${beat}s` } : {}),
+        ...(upNext && live ? { animationDuration: `${beat}s` } : {}),
         ...(offsetY !== 0 || dragging
           ? {
             transform: `translateY(${offsetY}px)${dragging ? " scale(1.02)" : ""}`,

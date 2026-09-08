@@ -107,7 +107,8 @@ suite("the training card during a session", () => {
     // screen offered her a fifth set of something she had done four of.
     expect(card).toMatch(/const next = finishedExercise \? nextAfter\(view\.exercises, ex\.slug\) : null/);
     expect(card).toMatch(/else if \(next\) startRest\(next\)/);
-    expect(card).toMatch(/upNext \? "border-beat now-glow" : ""/);
+    // Beating while the session runs; still, but still marked, before it.
+    expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
   });
 });
 
@@ -479,5 +480,30 @@ suite("what is left this week", () => {
   it("and the coach is told which list is which", () => {
     expect(read("lib/page-context.ts")).toMatch(/Left to do this week/);
     expect(read("lib/tools/training.ts")).toMatch(/remainingDaysMeans/);
+  });
+});
+
+suite("the marker beats only while the session is running", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("is still until she has started", () => {
+    // The beat is a rest counting down. Before the clock is running there is
+    // no rest and nothing is happening, so a card pulsing at her while she
+    // reads the day is urgency about a workout that has not begun.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/live=\{view\.startedAt !== null\}/);
+    expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
+    // And no animation timing on a thing that is not animating.
+    expect(card).toMatch(/\.\.\.\(upNext && live \? \{ animationDuration: `\$\{beat\}s` \} : \{\}\)/);
+  });
+
+  it("but still says which movement she is on", () => {
+    // Still is not absent: the question it answers is "which one am I doing".
+    const css = read("app/globals.css");
+    expect(css).toMatch(/\.now-still \{/);
+    const still = css.slice(css.indexOf(".now-still {"), css.indexOf("}", css.indexOf(".now-still {")));
+    expect(still).toMatch(/box-shadow/);
+    expect(still).toMatch(/border-color: var\(--color-beat\)/);
+    expect(still).not.toMatch(/animation/);
   });
 });

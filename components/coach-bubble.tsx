@@ -30,6 +30,23 @@ export function CoachBubble({ name }: { name: string | null }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
+  /**
+   * The companion at the bottom of the page is the coach's face, and tapping
+   * him opens the coach.
+   *
+   * He used to shout `coach:open` at a room with nobody in it: the only
+   * listeners were the inline panels, which are not on every screen and sit
+   * up in the header when they are — so on most screens the tap did nothing
+   * at all, and on the rest something opened off-screen above her. This is
+   * the chat window, it is mounted on every screen, and it opens over
+   * whatever she is looking at.
+   */
+  useEffect(() => {
+    const come = () => setOpen(true);
+    window.addEventListener("coach:open", come);
+    return () => window.removeEventListener("coach:open", come);
+  }, []);
+
   if (isChromeless(path)) return null;
 
   return (
