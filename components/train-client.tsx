@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "@/lib/use-dialog";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
@@ -648,6 +649,17 @@ export function ExerciseCard({
    */
   const [rir, setRir] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  /**
+   * The card's height while closed, held so the grid does not collapse
+   * behind it when it lifts out — measured at the moment it opens, which is
+   * the only moment it is both rendered in place and about to leave.
+   */
+  const shell = useRef<HTMLDivElement>(null);
+  const [collapsedHeight, setCollapsedHeight] = useState<number | undefined>(undefined);
+  function openCard() {
+    setCollapsedHeight(shell.current?.offsetHeight);
+    setOpen(true);
+  }
   const [error, setError] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -765,7 +777,7 @@ export function ExerciseCard({
 
   const step = weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
 
-  return (
+  const card = (
     // The movement the rest is counting down to wears the accent, so she can
     // see where she is going without reading the timer.
     <section className={`card overflow-hidden ${upNext ? "border-accent" : ""}`}>
@@ -777,7 +789,7 @@ export function ExerciseCard({
           nothing. The controls to the right keep their own jobs.
         */}
         <button
-          onClick={() => canLog && setOpen(!open)}
+          onClick={() => canLog && (open ? setOpen(false) : openCard())}
           aria-expanded={canLog ? open : undefined}
           aria-label={canLog ? `${open ? "Hide" : "Show"} the set counter for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
@@ -945,7 +957,7 @@ export function ExerciseCard({
             return (
               <button
                 key={i}
-                onClick={() => setOpen(true)}
+                onClick={openCard}
                 aria-label={`Log set ${i + 1} of ${exercise.name}`}
                 className={`${shape} transition-opacity hover:opacity-80`}
               >
@@ -1127,6 +1139,58 @@ export function ExerciseCard({
         />
       )}
     </section>
+  );
+
+  // Closed, it is one card among several.
+  if (!open) return <div ref={shell}>{card}</div>;
+
+  /**
+   * Open, it comes forward.
+   *
+   * Expanding in place pushed every other card around it, and the grid of
+   * them reflowed under her thumb mid-set. The movement she is working on is
+   * the only thing that matters for the next ninety seconds, so it takes the
+   * middle of the screen and the rest sit behind the scrim.
+   *
+   * The placeholder holds its space in the grid, so the cards behind do not
+   * jump as it lifts out and settles back.
+   */
+  return (
+    <>
+      <div aria-hidden className="card invisible" style={{ height: collapsedHeight }} />
+      <CardModal onClose={() => setOpen(false)}>{card}</CardModal>
+    </>
+  );
+}
+
+/**
+ * The lifted card, and the page held still behind it.
+ *
+ * `useDialog` is not optional here: this claims the page behind is inert, so
+ * Escape has to close it, Tab has to stay inside it, focus has to come back
+ * to the card that opened it, and the page underneath must not scroll — all
+ * of which it does, and all of which were a lie the first time a sheet in
+ * this app said aria-modal without it.
+ */
+function CardModal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const panel = useDialog(onClose);
+  return (
+    <div
+      className="card-scrim fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-scrim/70 p-3 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Log a set"
+    >
+      <div
+        ref={panel}
+        onClick={(e) => e.stopPropagation()}
+        className="card-lift w-full max-w-md overscroll-contain"
+        style={{ maxHeight: "88dvh", overflowY: "auto" }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 

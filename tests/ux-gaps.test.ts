@@ -162,3 +162,42 @@ suite("no day is locked", () => {
     expect(card).not.toMatch(/todayOnDevice/);
   });
 });
+
+suite("the movement she is working on comes forward", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+  const card = read("components/train-client.tsx");
+
+  it("opens as a centred dialog rather than expanding in the grid", () => {
+    // Expanding in place pushed every other card around it, and the grid
+    // reflowed under her thumb mid-set.
+    expect(card).toMatch(/function CardModal/);
+    expect(card).toMatch(/grid place-items-center/);
+    expect(card).toMatch(/bg-scrim\/70 p-3 backdrop-blur-sm/);
+    expect(card).toMatch(/if \(!open\) return <div ref=\{shell\}>\{card\}<\/div>/);
+  });
+
+  it("behaves like the dialog it says it is", () => {
+    // aria-modal without a focus trap tells a screen reader the page behind
+    // is inert while she edits it blind.
+    const modal = card.slice(card.indexOf("function CardModal"));
+    expect(modal).toMatch(/useDialog\(onClose\)/);
+    expect(modal).toMatch(/aria-modal="true"/);
+    expect(modal).toMatch(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/);
+    expect(modal).toMatch(/overscroll-contain/);
+  });
+
+  it("holds its place in the grid so nothing jumps", () => {
+    expect(card).toMatch(/setCollapsedHeight\(shell\.current\?\.offsetHeight\)/);
+    expect(card).toMatch(/style=\{\{ height: collapsedHeight \}\}/);
+    // Every way in measures first.
+    expect(card).not.toMatch(/onClick=\{\(\) => setOpen\(true\)\}/);
+  });
+
+  it("animates, and stops when she has asked for less motion", () => {
+    const css = read("app/globals.css");
+    expect(css).toMatch(/@keyframes card-lift-in/);
+    expect(css).toMatch(/@keyframes card-scrim-in/);
+    const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.card-scrim, \.card-lift \{ animation: none; \}/);
+  });
+});

@@ -361,3 +361,25 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* The movement she is actually working on comes forward.
+   Opening a card in a grid of them expanded it in place and shoved the rest
+   of the grid around; the one she is mid-set on is the only thing that
+   matters for the next ninety seconds, so it takes the middle of the screen
+   and the others sit behind the scrim. Scale from just under one, not from
+   nothing — a card that grows from a point reads as a notification arriving
+   rather than as the thing under her thumb coming closer. */
+@keyframes card-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes card-lift-in {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.card-scrim { animation: card-scrim-in 160ms ease-out both; }
+.card-lift  { animation: card-lift-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-scrim, .card-lift { animation: none; }
+}
