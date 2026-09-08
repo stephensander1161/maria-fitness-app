@@ -166,10 +166,16 @@ suite("he is the way in to the coach", () => {
     // Not a floating window: the app deliberately has one coach entry per
     // screen, and it is the one that knows what screen it is on.
     expect(read("components/companion.tsx")).toMatch(/new CustomEvent\("coach:open"\)/);
+    // Two shapes of coach entry across the app, and both answer him: the
+    // inline panel on the screens that have one, and the header button that
+    // opens a sheet on the screens that do not.
     const ask = read("components/ask-coach.tsx");
     expect(ask).toMatch(/addEventListener\("coach:open", come\)/);
     expect(ask).toMatch(/scrollIntoView\(\{ behavior: "smooth"/);
     expect(ask).toMatch(/data-ask-coach=""/);
+    const opinion = read("components/ai-opinion.tsx");
+    expect(opinion).toMatch(/addEventListener\("coach:open", ask\)/);
+    expect(opinion).toMatch(/data-ask-coach=""/);
   });
 
   it("is not a button on the one screen with nowhere to send her", () => {
