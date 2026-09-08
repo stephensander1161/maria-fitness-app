@@ -4,6 +4,8 @@ import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
 import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
+import { rollForward } from "@/lib/plan-rollover";
+import type { ISODate } from "@/lib/date";
 import { foodUnitsOf } from "@/lib/food-units";
 import { todayTargets } from "@/lib/tools/progression-targets";
 import { equipmentToday } from "@/lib/tools/phases";
@@ -20,20 +22,31 @@ export const dynamic = "force-dynamic";
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; day?: string }>;
+  searchParams: Promise<{ tab?: string; day?: string; w?: string }>;
 }) {
   const profile = await requireOnboarded();
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
-  const { tab, day } = await searchParams;
+  const { tab, day, w } = await searchParams;
+
+  // `?w=` moves a week at a time. Anything that is not a Monday is this week
+  // — a hand-typed date must not put the screen on a half-week.
+  const thisWeek = weekStart(her);
+  const asked = /^\d{4}-\d{2}-\d{2}$/.test(w ?? "") ? (w as ISODate) : thisWeek;
+  const shownWeek = weekStart(asked);
 
   const parsedDay = Number(day);
   const selected = Number.isInteger(parsedDay) && parsedDay >= 0 && parsedDay <= 6 ? parsedDay : dayIndex(her);
-  const selectedDate = addDays(weekStart(her), selected);
+  const selectedDate = addDays(shownWeek, selected);
+
+  // A programme is a shape you repeat, so a week with no plan inherits the
+  // last one. Before the reads, or the screen shows an empty week and then
+  // fills in on the next navigation.
+  await rollForward(profile.id, shownWeek);
 
   const [week, mealWeek, today, otherDay, pickable, targets] = await Promise.all([
-    weekView(profile.id, profile.units, weekStart(her), her),
-    mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
+    weekView(profile.id, profile.units, shownWeek, her),
+    mealWeekView(profile.id, foodUnitsOf(profile), shownWeek, her),
     // Today's day, in full, so that selecting today on the training tab gives
     // her the same cards as the Train screen rather than a list of names.
     todayView(profile.id, profile.units, her),
@@ -73,6 +86,8 @@ export default async function PlanPage({
         otherDate={selectedDate}
         pickable={pickable}
         targets={targets}
+        shownWeek={shownWeek}
+        thisWeek={thisWeek}
       />
     </>
   );

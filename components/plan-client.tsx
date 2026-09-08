@@ -22,7 +22,7 @@ import { TrainClient, type NextTarget } from "./train-client";
  * and selected on arrival, because that is the day she is standing in.
  */
 export function PlanClient({
-  week, mealWeek, tab, day, today, otherDay, otherDate, pickable, targets,
+  week, mealWeek, tab, day, today, otherDay, otherDate, pickable, targets, shownWeek, thisWeek,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   tab: "training" | "food";
@@ -33,10 +33,20 @@ export function PlanClient({
   otherDate: string;
   pickable: Pickable;
   targets: NextTarget[];
+  /** The Monday on screen, and the Monday she is actually in. */
+  shownWeek: string;
+  thisWeek: string;
 }) {
-  const isToday = day === week.todayIndex;
-  const href = (next: { tab?: string; day?: number }) =>
-    `/plan?tab=${next.tab ?? tab}&day=${next.day ?? day}`;
+  const onThisWeek = shownWeek === thisWeek;
+  // "Today" only means today on the week that contains it.
+  const isToday = onThisWeek && day === week.todayIndex;
+  const href = (next: { tab?: string; day?: number; w?: string }) =>
+    `/plan?tab=${next.tab ?? tab}&day=${next.day ?? day}&w=${next.w ?? shownWeek}`;
+  const shift = (weeks: number) => {
+    const d = new Date(`${shownWeek}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + weeks * 7);
+    return d.toISOString().slice(0, 10);
+  };
 
   const trainingDay = week.days.find((d) => d.dayOfWeek === day) ?? null;
   const foodDay = mealWeek.days.find((d) => d.dayOfWeek === day) ?? null;
@@ -64,6 +74,34 @@ export function PlanClient({
         ))}
       </div>
 
+      {/* A week at a time. The programme repeats by default — an empty week
+          inherits the last one — so stepping forward is how she changes a
+          single week without redesigning the whole thing. */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Link
+          href={href({ w: shift(-1) })}
+          scroll={false}
+          className="rounded-lg px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-raised"
+        >
+          ‹ Previous
+        </Link>
+        {onThisWeek ? (
+          <span className="text-[12px] font-medium uppercase tracking-wide text-accent">This week</span>
+        ) : (
+          <Link href={href({ w: thisWeek })} scroll={false}
+            className="text-[12px] font-medium uppercase tracking-wide text-accent">
+            Back to this week
+          </Link>
+        )}
+        <Link
+          href={href({ w: shift(1) })}
+          scroll={false}
+          className="rounded-lg px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-raised"
+        >
+          Next ›
+        </Link>
+      </div>
+
       <WeekStrip
         days={week.days.map((d) => {
           const food = mealWeek.days.find((m) => m.dayOfWeek === d.dayOfWeek);
@@ -78,7 +116,7 @@ export function PlanClient({
             quiet: tab === "training" ? d.isRest : !food || food.meals.length === 0,
           };
         })}
-        today={week.todayIndex}
+        today={onThisWeek ? week.todayIndex : -1}
         selected={day}
         href={(d) => href({ day: d })}
       />

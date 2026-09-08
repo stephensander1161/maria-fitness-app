@@ -7,7 +7,8 @@ import { todayTargets } from "@/lib/tools/progression-targets";
 import { PlanSetupInvite } from "@/components/plan-setup";
 import { equipmentToday } from "@/lib/tools/phases";
 import { DayTitle } from "@/components/day-title";
-import { addDays, dayIndex, prettyDate } from "@/lib/date";
+import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
+import { rollForward } from "@/lib/plan-rollover";
 import { DayNav } from "@/components/day-nav";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,11 @@ export default async function TrainPage({
   // Only a real date in her own week-shaped world; anything else is today.
   const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
   const isToday = on === her;
+
+  // The programme repeats: a week with no plan of its own inherits the last
+  // one, so Monday morning is not an empty screen. Idempotent, and it only
+  // ever writes on the first view of a new week.
+  await rollForward(profile.id, weekStart(on));
 
   const [view, pickable, targets] = await Promise.all([
     todayView(profile.id, profile.units, on),
