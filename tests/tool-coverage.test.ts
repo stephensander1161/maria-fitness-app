@@ -62,6 +62,8 @@ suite("tool registry", () => {
     // reason and agreeing that the model truly cannot perform the action —
     // "the UI does it" is not a reason, or nearly everything would qualify.
     // - add_progress_photo: the model cannot produce a resized JPEG.
+    // - estimate_recipe_from_photo: same — it reads a photo the browser has
+    //   just resized, and no prompt can produce one.
     // - save_push_device / forget_push_device: a push subscription is minted
     //   by the browser — an endpoint the push service issued and two keys it
     //   generated. There is no sentence the model could say that produces
@@ -69,7 +71,7 @@ suite("tool registry", () => {
     //   it needs the same value back. Turning reminders on and off *is*
     //   delegable and is a separate tool the model does have:
     //   set_weigh_in_reminder.
-    const ALLOWED_HIDDEN = ["add_progress_photo", "forget_push_device", "save_push_device"];
+    const ALLOWED_HIDDEN = ["add_progress_photo", "estimate_recipe_from_photo", "forget_push_device", "save_push_device"];
     const hidden = [...registry.values()].filter((t) => t.uiOnly).map((t) => t.name).sort();
     expect(
       hidden,

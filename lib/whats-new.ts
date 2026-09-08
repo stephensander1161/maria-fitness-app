@@ -25,6 +25,25 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-07-recipe-photo",
+    date: "2026-09-07",
+    title: "Photograph a recipe, get the numbers",
+    blurb: "Point your camera at a recipe page, a label, or the plate itself. You get calories and macros per serving with the assumptions behind them, and log it if it looks right. The photo isn't kept.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-07-phone-menu",
+    date: "2026-09-07",
+    title: "Every screen from the top of the phone",
+    blurb: "The menu button now carries Train, Eat, Plan, Progress, Kitchen and Learn as well — so the app still works in a browser whose own toolbar covers the bottom bar.",
+  },
+  {
+    id: "2026-09-07-replay",
+    date: "2026-09-07",
+    title: "Send a message to your coach again",
+    blurb: "A small ↻ beside anything you have said. Tap it to ask the same thing again instead of retyping it.",
+  },
+  {
     id: "2026-09-06-privacy",
     date: "2026-09-06",
     title: "Your data, in writing",

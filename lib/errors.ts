@@ -13,6 +13,28 @@ import type { Signal } from "@/lib/security-signals";
  */
 
 export const APP_ERROR_RETENTION_DAYS = 30;
+
+/**
+ * Errors that only mean the person navigated away.
+ *
+ * Six "destination stream closed early" from one afternoon of probing were
+ * already in the log, and a card full of those is a card nobody reads — the
+ * same crying-wolf problem lib/security-signals.ts is written around. These
+ * are not recorded, and the card says so rather than letting a filtered log
+ * look like a quiet one.
+ *
+ * Deliberately a tight list matched on the whole phrase: a substring like
+ * "aborted" would also swallow a genuine abort inside a tool.
+ */
+const CLIENT_GONE = [
+  "The destination stream closed early",
+  "The user aborted a request",
+  "aborted a request",
+  "ResponseAborted",
+];
+
+export const isClientGone = (message: string): boolean =>
+  CLIENT_GONE.some((phrase) => message.includes(phrase));
 const MESSAGE_MAX = 500;
 const STACK_MAX = 4000;
 
@@ -44,6 +66,7 @@ export function shapeError(
 
 /** Insert, and let the table forget what is older than the window. */
 export async function recordError(row: ErrorRow, now = new Date()): Promise<void> {
+  if (isClientGone(row.message)) return;
   await db.insert(appErrors).values(row);
   const cutoff = new Date(now.getTime() - APP_ERROR_RETENTION_DAYS * 86_400_000);
   await db.delete(appErrors).where(lt(appErrors.at, cutoff));

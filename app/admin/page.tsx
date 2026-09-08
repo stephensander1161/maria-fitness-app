@@ -125,6 +125,7 @@ export default async function AdminPage() {
           </div>
           <p className="mt-1 text-[13px] text-muted">
             What the server threw and nobody caught — the route and the message, never the request.
+            Streams a browser walked away from are not errors and are not counted.
           </p>
           {data.errors.length === 0 ? (
             <p className="mt-3 text-[13px] text-faint">

@@ -86,7 +86,8 @@ async function draft<S extends z.ZodType>(
   description: string,
   schema: S,
   system: string,
-  prompt: string,
+  /** Text, or the blocks of one user message — an image and its instructions. */
+  prompt: string | Anthropic.ContentBlockParam[],
   source: UsageSource,
   profileId: string,
 ): Promise<z.infer<S>> {
@@ -298,6 +299,109 @@ const RECIPE_SYSTEM = `You write the recipe for a single meal in someone's meal 
 The meal already exists — its name, its calories and its protein are fixed and are not yours to change. Your job is only to say what goes in it and how to make it, so that a person standing in their kitchen can cook it without guessing.
 
 Ingredients are one per line with an amount, and together they must plausibly add up to the calories and protein given. Steps are short and in order, five or six at most. Respect every dietary restriction and disliked food, and match her cooking confidence — if it is minimal, that means assembly and shortcuts, not knife skills.`;
+
+/** A photograph of a recipe, read into numbers. */
+export const recipePhotoDraft = z.object({
+  readable: z.boolean().describe("False if the image is not a recipe, a dish or a food label at all"),
+  title: z.string().describe("What the dish is called, from the page or from what you can see"),
+  servings: z.number().int().min(1).max(24).describe("How many the whole recipe makes; 1 if this is a single plate"),
+  caloriesPerServing: z.number().int().describe("Best single estimate, per serving"),
+  caloriesLow: z.number().int().describe("Lower bound per serving — the honest range, not a flourish"),
+  caloriesHigh: z.number().int().describe("Upper bound per serving"),
+  proteinG: z.number().int().describe("Per serving"),
+  carbsG: z.number().int().describe("Per serving"),
+  fatG: z.number().int().describe("Per serving"),
+  /**
+   * What the numbers rest on, so she can correct the one that is wrong.
+   *
+   * A string is accepted as well as a list because the model sent one on the
+   * very first real photo — a schema that rejects a good answer over its
+   * shape is a feature that fails in front of her, and a one-line normalise
+   * here is cheaper than a retry she pays for.
+   */
+  assumptions: z.union([z.array(z.string()), z.string()]).default([]).describe(
+    "The judgement calls behind the numbers, as a list of short lines — portion size, an oil you assumed, an ingredient you could not read.",
+  ),
+  note: z.string().default("").describe("One sentence to her about what this is and how confident you are."),
+});
+
+/**
+ * At most four lines, however the model chose to send them.
+ *
+ * Both of these came back from real photos on the first two tries: the whole
+ * list as one newline-separated string, and a one-element array holding a
+ * JSON-encoded list. Neither is worth a retry she pays for, and neither is
+ * worth showing her raw — the assumptions are the part she reads.
+ */
+export function tidyAssumptions(raw: string[] | string | undefined): string[] {
+  const unwrap = (s: string): string[] => {
+    const trimmed = s.trim();
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch { /* not JSON after all — fall through and split it */ }
+    }
+    return trimmed.split(/\s*[\n;]\s*/);
+  };
+
+  const list = Array.isArray(raw)
+    ? raw.flatMap((item) => (typeof item === "string" ? unwrap(item) : []))
+    : typeof raw === "string" ? unwrap(raw) : [];
+
+  return list.map((s) => s.replace(/^[-•·*]\s*/, "").replace(/^"|"$/g, "").trim()).filter(Boolean).slice(0, 4);
+}
+
+const RECIPE_PHOTO_SYSTEM = `You read a photograph — a recipe page, a food label, or a plated meal — and turn it into per-serving nutrition for a fitness app.
+
+Estimate from what is actually visible. If the photo is a written recipe, use its ingredient list and yield. If it is a plate of food, estimate the portion in front of you rather than a typical restaurant serving of that dish.
+
+Two rules that matter more than precision:
+
+1. **Say what you assumed.** Cooking oil, portion size, whether a sauce is included, an ingredient you could not read — these move the number more than anything else, and she can correct an assumption she can see.
+2. **Give an honest range.** caloriesLow and caloriesHigh are the bounds you actually believe, not the estimate plus or minus ten percent. A hand-written recipe with vague quantities deserves a wide one.
+
+You are reliably high when you guess: a plate you would call 550 is usually nearer 470, and you overstate protein worse than calories because you price every meal as though it were built around meat. Lean low.
+
+If the image is not food at all, set readable to false and say so in the note.`;
+
+/**
+ * Read a photo of a recipe into per-serving numbers.
+ *
+ * Down the same gated, billed, deadlined path as the week planners — the
+ * image is one more content block. Her request, filed from the Eat screen:
+ * "let me add a photo of a recipe, and you estimate the macros and calories
+ * for it."
+ *
+ * The photo is never stored and never returned: it goes to the model, the
+ * numbers come back, and the bytes are gone with the request. Nothing about
+ * what her kitchen looks like ends up in a table or in the conversation.
+ */
+export async function readRecipePhoto(
+  profile: Profile,
+  image: { mediaType: "image/jpeg"; base64: string },
+  note: string | undefined,
+  source: UsageSource = "app",
+): Promise<z.infer<typeof recipePhotoDraft> & { assumptions: string[] }> {
+  const read = await draft(
+    "emit_recipe_estimate", "Emit the per-serving nutrition for the photographed food.",
+    recipePhotoDraft, RECIPE_PHOTO_SYSTEM,
+    [
+      { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.base64 } },
+      {
+        type: "text",
+        text: [
+          "Read this photo and give the per-serving numbers.",
+          note ? `She says: ${note}` : "",
+          "Answer in kcal and grams.",
+        ].filter(Boolean).join("\n"),
+      },
+    ],
+    source,
+    profile.id,
+  );
+  return { ...read, assumptions: tidyAssumptions(read.assumptions) };
+}
 
 export const recipeDraft = z.object({
   ingredients: z.array(z.string())

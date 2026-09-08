@@ -4,6 +4,7 @@ import { TodayFood } from "./today-food";
 import { CalorieCalculator } from "./calorie-calculator";
 import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
 import { MealRow } from "./meal-row";
+import { RecipeScan } from "./recipe-scan";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -17,7 +18,7 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  * as a prompt rather than an instruction; she can log one with a tap.
  */
 export function EatClient({
-  day, saved, planned, calorieTarget, proteinTargetG, foodUnits,
+  day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot,
 }: {
   day: DayFoodView;
   /** Her regulars, for one-tap logging. */
@@ -26,6 +27,8 @@ export function EatClient({
   calorieTarget: number | null;
   proteinTargetG: number | null;
   foodUnits: "metric" | "imperial";
+  /** The meal she is most likely logging right now, from the hour where she is. */
+  defaultSlot: "breakfast" | "lunch" | "dinner" | "snack";
 }) {
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
@@ -55,6 +58,8 @@ export function EatClient({
           </p>
         )}
       </section>
+
+      <RecipeScan defaultSlot={defaultSlot} />
 
       <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
     </div>

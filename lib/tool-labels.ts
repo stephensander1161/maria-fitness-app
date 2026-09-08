@@ -50,6 +50,7 @@ export const TOOL_LABELS: Record<string, string> = {
   log_meal: "logging your meal", update_meal_log: "correcting that entry",
   clear_meal_logs: "clearing that day's food", get_day_nutrition: "totalling today's food",
   get_fact: "finding something worth knowing",
+  estimate_recipe_from_photo: "reading the recipe",
   lookup_food: "looking up the macros", find_recipes: "finding recipes",
   search_food_library: "searching the food library",
   search_ingredient: "looking that ingredient up",

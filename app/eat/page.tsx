@@ -2,11 +2,12 @@ import { EatClient } from "@/components/eat-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
-import { prettyDate, weekStart } from "@/lib/date";
+import { APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { BurnCard } from "@/components/burn-card";
 import { burnByDay } from "@/lib/progress";
 import { foodUnitsOf } from "@/lib/food-units";
+import { slotForHour } from "@/lib/nutrition";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function EatPage() {
         calorieTarget={mealWeek.exists ? mealWeek.calorieTarget : null}
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}
         foodUnits={mealWeek.foodUnits}
+        defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
       />
 
       {/*

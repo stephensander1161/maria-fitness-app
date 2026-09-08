@@ -13,6 +13,7 @@ import * as progression from "./progression";
 import * as nextTargets from "./progression-targets";
 import * as foodTools from "./foods";
 import * as photos from "./photos";
+import * as recipePhoto from "./recipe-photo";
 import * as pantry from "./pantry";
 import * as checkIn from "./check-in";
 import * as corrections from "./corrections";
@@ -45,6 +46,7 @@ import * as whatsNew from "./whats-new";
 const all: Tool[] = [
   profile.achieveGoal,
   photos.addProgressPhoto,
+  recipePhoto.estimateRecipeFromPhoto,
   training.addExerciseToDay,
   training.adjustPlanDay,
   corrections.removeWeighIn,

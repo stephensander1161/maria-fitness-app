@@ -6,6 +6,7 @@ import { action } from "@/lib/client";
 import { daysBetween, prettyDate, today } from "@/lib/date";
 import { deviceZone } from "@/lib/offline";
 import type { PhotoPose, ProgressPhoto } from "@/lib/photos";
+import { shrink } from "@/lib/shrink";
 
 /**
  * Progress photos, built around the thing she actually asked for: two photos
@@ -15,13 +16,6 @@ import type { PhotoPose, ProgressPhoto } from "@/lib/photos";
  * back out as data URIs through /api/action. No upload endpoint, no external
  * host, nothing about her body leaves the page.
  */
-
-/** Long edge in pixels. Big enough to see a waistline change on a phone, small
- *  enough that a year of weekly photos is a few megabytes in Postgres. */
-const MAX_EDGE = 800;
-const QUALITY = 0.75;
-/** Matches the backstop in lib/tools/photos.ts (~300KB of JPEG). */
-const MAX_BASE64_CHARS = 400_000;
 
 /* --------------------------------------------------- the chosen pair ----- */
 
@@ -415,52 +409,3 @@ function monthsApart(from: string, to: string): string {
   return `${months} months apart`;
 }
 
-/**
- * Resize to MAX_EDGE on the long edge and re-encode as JPEG.
- *
- * Two things fall out of the canvas re-encode for free: a 4MB phone photo turns
- * into ~100KB of base64 that Postgres can hold for years, and every scrap of
- * EXIF goes with it — including the GPS coordinates of her bedroom, which phone
- * cameras attach by default and which must never reach the database.
- */
-async function shrink(file: File): Promise<{ src: string; width: number; height: number }> {
-  if (!file.type.startsWith("image/")) throw new Error("That isn't an image.");
-
-  const img = await loadImage(file);
-  const scale = Math.min(1, MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
-  const width = Math.max(1, Math.round(img.naturalWidth * scale));
-  const height = Math.max(1, Math.round(img.naturalHeight * scale));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Your browser wouldn't resize that photo.");
-  ctx.drawImage(img, 0, 0, width, height);
-
-  let src = canvas.toDataURL("image/jpeg", QUALITY);
-  // One more squeeze before giving up — busy backgrounds compress badly.
-  if (src.length > MAX_BASE64_CHARS) src = canvas.toDataURL("image/jpeg", 0.6);
-  if (src.length > MAX_BASE64_CHARS) {
-    throw new Error(
-      `That photo is still about ${Math.round(src.length * 0.75 / 1024)}KB after resizing. Try a normal camera photo rather than a screenshot or panorama.`,
-    );
-  }
-
-  return { src, width, height };
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Couldn't read that photo — try taking it again."));
-    };
-    // Browsers apply the EXIF orientation when drawing an <img> to a canvas, so
-    // portrait photos from the phone don't land on their side.
-    img.src = url;
-  });
-}

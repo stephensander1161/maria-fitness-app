@@ -80,12 +80,12 @@ suite("the loop and the registry agree with the guard", () => {
 
   it("every tool that calls the planner is marked slow, and nothing else is", () => {
     const marked = [...registry.values()].filter((t) => t.slow === "planner").map((t) => t.name).sort();
-    expect(marked).toEqual(["create_meal_plan", "create_weekly_plan", "get_meal_recipe"]);
+    expect(marked).toEqual(["create_meal_plan", "create_weekly_plan", "estimate_recipe_from_photo", "get_meal_recipe"]);
     // Checked against the source: a new planner-calling tool without the
     // mark would run past the guard.
     for (const file of fs.readdirSync("lib/tools")) {
       const src = fs.readFileSync(`lib/tools/${file}`, "utf8");
-      const callers = (src.match(/\b(planWeek|planMeals|writeRecipe)\(/g) ?? []).length;
+      const callers = (src.match(/\b(planWeek|planMeals|writeRecipe|readRecipePhoto)\(/g) ?? []).length;
       const marks = (src.match(/slow: "planner"/g) ?? []).length;
       expect(marks, `lib/tools/${file}: ${callers} planner call(s), ${marks} slow mark(s)`).toBe(callers);
     }

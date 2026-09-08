@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
-import { backupSignal, errorSignals, groupErrors, shapeError } from "@/lib/errors";
+import { backupSignal, errorSignals, groupErrors, isClientGone, shapeError } from "@/lib/errors";
+import { persistUsage } from "@/lib/limits";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
 const now = new Date("2026-09-07T12:00:00Z");
@@ -131,5 +132,53 @@ suite("the hook is wired", () => {
     expect(read("lib/admin.ts")).toMatch(/errorSignals\(/);
     expect(read("lib/admin.ts")).toMatch(/backupSignal\(/);
     expect(read("app/admin/page.tsx")).toMatch(/None recorded/);
+  });
+});
+
+suite("a stream the browser walked away from is not an error", () => {
+  it("recognises the whole phrase, not a fragment of it", () => {
+    expect(isClientGone("The destination stream closed early.")).toBe(true);
+    expect(isClientGone("Error: The user aborted a request.")).toBe(true);
+    // A tight list on purpose: "aborted" alone would swallow a real abort
+    // inside a tool, which is a bug and not a person navigating away.
+    expect(isClientGone("aborted")).toBe(false);
+    expect(isClientGone("The planner took too long to answer")).toBe(false);
+    expect(isClientGone("connection refused")).toBe(false);
+  });
+
+  it("is what keeps them out of the log, and the card says they are not counted", () => {
+    const src = fs.readFileSync("lib/errors.ts", "utf8");
+    expect(src).toMatch(/if \(isClientGone\(row\.message\)\) return;/);
+    // Filtered and unsaid is how a quiet log stops meaning anything.
+    expect(fs.readFileSync("app/admin/page.tsx", "utf8")).toMatch(/are not errors and are not counted/);
+  });
+});
+
+suite("a failed usage write does not throw away a turn she paid for", () => {
+  it("writes once when the database is fine", async () => {
+    let calls = 0;
+    let gaveUp = false;
+    expect(await persistUsage(async () => { calls++; }, async () => { gaveUp = true; }, 0)).toBe(true);
+    expect(calls).toBe(1);
+    expect(gaveUp).toBe(false);
+  });
+
+  it("retries a blip and says nothing about it", async () => {
+    let calls = 0;
+    let gaveUp = false;
+    const flaky = async () => { calls++; if (calls === 1) throw new Error("Connection terminated"); };
+    expect(await persistUsage(flaky, async () => { gaveUp = true; }, 0)).toBe(true);
+    expect(calls).toBe(2);
+    expect(gaveUp).toBe(false);
+  });
+
+  it("gives up loudly rather than throwing — the spend is real and now invisible", async () => {
+    let calls = 0;
+    let reported: unknown = null;
+    const dead = async () => { calls++; throw new Error("db is gone"); };
+    const ok = await persistUsage(dead, async (err) => { reported = err; }, 0);
+    expect(ok).toBe(false);
+    expect(calls).toBe(2);
+    expect((reported as Error).message).toBe("db is gone");
   });
 });

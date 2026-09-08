@@ -1,4 +1,20 @@
 import { inToCm } from "@/lib/units";
+export type Slot = "breakfast" | "lunch" | "dinner" | "snack";
+
+/**
+ * The meal she is most likely logging right now, from the hour where she is.
+ *
+ * A default, never a decision: every screen that uses it shows the four and
+ * lets her pick. It exists because "snack" was the default at half past six
+ * in the evening, and the tap to fix it is the tap where people give up.
+ */
+export function slotForHour(hour: number): Slot {
+  if (hour >= 4 && hour < 11) return "breakfast";
+  if (hour >= 11 && hour < 15) return "lunch";
+  if (hour >= 17 && hour < 22) return "dinner";
+  return "snack";
+}
+
 import { LACTATION_CALORIE_FLOOR, LACTATION_KCAL } from "@/lib/postpartum";
 
 /**

@@ -89,7 +89,22 @@ export async function recordUsage(
     cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
     costMicros: costMicros(usage, pricing),
   };
-  await db.insert(usageDaily).values(row).onConflictDoUpdate({
+  await writeUsage(row);
+}
+
+/**
+ * The ledger write, retried once.
+ *
+ * Anthropic has already been paid by the time this runs, so throwing here
+ * threw away an answer she had bought — which is what happened on a Neon blip
+ * mid-turn: the row was lost either way, and the turn was lost as well. So it
+ * retries once and then gives up *loudly*: the spend is real, unrecorded, and
+ * therefore invisible to the ceiling, which is exactly the kind of quiet
+ * under-charging this file exists to prevent. The console line and the error
+ * log are how it stops being quiet.
+ */
+async function writeUsage(row: typeof usageDaily.$inferInsert): Promise<void> {
+  const insert = () => db.insert(usageDaily).values(row).onConflictDoUpdate({
     target: [usageDaily.date, usageDaily.source, usageDaily.profileId],
     set: {
       requests: sql`${usageDaily.requests} + 1`,
@@ -100,6 +115,47 @@ export async function recordUsage(
       costMicros: sql`${usageDaily.costMicros} + ${row.costMicros}`,
     },
   });
+
+  await persistUsage(insert, async (err) => {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[limits] usage NOT recorded — spend is real and invisible to the ceiling:", detail);
+    const { recordError } = await import("@/lib/errors");
+    await recordError({
+      route: "/usage-ledger", method: "WRITE", kind: "usage",
+      message: `usage not recorded (${row.source}, ${row.costMicros} micros): ${detail.slice(0, 300)}`,
+      stack: null,
+    }).catch(() => {});
+  });
+}
+
+/**
+ * Try, retry once, then give up loudly — and never throw.
+ *
+ * Separated from the query so the policy is testable without a database,
+ * because the two things that matter here are both invisible in a green
+ * test: that the second attempt happens, and that giving up is *reported*
+ * rather than swallowed.
+ */
+export async function persistUsage(
+  insert: () => Promise<unknown>,
+  onGiveUp: (err: unknown) => Promise<void>,
+  delayMs = 250,
+): Promise<boolean> {
+  try {
+    await insert();
+    return true;
+  } catch {
+    // The failure this is written for is a pooled connection dropped between
+    // requests; the second attempt gets a fresh one.
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  try {
+    await insert();
+    return true;
+  } catch (err) {
+    await onGiveUp(err);
+    return false;
+  }
 }
 
 /**
