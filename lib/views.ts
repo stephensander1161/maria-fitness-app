@@ -255,24 +255,46 @@ export type WeekView = {
  * and "which day of this week is today" is the one thing on this screen that
  * a server-side date gets wrong for a user who is ahead of it.
  */
+/**
+ * A week with nothing in it — seven days, every one of them rest.
+ *
+ * Pure and exported so it can be tested, because the bug it exists to prevent
+ * was invisible from the outside: `days: []` looked like a reasonable way to
+ * say "no plan", and every screen that draws a week from it silently rendered
+ * nothing. The Plan tab lost its day switcher and both of its add buttons,
+ * leaving a single button that spends money as the only thing on the screen.
+ *
+ * The rule, for any read model with a list of days in it: **the scaffolding
+ * of a screen does not depend on the content existing.** An empty week is
+ * still a week you can look at and add to. tests/empty-states.test.ts.
+ */
+export function emptyWeekView(week: ISODate, units: Units, asOf: ISODate): WeekView {
+  return {
+    weekStart: week, exists: false, title: "", rationale: null,
+    todayIndex: dayIndex(asOf), unit: weightLabel(units),
+    days: DAY_NAMES.map((dayName, dow) => ({
+      dayOfWeek: dow, dayName, focus: null, title: "Rest", isRest: true, notes: null, exercises: [],
+    })),
+  };
+}
+
+/** The same, for the eating half of the week. */
+export function emptyMealWeekView(week: ISODate, foodUnits: Units, asOf: ISODate): MealWeekView {
+  return {
+    exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
+    calorieTarget: 0, proteinTargetG: 0, rationale: null,
+    days: DAY_NAMES.map((dayName, dow) => ({
+      dayOfWeek: dow, dayName, calories: 0, proteinG: 0, meals: [],
+    })),
+  };
+}
+
 export async function weekView(
   profileId: string, units: Units, week = weekStart(), asOf: ISODate = today(),
 ): Promise<WeekView> {
   const [plan] = await db.select().from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
-  if (!plan) {
-    // Seven days, empty. `days: []` meant the week strip rendered nothing and
-    // the Plan screen lost its day switcher entirely, so a week with no plan
-    // could not even be looked at, let alone added to — the same rule as
-    // "an empty state is not return null", one level up.
-    return {
-      weekStart: week, exists: false, title: "", rationale: null,
-      todayIndex: dayIndex(asOf), unit: weightLabel(units),
-      days: DAY_NAMES.map((dayName, dow) => ({
-        dayOfWeek: dow, dayName, focus: null, title: "Rest", isRest: true, notes: null, exercises: [],
-      })),
-    };
-  }
+  if (!plan) return emptyWeekView(week, units, asOf);
 
   const days = await db.select().from(planDays)
     .where(eq(planDays.planId, plan.id)).orderBy(asc(planDays.dayOfWeek));
@@ -325,16 +347,7 @@ export async function mealWeekView(
 ): Promise<MealWeekView> {
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
-  if (!plan) {
-    // Seven empty days, for the same reason as weekView above.
-    return {
-      exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
-      calorieTarget: 0, proteinTargetG: 0, rationale: null,
-      days: DAY_NAMES.map((dayName, dow) => ({
-        dayOfWeek: dow, dayName, calories: 0, proteinG: 0, meals: [],
-      })),
-    };
-  }
+  if (!plan) return emptyMealWeekView(week, foodUnits, asOf);
 
   const rows = await db.select().from(meals)
     .where(eq(meals.mealPlanId, plan.id)).orderBy(asc(meals.dayOfWeek), asc(meals.sortOrder));

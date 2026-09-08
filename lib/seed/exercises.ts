@@ -692,6 +692,26 @@ export const EXERCISES: Seed[] = [
     harder: ["palms-up-lateral-raise"],
   },
   {
+    slug: "tricep-kickback", name: "Dumbbell Triceps Kickback", category: "isolation",
+    primaryMuscles: ["triceps"], equipment: ["dumbbell"],
+    // The same hinged position as a bent-over row, which is exactly how
+    // people describe it when they are looking for it.
+    tags: ["bent over", "kickback", "arms"],
+    unilateral: true,
+    formCues: [
+      "Hinge at the hips like a bent-over row — flat back, chest down, one hand on a bench or your thigh for support.",
+      "Pin the upper arm against your side, elbow bent to about 90 degrees. It does not move again.",
+      "Straighten the elbow behind you until the arm is in line with your body, and squeeze.",
+      "Lower under control back to 90 degrees. Light weight: the arm is at its weakest here.",
+    ],
+    commonMistakes: [
+      "Letting the upper arm drop and swing — that is a row, and the back takes the work.",
+      "Only half-straightening the elbow, which skips the part of the range that does the job.",
+      "Too heavy, so the whole torso rocks to move it.",
+    ],
+    easier: ["tricep-pushdown"], harder: ["overhead-tricep-extension"],
+  },
+  {
     slug: "palms-up-lateral-raise", name: "Palms-Up Lateral Raise", category: "isolation",
     // Side delt does the lifting; the open, supinated hand is what puts the
     // biceps and forearms to work holding the dumbbell there, which is where
