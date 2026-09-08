@@ -92,6 +92,67 @@ export default async function ProgressPage() {
         </p>
       </header>
 
+      {/*
+        The trend first, because it is the answer to the question she opened
+        this screen with. It used to sit fifth, under a card explaining why
+        weighing in matters — above the number that explains it.
+      */}
+      <section className="card mb-3 p-5">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-faint">
+              {trend.confidence === "none" ? "Current" : "Trend"}
+            </p>
+            <p className="text-4xl font-bold tabular">
+              {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
+            </p>
+            {rawLatest !== null && trend.confidence !== "none" && (
+              <p className="mt-0.5 text-[12px] text-faint tabular">
+                last weigh-in {rawLatest} {unit}
+              </p>
+            )}
+          </div>
+          <div className="text-right">
+            {lost !== null && lost !== 0 && (
+              <p className={`text-lg font-semibold tabular ${lost > 0 ? "text-beat" : "text-muted"}`}>
+                {lost > 0 ? "−" : "+"}{Math.abs(lost)} {unit}
+              </p>
+            )}
+            {/* Deliberately silent when the data cannot support a direction:
+                a fortnightly weigher would otherwise be told she gained half a
+                kilo because she happened to weigh in bloated. */}
+            {weekly !== null && (
+              <p className="text-[12px] text-muted tabular">
+                {weekly === 0 ? "level" : `${weekly < 0 ? "−" : "+"}${Math.abs(weekly)} ${unit}`} this week
+              </p>
+            )}
+            <p className="text-[12px] text-faint">
+              {toGo !== null ? `${Math.max(0, toGo)} ${unit} to goal` : "no goal set"}
+            </p>
+          </div>
+        </div>
+
+        {trend.confidence === "low" && trend.weighInsLast14Days > 0 && (
+          <p className="mt-3 text-[12px] leading-relaxed text-faint">
+            {trend.weighInsLast14Days} weigh-in{trend.weighInsLast14Days === 1 ? "" : "s"} in the last
+            fortnight — a few more and the trend can say which way it&rsquo;s going.
+          </p>
+        )}
+
+        {pct !== null && (
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-raised">
+            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        )}
+
+        <div className="mt-4">
+          <Sparkline
+            points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
+            trend={trend.series.map((p) => weightOut(p.trend, u)!)}
+            goal={goal}
+          />
+        </div>
+      </section>
       <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
       {/*
@@ -174,62 +235,6 @@ export default async function ProgressPage() {
           sessions={burn.sessions}
         />
       </div>
-      <section className="card mb-3 p-5">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-faint">
-              {trend.confidence === "none" ? "Current" : "Trend"}
-            </p>
-            <p className="text-4xl font-bold tabular">
-              {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
-            </p>
-            {rawLatest !== null && trend.confidence !== "none" && (
-              <p className="mt-0.5 text-[12px] text-faint tabular">
-                last weigh-in {rawLatest} {unit}
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            {lost !== null && lost !== 0 && (
-              <p className={`text-lg font-semibold tabular ${lost > 0 ? "text-beat" : "text-muted"}`}>
-                {lost > 0 ? "−" : "+"}{Math.abs(lost)} {unit}
-              </p>
-            )}
-            {/* Deliberately silent when the data cannot support a direction:
-                a fortnightly weigher would otherwise be told she gained half a
-                kilo because she happened to weigh in bloated. */}
-            {weekly !== null && (
-              <p className="text-[12px] text-muted tabular">
-                {weekly === 0 ? "level" : `${weekly < 0 ? "−" : "+"}${Math.abs(weekly)} ${unit}`} this week
-              </p>
-            )}
-            <p className="text-[12px] text-faint">
-              {toGo !== null ? `${Math.max(0, toGo)} ${unit} to goal` : "no goal set"}
-            </p>
-          </div>
-        </div>
-
-        {trend.confidence === "low" && trend.weighInsLast14Days > 0 && (
-          <p className="mt-3 text-[12px] leading-relaxed text-faint">
-            {trend.weighInsLast14Days} weigh-in{trend.weighInsLast14Days === 1 ? "" : "s"} in the last
-            fortnight — a few more and the trend can say which way it&rsquo;s going.
-          </p>
-        )}
-
-        {pct !== null && (
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-raised">
-            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
-          </div>
-        )}
-
-        <div className="mt-4">
-          <Sparkline
-            points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
-            trend={trend.series.map((p) => weightOut(p.trend, u)!)}
-            goal={goal}
-          />
-        </div>
-      </section>
 
       <NutritionTrendCard trend={eating} />
       <Progression items={progression} unit={weightLabel(u)} />

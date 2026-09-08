@@ -141,17 +141,21 @@ export function WeighIn({
       );
     }
 
+    // A line and a button, not a card with a paragraph in it.
+    //
+    // It used to be a full-height prompt at the very top explaining why
+    // weighing in matters — above the trend, which is the answer to that
+    // question and the thing she actually came to look at. The trend is
+    // first now, and this sits under it as the obvious next tap.
     return (
-      <section className="card mb-3 border-accent/50 p-5">
-        <p className="text-[11px] uppercase tracking-wide text-accent">Today</p>
-        <h2 className="mt-0.5 text-[17px] font-semibold">Step on the scale</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          Ten seconds. It is the one number the whole plan is worked out from — and no single
-          reading is judged, so an odd morning costs you nothing.
-        </p>
+      <section className="card mb-3 flex items-center gap-3 border-accent/50 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] uppercase tracking-wide text-accent">Today</p>
+          <p className="text-[13px] text-muted">Not weighed in yet — it takes ten seconds.</p>
+        </div>
         <button
           onClick={() => setOpen(true)}
-          className="mt-3 w-full rounded-xl bg-accent py-3 text-[15px] font-semibold text-on-accent active:opacity-80"
+          className="shrink-0 rounded-xl bg-accent px-5 py-2.5 text-[14px] font-semibold text-on-accent active:opacity-80"
         >
           Weigh in
         </button>
