@@ -396,3 +396,19 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .cue-fade { animation: none; }
 }
+
+/* The movement she is on.
+   A one-pixel colour change was not findable in a glance down at a bench, and
+   that glance is the whole job: "which one am I doing". So the current card
+   breathes — a green ring that swells and settles, slowly enough not to nag
+   for the length of a session. */
+@keyframes now-glow {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-beat) 35%, transparent); }
+  50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-beat) 18%, transparent); }
+}
+.now-glow { animation: now-glow 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still unmistakable, just still. */
+  .now-glow { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-beat) 30%, transparent); }
+}

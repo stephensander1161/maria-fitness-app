@@ -134,6 +134,22 @@ export function TrainClient({
     .filter((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)
     .map((e) => e.name);
 
+  /**
+   * The movement she is on, marked at all times.
+   *
+   * This used to be "whatever the rest is counting down to", which meant the
+   * marker existed only during the ninety seconds between sets and vanished
+   * the moment the rest was dismissed or the GO screen cleared — so most of
+   * the time nothing was marked at all, which is exactly when she is looking
+   * for it.
+   *
+   * The rest still wins when one is running: it is the most specific thing
+   * the app knows. Otherwise it is the first movement with sets left in it.
+   */
+  const currentSlug = runningRest?.slug
+    ?? view.exercises.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
+    ?? null;
+
   const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null }) => {
     beginRest({
       slug: exercise.slug,
@@ -267,11 +283,7 @@ export function TrainClient({
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
-          // Whatever the rest is counting down to wears the accent — which is
-          // the next movement when one has just been finished, and this one
-          // between sets. Read from the running rest so it is right however
-          // the set was logged: from the card, or from the GO screen.
-          upNext={runningRest?.slug === ex.slug}
+          upNext={currentSlug === ex.slug}
         />
       ))}
       </div>
@@ -783,9 +795,11 @@ export function ExerciseCard({
   const step = weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
 
   const card = (
-    // The movement the rest is counting down to wears the accent, so she can
-    // see where she is going without reading the timer.
-    <section className={`card overflow-hidden ${upNext ? "border-accent" : ""}`}>
+    /* The movement she is on. A colour change on a one-pixel border was not
+       findable in a glance down at a bench — this is green, ringed and
+       breathing, because the question it answers is "which one am I doing"
+       and she is asking it mid-set with a dumbbell in her hand. */
+    <section className={`card overflow-hidden ${upNext ? "border-beat now-glow" : ""}`}>
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         {/*
           The name and the target are the card's own open/close control. She

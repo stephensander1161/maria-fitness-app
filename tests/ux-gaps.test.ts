@@ -106,7 +106,7 @@ suite("the training card during a session", () => {
     // screen offered her a fifth set of something she had done four of.
     expect(card).toMatch(/const next = finishedExercise \? nextAfter\(view\.exercises, ex\.slug\) : null/);
     expect(card).toMatch(/else if \(next\) startRest\(next\)/);
-    expect(card).toMatch(/upNext \? "border-accent" : ""/);
+    expect(card).toMatch(/upNext \? "border-beat now-glow" : ""/);
   });
 });
 
@@ -233,5 +233,28 @@ suite("the setup cues are on the card", () => {
     const card = read("components/train-client.tsx");
     const logSet = card.slice(card.indexOf("async function logSet"));
     expect(logSet.slice(0, logSet.indexOf("} catch"))).toMatch(/setOpen\(false\)/);
+  });
+});
+
+suite("which movement am I on", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("is marked at all times, not only while a rest is running", () => {
+    // The marker used to be "whatever the rest counts down to", so it existed
+    // for the ninety seconds between sets and vanished the rest of the time —
+    // which is exactly when she looks for it.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/const currentSlug = runningRest\?\.slug\s*\n\s*\?\? view\.exercises\.find/);
+    expect(card).toMatch(/e\.targetSets > 0 && e\.loggedToday\.length < e\.targetSets/);
+  });
+
+  it("is green, ringed and breathing, because it is read at arm's length", () => {
+    expect(read("components/train-client.tsx")).toMatch(/border-beat now-glow/);
+    const css = read("app/globals.css");
+    expect(css).toMatch(/@keyframes now-glow/);
+    expect(css).toMatch(/var\(--color-beat\)/);
+    // Still unmistakable for someone who asked for less motion — still, not gone.
+    const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.now-glow \{ animation: none; box-shadow:/);
   });
 });
