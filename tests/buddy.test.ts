@@ -1,12 +1,13 @@
 import { describe as suite, expect, it } from "vitest";
 import {
-  bark, condition, fullness, LATE_HOUR, MAX_SCALE, MIN_SCALE, STALE_DAYS, type BuddyState,
+  bark, condition, fullness, LATE_HOUR, MAX_SCALE, MIN_SCALE, modeFor, SLEEPS_AT, STALE_DAYS, WAKES_AT, type BuddyState,
 } from "@/lib/buddy";
 
 const her = (over: Partial<BuddyState> = {}): BuddyState => ({
   sessions14: 4, planned14: 6, daysSinceSession: 1, trainedToday: false,
   proteinG: 120, proteinTargetG: 120, proteinComplete: true, entriesToday: 3,
-  weighedToday: true, hour: 18, direction: "lose", tone: "plain", ...over,
+  weighedToday: true, sessionOpen: false, restToday: false,
+  hour: 18, direction: "lose", tone: "plain", ...over,
 });
 
 suite("how big he is", () => {
@@ -126,5 +127,33 @@ suite("a voice changes how it is said, never what is true", () => {
     for (const line of all) {
       expect(line).not.toMatch(/no excuses|lazy|pathetic|weak|fat|shame|disappoint|failure/);
     }
+  });
+});
+
+suite("what he is doing", () => {
+  it("trains when she trains, whatever the hour", () => {
+    // The case that makes this a rule rather than a preference: she is in the
+    // gym at one in the morning and the mascot is face-down on the floor.
+    expect(modeFor({ hour: 1, sessionOpen: true, restToday: false })).toBe("training");
+    expect(modeFor({ hour: 23, sessionOpen: true, restToday: true })).toBe("training");
+    expect(modeFor({ hour: 10, sessionOpen: true, restToday: true })).toBe("training");
+  });
+
+  it("sleeps at night", () => {
+    expect(modeFor({ hour: 2, sessionOpen: false, restToday: false })).toBe("asleep");
+    expect(modeFor({ hour: WAKES_AT - 1, sessionOpen: false, restToday: false })).toBe("asleep");
+    expect(modeFor({ hour: SLEEPS_AT, sessionOpen: false, restToday: false })).toBe("asleep");
+    expect(modeFor({ hour: WAKES_AT, sessionOpen: false, restToday: false })).toBe("about");
+  });
+
+  it("and on a day with no training in it", () => {
+    expect(modeFor({ hour: 11, sessionOpen: false, restToday: true })).toBe("asleep");
+    expect(modeFor({ hour: 11, sessionOpen: false, restToday: false })).toBe("about");
+  });
+
+  it("stays up rather than guessing when the clock is unreadable", () => {
+    // Unknown is not midnight. A NaN hour would otherwise read as "before
+    // six" and put him to sleep on a training day.
+    expect(modeFor({ hour: Number.NaN, sessionOpen: false, restToday: false })).toBe("about");
   });
 });

@@ -16,6 +16,7 @@
  */
 
 import type { GoalDirection } from "@/lib/nutrition";
+import type { Mode } from "@/lib/companion";
 
 export type Tone = "encouraging" | "plain" | "hype";
 
@@ -35,6 +36,10 @@ export type BuddyState = {
   /** How many things she has logged today, of any kind. */
   entriesToday: number;
   weighedToday: boolean;
+  /** A workout is open right now: started today and not finished. */
+  sessionOpen: boolean;
+  /** Today asks for no training — a rest day, or nothing planned at all. */
+  restToday: boolean;
   /** Her local hour, 0–23. Some lines only make sense late in the day. */
   hour: number;
   direction: GoalDirection;
@@ -92,6 +97,35 @@ export function fullness(s: Pick<BuddyState, "proteinG" | "proteinTargetG" | "en
   if (!Number.isFinite(s.proteinG)) return null;
   if (!Number.isFinite(s.proteinTargetG) || (s.proteinTargetG ?? 0) <= 0) return null;
   return Math.max(0, Math.min(1, s.proteinG! / s.proteinTargetG!));
+}
+
+/* ── What he is doing ─────────────────────────────────────────────────── */
+
+/** Asleep before this hour and after the evening one. */
+export const WAKES_AT = 6;
+export const SLEEPS_AT = 22;
+
+/**
+ * Training, up and about, or asleep.
+ *
+ * **A session running beats everything.** Not the hour, not the rest day, not
+ * the fact that he was asleep a second ago — if she has started a workout he
+ * is doing it with her, because that is the only moment he is company rather
+ * than decoration. Training past midnight is the case that makes this a rule
+ * rather than a preference: she is in the gym at one in the morning and the
+ * mascot is face-down on the floor.
+ *
+ * Otherwise he sleeps at night, and on a day with no training in it. Awake
+ * and pottering is for a day that has something in it — and he does no sets
+ * while she is not training, because reps performed at nobody is the
+ * difference between a companion and a screensaver.
+ */
+export function modeFor(s: Pick<BuddyState, "hour" | "sessionOpen" | "restToday">): Mode {
+  if (s.sessionOpen) return "training";
+  if (!Number.isFinite(s.hour)) return "about";
+  if (s.hour < WAKES_AT || s.hour >= SLEEPS_AT) return "asleep";
+  if (s.restToday) return "asleep";
+  return "about";
 }
 
 /* ── What he says ─────────────────────────────────────────────────────── */

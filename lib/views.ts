@@ -1005,7 +1005,7 @@ export async function buddyState(profile: {
     }).format(new Date()),
   );
 
-  const [sessions, planCounts, food, weighed, lastTarget, latest] = await Promise.all([
+  const [sessions, planCounts, food, weighed, todayPlanned, openNow, lastTarget, latest] = await Promise.all([
     // Sessions with work in them. A row with no sets is a Start she walked
     // away from, and counting it would grow him for a button press.
     db.select({ date: workouts.date, sets: sql<number>`count(${setLogs.id})::int` })
@@ -1030,6 +1030,21 @@ export async function buddyState(profile: {
     // week without one had no target at all and he could never mention
     // protein — which is most of what he is for. The number does not change
     // week to week, so the most recent one that was set is hers.
+    // Is today a training day at all? A rest day, or a day with nothing
+    // planned, is a day he has no reason to be up for.
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(planDays)
+      .innerJoin(plans, eq(planDays.planId, plans.id))
+      .where(and(
+        eq(plans.profileId, profile.id), eq(plans.weekStart, weekStart(her)),
+        eq(planDays.dayOfWeek, dayIndex(her)), eq(planDays.isRest, false),
+      )),
+    // A session open right now: started today and not finished.
+    db.select({ n: sql<number>`count(*)::int` }).from(workouts)
+      .where(and(
+        eq(workouts.profileId, profile.id), eq(workouts.date, her),
+        isNotNull(workouts.startedAt), isNull(workouts.completedAt),
+      )),
     db.select({ proteinTargetG: mealPlans.proteinTargetG }).from(mealPlans)
       .where(eq(mealPlans.profileId, profile.id))
       .orderBy(desc(mealPlans.weekStart)).limit(1),
@@ -1058,6 +1073,8 @@ export async function buddyState(profile: {
     proteinComplete: food.logged.length > 0 && food.logged.every((l) => l.proteinG !== null),
     entriesToday: food.logged.length,
     weighedToday: weighed[0]?.date === her,
+    sessionOpen: (openNow[0]?.n ?? 0) > 0,
+    restToday: (todayPlanned[0]?.n ?? 0) === 0,
     hour,
     // Which way she is going, from the one place that decides — and from what
     // she weighs, not from the goal compared with itself, which is "hold"

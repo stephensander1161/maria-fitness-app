@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
 import {
-  activityState, cartwheelPose, cartwheelSpin, celebratePose, idlePose, nextActivity,
-  phaseFor, reactionFor, setPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
-  type Activity, type CompanionState, type Pose, type Tone,
+  activityState, celebratePose, idlePose, nextActivity, phaseFor, reactionFor, setPose,
+  sleepPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
+  type Activity, type CompanionState, type Mode, type Pose, type Tone,
 } from "@/lib/companion";
 
 /**
@@ -32,9 +32,14 @@ import {
 const STAGE_W = 300;
 
 export function Companion({
-  tone = "plain", scale = 1, fullness = null, bark = null, barkKind = "idle",
+  tone = "plain", scale = 1, fullness = null, bark = null, barkKind = "idle", mode = "about",
 }: {
   tone?: Tone;
+  /**
+   * Training, up and about, or asleep — decided on the server from her clock
+   * and her session, then corrected here the instant she presses Start.
+   */
+  mode?: Mode;
   /** How big he is, from what she has trained this fortnight. See lib/buddy. */
   scale?: number;
   /** Today's protein against target, 0–1. Null when it cannot honestly be said. */
@@ -45,17 +50,35 @@ export function Companion({
 }) {
   const path = usePathname();
   const [busy, setBusy] = useState(false);
+  /**
+   * The server decided this when the page rendered; these two events are what
+   * make it true *now*.
+   *
+   * Pressing Start refreshes the route, but a round trip is a second or two
+   * and the whole promise is that he joins in when she starts. He is on his
+   * feet before the refresh lands.
+   */
+  const [live, setLive] = useState<Mode | null>(null);
 
   useEffect(() => {
     const on = () => setBusy(true);
     const off = () => setBusy(false);
+    const started = () => setLive("training");
+    const ended = () => setLive(null);
     window.addEventListener("coach:busy", on);
     window.addEventListener("coach:idle", off);
+    window.addEventListener("workout:started", started);
+    window.addEventListener("workout:finished", ended);
     return () => {
       window.removeEventListener("coach:busy", on);
       window.removeEventListener("coach:idle", off);
+      window.removeEventListener("workout:started", started);
+      window.removeEventListener("workout:finished", ended);
     };
   }, []);
+  // A fresh render from the server is the authority again: `live` only exists
+  // to cover the gap while that render is in flight.
+  const showing: Mode = mode === "training" ? "training" : (live ?? mode);
 
   if (isChromeless(path)) return null;
 
@@ -89,7 +112,7 @@ export function Companion({
         >
           {/* The ground he walks on. Faint: he is furniture, not a chart. */}
           <line x1="0" y1="96" x2={STAGE_W} y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
-          <Walker index={0} tone={tone} busy={busy} crowded={false} scale={scale} />
+          <Walker index={0} tone={tone} busy={busy} crowded={false} scale={scale} mode={showing} />
         </svg>
         {/*
           No text inside the button.
@@ -167,9 +190,11 @@ function hueFor(index: number): string | undefined {
 }
 
 function Walker({
-  index, tone, busy, crowded, scale = 1,
+  index, tone, busy, crowded, scale = 1, mode = "about",
 }: {
   index: number; tone: Tone; busy: boolean; crowded: boolean;
+  /** Training, up and about, or asleep — see lib/companion.ts. */
+  mode?: Mode;
   /**
    * How big he is drawn, from what she has actually trained this fortnight.
    *
@@ -187,10 +212,23 @@ function Walker({
   const toneRef = useRef<Tone>(tone);
   const crowdedRef = useRef(crowded);
   const scaleRef = useRef(scale);
+  const modeRef = useRef<Mode>(mode);
 
   useEffect(() => { toneRef.current = tone; }, [tone]);
   useEffect(() => { crowdedRef.current = crowded; }, [crowded]);
   useEffect(() => { scaleRef.current = scale; }, [scale]);
+  /**
+   * A change of mode interrupts whatever he was doing.
+   *
+   * Without this he finishes his forty-second nap before noticing she has
+   * started a workout, which is exactly the moment he is supposed to be
+   * paying attention.
+   */
+  useEffect(() => {
+    if (modeRef.current === mode) return;
+    modeRef.current = mode;
+    interrupt(mode === "asleep" ? "sleep" : mode === "training" ? "set" : "walk");
+  }, [mode]);
 
   function interrupt(activity: Activity) {
     const where = travel(state.current, (performance.now() - startedAt.current) / 1000);
@@ -272,14 +310,14 @@ function Walker({
         startedAt.current = now;
         state.current = busyRef.current
           ? activityState("think", 0.5, where0.x)
-          : nextActivity(s.activity, Math.random(), Math.random(), where0.x, crowdedRef.current);
+          : nextActivity(s.activity, Math.random(), Math.random(), where0.x, crowdedRef.current, modeRef.current);
       }
 
       const where = travel(state.current, elapsed);
       const a = state.current.activity;
       const phase = phaseFor(a, elapsed);
       draw(
-        a === "cartwheel" ? cartwheelPose(phase)
+        a === "sleep" ? sleepPose(phase)
           : a === "set" || a === "spar" ? setPose(state.current.pattern, phase)
             : a === "wave" ? wavePose(phase)
               : a === "celebrate" ? celebratePose(phase)
@@ -288,8 +326,7 @@ function Walker({
                     : a === "laps" ? stridePose(phase, 1.9)
                       : a === "walk" ? stridePose(phase)
                         : idlePose(phase),
-        where.x, where.facing,
-        a === "cartwheel" ? cartwheelSpin(phase) * where.facing : 0,
+        where.x, where.facing, 0,
       );
 
       if (!still) raf = window.requestAnimationFrame(frame);

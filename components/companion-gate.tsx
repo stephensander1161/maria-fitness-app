@@ -1,7 +1,7 @@
 import { currentUser } from "@/lib/session";
 import { getProfile } from "@/lib/profile";
 import { buddyState } from "@/lib/views";
-import { bark, condition, fullness } from "@/lib/buddy";
+import { bark, condition, fullness, modeFor } from "@/lib/buddy";
 import { Companion } from "./companion";
 
 /**
@@ -30,6 +30,7 @@ export async function CompanionGate() {
       fullness={fullness(state)}
       bark={bark(state).text}
       barkKind={bark(state).kind}
+      mode={modeFor(state)}
     />
   );
 }

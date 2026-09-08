@@ -15,9 +15,25 @@ import { PATTERNS, type Joints, type PatternKey } from "@/lib/movement-patterns"
  */
 
 export type Activity =
-  | "walk" | "laps" | "cartwheel" | "set" | "wave" | "think" | "idle" | "celebrate" | "unimpressed"
+  | "walk" | "laps" | "set" | "wave" | "think" | "idle" | "celebrate" | "unimpressed"
+  /** Out cold on the floor. What he does at night, and between sessions. */
+  | "sleep"
   /** Shadow-boxing. What a crowded floor turns into. */
   | "spar";
+
+/**
+ * What he is up to, which is decided by what *she* is up to.
+ *
+ * The one rule that overrides everything: **a session running means he
+ * trains.** Not at three in the morning, not on a rest day, not while he was
+ * asleep a second ago — if she has started a workout he is doing it with her,
+ * because that is the only moment he is company rather than decoration.
+ *
+ * Otherwise he sleeps, unless it is daytime and there is a reason to be up.
+ * He does not do sets when she is not training: reps performed at nobody is
+ * the difference between a companion and a screensaver.
+ */
+export type Mode = "training" | "about" | "asleep";
 
 /** The three registers the app already speaks in — profiles.coach_tone. */
 export type Tone = "encouraging" | "plain" | "hype";
@@ -62,7 +78,12 @@ export function nextActivity(
    * on the spot looks deliberate.
    */
   crowded = false,
+  mode: Mode = "about",
 ): CompanionState {
+  // Asleep is not one activity among several. There is nothing to weight and
+  // nothing to pick: he is asleep until something wakes him.
+  if (mode === "asleep") return activityState("sleep", roll2, fromX);
+
   const table: [Activity, number][] = crowded
     ? [
       ["spar", 0.62],
@@ -70,14 +91,23 @@ export function nextActivity(
       ["idle", 0.12],
       ["wave", 0.08],
     ]
-    : [
-      ["walk", 0.28],
-      ["set", 0.24],
-      ["laps", 0.16],
-      ["cartwheel", 0.12],
-      ["idle", 0.10],
-      ["wave", 0.10],
-    ];
+    : mode === "training"
+      // She is in a session, so he is in a session. Mostly sets, with just
+      // enough else that he is a person doing them rather than a loop.
+      ? [
+        ["set", 0.66],
+        ["walk", 0.14],
+        ["idle", 0.10],
+        ["wave", 0.10],
+      ]
+      // Up and about, and pointedly not doing sets: reps performed at nobody
+      // is the difference between a companion and a screensaver.
+      : [
+        ["walk", 0.42],
+        ["laps", 0.24],
+        ["idle", 0.20],
+        ["wave", 0.14],
+      ];
   const choices = table.filter(([a]) => a !== previous);
   const total = choices.reduce((n, [, w]) => n + w, 0);
   let at = Math.max(0, Math.min(0.999, roll)) * total;
@@ -142,9 +172,10 @@ export function activityState(activity: Activity, roll: number, fromX = 50): Com
     case "laps":
       // Track and field: end to end and back, several times.
       return { ...base, duration: 7 + r * 5, toX: FAR };
-    case "cartwheel":
-      // Across the whole floor, taking its time — roughly three turns.
-      return { ...base, duration: 7 + r * 2, toX: otherEnd };
+    case "sleep":
+      // Long, because waking up every four seconds is not sleeping. He stays
+      // where he dropped.
+      return { ...base, duration: 20 + r * 20 };
     case "set":
       return { ...base, duration: 6 + r * 4, pattern: MOVES[Math.floor(r * MOVES.length)] };
     case "spar":
@@ -239,61 +270,6 @@ export function stridePose(phase: number, intensity = 1): Pose {
   };
 }
 
-/**
- * A cartwheel: the whole body turning about the hip, hands and feet taking
- * turns on the floor.
- *
- * Drawn as a rotation rather than as poses, because that is what it is — the
- * limbs stay where they are relative to each other and the body goes round.
- * The component applies the rotation; this supplies the shape to spin.
- */
-export function cartwheelPose(phase: number): Pose {
-  // Four beats to a cartwheel — hand, hand, foot, foot — and the limbs reach
-  // in that order. A rigid star that spins is not a cartwheel; it is a
-  // starfish on a turntable, which is what it looked like.
-  const beat = (phase * 4) % 4;
-  const near = (b: number) => Math.max(0, 1 - Math.abs(beat - b));
-  // Each limb stretches out as its own beat comes round and tucks after it.
-  const armLead = 1 + near(0) * 0.35;
-  const armTrail = 1 + near(1) * 0.35;
-  const legLead = 1 + near(2) * 0.35;
-  const legTrail = 1 + near(3) * 0.35;
-  const spread = 13;
-  const reach = 24;
-  // The body straightens through the vertical and folds a little at the ends.
-  const fold = 1 - Math.abs(Math.sin(phase * Math.PI * 4)) * 0.12;
-
-  return {
-    head: [50, 22 * fold],
-    shoulder: [50, 34],
-    hip: [50, 58],
-    armL: {
-      elbow: [50 - spread * armLead, 46 - near(0) * 3],
-      hand: [50 - reach * armLead, 32 - near(0) * 6],
-    },
-    armR: {
-      elbow: [50 + spread * armTrail, 46 - near(1) * 3],
-      hand: [50 + reach * armTrail, 32 - near(1) * 6],
-    },
-    legL: {
-      knee: [50 - spread * legTrail, 74 + near(3) * 2],
-      foot: [50 - reach * legTrail, 88 + near(3) * 4],
-    },
-    legR: {
-      knee: [50 + spread * legLead, 74 + near(2) * 2],
-      foot: [50 + reach * legLead, 88 + near(2) * 4],
-    },
-  };
-}
-
-/**
- * How far round the cartwheel has turned, in degrees.
- *
- * One turn per crossing, not two: at two it read as spinning rather than as
- * a body going over its hands.
- */
-export const cartwheelSpin = (phase: number): number => phase * 360;
-
 /** Standing, breathing, weight shifting slowly from one foot to the other. */
 export function idlePose(phase: number): Pose {
   const b = swing(phase, 1) * 0.7;
@@ -306,6 +282,32 @@ export function idlePose(phase: number): Pose {
     armR: { elbow: [54 + sway * 0.3, 42], hand: [55 + sway * 0.5, 55 + b * 0.4] },
     legL: { knee: [47, 75], foot: [46, 94] },
     legR: { knee: [53, 75], foot: [54, 94] },
+  };
+}
+
+/**
+ * Out cold on the floor, breathing.
+ *
+ * Lying down rather than standing still with his eyes shut: a figure that is
+ * merely motionless reads as broken, and the whole point of him is that a
+ * still companion should look like a resting one. The chest rises and falls
+ * on the same slow swing everything else here uses, and the arm under his
+ * head is what makes it a nap instead of a collapse.
+ */
+export function sleepPose(phase: number): Pose {
+  // The floor is y = 94, where his feet stand. Lying on it puts everything
+  // within a few units of that.
+  const breath = swing(phase, 1) * 1.1;
+  return {
+    head: [30, 86 - breath * 0.4],
+    shoulder: [42, 88 - breath],
+    hip: [58, 90],
+    // One arm folded under the head, the other draped over him.
+    armL: { elbow: [36, 82 - breath], hand: [30, 79 - breath] },
+    armR: { elbow: [46, 94], hand: [40, 93] },
+    // Knees drawn up, the way anybody actually sleeps.
+    legL: { knee: [70, 86], foot: [64, 94] },
+    legR: { knee: [72, 90], foot: [66, 94] },
   };
 }
 
@@ -409,11 +411,11 @@ export function lerpJoints(a: Joints, b: Joints, t: number): Joints {
  */
 export function travel(state: CompanionState, elapsed: number): { x: number; facing: 1 | -1 } {
   const { activity, x, toX, duration } = state;
-  if (activity !== "walk" && activity !== "laps" && activity !== "cartwheel") {
+  if (activity !== "walk" && activity !== "laps") {
     return { x, facing: state.facing };
   }
 
-  if (activity === "walk" || activity === "cartwheel") {
+  if (activity === "walk") {
     const t = Math.max(0, Math.min(1, elapsed / duration));
     return { x: x + (toX - x) * t, facing: toX >= x ? 1 : -1 };
   }
@@ -435,9 +437,8 @@ export function travel(state: CompanionState, elapsed: number): { x: number; fac
  */
 export function phaseFor(activity: Activity, elapsed: number): number {
   const perSecond =
-    // One turn per cycle now, and slow: a cartwheel you cannot see the
-    // shape of is a blur, and the shape is the whole point of it.
-    activity === "cartwheel" ? 0.35
+    // Slow enough to read as breathing rather than as twitching.
+    activity === "sleep" ? 0.12
       : activity === "laps" ? 1.6
         : activity === "walk" ? 0.85
         : activity === "spar" ? 0.9

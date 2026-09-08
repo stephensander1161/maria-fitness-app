@@ -1,8 +1,8 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  activityState, cartwheelPose, cartwheelSpin, celebratePose, FAR, idlePose, lerpJoints,
-  NEAR, nextActivity, phaseFor, reactionFor, setPose, stridePose, thinkPose, travel,
+  activityState, celebratePose, FAR, idlePose, lerpJoints,
+  NEAR, nextActivity, phaseFor, reactionFor, setPose, sleepPose, stridePose, thinkPose, travel,
   unimpressedPose, wavePose,
   type Activity, type Pose,
 } from "@/lib/companion";
@@ -38,11 +38,30 @@ suite("what he does next", () => {
       counts.set(a, (counts.get(a) ?? 0) + 1);
     }
     // Every activity gets a turn…
-    for (const a of ["walk", "set", "laps", "wave"] as Activity[]) {
+    for (const a of ["walk", "laps", "wave"] as Activity[]) {
       expect(counts.get(a) ?? 0, a).toBeGreaterThan(0);
     }
     // …and walking is the commonest.
     expect(counts.get("walk")!).toBeGreaterThan(counts.get("wave")!);
+    // But no sets: she is not training, and reps performed at nobody is the
+    // difference between a companion and a screensaver.
+    expect(counts.get("set") ?? 0).toBe(0);
+  });
+
+  it("does sets when she is in a session, and mostly sets", () => {
+    const counts = new Map<Activity, number>();
+    for (let i = 0; i < 2000; i++) {
+      const a = nextActivity("idle", i / 2000, 0.5, 50, false, "training").activity;
+      counts.set(a, (counts.get(a) ?? 0) + 1);
+    }
+    expect(counts.get("set")!).toBeGreaterThan(counts.get("walk") ?? 0);
+    expect(counts.get("sleep") ?? 0).toBe(0);
+  });
+
+  it("asleep is not one activity among several — it is all of them", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(nextActivity("walk", i / 50, 0.5, 50, false, "asleep").activity).toBe("sleep");
+    }
   });
 
   it("survives a roll at either end of the range", () => {
@@ -294,30 +313,31 @@ suite("he works the room", () => {
   it("walks to whichever end he is not at, so the sets land at both", () => {
     expect(activityState("walk", 0.5, 90).toX).toBe(NEAR);
     expect(activityState("walk", 0.5, 10).toX).toBe(FAR);
-    expect(activityState("cartwheel", 0.5, 90).toX).toBe(NEAR);
   });
 
-  it("cartwheels across the floor, turning as he goes", () => {
-    const s = activityState("cartwheel", 0.5, 8);
-    expect(travel(s, 0).x).toBeCloseTo(8);
-    expect(travel(s, s.duration).x).toBeCloseTo(FAR);
-    // Two full turns across, and it goes round rather than back and forth.
-    expect(cartwheelSpin(0)).toBe(0);
-    // One turn per crossing: at two it read as spinning rather than as a
-    // body going over its hands.
-    expect(cartwheelSpin(1)).toBe(360);
-    expect(cartwheelSpin(0.5)).toBeGreaterThan(cartwheelSpin(0.25));
-    for (let p = 0; p <= 1; p += 0.1) expect(finite(cartwheelPose(p)), `${p}`).toBe(true);
-    // Four beats — hand, hand, foot, foot — so the limbs reach in turn
-    // rather than the whole star rotating rigidly.
-    const reach = (p: number) => {
-      const c = cartwheelPose(p);
-      return [c.armL.hand[0], c.armR.hand[0], c.legL.foot[0], c.legR.foot[0]].map((v) => Math.abs(v - 50));
-    };
-    const spans = [0, 0.25, 0.5, 0.75].map((p) => reach(p));
-    // Each beat has a different limb furthest out.
-    const furthest = spans.map((r) => r.indexOf(Math.max(...r)));
-    expect(new Set(furthest).size).toBeGreaterThan(2);
+  it("sleeps lying down, and stays put while he does", () => {
+    // A figure that is merely motionless reads as broken. Lying on the floor
+    // is what makes a still companion look like a resting one.
+    const s = activityState("sleep", 0.5, 30);
+    expect(travel(s, 0).x).toBeCloseTo(30);
+    expect(travel(s, s.duration).x).toBeCloseTo(30);
+    // Long enough to be a sleep rather than a blink.
+    expect(s.duration).toBeGreaterThan(15);
+    for (let p = 0; p <= 1; p += 0.1) expect(finite(sleepPose(p)), `${p}`).toBe(true);
+    // Horizontal: his head is down at floor level and off to one side, not
+    // stacked above his hips the way every standing pose has it.
+    const pose = sleepPose(0.5);
+    expect(pose.head[1]).toBeGreaterThan(70);
+    expect(Math.abs(pose.head[0] - pose.hip[0])).toBeGreaterThan(15);
+    // And breathing, or it is a corpse.
+    expect(sleepPose(0.25).shoulder[1]).not.toBeCloseTo(sleepPose(0.75).shoulder[1]);
+  });
+
+  it("has no cartwheel — it looked like spinning, not like a body going over", () => {
+    const picks = new Set(
+      Array.from({ length: 400 }, (_, i) => nextActivity("idle", i / 400, 0.5, 50).activity),
+    );
+    expect(picks.has("cartwheel" as Activity)).toBe(false);
   });
 
   it("draws by writing attributes, not by re-rendering sixty times a second", () => {
@@ -380,7 +400,7 @@ suite("his world", () => {
     // for a day and then was a row of strangers doing star jumps under her
     // session. One figure can mean something.
     expect(c).not.toMatch(/MAX_CREW|CREW_KEY|aria-label="One more"|aria-label="One fewer"/);
-    expect(c).toMatch(/<Walker index=\{0\} tone=\{tone\} busy=\{busy\} crowded=\{false\} scale=\{scale\} \/>/);
+    expect(c).toMatch(/<Walker index=\{0\} tone=\{tone\} busy=\{busy\} crowded=\{false\} scale=\{scale\} mode=\{showing\} \/>/);
     // Scaled about his feet, or a bigger figure hovers above the floor line.
     expect(c).toMatch(/translate\(50 96\) scale\(\$\{k\}\) translate\(-50 -96\)/);
   });
@@ -404,7 +424,6 @@ suite("a crowd", () => {
     expect(crowdedPicks.has("spar")).toBe(true);
     // Nothing that needs the floor to itself.
     expect(crowdedPicks.has("laps")).toBe(false);
-    expect(crowdedPicks.has("cartwheel")).toBe(false);
     expect(crowdedPicks.has("walk")).toBe(false);
   });
 

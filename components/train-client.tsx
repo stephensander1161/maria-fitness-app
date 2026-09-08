@@ -365,6 +365,10 @@ export function TrainClient({
       // Her tap is also the gesture iOS needs before any of this can beep.
       unlockAudio();
       await action("start_workout", date === undefined ? {} : { date });
+      // He trains when she trains. The refresh below tells him too, but a
+      // round trip is a second or two and the promise is that he joins in
+      // when she starts, not shortly afterwards.
+      window.dispatchEvent(new CustomEvent("workout:started"));
       router.refresh();
     } catch {
       setError("Couldn't start the session — check your signal and try again.");
@@ -380,6 +384,7 @@ export function TrainClient({
       // Anything still queued belongs in this session's summary.
       await flush();
       await action("finish_workout", feeling === undefined ? {} : { feeling });
+      window.dispatchEvent(new CustomEvent("workout:finished"));
       dismissRest();
       // Said properly, once, and only when she says she is done — a card
       // quietly turning green was the whole celebration for the thing this

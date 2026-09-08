@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-08-buddy-sleeps",
+    date: "2026-09-08",
+    title: "He sleeps, and he trains when you do",
+    blurb: "The cartwheel is gone. He turns in at night and on days with nothing planned, and he stops doing sets at you when you are not training. Start a workout and he is up and doing it with you, whatever the hour.",
+    href: "/train",
+  },
+  {
     id: "2026-09-08-buddy",
     date: "2026-09-08",
     title: "One of him, and he knows how you're doing",
