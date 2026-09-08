@@ -60,9 +60,16 @@ function restWordsFor(day: { title: string; isRest: boolean; notes: string | nul
 }
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
-  /** The library's setup cues, cycled one at a time on the card — see
-   *  components/train-client.tsx CyclingCue. */
+  /**
+   * The library's coaching, carried with the movement.
+   *
+   * Cycled one line at a time on the collapsed card, and shown in full when
+   * it opens — the guide behind the help button was a second fetch for
+   * content that is three columns of a row this query already reads.
+   */
   formCues: string[];
+  commonMistakes: string[];
+  safetyNote: string | null;
   /**
    * The library says this movement can hold a weight.
    *
@@ -135,6 +142,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const items = day ? await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
+    commonMistakes: exercises.commonMistakes, safetyNote: exercises.safetyNote,
     isHold: exercises.isHold,
     equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
@@ -167,6 +175,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
         bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
+    commonMistakes: exercises.commonMistakes, safetyNote: exercises.safetyNote,
         isHold: exercises.isHold,
         equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       }).from(exercises).where(inArray(exercises.id, extraIds))
@@ -220,7 +229,7 @@ export async function todayView(profileId: string, units: Units, date = today())
       const prev = lastTime.get(i.exerciseId);
       return {
         slug: i.slug, name: i.name, bodyweight: i.bodyweight,
-        formCues: i.formCues ?? [],
+        formCues: i.formCues ?? [], commonMistakes: i.commonMistakes ?? [], safetyNote: i.safetyNote ?? null,
         loadable: canHoldWeight(i.equipment),
         isHold: i.isHold ?? false,
         category: i.category, extra: i.extra,

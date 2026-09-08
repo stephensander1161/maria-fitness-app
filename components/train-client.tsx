@@ -157,39 +157,63 @@ export function TrainClient({
    * pixel of movement would be a hundred round trips for one drag.
    */
   const listRef = useRef<HTMLDivElement>(null);
+  /**
+   * The card under her finger, and where the list would land.
+   *
+   * The DOM order does not change while she drags. The dragged card follows
+   * the finger and the others slide out of its way by one card's height —
+   * both as transforms, both animatable. The first attempt reordered the
+   * actual list on every pointer move, which meant the thing she was holding
+   * never moved with her and everything else jumped around it: it worked and
+   * felt broken.
+   */
+  const [drag, setDrag] = useState<{ slug: string; dy: number; from: number; to: number; height: number } | null>(null);
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
-  const [draggingSlug, setDraggingSlug] = useState<string | null>(null);
 
   const shown = dragOrder
     ? dragOrder.flatMap((slug) => view.exercises.filter((e) => e.slug === slug))
     : view.exercises;
 
+  /** How far card `i` slides to make room for the one being dragged. */
+  function shiftFor(i: number): number {
+    if (!drag || i === drag.from) return 0;
+    if (drag.to > drag.from && i > drag.from && i <= drag.to) return -drag.height;
+    if (drag.to < drag.from && i < drag.from && i >= drag.to) return drag.height;
+    return 0;
+  }
+
   function beginDrag(e: React.PointerEvent, slug: string) {
     const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
     if (rows.length < 2) return;
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    setDraggingSlug(slug);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
 
-    // Measured once, at the start: re-reading them mid-drag reads the
-    // positions the drag has already changed, and the list oscillates.
-    const mids = rows.map((r) => r.getBoundingClientRect().top + r.getBoundingClientRect().height / 2);
-    let order = shown.map((x) => x.slug);
-    const from = order.indexOf(slug);
+    // Measured once, before anything moves. Nothing in the DOM is reordered
+    // during the drag, so these stay true for the whole gesture.
+    const rects = rows.map((r) => r.getBoundingClientRect());
+    const mids = rects.map((r) => r.top + r.height / 2);
+    const slugs = shown.map((x) => x.slug);
+    const from = slugs.indexOf(slug);
+    const startY = e.clientY;
+    const height = rects[from].height + 16; // the card plus the gap below it
+    let to = from;
+
+    setDrag({ slug, dy: 0, from, to, height });
 
     const move = (ev: PointerEvent) => {
-      const to = slotFor(mids, ev.clientY);
-      const next = moveItem(shown.map((x) => x.slug), from, to);
-      order = next;
-      setDragOrder(next);
+      const dy = ev.clientY - startY;
+      to = slotFor(mids, ev.clientY);
+      setDrag({ slug, dy, from, to, height });
     };
     const end = async () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
-      setDraggingSlug(null);
-      const before = view.exercises.map((x) => x.slug).join();
-      if (order.join() === before) { setDragOrder(null); return; }
+      const order = moveItem(slugs, from, to);
+      setDrag(null);
+      if (order.join() === slugs.join()) return;
+      // Show the new order straight away; the server catches up behind it.
+      setDragOrder(order);
       try {
         await action("reorder_day_exercises", {
           slugs: order,
@@ -201,7 +225,7 @@ export function TrainClient({
       } finally {
         // Held until the refresh lands, or the list snaps back to the old
         // order for a frame and then forward again.
-        setTimeout(() => setDragOrder(null), 400);
+        setTimeout(() => setDragOrder(null), 600);
       }
     };
     window.addEventListener("pointermove", move);
@@ -227,7 +251,17 @@ export function TrainClient({
     return () => window.clearInterval(id);
   }, [runningRest]);
 
-  const currentSlug = runningRest?.slug
+  const stillToDo = (slug: string | undefined) => {
+    const e = view.exercises.find((x) => x.slug === slug);
+    return Boolean(e && e.targetSets > 0 && e.loggedToday.length < e.targetSets);
+  };
+  const currentSlug =
+    // A finished movement never wears the marker, whatever the rest says. The
+    // rest can legitimately be *for* the one just completed — it starts
+    // between sets and the last set does not end it — and the marker sitting
+    // on four-of-four while the next movement waits is the exact thing that
+    // was reported.
+    (stillToDo(runningRest?.slug) ? runningRest?.slug : undefined)
     ?? view.exercises.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
     ?? null;
 
@@ -333,11 +367,14 @@ export function TrainClient({
         ref={listRef}
         className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
       >
-      {shown.map((ex) => (
+      {shown.map((ex, i) => (
         <ExerciseCard
           key={ex.slug}
           exercise={ex}
-          dragging={draggingSlug === ex.slug}
+          dragging={drag?.slug === ex.slug}
+          // The dragged card rides the finger; the others slide out of its
+          // way. Both transforms, so both animate.
+          offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
           onDragStart={editable ? (e) => beginDrag(e, ex.slug) : undefined}
           unit={view.unit}
           pickable={pickable}
@@ -705,7 +742,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, dragging = false, onDragStart,
-  beatSeconds: beat = BEAT_CALM_S,
+  beatSeconds: beat = BEAT_CALM_S, offsetY = 0,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -732,6 +769,8 @@ export function ExerciseCard({
   onDragStart?: (e: React.PointerEvent) => void;
   /** How fast the marker beats — a heart rate settling through the rest. */
   beatSeconds?: number;
+  /** Where the drag has put this card, in pixels from where it sits. */
+  offsetY?: number;
 }) {
   const done = exercise.loggedToday;
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
@@ -894,10 +933,22 @@ export function ExerciseCard({
        breathing, because the question it answers is "which one am I doing"
        and she is asking it mid-set with a dumbbell in her hand. */
     <section
-      className={`card overflow-hidden transition-shadow ${
+      className={`card overflow-hidden ${
         upNext ? "border-beat now-glow" : ""
-      } ${dragging ? "scale-[1.02] opacity-95 shadow-xl shadow-scrim/60" : ""}`}
-      style={upNext ? { animationDuration: `${beat}s` } : undefined}
+      } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
+      style={{
+        ...(upNext ? { animationDuration: `${beat}s` } : {}),
+        ...(offsetY !== 0 || dragging
+          ? {
+            transform: `translateY(${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
+            // The card in her hand tracks the finger with no easing at all;
+            // the ones getting out of the way ease, or the list snaps.
+            transition: dragging ? "none" : "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)",
+            position: "relative" as const,
+            zIndex: dragging ? 20 : undefined,
+          }
+          : { transition: "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)" }),
+      }}
     >
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         {/*
@@ -1073,8 +1124,12 @@ export function ExerciseCard({
 
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
 
-      {/* The setup cues, one at a time, whether or not she opens the guide. */}
-      <CyclingCue cues={exercise.formCues} />
+      {/* Closed, one cue at a time — a card in a grid has room for a line.
+          Open, the whole entry: she has the screen, and the reason to read it
+          is that she is about to do the movement. */}
+      {open
+        ? <FullCues exercise={exercise} />
+        : <CyclingCue cues={exercise.formCues} />}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
           looks logged, because it is; the outline says it hasn't gone up yet.
@@ -1331,8 +1386,8 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
         // scrolling box clips anything drawn outside it — which showed as the
         // green appearing at the corners only. This gives the glow room
         // inside the panel it scrolls in.
-        className="card-lift w-full max-w-md overscroll-contain p-2"
-        style={{ maxHeight: "88dvh", overflowY: "auto" }}
+        className="card-lift w-full max-w-lg overscroll-contain p-2"
+        style={{ maxHeight: "94dvh", overflowY: "auto" }}
       >
         {children}
       </div>
@@ -1340,6 +1395,45 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
   );
 }
 
+
+/**
+ * The whole library entry, for the card that has the screen to itself.
+ *
+ * The same content the help button fetches, without the fetch: it is three
+ * columns of a row the day view already reads. Ordered the way it is used —
+ * how to set up, what goes wrong, and then the one thing worth stopping for.
+ */
+function FullCues({ exercise }: { exercise: TodayExercise }) {
+  const { formCues, commonMistakes, safetyNote } = exercise;
+  if (formCues.length === 0 && commonMistakes.length === 0 && !safetyNote) return null;
+  return (
+    <div className="space-y-3 px-4 pb-3 text-[12px] leading-relaxed">
+      {formCues.length > 0 && (
+        <ol className="space-y-1.5 text-muted">
+          {formCues.map((c, i) => (
+            <li key={c} className="flex gap-2">
+              <span className="shrink-0 tabular-nums text-faint">{i + 1}</span>
+              {c}
+            </li>
+          ))}
+        </ol>
+      )}
+      {commonMistakes.length > 0 && (
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-widest text-faint">Commonly gets wrong</p>
+          <ul className="space-y-1 text-faint">
+            {commonMistakes.map((m) => (
+              <li key={m} className="flex gap-2"><span aria-hidden>·</span>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {safetyNote && (
+        <p className="rounded-lg border border-hold/40 bg-hold-soft px-3 py-2 text-hold">{safetyNote}</p>
+      )}
+    </div>
+  );
+}
 
 /**
  * One setup cue at a time, on the card, always.

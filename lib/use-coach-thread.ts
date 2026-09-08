@@ -42,6 +42,10 @@ export function useCoachThread(
    */
   const stream = useCallback(async (body: Body, opts: { signal?: AbortSignal } = {}) => {
     setBusy(true);
+    // The companion at the bottom of the page stops and thinks while this
+    // runs. Broadcast rather than shared state: he is in the layout and this
+    // hook is in three different sheets.
+    window.dispatchEvent(new CustomEvent("coach:busy"));
     setError(null);
     setErrorCode(null);
     let acc = "";
@@ -74,6 +78,7 @@ export function useCoachThread(
     setStreaming("");
     setActivity(null);
     setBusy(false);
+    window.dispatchEvent(new CustomEvent("coach:idle"));
     // "Delivered" now means the server has it, not that it answered. A turn
     // that failed mid-stream is still in her transcript, and putting her words
     // back in the box would have her send them twice.

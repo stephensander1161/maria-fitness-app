@@ -29,6 +29,16 @@ import { isChromeless } from "@/lib/chromeless";
 export function CoachBubble({ name }: { name: string | null }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+
+  // The companion at the bottom of the page is the other way in — he is the
+  // coach's face, and tapping him is tapping this. An event rather than
+  // shared state: neither of them should have to know the other exists.
+  useEffect(() => {
+    const openIt = () => setOpen(true);
+    window.addEventListener("coach:open", openIt);
+    return () => window.removeEventListener("coach:open", openIt);
+  }, []);
+
   if (isChromeless(path)) return null;
 
   return (

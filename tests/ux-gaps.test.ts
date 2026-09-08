@@ -245,8 +245,8 @@ suite("which movement am I on", () => {
     // for the ninety seconds between sets and vanished the rest of the time —
     // which is exactly when she looks for it.
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/const currentSlug = runningRest\?\.slug\s*\n\s*\?\? view\.exercises\.find/);
-    expect(card).toMatch(/e\.targetSets > 0 && e\.loggedToday\.length < e\.targetSets/);
+    expect(card).toMatch(/const currentSlug =/);
+    expect(card).toMatch(/\?\? view\.exercises\.find\(\(e\) => e\.targetSets > 0 && e\.loggedToday\.length < e\.targetSets\)\?\.slug/);
   });
 
   it("is green, ringed and breathing, because it is read at arm's length", () => {
@@ -289,6 +289,22 @@ suite("reordering the day by dragging", () => {
     expect(card).not.toMatch(/draggable=|onDragOver=/);
   });
 
+  it("the card follows the finger and the others slide out of its way", () => {
+    // Reordering the list on every pointer move meant the thing she was
+    // holding never moved with her and everything else jumped around it: it
+    // worked and felt broken.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/function shiftFor\(i: number\)/);
+    expect(card).toMatch(/offsetY=\{drag\?\.slug === ex\.slug \? drag\.dy : shiftFor\(i\)\}/);
+    // No easing on the one in her hand; easing on the ones getting out of it.
+    expect(card).toMatch(/transition: dragging \? "none" :/);
+    // The DOM order is left alone until she lets go, or the measurements
+    // taken at the start stop being true half way through the gesture.
+    const move = card.slice(card.indexOf("const move = (ev: PointerEvent)"), card.indexOf("const end = async"));
+    expect(move).not.toMatch(/setDragOrder/);
+    expect(move).toMatch(/setDrag\(\{ slug, dy, from, to, height \}\)/);
+  });
+
   it("writes the order once, on release", () => {
     // A write per pixel of movement is a hundred round trips for one drag.
     const card = read("components/train-client.tsx");
@@ -296,7 +312,7 @@ suite("reordering the day by dragging", () => {
     expect(begin.slice(0, begin.indexOf("\n  }"))).toMatch(/const end = async/);
     expect(card).toMatch(/action\("reorder_day_exercises"/);
     // And not at all when nothing moved.
-    expect(card).toMatch(/if \(order\.join\(\) === before\)/);
+    expect(card).toMatch(/if \(order\.join\(\) === slugs\.join\(\)\) return;/);
   });
 
   it("the tool keeps every movement, in a stated order", () => {
@@ -306,5 +322,37 @@ suite("reordering the day by dragging", () => {
     expect(training).toMatch(/name: "reorder_day_exercises"/);
     expect(training).toMatch(/const rest = rows\.filter\(\(r\) => !named\.includes\(r\.slug\)\)/);
     expect(training).toMatch(/Not on \$\{DAY_NAMES\[found\.dow\]\}/);
+  });
+});
+
+suite("the marker never sits on a finished movement", () => {
+  it("falls past the rest when the rest is for one that is done", () => {
+    // The rest starts between sets and the last set does not end it, so the
+    // running rest can legitimately be *for* the movement just completed —
+    // and the marker stayed on four-of-four while the next one waited.
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/const stillToDo = \(slug: string \| undefined\)/);
+    expect(card).toMatch(/\(stillToDo\(runningRest\?\.slug\) \? runningRest\?\.slug : undefined\)/);
+  });
+});
+
+suite("the open card shows the whole movement", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("takes the screen, and reads out the library entry rather than cycling", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/maxHeight: "94dvh"/);
+    expect(card).toMatch(/max-w-lg/);
+    expect(card).toMatch(/\? <FullCues exercise=\{exercise\} \/>/);
+    expect(card).toMatch(/: <CyclingCue cues=\{exercise\.formCues\} \/>/);
+  });
+
+  it("without a second fetch — it is three columns of a row already read", () => {
+    expect(read("lib/views.ts")).toMatch(/commonMistakes: exercises\.commonMistakes, safetyNote: exercises\.safetyNote/);
+    const full = read("components/train-client.tsx");
+    const fn = full.slice(full.indexOf("function FullCues"), full.indexOf("One setup cue at a time"));
+    expect(fn).not.toMatch(/action\(|fetch\(/);
+    expect(fn).toMatch(/safetyNote/);
+    expect(fn).toMatch(/Commonly gets wrong/);
   });
 });

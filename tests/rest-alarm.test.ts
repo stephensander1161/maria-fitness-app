@@ -138,7 +138,7 @@ suite("what the rest counts down to", () => {
     // always marked. The marker used to exist only during the rest, which is
     // most of the time nothing at all.
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).toMatch(/const currentSlug = runningRest\?\.slug/);
+    expect(card).toMatch(/stillToDo\(runningRest\?\.slug\)/);
     expect(card).toMatch(/upNext=\{currentSlug === ex\.slug\}/);
   });
 });
