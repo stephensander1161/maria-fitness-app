@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { addDays } from "@/lib/date";
 import type { MealWeekView, Pickable, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
@@ -121,6 +122,12 @@ export function PlanClient({
           return {
             dayOfWeek: d.dayOfWeek,
             dayName: d.dayName,
+            // The date, because without it every week looks like every other
+            // one. An untouched week inherits the last, so the chips read
+            // "5 5 4 4 5 5 Rest" on the week she is on and on the week five
+            // ahead of it — she stepped forward and the only thing that moved
+            // was a line of small print above.
+            date: Number(addDays(shownWeek, d.dayOfWeek).slice(8, 10)),
             // What the chip has to say at a glance depends on which week she
             // is reading — the training one or the eating one.
             note: tab === "training"
@@ -266,7 +273,7 @@ export function PlanClient({
 function WeekStrip({
   days, today, selected, href,
 }: {
-  days: { dayOfWeek: number; dayName: string; note: string; quiet: boolean }[];
+  days: { dayOfWeek: number; dayName: string; date: number; note: string; quiet: boolean }[];
   today: number;
   selected: number;
   href: (day: number) => string;
@@ -289,7 +296,7 @@ function WeekStrip({
               href={href(d.dayOfWeek)}
               scroll={false}
               aria-current={isOn ? "page" : undefined}
-              aria-label={`${d.dayName}${isToday ? ", today" : ""}`}
+              aria-label={`${d.dayName} the ${d.date}${isToday ? ", today" : ""}`}
               className={`min-w-0 rounded-xl border px-0.5 py-2 text-center transition-colors sm:px-2 sm:py-2.5 ${
                 isOn ? "border-accent bg-accent-soft" : "border-edge bg-surface hover:bg-raised"
               }`}
@@ -299,8 +306,8 @@ function WeekStrip({
               <span className={`block truncate text-[10px] font-semibold uppercase tracking-tight ${
                 isToday ? "text-accent" : "text-faint"
               }`}>
-                {d.dayName.slice(0, 3)}
-                {isToday && <span aria-hidden> ·</span>}
+                {d.dayName.slice(0, 3)} {d.date}
+                {isToday && <span aria-hidden>·</span>}
                 {isToday && <span className="sr-only">, today</span>}
               </span>
               <span className={`mt-0.5 block truncate text-[14px] font-semibold tabular sm:text-[15px] ${

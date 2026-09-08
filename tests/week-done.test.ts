@@ -148,6 +148,17 @@ suite("the set sheet is the set, not the library entry", () => {
 });
 
 suite("the plan header says which week is on screen", () => {
+  it("puts the date on every day chip, so the strip changes with the week", () => {
+    // The chips carried a count of exercises and nothing else, and an
+    // untouched week inherits the last one — so five weeks ahead read
+    // "5 5 4 4 5 5 Rest" exactly like the week she was standing in, and the
+    // only thing that moved was a line of small print above them.
+    const plan = read("components/plan-client.tsx");
+    expect(plan).toMatch(/date: Number\(addDays\(shownWeek, d\.dayOfWeek\)\.slice\(8, 10\)\)/);
+    expect(plan).toMatch(/\{d\.dayName\.slice\(0, 3\)\} \{d\.date\}/);
+    expect(plan).toMatch(/aria-label=\{`\$\{d\.dayName\} the \$\{d\.date\}/);
+  });
+
   it("names the week it is showing, not today's", () => {
     const page = read("app/plan/page.tsx");
     expect(page).toMatch(/shownWeek === thisWeek \? prettyDate\(her\) : `Week of \$\{prettyDate\(shownWeek\)\}`/);

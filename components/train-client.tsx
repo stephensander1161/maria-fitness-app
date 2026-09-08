@@ -20,7 +20,7 @@ import {
 import type { ISODate } from "@/lib/date";
 import { askToNotify, unlockAudio } from "@/components/rest-timer";
 import { useRest } from "@/components/rest-provider";
-import type { Pickable, PickableExercise, TodayExercise, TodayView } from "@/lib/views";
+import type { Pickable, TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
 
@@ -993,6 +993,8 @@ export function ExerciseCard({
   const [open, setOpen] = useState(false);
   /** The library entry, folded away until she asks for it. */
   const [showCues, setShowCues] = useState(false);
+  /** Target, relabel and remove — the same fold, so only one is ever open. */
+  const [showEdit, setShowEdit] = useState(false);
   const hasDetail =
     exercise.formCues.length > 1 || exercise.commonMistakes.length > 0 || exercise.safetyNote !== null;
   /**
@@ -1217,7 +1219,7 @@ export function ExerciseCard({
         <ExerciseFigure
           slug={exercise.slug}
           category={exercise.category}
-          className={`shrink-0 self-start text-accent/70 ${open ? "h-24 w-20" : "h-11 w-9"}`}
+          className={`shrink-0 self-start text-accent/70 ${open ? "h-16 w-14" : "h-11 w-9"}`}
         />
         <button
           onClick={() => canLog && (open ? setOpen(false) : openCard())}
@@ -1313,38 +1315,6 @@ export function ExerciseCard({
             something else, and a relabel that loses the history is a delete
             wearing a friendly name.
           */}
-          {editable && open && (
-          <button
-            onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
-            aria-label={`Change what ${exercise.name} is`}
-            aria-expanded={changing}
-            className={`grid size-8 place-items-center rounded-full border text-muted ${
-              changing ? "border-accent text-accent" : "border-line"
-            }`}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 8h13l-3-3M20 16H7l3 3" />
-            </svg>
-          </button>
-          )}
-          {/*
-            Extras are not on the plan, so "remove" means deleting the sets
-            themselves — the only thing holding them on the day. It used to
-            mean no button at all, which left a movement she had logged once
-            with no way off the screen.
-          */}
-          {editable && open && (!exercise.extra || setCount > 0) && (
-            <button
-              onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
-              aria-label={`Remove ${exercise.name} from today`}
-              className="grid size-8 place-items-center rounded-full border border-line text-muted"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M5 12h14" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 
@@ -1388,20 +1358,6 @@ export function ExerciseCard({
         </div>
       )}
 
-      {open && editable && (
-        <TargetEditor
-          slug={exercise.slug}
-          sets={exercise.targetSets}
-          reps={exercise.targetReps}
-          weight={exercise.targetWeight}
-          unit={unit}
-          isHold={exercise.isHold}
-          holdSeconds={exercise.targetHoldSeconds}
-          dayOfWeek={dayOfWeekOf(date)}
-          onSaved={onRemoved}
-        />
-      )}
-
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
 
       {/* Closed, one cue at a time — a card in a grid has room for a line.
@@ -1417,23 +1373,69 @@ export function ExerciseCard({
         she wants it.
       */}
       <CyclingCue cues={exercise.formCues} />
-      {open && hasDetail && (
-        <div className="px-4 pb-3">
-          <button
-            onClick={() => setShowCues(!showCues)}
-            aria-expanded={showCues}
-            className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[12px] text-muted active:bg-raised"
-          >
-            {showCues ? "Hide how to do it" : "How to do it"}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-              className={showCues ? "rotate-180 transition-transform" : "transition-transform"}>
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
+
+      {/*
+        Two folds, one row, and everything that is not the set behind them.
+        Open, this card carried the whole library entry, a dashed "Change the
+        target" panel and two round edit buttons crowding a name that had
+        already wrapped to two lines — on a phone that is a screenful of
+        things she is not doing, and the middle of the card became a sliver
+        showing half a button. What she opened it for is the squares, the two
+        numbers and the button. The rest is one tap away.
+      */}
+      {open && (
+        <div className="flex gap-2 px-4 pb-3">
+          {hasDetail && (
+            <FoldButton
+              label="How to do it"
+              open={showCues}
+              onClick={() => { setShowCues(!showCues); setShowEdit(false); }}
+            />
+          )}
+          {editable && (
+            <FoldButton
+              label="Edit"
+              open={showEdit}
+              onClick={() => { setShowEdit(!showEdit); setShowCues(false); }}
+            />
+          )}
         </div>
       )}
       {open && showCues && <FullCues exercise={exercise} />}
+      {open && showEdit && editable && (
+        <div className="space-y-2 pb-1">
+          <TargetEditor
+            slug={exercise.slug}
+            sets={exercise.targetSets}
+            reps={exercise.targetReps}
+            weight={exercise.targetWeight}
+            unit={unit}
+            isHold={exercise.isHold}
+            holdSeconds={exercise.targetHoldSeconds}
+            dayOfWeek={dayOfWeekOf(date)}
+            onSaved={onRemoved}
+          />
+          <div className="flex gap-2 px-4 pb-2">
+            <button
+              onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
+              aria-expanded={changing}
+              className={`flex-1 rounded-lg border py-2 text-[12px] ${
+                changing ? "border-accent text-accent" : "border-line text-muted"
+              }`}
+            >
+              This was something else
+            </button>
+            {(!exercise.extra || setCount > 0) && (
+              <button
+                onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
+                className="rounded-lg border border-line px-3 py-2 text-[12px] text-muted"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
           looks logged, because it is; the outline says it hasn't gone up yet.
@@ -1700,6 +1702,26 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
  * columns of a row the day view already reads. Ordered the way it is used —
  * how to set up, what goes wrong, and then the one thing worth stopping for.
  */
+/** One of the two folds under an open card. Half a row each, so both fit. */
+function FoldButton({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={open}
+      className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border py-2 text-[12px] ${
+        open ? "border-accent text-accent" : "border-line text-muted"
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+        className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}>
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </button>
+  );
+}
+
 function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   if (formCues.length === 0 && commonMistakes.length === 0 && !safetyNote) return null;

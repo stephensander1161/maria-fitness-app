@@ -398,10 +398,19 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     expect(card).not.toMatch(/aria-label=\{`(Show|Open) the (guide|help)/);
   });
 
-  it("keeps the edits inside the open card, so the name has the row", () => {
+  it("keeps the edits inside the open card, and out of the name's row", () => {
+    // They were two round buttons in the header, beside a name that had
+    // already wrapped. Now they are behind the Edit fold with the target,
+    // so the header is the movement and one way out.
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/\{editable && open && \(/);
     expect(card).toMatch(/line-clamp-2/);
+    expect(card).toMatch(/\{open && showEdit && editable && \(/);
+    // Only one fold open at a time, or the sheet grows past the screen again.
+    expect(card).toMatch(/setShowCues\(!showCues\); setShowEdit\(false\);/);
+    expect(card).toMatch(/setShowEdit\(!showEdit\); setShowCues\(false\);/);
+    // And the target editor is inside it, not printed above the entry.
+    const editFold = card.slice(card.indexOf("{open && showEdit && editable && ("));
+    expect(editFold.slice(0, 900)).toMatch(/<TargetEditor/);
   });
 
   it("and the card no longer opens a guide of its own", () => {
@@ -419,7 +428,9 @@ suite("the movement is on the card, moving", () => {
     // name on the card is the thing you are about to do.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/<ExerciseFigure\s+slug=\{exercise\.slug\}/);
-    expect(card).toMatch(/open \? "h-24 w-20" : "h-11 w-9"/);
+    // Smaller open than it was: at h-24 beside a name that had already
+    // wrapped to two lines, the header was a column of dead space.
+    expect(card).toMatch(/open \? "h-16 w-14" : "h-11 w-9"/);
   });
 
   it("and it still cross-fades between the two poses", () => {
