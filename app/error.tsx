@@ -28,6 +28,10 @@ export default function ErrorScreen({
         >
           Try again
         </button>
+        {/* A full document load on purpose, not a soft navigation: this is
+            the escape hatch from a React tree that has already thrown, and
+            <Link /> would carry her back into it. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/train"
           className="rounded-full border border-line px-5 py-2.5 text-[14px] text-muted"
