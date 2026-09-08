@@ -51,7 +51,15 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     // effect pass sets state before the first paint has landed.
     const id = window.requestAnimationFrame(() => {
       try {
-        const saved = Number(window.localStorage.getItem(CREW_KEY));
+        // Nothing saved is not zero of him.
+        //
+        // `Number(null)` is 0, which is finite and within range, so every
+        // browser that had never touched the buttons read "none" and got an
+        // empty strip. The same trap this codebase has written down twice:
+        // an absent value is unknown, and unknown is not zero.
+        const raw = window.localStorage.getItem(CREW_KEY);
+        if (raw === null) return;
+        const saved = Number(raw);
         if (Number.isFinite(saved) && saved >= 0 && saved <= MAX_CREW) setCrew(saved);
       } catch { /* private mode — one of him, then */ }
     });

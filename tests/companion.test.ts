@@ -396,3 +396,15 @@ suite("a crowd", () => {
     expect(c).toMatch(/style=\{\{ color: hueFor\(index\) \}\}/);
   });
 });
+
+suite("how many of him there are to begin with", () => {
+  it("treats nothing saved as one, never as none", () => {
+    // `Number(null)` is 0, which is finite and in range — so a browser that
+    // had never touched the buttons read "none" and got an empty strip. The
+    // same trap this codebase has written down twice for food.
+    const c = fs.readFileSync("components/companion.tsx", "utf8");
+    expect(c).toMatch(/const raw = window\.localStorage\.getItem\(CREW_KEY\);/);
+    expect(c).toMatch(/if \(raw === null\) return;/);
+    expect(c).toMatch(/useState\(1\)/);
+  });
+});
