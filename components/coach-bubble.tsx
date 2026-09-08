@@ -26,7 +26,20 @@ import { FeedbackGlyph, FeedbackSheet } from "./feedback";
  */
 import { isChromeless } from "@/lib/chromeless";
 
-export function CoachBubble({ name }: { name: string | null }) {
+export function CoachBubble({
+  name, float = false,
+}: {
+  name: string | null;
+  /**
+   * Whether to draw the floating button that opens it.
+   *
+   * Off. The companion at the bottom of every page *is* the button — that was
+   * the whole point of replacing a chat bubble with somebody — and drawing
+   * both would put two coach triggers on one screen, which is one too many.
+   * The prop stays because a screen without a companion would need it.
+   */
+  float?: boolean;
+}) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -34,12 +47,14 @@ export function CoachBubble({ name }: { name: string | null }) {
    * The companion at the bottom of the page is the coach's face, and tapping
    * him opens the coach.
    *
-   * He used to shout `coach:open` at a room with nobody in it: the only
-   * listeners were the inline panels, which are not on every screen and sit
-   * up in the header when they are — so on most screens the tap did nothing
-   * at all, and on the rest something opened off-screen above her. This is
-   * the chat window, it is mounted on every screen, and it opens over
-   * whatever she is looking at.
+   * He used to shout `coach:open` at a room with nobody in it, twice over.
+   * The only listeners were the inline panels, which are not on every screen
+   * and sit up in the header when they are. And this — the thing that should
+   * have been listening — was written, exported, and then mounted precisely
+   * nowhere: `CoachBubbleGate` had no caller at all, so on every screen in
+   * the app there was no chat window to open.
+   *
+   * It is in the root layout now, and the companion is what opens it.
    */
   useEffect(() => {
     const come = () => setOpen(true);
@@ -51,7 +66,7 @@ export function CoachBubble({ name }: { name: string | null }) {
 
   return (
     <>
-      {!open && (
+      {!open && float && (
         <button
           onClick={() => setOpen(true)}
           aria-label="Ask your coach"

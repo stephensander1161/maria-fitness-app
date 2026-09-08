@@ -468,10 +468,19 @@ while holding the tool.
 
 ## The coach is not a place
 
-There is no Coach tab. `components/coach-bubble.tsx` floats on every screen
-(mounted in the root layout via `CoachBubbleGate`), and `<AskCoach>` puts an
-inline thread next to a specific thing — a movement, an empty week. All of it
-is one conversation through `useCoachThread()` / `ThreadMessages` / `Composer`.
+There is no Coach tab. `components/coach-bubble.tsx` is the chat sheet, mounted
+once in the root layout via `CoachBubbleGate`, and `<AskCoach>` puts an inline
+thread next to a specific thing — a movement, an empty week. All of it is one
+conversation through `useCoachThread()` / `ThreadMessages` / `Composer`.
+
+**The sheet draws no button of its own.** The companion at the bottom of every
+page is what opens it (`float` defaults to false), because two coach triggers on
+one screen is one too many — which is why the floating bubble was retired. That
+retirement is also how the sheet came to be mounted *nowhere*: the gate was
+written, exported and never called, so for months the companion dispatched
+`coach:open` into an empty room and tapping him did nothing on every screen in
+the app. Nothing caught it, because the test that had asserted the mount was
+deleted along with the button and this paragraph was not updated.
 
 **A message sent from a screen carries that screen.** The browser sends the
 *path*; `contextForPath()` reads what is on it and the route prepends it to her

@@ -417,6 +417,26 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    ring reads as a shadow around a grey card rather than as a green one. */
 .now-glow { animation: now-glow 2.4s ease-in-out infinite; border-color: var(--color-beat); }
 
+/*
+   A control that is only ever tapped, never read or selected.
+
+   iOS reads a press-and-hold on selectable text as "select this", and puts
+   its Copy / Search with Google callout over the top — which eats the tap.
+   The companion strip had a screen-reader label sitting inside the button as
+   real text, so pressing him selected it and nothing else happened. The label
+   is on the button itself now, and this makes sure nothing inside one of
+   these can ever be selected instead of pressed.
+
+   `touch-action: manipulation` is the other half: it drops the double-tap
+   zoom wait, so a single tap fires immediately rather than 300ms later.
+*/
+.tap-only {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
 /* The same marker, not beating.
    Before the session is started there is no rest counting down and nothing
    is happening, so a card pulsing at her while she reads the day is urgency

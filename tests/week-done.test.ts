@@ -221,6 +221,17 @@ suite("a movement is a page on a phone, a sheet on a desktop", () => {
 });
 
 suite("the day's name and its clock share a container", () => {
+  it("does the same on Train, where it was three stacked blocks", () => {
+    // A heading centred under the date arrows, then a Start button on a line
+    // of its own beneath it — on a phone that was most of what sat above the
+    // first movement.
+    const page = read("app/train/page.tsx");
+    expect(page).toMatch(/heading=\{/);
+    expect(page).toMatch(/<DayTitle title=\{view\.title\} dayOfWeek=\{dayIndex\(on\)\} focus=\{view\.focus\} compact \/>/);
+    // And DayNav no longer carries the title as well.
+    expect(page).not.toMatch(/<\/DayNav>/);
+  });
+
   it("hands the heading to the session, on today", () => {
     // Start workout was a button on a line of its own directly under a card
     // saying "Today · Tuesday / Shoulders" — two containers saying one thing,

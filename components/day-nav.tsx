@@ -51,7 +51,7 @@ export function DayNav({
   );
 
   return (
-    <header className="mb-5">
+    <header className={children ? "mb-5" : "mb-3"}>
       {/*
         The date is centred on the row and stays there.
         Laid out in flow, the "Today" link appeared on one day and not the

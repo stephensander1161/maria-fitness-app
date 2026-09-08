@@ -85,23 +85,36 @@ export default async function TrainPage({
         label={prettyDate(on)}
         isToday={isToday}
         actions={<AiOpinion page="train" label="session" />}
-      >
-        <p className="text-[13px] font-medium uppercase tracking-wide text-accent">{view.dayName}</p>
-        {view.hasPlan ? (
-          <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} />
-        ) : (
-          <>
-            <h1 className="truncate text-2xl font-bold tracking-tight">{view.title}</h1>
-            {view.focus && <p className="mt-1 text-sm text-muted">{view.focus}</p>}
-          </>
-        )}
-      </DayNav>
+      />
 
       {/* The same cards on every day. A movement is a movement; having one UI
           for today and a list of names for every other day was two things to
           build and one of them permanently behind. What the day changes is
           what can be done on it, which the cards decide for themselves. */}
-      <TrainClient view={view} pickable={pickable} targets={targets} date={on} isToday={isToday} />
+      <TrainClient
+        view={view}
+        pickable={pickable}
+        targets={targets}
+        date={on}
+        isToday={isToday}
+        // The day's name and the session clock in one row, rather than a
+        // heading centred under the date arrows and then a Start button on a
+        // line of its own beneath it — three stacked blocks saying two things,
+        // which on a phone is most of what is above the first movement.
+        heading={
+          <>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">{view.dayName}</p>
+            {view.hasPlan ? (
+              <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} compact />
+            ) : (
+              <>
+                <h2 className="mt-0.5 text-[17px] font-semibold">{view.title}</h2>
+                {view.focus && <p className="mt-1 text-[13px] text-muted">{view.focus}</p>}
+              </>
+            )}
+          </>
+        }
+      />
     </>
   );
 }

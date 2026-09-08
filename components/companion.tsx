@@ -89,7 +89,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
   const label = busy ? "Your coach is thinking" : "Ask your coach";
 
   return (
-    <div className="relative mt-6 rounded-2xl border border-line/60 bg-surface/40">
+    <div className="tap-only relative mt-6 rounded-2xl border border-line/60 bg-surface/40">
       {/* The strip itself is the way in to the coach. The two little buttons
           sit on top of it and stop the tap reaching it. */}
       {/*
@@ -102,10 +102,13 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
       */}
       <button
         type="button"
+        // Named, because the floating coach button carries the same label and
+        // a probe cannot otherwise tell the two apart.
+        data-companion=""
         onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
         aria-label={label}
         title={label}
-        className="group block w-full px-2 py-1 transition-colors hover:bg-surface/60"
+        className="tap-only group block w-full px-2 py-1 transition-colors hover:bg-surface/60"
       >
         <svg
           viewBox={`0 0 ${STAGE_W} 100`}
@@ -119,7 +122,14 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
             <Walker key={i} index={i} tone={tone} busy={busy} crowded={crew >= CROWD} />
           ))}
         </svg>
-        <span className="sr-only">{label}</span>
+        {/*
+          No text inside the button.
+          The screen-reader label used to live here as a real <span>, and iOS
+          reads a press-and-hold on real text as a selection: the Copy /
+          Search callout came up over the strip and swallowed the tap. The
+          `aria-label` above says the same thing to the same people without
+          putting anything on the page to select.
+        */}
       </button>
 
       {/* Bottom corners of his world: one fewer, one more. */}

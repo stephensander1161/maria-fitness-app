@@ -197,6 +197,41 @@ suite("the poses", () => {
 suite("he is the way in to the coach", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
+  it("has a chat window to open — which is where this went wrong", () => {
+    // The listener was added to CoachBubble and CoachBubble was mounted
+    // precisely nowhere: the gate was written, exported, and never called, so
+    // on every screen in the app there was no chat window for him to open.
+    // Nothing caught it, because nothing checked.
+    const layout = read("app/layout.tsx");
+    expect(layout).toMatch(/<CoachBubbleGate \/>/);
+    expect(layout).toMatch(/import \{ CoachBubbleGate \} from "@\/components\/coach-bubble-gate"/);
+    expect(read("components/coach-bubble-gate.tsx")).toMatch(/<CoachBubble name=/);
+  });
+
+  it("is the only trigger — the sheet draws no button of its own", () => {
+    // He *is* the button. Two coach triggers on one screen is one too many,
+    // which is why the floating bubble was retired in the first place.
+    const bubble = read("components/coach-bubble.tsx");
+    expect(bubble).toMatch(/\{!open && float && \(/);
+    expect(bubble).toMatch(/float = false/);
+    expect(read("components/coach-bubble-gate.tsx")).not.toMatch(/float=/);
+  });
+
+  it("has nothing inside him to select instead of press", () => {
+    // iOS reads a press-and-hold on real text as "select this" and puts a
+    // Copy / Search callout over the top, which eats the tap. His
+    // screen-reader label used to be a <span> of real text inside the button.
+    const c = read("components/companion.tsx");
+    expect(c).not.toMatch(/<span className="sr-only">\{label\}<\/span>/);
+    expect(c).toMatch(/aria-label=\{label\}/);
+    expect(c).toMatch(/className="tap-only group block/);
+    const css = read("app/globals.css");
+    const rule = css.slice(css.indexOf(".tap-only {"), css.indexOf("}", css.indexOf(".tap-only {")));
+    expect(rule).toMatch(/-webkit-touch-callout: none/);
+    expect(rule).toMatch(/user-select: none/);
+    expect(rule).toMatch(/touch-action: manipulation/);
+  });
+
   it("opens the chat window, on every screen", () => {
     // He used to shout at a room with nobody in it. The only listeners were
     // the inline panels — not on every screen, and up in the header when they

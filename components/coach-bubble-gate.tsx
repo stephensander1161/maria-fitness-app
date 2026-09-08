@@ -3,6 +3,12 @@ import { getProfile } from "@/lib/profile";
 import { CoachBubble } from "./coach-bubble";
 
 /**
+ * The chat window itself, mounted once for the whole app.
+ *
+ * It is the sheet only — no floating button, because the companion at the
+ * bottom of every page is the button. This gate existed for months with no
+ * caller anywhere, which is why tapping him did nothing on every screen.
+ *
  * The bubble needs her name and needs to not exist for a signed-out visitor.
  * Both are server questions, so they are answered here rather than by a fetch
  * from the client on every screen.

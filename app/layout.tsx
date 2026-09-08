@@ -14,6 +14,7 @@ import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 import { CompanionGate } from "@/components/companion-gate";
 import { WeighInGate } from "@/components/weigh-in-gate";
+import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 
 export const metadata: Metadata = {
   title: "Plate",
@@ -100,6 +101,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
         </div>
         </RestProvider>
+        {/* The chat window the companion opens. The sheet only: he is the
+            button, and two coach triggers on one screen is one too many. */}
+        <CoachBubbleGate />
         {/*
           The first thing she sees on the first open of the day, over
           everything else: the scale. It lived on Progress, two taps away and
