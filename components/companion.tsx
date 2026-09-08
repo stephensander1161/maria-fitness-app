@@ -13,40 +13,56 @@ import {
  * The coach, as somebody rather than a button.
  *
  * A chat bubble is a thing you use; this is a thing that is *there* — he
- * walks about, does sets between whatever else is happening, runs laps, and
- * waves. Tapping him opens the coach for whichever screen she is on.
+ * walks about, does sets between whatever else is happening, runs laps,
+ * cartwheels, and waves. Tapping the strip opens the coach for whichever
+ * screen she is on.
  *
  * He reacts to two things, and only two, because a figure that reacts to
  * everything is noise: the coach actually working (he stops and thinks), and
  * a set landing (he is pleased, or he is not — see reactionFor, which reads
  * the same tone the coach speaks in).
  *
- * **Nothing here re-renders per frame.** The first version called setState
- * sixty times a second and the whole component tree went with it, which is
- * exactly what "janky" was. The loop now writes SVG attributes straight to
- * the DOM through refs; React only hears about it when the *activity*
- * changes, which is every few seconds.
+ * **Nothing here re-renders per frame.** Each figure writes SVG attributes
+ * straight to the DOM through a ref; React only hears about it when the
+ * activity changes, which is every few seconds.
  */
+
+/** The stage is wide and short, so he has a floor rather than a square. */
+const STAGE_W = 300;
+const CREW_KEY = "coach.crew";
+/** Enough to be silly, few enough to still be a stage rather than a crowd. */
+const MAX_CREW = 25;
+
 export function Companion({ tone = "plain" }: { tone?: Tone }) {
   const path = usePathname();
   const [hasPanel, setHasPanel] = useState(false);
   const [busy, setBusy] = useState(false);
+  /**
+   * How many of him there are.
+   *
+   * Kept in this browser: it is a preference about how busy the bottom of
+   * the screen is and nothing else. It goes down to none, deliberately — if
+   * he is annoying, the answer has to be that he can go.
+   */
+  const [crew, setCrew] = useState(1);
 
-  const root = useRef<SVGGElement>(null);
-  // The limbs are found once, from the group, by their data attribute. A ref
-  // per line meant a ref callback created during render for each of ten
-  // elements — which React reattaches every render and the compiler rightly
-  // refuses to let you read from.
-  const parts = useRef<Record<string, SVGElement>>({});
-  // The loop reads these; nothing outside it does. Refs rather than state so
-  // that changing them costs nothing.
-  const state = useRef<CompanionState>(activityState("walk", 0.5));
-  const startedAt = useRef(0);
-  const busyRef = useRef(false);
-  const toneRef = useRef<Tone>(tone);
-  // Written in an effect, not during render: a render can be thrown away, and
-  // the frame loop reads this.
-  useEffect(() => { toneRef.current = tone; }, [tone]);
+  useEffect(() => {
+    // On the next frame, not synchronously: reading storage during the first
+    // effect pass sets state before the first paint has landed.
+    const id = window.requestAnimationFrame(() => {
+      try {
+        const saved = Number(window.localStorage.getItem(CREW_KEY));
+        if (Number.isFinite(saved) && saved >= 0 && saved <= MAX_CREW) setCrew(saved);
+      } catch { /* private mode — one of him, then */ }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
+  function setCrewSaved(n: number) {
+    const next = Math.max(0, Math.min(MAX_CREW, n));
+    setCrew(next);
+    try { window.localStorage.setItem(CREW_KEY, String(next)); } catch { /* fine */ }
+  }
 
   useEffect(() => {
     const id = window.requestAnimationFrame(
@@ -55,44 +71,114 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     return () => window.cancelAnimationFrame(id);
   }, [path]);
 
-  /** Drop whatever he was doing and start this instead. */
+  useEffect(() => {
+    const on = () => setBusy(true);
+    const off = () => setBusy(false);
+    window.addEventListener("coach:busy", on);
+    window.addEventListener("coach:idle", off);
+    return () => {
+      window.removeEventListener("coach:busy", on);
+      window.removeEventListener("coach:idle", off);
+    };
+  }, []);
+
+  if (isChromeless(path)) return null;
+
+  const label = busy ? "Your coach is thinking" : "Ask your coach";
+
+  return (
+    <div className="relative mt-6 rounded-2xl border border-line/60 bg-surface/40">
+      {/* The strip itself is the way in to the coach. The two little buttons
+          sit on top of it and stop the tap reaching it. */}
+      <button
+        type="button"
+        {...(hasPanel
+          ? { onClick: () => window.dispatchEvent(new CustomEvent("coach:open")), "aria-label": label, title: label }
+          : { "aria-hidden": true, tabIndex: -1 })}
+        className={`group block w-full px-2 py-1 ${hasPanel ? "transition-colors hover:bg-surface/60" : ""}`}
+      >
+        <svg
+          viewBox={`0 0 ${STAGE_W} 100`}
+          preserveAspectRatio="xMidYMax meet"
+          className="h-24 w-full text-accent/70 group-hover:text-accent"
+          aria-hidden
+        >
+          {/* The ground he walks on. Faint: he is furniture, not a chart. */}
+          <line x1="0" y1="96" x2={STAGE_W} y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
+          {Array.from({ length: crew }, (_, i) => (
+            <Walker key={i} index={i} tone={tone} busy={busy} />
+          ))}
+        </svg>
+        {hasPanel && <span className="sr-only">{label}</span>}
+      </button>
+
+      {/* Bottom corners of his world: one fewer, one more. */}
+      <button
+        type="button"
+        onClick={() => setCrewSaved(crew - 1)}
+        disabled={crew === 0}
+        aria-label="One fewer"
+        className="absolute bottom-1 left-1 grid size-7 place-items-center rounded-full text-[15px] leading-none text-faint transition-colors hover:bg-raised hover:text-muted disabled:opacity-25"
+      >
+        −
+      </button>
+      <button
+        type="button"
+        onClick={() => setCrewSaved(crew + 1)}
+        disabled={crew >= MAX_CREW}
+        aria-label="One more"
+        className="absolute bottom-1 right-1 grid size-7 place-items-center rounded-full text-[15px] leading-none text-faint transition-colors hover:bg-raised hover:text-muted disabled:opacity-25"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+/**
+ * One figure, running its own loop.
+ *
+ * Each has its own state and its own frame callback, so a crowd is a crowd
+ * of individuals rather than one animation drawn six times — they start on
+ * different activities and drift apart within seconds.
+ */
+function Walker({ index, tone, busy }: { index: number; tone: Tone; busy: boolean }) {
+  const root = useRef<SVGGElement>(null);
+  const parts = useRef<Record<string, SVGElement>>({});
+  const state = useRef<CompanionState>(activityState("walk", (index * 0.37) % 1, 20 + ((index * 29) % 60)));
+  const startedAt = useRef(0);
+  const busyRef = useRef(false);
+  const toneRef = useRef<Tone>(tone);
+
+  useEffect(() => { toneRef.current = tone; }, [tone]);
+
   function interrupt(activity: Activity) {
-    state.current = activityState(activity, Math.random());
+    const where = travel(state.current, (performance.now() - startedAt.current) / 1000);
+    state.current = activityState(activity, Math.random(), where.x);
     startedAt.current = performance.now();
   }
 
   useEffect(() => {
-    const busyOn = () => { busyRef.current = true; setBusy(true); interrupt("think"); };
-    const busyOff = () => { busyRef.current = false; setBusy(false); };
+    busyRef.current = busy;
+    if (busy) interrupt("think");
+  }, [busy]);
+
+  useEffect(() => {
     const onSet = (e: Event) => {
       const d = (e as CustomEvent<{ vs: "first" | "beat" | "matched" | "missed"; rir: number | null }>).detail;
       if (!d) return;
       interrupt(reactionFor(d.vs, d.rir ?? null, toneRef.current));
     };
-    window.addEventListener("coach:busy", busyOn);
-    window.addEventListener("coach:idle", busyOff);
     window.addEventListener("coach:set", onSet);
-    return () => {
-      window.removeEventListener("coach:busy", busyOn);
-      window.removeEventListener("coach:idle", busyOff);
-      window.removeEventListener("coach:set", onSet);
-    };
+    return () => window.removeEventListener("coach:set", onSet);
   }, []);
 
   useEffect(() => {
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     let raf = 0;
-    startedAt.current = performance.now();
+    // Staggered, so a crew does not move as one body.
+    startedAt.current = performance.now() - index * 900;
 
-    /**
-     * Re-found whenever they are not on the page any more.
-     *
-     * Doing this once on mount was the bug that left him as a head and
-     * nothing else: anything that remounts the svg — and this component
-     * swapped its own wrapper element the moment it worked out whether the
-     * screen had a coach panel — leaves these pointing at detached nodes,
-     * and the loop then draws happily into a document fragment for ever.
-     */
     const limbs = () => {
       const g = root.current;
       if (!g) return null;
@@ -108,9 +194,12 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     const draw = (pose: Pose, x: number, facing: 1 | -1, spin: number) => {
       const g = limbs();
       if (!g) return;
+      // His own box is 100 wide; the stage is three times that, so he walks
+      // the whole floor rather than a square in the middle of it.
+      const at = x * (STAGE_W / 100);
       g.setAttribute(
         "transform",
-        `translate(${x - 50} 0)${facing === -1 ? " translate(100 0) scale(-1 1)" : ""}`
+        `translate(${at - 50} 0)${facing === -1 ? " translate(100 0) scale(-1 1)" : ""}`
         + (spin ? ` rotate(${spin} 50 58)` : ""),
       );
       const set = (key: string, attrs: Record<string, number>) => {
@@ -133,14 +222,10 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     const frame = (now: number) => {
       const s = state.current;
       const elapsed = (now - startedAt.current) / 1000;
-
-      // Where he had got to, so the next thing starts from there rather than
-      // teleporting him back to the middle of the stage.
       const where0 = travel(s, elapsed);
+
       if (elapsed > s.duration) {
         startedAt.current = now;
-        // Thinking is not chosen, it is caused: he goes back to pottering
-        // about only when the coach has stopped working.
         state.current = busyRef.current
           ? activityState("think", 0.5, where0.x)
           : nextActivity(s.activity, Math.random(), Math.random(), where0.x);
@@ -152,68 +237,39 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
       draw(
         a === "cartwheel" ? cartwheelPose(phase)
           : a === "set" ? setPose(state.current.pattern, phase)
-          : a === "wave" ? wavePose(phase)
-            : a === "celebrate" ? celebratePose(phase)
-              : a === "unimpressed" ? unimpressedPose(phase)
-                : a === "think" ? thinkPose(phase)
-                  : a === "laps" ? stridePose(phase, 1.9)
-                    : a === "walk" ? stridePose(phase)
-                      : idlePose(phase),
+            : a === "wave" ? wavePose(phase)
+              : a === "celebrate" ? celebratePose(phase)
+                : a === "unimpressed" ? unimpressedPose(phase)
+                  : a === "think" ? thinkPose(phase)
+                    : a === "laps" ? stridePose(phase, 1.9)
+                      : a === "walk" ? stridePose(phase)
+                        : idlePose(phase),
         where.x, where.facing,
-        // The only thing that turns over. Multiplied by the facing so a
-        // cartwheel back the other way goes round the other way.
         a === "cartwheel" ? cartwheelSpin(phase) * where.facing : 0,
       );
 
-      // One frame is enough when she has asked for less motion: he takes a
-      // position and holds it, rather than disappearing.
       if (!still) raf = window.requestAnimationFrame(frame);
     };
     raf = window.requestAnimationFrame(frame);
     return () => window.cancelAnimationFrame(raf);
-  }, []);
+  }, [index]);
 
-  if (isChromeless(path)) return null;
-
-  const label = busy ? "Your coach is thinking" : "Ask your coach";
-  // Always a button, never sometimes a div: changing the element type
-  // remounts everything inside it, which is what detached the figure from the
-  // loop drawing it and left him as a motionless head.
   return (
-    <button
-      type="button"
-      {...(hasPanel
-        ? {
-          onClick: () => window.dispatchEvent(new CustomEvent("coach:open")),
-          "aria-label": label,
-          title: label,
-        }
-        : { "aria-hidden": true, tabIndex: -1 })}
-      className={`group mt-6 block w-full rounded-2xl border border-line/60 bg-surface/40 px-2 py-1 ${
-        hasPanel ? "transition-colors hover:bg-surface" : ""
-      }`}
-    >
-      <svg viewBox="0 0 100 100" className="h-24 w-full text-accent/70 group-hover:text-accent" aria-hidden>
-        {/* The ground he walks on. Faint: he is furniture, not a chart. */}
-        <line x1="0" y1="96" x2="100" y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
-        <g ref={root} stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none">
-          {/* The far arm and leg sit behind, a shade lighter, so a stride
-              reads as two of each rather than as one thick one. */}
-          <g opacity="0.55">
-            <line data-part="upperarmL" />
-            <line data-part="forearmL" />
-            <line data-part="thighL" />
-            <line data-part="shinL" />
-          </g>
-          <circle data-part="head" cx="50" cy="15" r="6" strokeWidth="2.6" />
-          <line data-part="spine" />
-          <line data-part="upperarmR" />
-          <line data-part="forearmR" />
-          <line data-part="thighR" />
-          <line data-part="shinR" />
-        </g>
-      </svg>
-      {hasPanel && <span className="sr-only">{label}</span>}
-    </button>
+    <g ref={root} stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none">
+      {/* The far arm and leg sit behind, a shade lighter, so a stride reads
+          as two of each rather than as one thick one. */}
+      <g opacity="0.55">
+        <line data-part="upperarmL" />
+        <line data-part="forearmL" />
+        <line data-part="thighL" />
+        <line data-part="shinL" />
+      </g>
+      <circle data-part="head" cx="50" cy="15" r="6" strokeWidth="2.6" />
+      <line data-part="spine" />
+      <line data-part="upperarmR" />
+      <line data-part="forearmR" />
+      <line data-part="thighR" />
+      <line data-part="shinR" />
+    </g>
   );
 }

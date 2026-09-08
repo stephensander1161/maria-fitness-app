@@ -217,9 +217,6 @@ suite("he is the way in to the coach", () => {
     // Offering a tap that does nothing is worse than not offering it.
     const c = read("components/companion.tsx");
     expect(c).toMatch(/document\.querySelector\("\[data-ask-coach\]"\)/);
-    // Always the same element, never a div that becomes a button: changing
-    // the type remounts the svg and leaves the frame loop writing into
-    // detached nodes — which is what reduced him to a motionless head.
     expect(c).not.toMatch(/const Stage =/);
     expect(c).toMatch(/if \(!parts\.current\.spine\?\.isConnected\)/);
   });
@@ -230,7 +227,7 @@ suite("he is the way in to the coach", () => {
     expect(read("lib/use-coach-thread.ts")).toMatch(/new CustomEvent\("coach:busy"\)/);
     expect(read("lib/use-coach-thread.ts")).toMatch(/new CustomEvent\("coach:idle"\)/);
     const c = read("components/companion.tsx");
-    expect(c).toMatch(/addEventListener\("coach:busy", busyOn\)/);
+    expect(c).toMatch(/addEventListener\("coach:busy", on\)/);
     expect(c).toMatch(/interrupt\("think"\)/);
   });
 
@@ -322,5 +319,35 @@ suite("how he takes a set", () => {
   it("copes with her not saying what was left", () => {
     expect(reactionFor("matched", null, "hype")).toBe("unimpressed");
     expect(reactionFor("matched", null, "plain")).toBe("wave");
+  });
+});
+
+suite("his world", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+  const c = read("components/companion.tsx");
+
+  it("is as wide as the strip, not a square in the middle of it", () => {
+    // A 100×100 viewBox in a wide short box letterboxes to a centred square,
+    // which is why he was pacing a tiny track.
+    expect(c).toMatch(/const STAGE_W = 300/);
+    expect(c).toMatch(/viewBox=\{`0 0 \$\{STAGE_W\} 100`\}/);
+    expect(c).toMatch(/const at = x \* \(STAGE_W \/ 100\)/);
+  });
+
+  it("can be crowded, and can be emptied", () => {
+    // If he is annoying the answer has to be that he can go, not that he
+    // gets smaller.
+    expect(c).toMatch(/const MAX_CREW = 25/);
+    expect(c).toMatch(/aria-label="One more"/);
+    expect(c).toMatch(/aria-label="One fewer"/);
+    expect(c).toMatch(/Math\.max\(0, Math\.min\(MAX_CREW, n\)\)/);
+    // Remembered per browser: it is a preference about the screen, nothing more.
+    expect(c).toMatch(/localStorage\.setItem\(CREW_KEY/);
+  });
+
+  it("gives each of them their own loop, so a crew is not one animation six times", () => {
+    expect(c).toMatch(/function Walker\(/);
+    expect(c).toMatch(/startedAt\.current = performance\.now\(\) - index \* 900/);
+    expect(c).toMatch(/activityState\("walk", \(index \* 0\.37\) % 1/);
   });
 });
