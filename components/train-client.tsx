@@ -1143,7 +1143,11 @@ export function ExerciseCard({
       // 400ms is unambiguous — a scroll moves within a few — so this can be
       // offered on the whole card without stealing a tap or a swipe.
       onPointerDown={(e) => {
-        if (!onDragStart || dragging) return;
+        // Never while the card is open. Lifted into the middle of the screen
+        // it is a sheet to scroll, not a row to reorder — and a press that
+        // holds still for 400ms is exactly what scrolling a long sheet with
+        // one thumb looks like, so this was eating the scroll.
+        if (!onDragStart || dragging || open) return;
         // Not on the buttons and steppers: they have their own jobs.
         if ((e.target as HTMLElement).closest("button, input, [role='button']")) return;
         const startY = e.clientY;
@@ -1165,7 +1169,14 @@ export function ExerciseCard({
         window.addEventListener("pointercancel", up);
       }}
       className={`card overflow-hidden ${
-        upNext ? "border-beat now-glow" : ""
+        // Open, it is the chat sheet's shape and for the same reason: a header
+        // that stays, one scroller in the middle, and the thing she came here
+        // to press *outside* the scroller. As one long scrolling box the
+        // entry sat below the cues, so opening a card to log a set put the
+        // Log button off the bottom of a phone — and the long-press drag ate
+        // the scroll that would have reached it.
+        open ? "flex max-h-[86dvh] flex-col" : ""
+      } ${upNext ? "border-beat now-glow" : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
       style={{
         ...(upNext ? { animationDuration: `${beat}s` } : {}),
@@ -1244,7 +1255,7 @@ export function ExerciseCard({
               the drag as a page scroll and swallowing it — without it this
               works with a mouse and does nothing at all on a phone, which is
               the device it is for. */}
-          {onDragStart && (
+          {onDragStart && !open && (
             <button
               onPointerDown={(e) => { e.preventDefault(); onDragStart(e.clientY); }}
               aria-label={`Reorder ${exercise.name}`}
@@ -1326,6 +1337,12 @@ export function ExerciseCard({
           )}
         </div>
       </div>
+
+      {/* Everything between the header and the entry scrolls. `min-h-0` is
+          load-bearing: a flex child's default minimum is its content, so
+          without it this box refuses to shrink and the entry is pushed off
+          the bottom exactly as before. */}
+      <div className={open ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""}>
 
       {justMet && (
         <p className="go-sub mx-4 mb-3 rounded-xl border border-beat/40 bg-beat-soft px-3 py-2 text-center text-[13px] font-medium text-beat">
@@ -1486,7 +1503,9 @@ export function ExerciseCard({
         </div>
       )}
 
-      <div className={open ? "border-t border-line bg-ink/40 p-3" : "hidden"}>
+      </div>
+
+      <div className={open ? "shrink-0 border-t border-line bg-ink/40 p-3" : "hidden"}>
         {!open ? null : (
           <div className="space-y-3">
             {/* Last time, set by set, right where this set is being typed.
@@ -1618,7 +1637,7 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
   const panel = useDialog(onClose);
   return (
     <div
-      className="card-scrim fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-scrim/70 p-3 backdrop-blur-sm"
+      className="card-scrim fixed inset-0 z-[80] grid place-items-center overflow-hidden bg-scrim/70 p-3 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -1631,8 +1650,7 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
         // scrolling box clips anything drawn outside it — which showed as the
         // green appearing at the corners only. This gives the glow room
         // inside the panel it scrolls in.
-        className="card-lift w-full max-w-lg overscroll-contain p-2"
-        style={{ maxHeight: "94dvh", overflowY: "auto" }}
+        className="card-lift w-full max-w-lg p-2"
       >
         {children}
       </div>

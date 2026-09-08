@@ -184,7 +184,10 @@ suite("the movement she is working on comes forward", () => {
     expect(modal).toMatch(/useDialog\(onClose\)/);
     expect(modal).toMatch(/aria-modal="true"/);
     expect(modal).toMatch(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/);
-    expect(modal).toMatch(/overscroll-contain/);
+    // The panel is not a scroller — the card inside it is the only one, and
+    // it contains its own overscroll so reaching the end of the cues does not
+    // hand the gesture to the page pinned behind the scrim.
+    expect(card).toMatch(/min-h-0 flex-1 overflow-y-auto overscroll-contain/);
   });
 
   it("holds its place in the grid so nothing jumps", () => {
@@ -290,6 +293,10 @@ suite("reordering the day by dragging", () => {
     // …and a long press anywhere on the card, because eight pixels of grip
     // among four other round buttons is a handle most thumbs never hit.
     expect(card).toMatch(/window\.setTimeout\(\(\) => \{ onDragStart\(startY\); \}, 400\)/);
+    // …and never inside the open card, where a press that holds still for
+    // 400ms is what scrolling a long sheet with one thumb looks like.
+    expect(card).toMatch(/if \(!onDragStart \|\| dragging \|\| open\) return;/);
+    expect(card).toMatch(/\{onDragStart && !open && \(/);
     expect(card).toMatch(/style=\{\{ touchAction: "none" \}\}/);
     expect(card).not.toMatch(/draggable=|onDragOver=/);
   });
@@ -346,7 +353,13 @@ suite("the open card shows the whole movement", () => {
 
   it("takes the screen, and reads out the library entry rather than cycling", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/maxHeight: "94dvh"/);
+    // One scroller, and the entry outside it. Two nested scrollers is how the
+    // sheet ended up unscrollable on a phone; the Log button below a screenful
+    // of cues is how it ended up unreachable when it did scroll.
+    expect(card).toMatch(/open \? "flex max-h-\[86dvh\] flex-col" : ""/);
+    expect(card).toMatch(/open \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
+    expect(card).toMatch(/open \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
+    expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
     expect(card).toMatch(/\? <FullCues exercise=\{exercise\} \/>/);
     expect(card).toMatch(/: <CyclingCue cues=\{exercise\.formCues\} \/>/);
