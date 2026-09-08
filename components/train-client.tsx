@@ -794,7 +794,10 @@ export function ExerciseCard({
           aria-label={canLog ? `${open ? "Hide" : "Show"} the set counter for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
         >
-          <h2 className="truncate text-[17px] font-semibold">{exercise.name}</h2>
+          {/* Truncated in the grid, where every card must stay the same
+              height; whole when it is the only thing on the screen. "Dumbbell
+              Hammer …" is not a movement anyone can read back. */}
+          <h2 className={`text-[17px] font-semibold ${open ? "" : "truncate"}`}>{exercise.name}</h2>
           {/* The computed target where there is one — worked out from what she
               actually logged, not re-derived by the model each week. Labelled
               as a target, because a target read as an achievement is a bug
