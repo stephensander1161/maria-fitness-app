@@ -75,11 +75,22 @@ suite("the week splits into done, missed and still to come", () => {
 });
 
 suite("the week review reads the work, not the button", () => {
-  it("no longer filters sessions on completedAt", () => {
+  const fn = () => {
     const src = read("lib/progress.ts");
-    const fn = src.slice(src.indexOf("export async function weekReview"), src.indexOf("// Compare each exercise"));
-    expect(fn).not.toMatch(/completedAt\} is not null/);
-    expect(fn).toMatch(/splitWeek\(/);
+    return src.slice(src.indexOf("export async function weekReview"), src.indexOf("// Compare each exercise"));
+  };
+
+  it("no longer filters sessions on completedAt", () => {
+    expect(fn()).not.toMatch(/completedAt\} is not null/);
+    expect(fn()).toMatch(/splitWeek\(/);
+  });
+
+  it("counts the sets with a join, not a correlated subquery", () => {
+    // The subquery version returned 0 for a session holding twenty sets, so
+    // the fix above reported the day as missed exactly as before. Verified
+    // against the real row this came from, not just read.
+    expect(fn()).toMatch(/\.groupBy\(setLogs\.workoutId\)/);
+    expect(fn()).not.toMatch(/select count\(\*\)::int from \$\{setLogs\}/);
   });
 });
 

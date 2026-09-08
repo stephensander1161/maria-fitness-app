@@ -371,14 +371,27 @@ export async function weekReview(
   // Every session this week, finished or not, with how much is logged
   // against it. `completedAt is not null` used to be the filter here, and it
   // is the Finish workout button — which nobody presses. See lib/week-done.ts.
-  const sessions = await db
+  const rows = await db
     .select({
       id: workouts.id, date: workouts.date, planDayId: workouts.planDayId, title: workouts.title,
       completedAt: workouts.completedAt,
-      sets: sql<number>`(select count(*)::int from ${setLogs} where ${setLogs.workoutId} = ${workouts.id})`,
     })
     .from(workouts)
     .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd)));
+
+  // Counted with a join and a group by, not a correlated subquery: the
+  // subquery version returned zero for a session with twenty sets in it and
+  // reported the day as missed all over again.
+  const counts = new Map<string, number>(
+    rows.length === 0 ? [] : (
+      await db
+        .select({ workoutId: setLogs.workoutId, n: sql<number>`count(*)::int` })
+        .from(setLogs)
+        .where(inArray(setLogs.workoutId, rows.map((w) => w.id)))
+        .groupBy(setLogs.workoutId)
+    ).map((r) => [r.workoutId, r.n] as const),
+  );
+  const sessions = rows.map((w) => ({ ...w, sets: counts.get(w.id) ?? 0 }));
   const done = sessions.filter((w) => w.sets > 0 || w.completedAt !== null);
 
   const [totals] = await db
