@@ -12,7 +12,7 @@ import { DailyFact } from "@/components/daily-fact";
 import { MobileGreeting } from "@/components/mobile-greeting";
 import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
-import { Companion } from "@/components/companion";
+import { CompanionGate } from "@/components/companion-gate";
 
 export const metadata: Metadata = {
   title: "Plate",
@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <DailyFact />
                 {/* Below the fact, at the bottom of every screen: the coach,
                     as somebody rather than a button. */}
-                <Companion />
+                <CompanionGate />
                 {/* The end of the page, where these belong — they used to
                     float over whatever was down here. Phone only: a desktop
                     has the same destinations in the sidebar. */}

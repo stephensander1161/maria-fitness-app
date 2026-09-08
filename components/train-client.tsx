@@ -911,6 +911,13 @@ export function ExerciseCard({
       // the highlight saying which one it is — she logged a set and could not
       // see anything that happened as a result of it.
       setOpen(false);
+      // How it went, for the companion at the bottom of the page. He is
+      // pleased or he is not, in the register the coach speaks in.
+      if (outcome.result) {
+        window.dispatchEvent(new CustomEvent("coach:set", {
+          detail: { vs: outcome.result.vsLastTime, rir: rir ?? null },
+        }));
+      }
       onLogged(
         outcome.result,
         exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets,

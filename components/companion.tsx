@@ -4,108 +4,150 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
 import {
-  activityState, idlePose, nextActivity, setPose, thinkPose, travel, walkPose,
-  type CompanionState,
+  activityState, cartwheelPose, cartwheelSpin, celebratePose, idlePose, nextActivity, phaseFor,
+  reactionFor, setPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
+  type Activity, type CompanionState, type Pose, type Tone,
 } from "@/lib/companion";
-import type { Joints } from "@/lib/movement-patterns";
-import { wavePose } from "@/lib/companion";
 
 /**
  * The coach, as somebody rather than a button.
  *
  * A chat bubble is a thing you use; this is a thing that is *there* — he
  * walks about, does sets between whatever else is happening, runs laps, and
- * waves. Tapping him opens the conversation, so he is also the way in.
+ * waves. Tapping him opens the coach for whichever screen she is on.
  *
- * He reacts: while the coach is actually working he stops and thinks, which
- * is the only moment his behaviour means anything, and it means the thing it
- * looks like.
+ * He reacts to two things, and only two, because a figure that reacts to
+ * everything is noise: the coach actually working (he stops and thinks), and
+ * a set landing (he is pleased, or he is not — see reactionFor, which reads
+ * the same tone the coach speaks in).
  *
- * Everything he does comes out of lib/companion.ts, which is pure and tested.
- * This file is the loop and the SVG.
+ * **Nothing here re-renders per frame.** The first version called setState
+ * sixty times a second and the whole component tree went with it, which is
+ * exactly what "janky" was. The loop now writes SVG attributes straight to
+ * the DOM through refs; React only hears about it when the *activity*
+ * changes, which is every few seconds.
  */
-export function Companion() {
+export function Companion({ tone = "plain" }: { tone?: Tone }) {
   const path = usePathname();
-  const [state, setState] = useState<CompanionState>(() => activityState("walk", 0.5));
-  const [pose, setPoseState] = useState<Joints>(() => idlePose(0));
-  const [x, setX] = useState(50);
-  const [facing, setFacing] = useState<1 | -1>(1);
-  const [busy, setBusy] = useState(false);
-  /**
-   * Whether this screen has somewhere to send her.
-   *
-   * Every screen but the owner's console carries an `AskCoach` panel, and
-   * that panel — not a floating window — is this app's one coach entry point
-   * per screen, because it knows what screen it is on. He leads her to it. On
-   * the one screen without one he is still there, just not a button:
-   * offering a tap that does nothing is worse than not offering it.
-   */
   const [hasPanel, setHasPanel] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const root = useRef<SVGGElement>(null);
+  // The limbs are found once, from the group, by their data attribute. A ref
+  // per line meant a ref callback created during render for each of ten
+  // elements — which React reattaches every render and the compiler rightly
+  // refuses to let you read from.
+  const parts = useRef<Record<string, SVGElement>>({});
+  // The loop reads these; nothing outside it does. Refs rather than state so
+  // that changing them costs nothing.
+  const state = useRef<CompanionState>(activityState("walk", 0.5));
+  const startedAt = useRef(0);
+  const busyRef = useRef(false);
+  const toneRef = useRef<Tone>(tone);
+  // Written in an effect, not during render: a render can be thrown away, and
+  // the frame loop reads this.
+  useEffect(() => { toneRef.current = tone; }, [tone]);
+
   useEffect(() => {
-    // On the next frame, not synchronously: the panel is rendered by the page
-    // and this lives in the layout, so on the first pass it is not there yet.
     const id = window.requestAnimationFrame(
       () => setHasPanel(Boolean(document.querySelector("[data-ask-coach]"))),
     );
     return () => window.cancelAnimationFrame(id);
   }, [path]);
-  const started = useRef(0);
-  const stateRef = useRef(state);
-  // Written in an effect, not during render: a render can be thrown away, and
-  // the loop below reads this every frame.
-  useEffect(() => { stateRef.current = state; }, [state]);
 
-  // The coach working is the one thing he reacts to. A custom event rather
-  // than shared state: he lives at the bottom of the page and the thread
-  // lives in a sheet above it, and neither should have to know about the
-  // other to say "I am busy".
+  /** Drop whatever he was doing and start this instead. */
+  function interrupt(activity: Activity) {
+    state.current = activityState(activity, Math.random());
+    startedAt.current = performance.now();
+  }
+
   useEffect(() => {
-    // Stopping to think happens immediately rather than at the end of a lap,
-    // which is the whole point of him reacting at all.
-    const on = () => {
-      setBusy(true);
-      started.current = performance.now();
-      const thinking = activityState("think", 0.5);
-      stateRef.current = thinking;
-      setState(thinking);
+    const busyOn = () => { busyRef.current = true; setBusy(true); interrupt("think"); };
+    const busyOff = () => { busyRef.current = false; setBusy(false); };
+    const onSet = (e: Event) => {
+      const d = (e as CustomEvent<{ vs: "first" | "beat" | "matched" | "missed"; rir: number | null }>).detail;
+      if (!d) return;
+      interrupt(reactionFor(d.vs, d.rir ?? null, toneRef.current));
     };
-    const off = () => setBusy(false);
-    window.addEventListener("coach:busy", on);
-    window.addEventListener("coach:idle", off);
+    window.addEventListener("coach:busy", busyOn);
+    window.addEventListener("coach:idle", busyOff);
+    window.addEventListener("coach:set", onSet);
     return () => {
-      window.removeEventListener("coach:busy", on);
-      window.removeEventListener("coach:idle", off);
+      window.removeEventListener("coach:busy", busyOn);
+      window.removeEventListener("coach:idle", busyOff);
+      window.removeEventListener("coach:set", onSet);
     };
   }, []);
 
   useEffect(() => {
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     let raf = 0;
-    started.current = performance.now();
+    startedAt.current = performance.now();
+
+    const g = root.current;
+    if (g) {
+      for (const el of g.querySelectorAll<SVGElement>("[data-part]")) {
+        parts.current[el.dataset.part!] = el;
+      }
+    }
+
+    const draw = (pose: Pose, x: number, facing: 1 | -1, spin: number) => {
+      if (!g) return;
+      g.setAttribute(
+        "transform",
+        `translate(${x - 50} 0)${facing === -1 ? " translate(100 0) scale(-1 1)" : ""}`
+        + (spin ? ` rotate(${spin} 50 58)` : ""),
+      );
+      const set = (key: string, attrs: Record<string, number>) => {
+        const el = parts.current[key];
+        if (!el) return;
+        for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+      };
+      set("head", { cx: pose.head[0], cy: pose.head[1] });
+      set("spine", { x1: pose.shoulder[0], y1: pose.shoulder[1], x2: pose.hip[0], y2: pose.hip[1] });
+      for (const [side, arm] of [["L", pose.armL], ["R", pose.armR]] as const) {
+        set(`upperarm${side}`, { x1: pose.shoulder[0], y1: pose.shoulder[1], x2: arm.elbow[0], y2: arm.elbow[1] });
+        set(`forearm${side}`, { x1: arm.elbow[0], y1: arm.elbow[1], x2: arm.hand[0], y2: arm.hand[1] });
+      }
+      for (const [side, leg] of [["L", pose.legL], ["R", pose.legR]] as const) {
+        set(`thigh${side}`, { x1: pose.hip[0], y1: pose.hip[1], x2: leg.knee[0], y2: leg.knee[1] });
+        set(`shin${side}`, { x1: leg.knee[0], y1: leg.knee[1], x2: leg.foot[0], y2: leg.foot[1] });
+      }
+    };
 
     const frame = (now: number) => {
-      const s = stateRef.current;
-      const elapsed = (now - started.current) / 1000;
+      const s = state.current;
+      const elapsed = (now - startedAt.current) / 1000;
 
+      // Where he had got to, so the next thing starts from there rather than
+      // teleporting him back to the middle of the stage.
+      const where0 = travel(s, elapsed);
       if (elapsed > s.duration) {
-        started.current = now;
-        // Thinking is not chosen, it is caused: while the coach is working he
-        // stops and thinks, and picks something up again when it stops.
-        setState(busy ? activityState("think", 0.5) : nextActivity(s.activity, Math.random(), Math.random()));
+        startedAt.current = now;
+        // Thinking is not chosen, it is caused: he goes back to pottering
+        // about only when the coach has stopped working.
+        state.current = busyRef.current
+          ? activityState("think", 0.5, where0.x)
+          : nextActivity(s.activity, Math.random(), Math.random(), where0.x);
       }
 
-      const where = travel(s, elapsed);
-      setX(where.x);
-      setFacing(where.facing);
-
-      const phase = (elapsed % 2) / 2;
-      setPoseState(
-        s.activity === "set" ? setPose(s.pattern, phase)
-          : s.activity === "wave" ? wavePose(phase)
-            : s.activity === "think" ? thinkPose(phase)
-              : s.activity === "laps" ? walkPose(phase, true)
-                : s.activity === "walk" ? walkPose(phase)
-                  : idlePose(phase),
+      const where = travel(state.current, elapsed);
+      const a = state.current.activity;
+      const phase = phaseFor(a, elapsed);
+      draw(
+        a === "cartwheel" ? cartwheelPose(phase)
+          : a === "set" ? setPose(state.current.pattern, phase)
+          : a === "wave" ? wavePose(phase)
+            : a === "celebrate" ? celebratePose(phase)
+              : a === "unimpressed" ? unimpressedPose(phase)
+                : a === "think" ? thinkPose(phase)
+                  : a === "laps" ? stridePose(phase, 1.9)
+                    : a === "walk" ? stridePose(phase)
+                      : idlePose(phase),
+        where.x, where.facing,
+        // The only thing that turns over. Multiplied by the facing so a
+        // cartwheel back the other way goes round the other way.
+        a === "cartwheel" ? cartwheelSpin(phase) * where.facing : 0,
       );
 
       // One frame is enough when she has asked for less motion: he takes a
@@ -114,14 +156,14 @@ export function Companion() {
     };
     raf = window.requestAnimationFrame(frame);
     return () => window.cancelAnimationFrame(raf);
-  }, [busy]);
-
+  }, []);
 
   if (isChromeless(path)) return null;
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
-
   const Stage = hasPanel ? "button" : "div";
+
+
   return (
     <Stage
       {...(hasPanel
@@ -138,34 +180,24 @@ export function Companion() {
       <svg viewBox="0 0 100 100" className="h-24 w-full text-accent/70 group-hover:text-accent" aria-hidden>
         {/* The ground he walks on. Faint: he is furniture, not a chart. */}
         <line x1="0" y1="96" x2="100" y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
-        <g
-          // The figure is drawn around x=50 in its own 100-wide box, so moving
-          // him is a translate of the difference, and facing is a flip about
-          // his own centre rather than about the stage.
-          transform={`translate(${x - 50} 0) ${facing === -1 ? `translate(100 0) scale(-1 1)` : ""}`}
-          style={{ transformOrigin: "50px 50px" }}
-        >
-          <Stick joints={pose} />
+        <g ref={root} stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none">
+          {/* The far arm and leg sit behind, a shade lighter, so a stride
+              reads as two of each rather than as one thick one. */}
+          <g opacity="0.55">
+            <line data-part="upperarmL" />
+            <line data-part="forearmL" />
+            <line data-part="thighL" />
+            <line data-part="shinL" />
+          </g>
+          <circle data-part="head" cx="50" cy="15" r="6" strokeWidth="2.6" />
+          <line data-part="spine" />
+          <line data-part="upperarmR" />
+          <line data-part="forearmR" />
+          <line data-part="thighR" />
+          <line data-part="shinR" />
         </g>
       </svg>
       {hasPanel && <span className="sr-only">{label}</span>}
     </Stage>
-  );
-}
-
-function Stick({ joints }: { joints: Joints }) {
-  const { head, shoulder, elbow, hand, hip, knee, foot } = joints;
-  const line = (a: [number, number], b: [number, number], key: string) => (
-    <line key={key} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
-  );
-  return (
-    <g stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none">
-      <circle cx={head[0]} cy={head[1]} r="6" strokeWidth="2.6" />
-      {line(shoulder, hip, "spine")}
-      {line(shoulder, elbow, "upperarm")}
-      {line(elbow, hand, "forearm")}
-      {line(hip, knee, "thigh")}
-      {line(knee, foot, "shin")}
-    </g>
   );
 }

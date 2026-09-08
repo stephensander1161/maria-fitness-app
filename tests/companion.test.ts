@@ -1,8 +1,10 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  activityState, idlePose, lerpJoints, nextActivity, setPose, thinkPose, travel, walkPose, wavePose,
-  type Activity,
+  activityState, cartwheelPose, cartwheelSpin, celebratePose, FAR, idlePose, lerpJoints,
+  NEAR, nextActivity, phaseFor, reactionFor, setPose, stridePose, thinkPose, travel,
+  unimpressedPose, wavePose,
+  type Activity, type Pose,
 } from "@/lib/companion";
 import { PATTERNS } from "@/lib/movement-patterns";
 
@@ -12,9 +14,12 @@ import { PATTERNS } from "@/lib/movement-patterns";
  * he was doing and a random number — which is the only way a wandering
  * animation can be checked by anything but watching it.
  */
-const joints = ["head", "shoulder", "elbow", "hand", "hip", "knee", "foot"] as const;
-const finite = (j: Record<string, [number, number]>) =>
-  joints.every((k) => j[k].every((n) => Number.isFinite(n)));
+const points = (p: Pose): [number, number][] => [
+  p.head, p.shoulder, p.hip,
+  p.armL.elbow, p.armL.hand, p.armR.elbow, p.armR.hand,
+  p.legL.knee, p.legL.foot, p.legR.knee, p.legR.foot,
+];
+const finite = (p: Pose) => points(p).every(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
 
 suite("what he does next", () => {
   it("never repeats what he has just finished", () => {
@@ -106,46 +111,76 @@ suite("where he is", () => {
 suite("the poses", () => {
   it("are drawable at every phase", () => {
     for (let p = 0; p <= 1; p += 0.05) {
-      expect(finite(walkPose(p)), `walk ${p}`).toBe(true);
-      expect(finite(walkPose(p, true)), `run ${p}`).toBe(true);
+      expect(finite(stridePose(p)), `walk ${p}`).toBe(true);
+      expect(finite(stridePose(p, 1.9)), `run ${p}`).toBe(true);
       expect(finite(idlePose(p)), `idle ${p}`).toBe(true);
       expect(finite(wavePose(p)), `wave ${p}`).toBe(true);
       expect(finite(thinkPose(p)), `think ${p}`).toBe(true);
+      expect(finite(celebratePose(p)), `celebrate ${p}`).toBe(true);
+      expect(finite(unimpressedPose(p)), `unimpressed ${p}`).toBe(true);
       expect(finite(setPose("squat", p)), `set ${p}`).toBe(true);
     }
   });
 
+  it("has two legs, and they are not welded together", () => {
+    // One leg reads as a hop and one arm reads as an injury.
+    let apart = 0;
+    for (let p = 0; p <= 1; p += 0.02) {
+      const s = stridePose(p);
+      if (Math.abs(s.legL.foot[0] - s.legR.foot[0]) > 4) apart++;
+      if (Math.abs(s.armL.hand[0] - s.armR.hand[0]) > 3) apart++;
+    }
+    expect(apart).toBeGreaterThan(40);
+  });
+
+  it("swings the arms opposite the legs, the way walking works", () => {
+    for (const p of [0.1, 0.35, 0.6, 0.85]) {
+      const s = stridePose(p);
+      const legLead = s.legR.foot[0] - s.legL.foot[0];
+      const armLead = s.armR.hand[0] - s.armL.hand[0];
+      expect(Math.sign(legLead), `phase ${p}`).not.toBe(Math.sign(armLead));
+    }
+  });
+
+  it("runs at a different tempo from walking, so nothing reads as one loop", () => {
+    // Everything ran on one two-second cycle before, which is exactly what
+    // made it look like a loop.
+    const rates = (["walk", "laps", "set", "idle", "wave"] as Activity[])
+      .map((a) => phaseFor(a, 0.5));
+    expect(new Set(rates).size).toBe(rates.length);
+    // Running cycles faster than walking.
+    expect(phaseFor("laps", 0.5)).toBeGreaterThan(phaseFor("walk", 0.5));
+    expect(phaseFor("walk", 0.5)).toBeGreaterThan(phaseFor("idle", 0.5));
+  });
+
   it("actually move — a still figure is a broken one", () => {
-    const moved = (a: ReturnType<typeof walkPose>, b: ReturnType<typeof walkPose>) =>
-      joints.some((k) => a[k][0] !== b[k][0] || a[k][1] !== b[k][1]);
-    // Not 0.25: the stride is a sine over two cycles, so phase 0 and phase
-    // 0.25 are both the moment the legs pass each other — the same pose.
-    expect(moved(walkPose(0), walkPose(0.125))).toBe(true);
+    const moved = (a: Pose, b: Pose) =>
+      points(a).some((p, i) => p[0] !== points(b)[i][0] || p[1] !== points(b)[i][1]);
+    expect(moved(stridePose(0), stridePose(0.25))).toBe(true);
     expect(moved(wavePose(0), wavePose(0.2))).toBe(true);
+    expect(moved(celebratePose(0.05), celebratePose(0.2))).toBe(true);
     expect(moved(setPose("squat", 0), setPose("squat", 0.12))).toBe(true);
-    // Running throws further than walking. Compared at each gait's own peak
-    // — they swing at different rates, so the same phase is not the same
-    // point of the stride.
-    const peak = (running: boolean) => {
+    // Running throws further than walking.
+    const peak = (intensity: number) => {
       let most = 0;
-      for (let p = 0; p <= 1; p += 0.01) most = Math.max(most, Math.abs(walkPose(p, running).foot[0] - 50));
+      for (let p = 0; p <= 1; p += 0.01) most = Math.max(most, Math.abs(stridePose(p, intensity).legR.foot[0] - 50));
       return most;
     };
-    expect(peak(true)).toBeGreaterThan(peak(false));
+    expect(peak(1.9)).toBeGreaterThan(peak(1));
   });
 
   it("a rep goes out and comes back rather than snapping", () => {
     const squat = PATTERNS.squat;
-    expect(setPose("squat", 0).knee[1]).toBeCloseTo(squat.start.knee[1], 0);
+    expect(setPose("squat", 0).legR.knee[1]).toBeCloseTo(squat.start.knee[1] + 0, 0);
     // Out to the bottom and back to the top within a quarter of the cycle:
     // the deepest point of the rep is nearer the end pose than the start,
     // and a quarter-cycle later it is back where it began.
     // A rep is half a phase cycle: down to the end pose by 0.25, back to the
     // start by 0.5, so he does two reps per cycle.
-    expect(setPose("squat", 0.25).knee[1]).toBeCloseTo(squat.end.knee[1], 0);
-    expect(setPose("squat", 0.5).knee[1]).toBeCloseTo(squat.start.knee[1], 0);
+    expect(setPose("squat", 0.25).legR.knee[1]).toBeCloseTo(squat.end.knee[1], 0);
+    expect(setPose("squat", 0.5).legR.knee[1]).toBeCloseTo(squat.start.knee[1], 0);
     // And it eases through the bottom rather than snapping to it.
-    const quarter = setPose("squat", 0.125).knee[1];
+    const quarter = setPose("squat", 0.125).legR.knee[1];
     expect(quarter).toBeLessThan(squat.start.knee[1]);
     expect(quarter).toBeGreaterThan(squat.end.knee[1]);
   });
@@ -191,8 +226,8 @@ suite("he is the way in to the coach", () => {
     expect(read("lib/use-coach-thread.ts")).toMatch(/new CustomEvent\("coach:busy"\)/);
     expect(read("lib/use-coach-thread.ts")).toMatch(/new CustomEvent\("coach:idle"\)/);
     const c = read("components/companion.tsx");
-    expect(c).toMatch(/addEventListener\("coach:busy", on\)/);
-    expect(c).toMatch(/activityState\("think", 0\.5\)/);
+    expect(c).toMatch(/addEventListener\("coach:busy", busyOn\)/);
+    expect(c).toMatch(/interrupt\("think"\)/);
   });
 
   it("is not on the screens with no chrome, and holds a pose for reduced motion", () => {
@@ -200,5 +235,77 @@ suite("he is the way in to the coach", () => {
     expect(c).toMatch(/if \(isChromeless\(path\)\) return null;/);
     expect(c).toMatch(/prefers-reduced-motion: reduce/);
     expect(c).toMatch(/if \(!still\) raf = window\.requestAnimationFrame\(frame\)/);
+  });
+});
+
+suite("he works the room", () => {
+  it("carries on from where he is instead of teleporting to the middle", () => {
+    // Every activity used to start at x=50, so finishing a lap at the far end
+    // and starting a set put him back in the centre between two frames.
+    for (const a of ["set", "wave", "idle", "think", "celebrate"] as Activity[]) {
+      expect(activityState(a, 0.5, 91).x, a).toBe(91);
+      expect(travel(activityState(a, 0.5, 91), 5).x, a).toBe(91);
+    }
+    expect(nextActivity("laps", 0.5, 0.5, 91).x).toBe(91);
+  });
+
+  it("walks to whichever end he is not at, so the sets land at both", () => {
+    expect(activityState("walk", 0.5, 90).toX).toBe(NEAR);
+    expect(activityState("walk", 0.5, 10).toX).toBe(FAR);
+    expect(activityState("cartwheel", 0.5, 90).toX).toBe(NEAR);
+  });
+
+  it("cartwheels across the floor, turning as he goes", () => {
+    const s = activityState("cartwheel", 0.5, 8);
+    expect(travel(s, 0).x).toBeCloseTo(8);
+    expect(travel(s, s.duration).x).toBeCloseTo(FAR);
+    // Two full turns across, and it goes round rather than back and forth.
+    expect(cartwheelSpin(0)).toBe(0);
+    expect(cartwheelSpin(1)).toBe(720);
+    expect(cartwheelSpin(0.5)).toBeGreaterThan(cartwheelSpin(0.25));
+    // A shape to spin, not a pose that unfolds — every point is drawable.
+    for (let p = 0; p <= 1; p += 0.1) expect(finite(cartwheelPose(p)), `${p}`).toBe(true);
+  });
+
+  it("draws by writing attributes, not by re-rendering sixty times a second", () => {
+    // The first version called setState per frame and took the whole tree
+    // with it, which is what "janky" was.
+    const c = fs.readFileSync("components/companion.tsx", "utf8");
+    const loop = c.slice(c.indexOf("const frame = (now: number)"), c.indexOf("raf = window.requestAnimationFrame(frame);"));
+    expect(loop).not.toMatch(/setState|setPoseState|setX\(|setFacing\(/);
+    expect(c).toMatch(/querySelectorAll<SVGElement>\("\[data-part\]"\)/);
+  });
+});
+
+suite("how he takes a set", () => {
+  it("is pleased when it beat last time, whatever the tone", () => {
+    for (const tone of ["encouraging", "plain", "hype"] as const) {
+      expect(reactionFor("beat", 2, tone), tone).toBe("celebrate");
+    }
+  });
+
+  it("never turns on her for a first attempt", () => {
+    // Meeting a new movement with a shrug is how someone stops trying them.
+    for (const tone of ["encouraging", "plain", "hype"] as const) {
+      expect(reactionFor("first", 3, tone), tone).toBe("wave");
+    }
+  });
+
+  it("is harder on a slack set the blunter the tone is", () => {
+    // Three or more left in the tank on a set that did not beat the last one.
+    expect(reactionFor("matched", 3, "encouraging")).toBe("wave");
+    expect(reactionFor("matched", 3, "plain")).toBe("unimpressed");
+    expect(reactionFor("matched", 3, "hype")).toBe("unimpressed");
+    // The gym floor is the only one that minds a set that was merely fine.
+    expect(reactionFor("matched", 0, "hype")).toBe("unimpressed");
+    expect(reactionFor("matched", 0, "plain")).toBe("wave");
+    // And the encouraging one never gets cross at all.
+    expect(reactionFor("missed", 3, "encouraging")).toBe("wave");
+    expect(reactionFor("missed", 0, "hype")).toBe("unimpressed");
+  });
+
+  it("copes with her not saying what was left", () => {
+    expect(reactionFor("matched", null, "hype")).toBe("unimpressed");
+    expect(reactionFor("matched", null, "plain")).toBe("wave");
   });
 });
