@@ -53,3 +53,27 @@ export const lastFired = (): number | null => fired;
 export const markFired = (endsAt: number): void => { fired = endsAt; };
 /** For tests, and for a fresh session. */
 export const resetFired = (): void => { fired = null; };
+
+/* ------------------------------------------------- what comes next --- */
+
+export type Movement = { slug: string; targetSets: number; done: number };
+
+/**
+ * The movement to rest into after logging a set of `slug`.
+ *
+ * Null when that movement still has sets left in it — the rest is then for
+ * the same movement, which is the ordinary between-sets case. Otherwise the
+ * next one with sets outstanding, wrapping, because she may have worked down
+ * the list and come back. Null again when nothing is left at all: the session
+ * is over and there is nothing to count down to.
+ */
+export function advance<T extends Movement>(session: T[], slug: string): T | null {
+  const at = session.findIndex((m) => m.slug === slug);
+  if (at === -1) return null;
+  const current = session[at];
+  // `done` is the count before this set, so this set is the one that finishes it.
+  const finished = current.targetSets > 0 && current.done + 1 >= current.targetSets;
+  if (!finished) return null;
+  const order = [...session.slice(at + 1), ...session.slice(0, at)];
+  return order.find((m) => m.targetSets > 0 && m.done < m.targetSets) ?? null;
+}

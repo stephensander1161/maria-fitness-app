@@ -105,7 +105,7 @@ suite("the training card during a session", () => {
     // The rest used to be for the movement she had just finished — the GO
     // screen offered her a fifth set of something she had done four of.
     expect(card).toMatch(/const next = finishedExercise \? nextAfter\(view\.exercises, ex\.slug\) : null/);
-    expect(card).toMatch(/setUpNext\(next\.slug\); startRest\(next\)/);
+    expect(card).toMatch(/else if \(next\) startRest\(next\)/);
     expect(card).toMatch(/upNext \? "border-accent" : ""/);
   });
 });

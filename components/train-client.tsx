@@ -80,7 +80,7 @@ export function TrainClient({
   const [error, setError] = useState<string | null>(null);
   // The countdown lives above the router now, so it keeps running when she
   // wanders off to the food screen mid-rest.
-  const { start: beginRest, dismiss: dismissRest } = useRest();
+  const { rest: runningRest, start: beginRest, dismiss: dismissRest, setSession } = useRest();
 
   // Sets that failed to reach the server. They count as logged on screen —
   // she did the work, and the queue will deliver them.
@@ -107,8 +107,24 @@ export function TrainClient({
     ),
   );
   const movementsWorked = view.exercises.filter((e) => e.loggedToday.length > 0).length;
-  /** The movement the rest is counting down to, highlighted while it runs. */
-  const [upNext, setUpNext] = useState<string | null>(null);
+  /**
+   * What today holds, handed to the rest provider.
+   *
+   * The GO screen logs through the provider rather than through these cards,
+   * so without this it cannot tell that the movement she just finished is
+   * finished — and it kept offering a fifth set of something she had done
+   * four of.
+   */
+  useEffect(() => {
+    if (!isToday) return;
+    setSession(view.exercises.map((e) => ({
+      slug: e.slug, name: e.name, category: e.category,
+      isHold: e.isHold, loadable: !e.bodyweight || e.loadable,
+      targetSets: e.targetSets, done: e.loggedToday.length,
+      targetReps: e.targetReps, targetHoldSeconds: e.targetHoldSeconds, targetWeight: e.targetWeight,
+      restSeconds: e.restSeconds,
+    })));
+  }, [view.exercises, isToday, setSession]);
   // Movements that still have sets left in them. "Complete" has to mean
   // every one is done, or adding an exercise after signing off leaves the
   // card claiming the session is finished when it plainly isn't.
@@ -273,16 +289,20 @@ export function TrainClient({
             // walks to the rack, and the GO screen was offering her a fifth
             // set of something she had done four of.
             const next = finishedExercise ? nextAfter(view.exercises, ex.slug) : null;
-            if (wasLastOfSession) { setUpNext(null); dismissRest(); }
-            else if (next) { setUpNext(next.slug); startRest(next); }
-            else { setUpNext(null); startRest(ex, logged); }
+            if (wasLastOfSession) dismissRest();
+            else if (next) startRest(next);
+            else startRest(ex, logged);
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
-          upNext={upNext === ex.slug}
+          // Whatever the rest is counting down to wears the accent — which is
+          // the next movement when one has just been finished, and this one
+          // between sets. Read from the running rest so it is right however
+          // the set was logged: from the card, or from the GO screen.
+          upNext={runningRest?.slug === ex.slug}
         />
       ))}
       </div>

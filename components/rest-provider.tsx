@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState,
+  createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState,
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { logSetOrQueue, setInput } from "@/lib/offline";
 import type { ISODate } from "@/lib/date";
 import { RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
-import { isOver, lastFired, markFired, nextRest, shouldFire } from "@/lib/rest-alarm";
+import { advance, isOver, lastFired, markFired, nextRest, shouldFire } from "@/lib/rest-alarm";
 
 /**
  * The rest timer, hoisted out of the Train screen and into the app.
@@ -100,6 +100,24 @@ const getServerSnapshot = (): Rest | null => null;
 
 /* -------------------------------------------------------------- context --- */
 
+/**
+ * Enough of today's session for the provider to know what comes next.
+ *
+ * The GO screen logs through here rather than through the card, so this is
+ * the only place that can tell whether the movement she has just finished is
+ * *finished* — and the whole reason the GO screen kept offering a fifth set
+ * of something she had done four of. Registered by the Train screen; absent
+ * everywhere else, in which case the rest simply repeats the movement, which
+ * is the old behaviour and the right one when nobody knows any better.
+ */
+export type SessionMovement = {
+  slug: string; name: string; category: string;
+  isHold: boolean; loadable: boolean;
+  targetSets: number; done: number;
+  targetReps: number; targetHoldSeconds: number | null; targetWeight: number | null;
+  restSeconds: number;
+};
+
 type RestContext = {
   rest: Rest | null;
   /**
@@ -114,6 +132,8 @@ type RestContext = {
   dismiss: () => void;
   /** The countdown reached zero. Raises the full-screen call to go. */
   fireGo: () => void;
+  /** Today's movements, so a finished one rests into the next. */
+  setSession: (movements: SessionMovement[]) => void;
 };
 
 const NO_REST: RestContext = {
@@ -123,6 +143,7 @@ const NO_REST: RestContext = {
   extend: () => {},
   dismiss: () => {},
   fireGo: () => {},
+  setSession: () => {},
 };
 
 const Ctx = createContext<RestContext | null>(null);
@@ -141,6 +162,10 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
   const rest = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [go, setGo] = useState<Rest | null>(null);
   const [awaiting, setAwaiting] = useState<Rest | null>(null);
+  // A ref, not state: the Train screen re-registers on every refresh and this
+  // must not re-render the whole app each time.
+  const session = useRef<SessionMovement[]>([]);
+  const setSession = useCallback((m: SessionMovement[]) => { session.current = m; }, []);
 
   const start = useCallback((r: Rest) => {
     if (r.seconds <= 0) return;
@@ -207,8 +232,8 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
   const clearAwaiting = useCallback(() => setAwaiting(null), []);
 
   const value = useMemo(
-    () => ({ rest, awaiting, start, extend, dismiss, fireGo }),
-    [rest, awaiting, start, extend, dismiss, fireGo],
+    () => ({ rest, awaiting, start, extend, dismiss, fireGo, setSession }),
+    [rest, awaiting, start, extend, dismiss, fireGo, setSession],
   );
 
   return (
@@ -235,16 +260,32 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
             // And straight back into the next rest, which is the point of
             // logging here rather than on the card.
             setGo(null);
+            // That set may have finished the movement. If it did, the rest
+            // counts down to the *next* one — the GO screen was otherwise
+            // offering a fifth set of something she had done four of.
+            const after = advance(session.current, go.slug);
             // Seed the next rest with whatever she just did, in its own unit.
             // nextRest refuses to build one from a length that is not a
             // positive number of seconds: `endsAt` would be NaN, and a NaN
             // rest never comes due, so the countdown sits there and the alarm
             // never fires again for the rest of the session.
-            write(nextRest({
-              ...go,
-              reps: set.holdSeconds ?? set.reps ?? go.reps,
-              weight: set.weight,
-            }, Date.now()));
+            write(nextRest(after
+              ? {
+                ...go,
+                slug: after.slug, name: after.name, category: after.category,
+                isHold: after.isHold, loadable: after.loadable,
+                reps: after.isHold ? after.targetHoldSeconds ?? 30 : after.targetReps,
+                weight: after.targetWeight,
+                seconds: after.restSeconds,
+              }
+              : {
+                ...go,
+                reps: set.holdSeconds ?? set.reps ?? go.reps,
+                weight: set.weight,
+              }, Date.now()));
+            // Whatever the rest is for is what the Train screen highlights.
+            session.current = session.current.map((m) =>
+              m.slug === go.slug ? { ...m, done: m.done + 1 } : m);
             setAwaiting(null);
             startTransition(() => router.refresh());
           }}

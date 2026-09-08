@@ -1,6 +1,6 @@
 import { describe as suite, expect, it, beforeEach } from "vitest";
 import fs from "node:fs";
-import { isOver, lastFired, markFired, nextRest, resetFired, shouldFire } from "@/lib/rest-alarm";
+import { advance, isOver, lastFired, markFired, nextRest, resetFired, shouldFire } from "@/lib/rest-alarm";
 
 /**
  * Two bugs in one session, from the same place: the GO screen fired twice
@@ -86,5 +86,55 @@ suite("both firing paths use the shared guard", () => {
     // getSnapshot() is null the moment the rest is dismissed; racing that
     // produced a black screen with nothing on it.
     expect(read("components/rest-provider.tsx")).toMatch(/setGo\(\(g\) => g \?\? getSnapshot\(\)\)/);
+  });
+});
+
+suite("what the rest counts down to", () => {
+  const m = (slug: string, targetSets: number, done: number) => ({ slug, targetSets, done });
+
+  it("stays on the movement while it has sets left", () => {
+    // The ordinary between-sets rest: the GO screen offers the next set of
+    // the same thing.
+    expect(advance([m("curl", 4, 0), m("row", 3, 0)], "curl")).toBeNull();
+    expect(advance([m("curl", 4, 2), m("row", 3, 0)], "curl")).toBeNull();
+  });
+
+  it("moves to the next movement on the set that finishes one", () => {
+    // `done` is the count before this set, so 3 of 4 means this is the last.
+    expect(advance([m("curl", 4, 3), m("row", 3, 0)], "curl")?.slug).toBe("row");
+  });
+
+  it("skips movements that are already done, and wraps", () => {
+    const session = [m("a", 3, 3), m("b", 3, 2), m("c", 3, 0)];
+    expect(advance(session, "b")?.slug).toBe("c");
+    // She worked down the list and came back: the one still outstanding is
+    // behind her.
+    expect(advance([m("a", 3, 0), m("b", 3, 3), m("c", 3, 2)], "c")?.slug).toBe("a");
+  });
+
+  it("counts down to nothing when that was the last set of the session", () => {
+    expect(advance([m("a", 3, 3), m("b", 3, 2)], "b")).toBeNull();
+  });
+
+  it("knows nothing about a movement it was not told about", () => {
+    // The GO screen fires on every screen; only Train registers a session.
+    expect(advance([], "curl")).toBeNull();
+    expect(advance([m("row", 3, 0)], "curl")).toBeNull();
+  });
+
+  it("is used by the GO screen's own logging path, not just the card's", () => {
+    // The card calls onLogged; the GO screen logs through the provider. Only
+    // fixing the card left the GO screen offering a fifth set of a movement
+    // she had done four of, which is exactly what was reported.
+    const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
+    expect(provider).toMatch(/const after = advance\(session\.current, go\.slug\)/);
+    expect(provider).toMatch(/slug: after\.slug, name: after\.name/);
+    // And the Train screen tells it what today holds.
+    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/setSession\(view\.exercises\.map/);
+  });
+
+  it("the highlight follows the rest, however the set was logged", () => {
+    expect(fs.readFileSync("components/train-client.tsx", "utf8"))
+      .toMatch(/upNext=\{runningRest\?\.slug === ex\.slug\}/);
   });
 });
