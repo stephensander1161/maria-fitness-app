@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { doneLine, readableDuration } from "@/lib/session-clock";
 
 /**
  * The end of a workout, said properly.
@@ -15,12 +16,16 @@ import { useEffect, useRef } from "react";
  * and nothing behind it that needs blocking.
  */
 export function SessionDone({
-  sets, volume, unit, movements, onClose,
+  sets, volume, unit, movements, durationMs = null, seed = "", onClose,
 }: {
   sets: number;
   volume: number;
   unit: string;
   movements: number;
+  /** How long she was at it, when the session had a start and a finish. */
+  durationMs?: number | null;
+  /** Chosen from this, so the line does not change while she reads it. */
+  seed?: string;
   onClose: () => void;
 }) {
   const closed = useRef(false);
@@ -59,14 +64,18 @@ export function SessionDone({
         <p className="go-word text-[clamp(2.2rem,11vw,4rem)] font-bold leading-none tracking-tight text-beat">
           That&rsquo;s the session
         </p>
-        <p className="go-sub mt-3 text-[14px] text-muted">Logged and counted. Nothing to do now but eat and sleep.</p>
+        {/* One of twenty, picked from the session rather than at random on
+            every render — a sentence that changes while she is reading it is
+            a sentence she cannot read. */}
+        <p className="go-sub mt-3 text-[14px] text-muted">{doneLine(seed)}</p>
 
-        <dl className="go-sub mt-7 grid grid-cols-3 gap-3">
+        <dl className={`go-sub mt-7 grid gap-3 ${durationMs === null ? "grid-cols-3" : "grid-cols-2"}`}>
           <Stat label="sets" value={String(sets)} />
           <Stat label="movements" value={String(movements)} />
           {/* Volume is meaningless for a session of bodyweight work, and a
               great fat zero under a real workout reads as a failure. */}
           <Stat label={volume > 0 ? `${unit} lifted` : "logged"} value={volume > 0 ? String(volume) : "✓"} />
+          {durationMs !== null && <Stat label="on your feet" value={readableDuration(durationMs)} />}
         </dl>
 
         <p className="go-sub mt-8 text-[12px] text-faint">Tap anywhere to clear</p>

@@ -102,6 +102,9 @@ export type TodayExercise = {
 };
 
 export type TodayView = {
+  /** When this session was opened, and whether it is still running. */
+  startedAt: string | null;
+  finishedAt: string | null;
   date: ISODate; dayName: string; hasPlan: boolean;
   title: string; focus: string | null; isRest: boolean; notes: string | null;
   unit: string; units: Units;
@@ -121,6 +124,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     date, dayName: DAY_NAMES[dow], unit: weightLabel(units), units,
     hasPlan: false, title: "No plan yet", focus: null, isRest: false,
     notes: null, exercises: [], completed: false,
+    startedAt: null, finishedAt: null,
   } satisfies TodayView;
 
   const [plan] = await db.select({ id: plans.id }).from(plans)
@@ -225,6 +229,10 @@ export async function todayView(profileId: string, units: Units, date = today())
     hasPlan: true,
     ...(day ? restWordsFor(day) : { title: "Freestyle session", isRest: false, notes: null }),
     completed: workout?.completedAt != null,
+    // The session's own clock, so the screen can say how long she has been at
+    // it rather than inferring a workout from whether any sets exist.
+    startedAt: workout?.startedAt?.toISOString() ?? null,
+    finishedAt: workout?.completedAt?.toISOString() ?? null,
     exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
       return {

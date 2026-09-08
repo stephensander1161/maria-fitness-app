@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
 import { moveItem, slotFor } from "@/lib/reorder";
+import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
@@ -68,6 +69,8 @@ export function TrainClient({
   const [finishing, setFinishing] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
+  /** How long the session ran, taken once when she finishes it. */
+  const [finishedMs, setFinishedMs] = useState<number | null>(null);
   /**
    * Every day is editable, including the ones behind her.
    *
@@ -299,6 +302,29 @@ export function TrainClient({
    * a signal we have. The coach can still ask in words when it matters, and
    * finish_workout still takes a feeling when she gives one.
    */
+  /**
+   * Opening the session by hand, rather than inferring one from the first set.
+   *
+   * The app used to treat "today" as the session, which is fine until someone
+   * trains past midnight: the workout she is in the middle of becomes
+   * yesterday's, the screen shows an empty new day, and the coach is told
+   * there is no session at all. A start and a finish give it edges.
+   */
+  async function startSession() {
+    setFinishing(true);
+    setError(null);
+    try {
+      // Her tap is also the gesture iOS needs before any of this can beep.
+      unlockAudio();
+      await action("start_workout", date === undefined ? {} : { date });
+      router.refresh();
+    } catch {
+      setError("Couldn't start the session — check your signal and try again.");
+    } finally {
+      setFinishing(false);
+    }
+  }
+
   async function finish(feeling?: number) {
     setFinishing(true);
     setError(null);
@@ -310,6 +336,7 @@ export function TrainClient({
       // Said properly, once, and only when she says she is done — a card
       // quietly turning green was the whole celebration for the thing this
       // app exists to get her to do.
+      setFinishedMs(elapsedMs(view.startedAt, Date.now(), view.finishedAt));
       setDone(true);
       router.refresh();
     } catch {
@@ -356,6 +383,15 @@ export function TrainClient({
 
   return (
     <div className="space-y-4">
+      {isToday && (
+        <SessionBar
+          startedAt={view.startedAt}
+          finishedAt={view.finishedAt}
+          busy={finishing}
+          onStart={startSession}
+          onFinish={() => finish()}
+        />
+      )}
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -483,9 +519,83 @@ export function TrainClient({
           movements={movementsWorked}
           volume={totalVolume}
           unit={view.unit}
+          // The session's own length, and a line chosen from it so it does
+          // not change while she is reading it.
+          // Frozen when the session ended, not read from the clock during a
+          // render — the length of a finished session does not change.
+          durationMs={finishedMs}
+          seed={view.startedAt ?? view.date}
           onClose={() => setDone(false)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Start, a running clock, finish.
+ *
+ * Top of the screen and left of everything, because it is the frame the rest
+ * of the session sits inside — and because "have I started?" is the question
+ * she asks first when she picks the phone up mid-workout.
+ */
+function SessionBar({
+  startedAt, finishedAt, busy, onStart, onFinish,
+}: {
+  startedAt: string | null;
+  finishedAt: string | null;
+  busy: boolean;
+  onStart: () => void;
+  onFinish: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!startedAt || finishedAt) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [startedAt, finishedAt]);
+
+  const ms = elapsedMs(startedAt, now, finishedAt);
+
+  if (!startedAt) {
+    return (
+      <button
+        onClick={onStart}
+        disabled={busy}
+        className="flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-[14px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        {busy ? "Starting…" : "Start workout"}
+      </button>
+    );
+  }
+
+  if (finishedAt) {
+    return (
+      <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-4 py-2.5 text-[13px] font-medium text-beat">
+        Finished — {readableDuration(ms)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3.5 py-2.5">
+        <span className="size-2 animate-pulse rounded-full bg-beat" aria-hidden />
+        {/* Not a live region: it repaints every second, and announcing each
+            tick would talk over everything else the way the rest countdown
+            once did. */}
+        <span className="text-[15px] font-semibold tabular-nums">{clockDuration(ms)}</span>
+      </div>
+      <button
+        onClick={onFinish}
+        disabled={busy}
+        className="rounded-full border border-edge px-4 py-2.5 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+      >
+        {busy ? "Finishing…" : "Finish workout"}
+      </button>
     </div>
   );
 }
