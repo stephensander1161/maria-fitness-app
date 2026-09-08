@@ -715,6 +715,81 @@ export const EXERCISES: Seed[] = [
     easier: ["tricep-pushdown"], harder: ["overhead-tricep-extension"],
   },
   {
+    slug: "dumbbell-shrug", name: "Dumbbell Shrug", category: "isolation",
+    primaryMuscles: ["traps"], equipment: ["dumbbell"],
+    tags: ["shrug", "traps", "upper back"],
+    formCues: [
+      "A dumbbell in each hand at your sides, arms straight and staying straight.",
+      "Lift the shoulders straight up towards your ears — nothing else moves.",
+      "Hold at the top for a second, which is where the work actually is.",
+      "Lower all the way down and let the traps lengthen before the next one.",
+    ],
+    commonMistakes: [
+      "Rolling the shoulders backwards at the top. It adds nothing and grinds the joint.",
+      "Bending the elbows, which turns it into a very short row.",
+      "Bouncing: heavy shrugs done fast are mostly momentum.",
+    ],
+    easier: ["scapular-squeeze"],
+  },
+  {
+    slug: "dumbbell-side-bend", name: "Dumbbell Side Bend", category: "core",
+    primaryMuscles: ["obliques", "core"], equipment: ["dumbbell"],
+    tags: ["side bend", "obliques", "waist"],
+    unilateral: true,
+    formCues: [
+      "One dumbbell in one hand, the other hand behind your head or on your hip.",
+      "Feet hip-width, hips square and facing forward the whole time.",
+      "Bend sideways towards the weighted side, then pull yourself back up with the *other* side.",
+      "One side at a time, and match the reps on both.",
+    ],
+    commonMistakes: [
+      "Twisting as you bend — this is a sideways movement, not a rotation.",
+      "Going heavy: the load is already lopsided, and the spine is what pays.",
+      "Leaning forward or back, which takes the obliques out of it entirely.",
+    ],
+    safetyNote: "Loaded side bending puts the lower back through a sideways bend under weight. Keep it light and controlled, and stop at any pinch rather than working through it.",
+    easier: ["side-plank"], harder: ["suitcase-carry"],
+  },
+  {
+    slug: "front-raise", name: "Dumbbell Front Raise", category: "isolation",
+    primaryMuscles: ["shoulders"], equipment: ["dumbbell"],
+    // The distinction people actually get wrong: lateral goes out to the
+    // sides, front goes out in front. Both are "raises".
+    tags: ["anterior delt", "front delt", "raise"],
+    formCues: [
+      "Dumbbells resting against the front of your thighs, palms facing you.",
+      "Slight bend in the elbows, kept the same the whole way.",
+      "Raise straight out in front until the arms are at shoulder height.",
+      "Lower slowly. Light weight — the front shoulder is small and it is working alone here.",
+    ],
+    commonMistakes: [
+      "Swinging up with the hips, which turns it into a shrug with extra steps.",
+      "Going above shoulder height, where the shoulder blade takes over.",
+      "Too heavy: this one is built with control, not load.",
+    ],
+    easier: ["band-overhead-press"], harder: ["palms-up-front-raise"],
+  },
+  {
+    slug: "palms-up-front-raise", name: "Palms-Up Front Raise", category: "isolation",
+    // Front delt lifts it; the open, supinated hand is what brings the biceps
+    // and forearms in, which is where people feel this one.
+    primaryMuscles: ["shoulders", "biceps", "forearms"], equipment: ["dumbbell"],
+    tags: ["supinated", "open palm", "palm up", "underhand", "front delt", "anterior delt"],
+    formCues: [
+      "Dumbbells at your sides, palms turned up and open — the weight rests across the hand rather than being squeezed.",
+      "Slight bend in the elbows, and it stays the same the whole way.",
+      "Raise straight out in front until the arms are at shoulder height.",
+      "Lower slowly. The open palm is the point: if you have to grip hard to keep it there, the weight is too heavy.",
+    ],
+    commonMistakes: [
+      "Gripping the handle tight, which turns it back into an ordinary front raise.",
+      "Letting it drift out to the side — that is a lateral raise, and a different shoulder.",
+      "Swinging up with the body; this one is built with control, not load.",
+    ],
+    safetyNote: "Turning the palm up rotates the shoulder outward under load. If it pinches at the top, lower the range and the weight before anything else.",
+    easier: ["front-raise"],
+  },
+  {
     slug: "palms-up-lateral-raise", name: "Palms-Up Lateral Raise", category: "isolation",
     // Side delt does the lifting; the open, supinated hand is what puts the
     // biceps and forearms to work holding the dumbbell there, which is where

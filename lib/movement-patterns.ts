@@ -174,12 +174,36 @@ export const PATTERNS: Record<string, Pattern> = {
       hip: [50, 55], knee: [50, 75], foot: [50, 94],
     },
   },
+  /**
+   * The arm coming up in *front* of the body — which, drawn side-on, is what
+   * this figure has always shown. It was labelled as a lateral raise, and
+   * that is the one movement a side view cannot draw: arms going out to the
+   * left and right point at the viewer and barely move on screen.
+   */
   raise: {
     label: "Lead with the elbows, stop at shoulder height",
     start: STAND,
     end: {
       head: [50, 15], shoulder: [50, 28], elbow: [66, 28], hand: [80, 30],
       hip: [50, 55], knee: [50, 75], foot: [50, 94],
+    },
+  },
+  /**
+   * Out to the sides, seen from the front.
+   *
+   * The only pose in here drawn facing the viewer, because a lateral raise
+   * side-on is an arm that does not appear to move. The legs are set apart to
+   * say "this one is front-on" before the arms do.
+   */
+  lateral: {
+    label: "Straight out to the sides, to shoulder height",
+    start: {
+      head: [50, 15], shoulder: [50, 30], elbow: [42, 42], hand: [40, 54],
+      hip: [50, 56], knee: [44, 76], foot: [42, 94],
+    },
+    end: {
+      head: [50, 15], shoulder: [50, 30], elbow: [34, 32], hand: [18, 30],
+      hip: [50, 56], knee: [44, 76], foot: [42, 94],
     },
   },
   rotation: {
@@ -278,7 +302,11 @@ const RULES: [RegExp, PatternKey][] = [
   // Catch-all for any remaining press, after the overhead cases above.
   [/press/, "horizontalPush"],
   [/curl|bicep/, "curl"],
-  [/raise|lateral|shrug|pushdown|extension|kickback|calf/, "raise"],
+  // Sides before fronts: "palms-up-lateral-raise" must not be caught by the
+  // front-raise rule below just because it contains "raise".
+  [/side-bend/, "rotation"],
+  [/lateral-raise|side-raise|side-lateral/, "lateral"],
+  [/raise|shrug|pushdown|extension|kickback|calf/, "raise"],
   [/walk|run|jog|bike|row-machine|elliptical|jump|skip|march|stair|shadow|swim|intervals/, "cardio"],
 ];
 

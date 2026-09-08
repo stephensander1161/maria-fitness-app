@@ -2,6 +2,7 @@ import { describe as suite, expect, it } from "vitest";
 import { EXERCISES } from "@/lib/seed/exercises";
 import { WORKOUT_TEMPLATES } from "@/lib/seed/workout-templates";
 import { matchesQuery, queryWords } from "@/lib/search-terms";
+import { PATTERNS, patternFor } from "@/lib/movement-patterns";
 
 /**
  * The exercise library is the form and posture resource, and the coach
@@ -191,5 +192,35 @@ suite("the words people actually type", () => {
     for (const q of ["pull up", "pull-up", "pullup", "pull ups"]) {
       expect(matchesQuery(q, pullUp), q).toBe(true);
     }
+  });
+});
+
+suite("the figure shows the movement it is labelled with", () => {
+  it("draws a lateral raise front-on and a front raise from the side", () => {
+    // A lateral raise seen side-on is an arm pointing at the viewer that
+    // barely appears to move — which is what the "raise" figure was showing,
+    // and it is a front raise.
+    expect(patternFor("lateral-raise", "isolation")).toBe("lateral");
+    expect(patternFor("palms-up-lateral-raise", "isolation")).toBe("lateral");
+    expect(patternFor("front-raise", "isolation")).toBe("raise");
+    expect(patternFor("palms-up-front-raise", "isolation")).toBe("raise");
+  });
+
+  it("keeps the rest of the raises where they were", () => {
+    for (const slug of ["calf-raise", "single-leg-calf-raise", "dumbbell-shrug"]) {
+      expect(patternFor(slug, "isolation"), slug).toBe("raise");
+    }
+  });
+
+  it("does not draw a side bend as a squat", () => {
+    expect(patternFor("dumbbell-side-bend", "core")).toBe("rotation");
+  });
+
+  it("the lateral pose actually takes the arm out to the side", () => {
+    const p = PATTERNS.lateral;
+    // The hand travels a long way sideways and ends near shoulder height.
+    expect(Math.abs(p.end.hand[0] - p.start.hand[0])).toBeGreaterThan(15);
+    expect(p.end.hand[1]).toBeLessThan(p.start.hand[1]);
+    expect(p.end.hand[1]).toBeCloseTo(p.end.shoulder[1], -1);
   });
 });
