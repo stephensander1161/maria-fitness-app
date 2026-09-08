@@ -284,7 +284,10 @@ suite("reordering the day by dragging", () => {
 
   it("uses pointer events, because HTML5 drag does not fire on touch at all", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/onPointerDown=\{onDragStart\}/);
+    expect(card).toMatch(/onDragStart\(e\.clientY\)/);
+    // …and a long press anywhere on the card, because eight pixels of grip
+    // among four other round buttons is a handle most thumbs never hit.
+    expect(card).toMatch(/window\.setTimeout\(\(\) => \{ onDragStart\(startY\); \}, 400\)/);
     expect(card).toMatch(/style=\{\{ touchAction: "none" \}\}/);
     expect(card).not.toMatch(/draggable=|onDragOver=/);
   });

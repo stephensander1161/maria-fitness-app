@@ -185,11 +185,14 @@ export function TrainClient({
     return 0;
   }
 
-  function beginDrag(e: React.PointerEvent, slug: string) {
+  /**
+   * `startY` rather than an event, so a long press on the card can start a
+   * drag with the point the finger went down at — not where it had drifted
+   * to by the time the press was recognised.
+   */
+  function beginDrag(startY: number, slug: string) {
     const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
     if (rows.length < 2) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
 
     // Measured once, before anything moves. Nothing in the DOM is reordered
     // during the drag, so these stay true for the whole gesture.
@@ -197,7 +200,7 @@ export function TrainClient({
     const mids = rects.map((r) => r.top + r.height / 2);
     const slugs = shown.map((x) => x.slug);
     const from = slugs.indexOf(slug);
-    const startY = e.clientY;
+    if (from === -1) return;
     const height = rects[from].height + 16; // the card plus the gap below it
     let to = from;
 
@@ -411,7 +414,7 @@ export function TrainClient({
           // The dragged card rides the finger; the others slide out of its
           // way. Both transforms, so both animate.
           offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
-          onDragStart={editable ? (e) => beginDrag(e, ex.slug) : undefined}
+          onDragStart={editable ? (y: number) => beginDrag(y, ex.slug) : undefined}
           unit={view.unit}
           pickable={pickable}
           date={date}
@@ -876,7 +879,7 @@ export function ExerciseCard({
   /** Being dragged to a new place in the day. */
   dragging?: boolean;
   /** Absent on a day she cannot edit — no handle is drawn. */
-  onDragStart?: (e: React.PointerEvent) => void;
+  onDragStart?: (startY: number) => void;
   /** How fast the marker beats — a heart rate settling through the rest. */
   beatSeconds?: number;
   /** Where the drag has put this card, in pixels from where it sits. */
@@ -1049,6 +1052,35 @@ export function ExerciseCard({
        breathing, because the question it answers is "which one am I doing"
        and she is asking it mid-set with a dumbbell in her hand. */
     <section
+      // A long press anywhere on the card starts a drag as well.
+      //
+      // The grip is eight pixels of circle among four other round buttons,
+      // and on a phone the honest answer to "why does dragging not work" is
+      // usually that the handle was never hit. A press that holds still for
+      // 400ms is unambiguous — a scroll moves within a few — so this can be
+      // offered on the whole card without stealing a tap or a swipe.
+      onPointerDown={(e) => {
+        if (!onDragStart || dragging) return;
+        // Not on the buttons and steppers: they have their own jobs.
+        if ((e.target as HTMLElement).closest("button, input, [role='button']")) return;
+        const startY = e.clientY;
+        const startX = e.clientX;
+        const hold = window.setTimeout(() => { onDragStart(startY); }, 400);
+        const cancel = (ev: PointerEvent) => {
+          if (Math.abs(ev.clientY - startY) < 10 && Math.abs(ev.clientX - startX) < 10) return;
+          window.clearTimeout(hold);
+          done();
+        };
+        const up = () => { window.clearTimeout(hold); done(); };
+        function done() {
+          window.removeEventListener("pointermove", cancel);
+          window.removeEventListener("pointerup", up);
+          window.removeEventListener("pointercancel", up);
+        }
+        window.addEventListener("pointermove", cancel);
+        window.addEventListener("pointerup", up);
+        window.addEventListener("pointercancel", up);
+      }}
       className={`card overflow-hidden ${
         upNext ? "border-beat now-glow" : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
@@ -1122,7 +1154,7 @@ export function ExerciseCard({
               the device it is for. */}
           {onDragStart && (
             <button
-              onPointerDown={onDragStart}
+              onPointerDown={(e) => { e.preventDefault(); onDragStart(e.clientY); }}
               aria-label={`Reorder ${exercise.name}`}
               className="grid size-8 shrink-0 cursor-grab place-items-center rounded-full text-faint active:cursor-grabbing active:bg-raised"
               style={{ touchAction: "none" }}

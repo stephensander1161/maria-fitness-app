@@ -84,14 +84,29 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
     let raf = 0;
     startedAt.current = performance.now();
 
-    const g = root.current;
-    if (g) {
-      for (const el of g.querySelectorAll<SVGElement>("[data-part]")) {
-        parts.current[el.dataset.part!] = el;
+    /**
+     * Re-found whenever they are not on the page any more.
+     *
+     * Doing this once on mount was the bug that left him as a head and
+     * nothing else: anything that remounts the svg — and this component
+     * swapped its own wrapper element the moment it worked out whether the
+     * screen had a coach panel — leaves these pointing at detached nodes,
+     * and the loop then draws happily into a document fragment for ever.
+     */
+    const limbs = () => {
+      const g = root.current;
+      if (!g) return null;
+      if (!parts.current.spine?.isConnected) {
+        parts.current = {};
+        for (const el of g.querySelectorAll<SVGElement>("[data-part]")) {
+          parts.current[el.dataset.part!] = el;
+        }
       }
-    }
+      return g;
+    };
 
     const draw = (pose: Pose, x: number, facing: 1 | -1, spin: number) => {
+      const g = limbs();
       if (!g) return;
       g.setAttribute(
         "transform",
@@ -161,18 +176,19 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
   if (isChromeless(path)) return null;
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
-  const Stage = hasPanel ? "button" : "div";
-
-
+  // Always a button, never sometimes a div: changing the element type
+  // remounts everything inside it, which is what detached the figure from the
+  // loop drawing it and left him as a motionless head.
   return (
-    <Stage
+    <button
+      type="button"
       {...(hasPanel
         ? {
           onClick: () => window.dispatchEvent(new CustomEvent("coach:open")),
           "aria-label": label,
           title: label,
         }
-        : { "aria-hidden": true })}
+        : { "aria-hidden": true, tabIndex: -1 })}
       className={`group mt-6 block w-full rounded-2xl border border-line/60 bg-surface/40 px-2 py-1 ${
         hasPanel ? "transition-colors hover:bg-surface" : ""
       }`}
@@ -198,6 +214,6 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
         </g>
       </svg>
       {hasPanel && <span className="sr-only">{label}</span>}
-    </Stage>
+    </button>
   );
 }

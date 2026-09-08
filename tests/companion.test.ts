@@ -213,11 +213,15 @@ suite("he is the way in to the coach", () => {
     expect(opinion).toMatch(/data-ask-coach=""/);
   });
 
-  it("is not a button on the one screen with nowhere to send her", () => {
+  it("does nothing on the one screen with nowhere to send her", () => {
     // Offering a tap that does nothing is worse than not offering it.
     const c = read("components/companion.tsx");
-    expect(c).toMatch(/const Stage = hasPanel \? "button" : "div"/);
     expect(c).toMatch(/document\.querySelector\("\[data-ask-coach\]"\)/);
+    // Always the same element, never a div that becomes a button: changing
+    // the type remounts the svg and leaves the frame loop writing into
+    // detached nodes — which is what reduced him to a motionless head.
+    expect(c).not.toMatch(/const Stage =/);
+    expect(c).toMatch(/if \(!parts\.current\.spine\?\.isConnected\)/);
   });
 
   it("stops and thinks while the coach is working", () => {
