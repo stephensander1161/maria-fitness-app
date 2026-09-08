@@ -265,10 +265,21 @@ suite("he works the room", () => {
     expect(travel(s, s.duration).x).toBeCloseTo(FAR);
     // Two full turns across, and it goes round rather than back and forth.
     expect(cartwheelSpin(0)).toBe(0);
-    expect(cartwheelSpin(1)).toBe(720);
+    // One turn per crossing: at two it read as spinning rather than as a
+    // body going over its hands.
+    expect(cartwheelSpin(1)).toBe(360);
     expect(cartwheelSpin(0.5)).toBeGreaterThan(cartwheelSpin(0.25));
-    // A shape to spin, not a pose that unfolds — every point is drawable.
     for (let p = 0; p <= 1; p += 0.1) expect(finite(cartwheelPose(p)), `${p}`).toBe(true);
+    // Four beats — hand, hand, foot, foot — so the limbs reach in turn
+    // rather than the whole star rotating rigidly.
+    const reach = (p: number) => {
+      const c = cartwheelPose(p);
+      return [c.armL.hand[0], c.armR.hand[0], c.legL.foot[0], c.legR.foot[0]].map((v) => Math.abs(v - 50));
+    };
+    const spans = [0, 0.25, 0.5, 0.75].map((p) => reach(p));
+    // Each beat has a different limb furthest out.
+    const furthest = spans.map((r) => r.indexOf(Math.max(...r)));
+    expect(new Set(furthest).size).toBeGreaterThan(2);
   });
 
   it("draws by writing attributes, not by re-rendering sixty times a second", () => {

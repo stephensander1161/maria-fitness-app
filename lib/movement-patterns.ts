@@ -189,6 +189,78 @@ export const PATTERNS: Record<string, Pattern> = {
     },
   },
   /**
+   * Pressing on an incline: the torso leans back against the bench, the
+   * hands drive up and slightly back over the chest. Drawn as a flat press
+   * the figure was upright, which is the one thing an incline is not.
+   */
+  inclinePress: {
+    label: "Back on the bench, press up and slightly back",
+    start: {
+      head: [38, 30], shoulder: [44, 40], elbow: [52, 48], hand: [58, 42],
+      hip: [58, 62], knee: [72, 74], foot: [86, 88],
+    },
+    end: {
+      head: [38, 30], shoulder: [44, 40], elbow: [46, 30], hand: [48, 18],
+      hip: [58, 62], knee: [72, 74], foot: [86, 88],
+    },
+  },
+  /**
+   * Seated, leaning back, turning side to side. Drawn as a standing rotation
+   * it was somebody doing a golf swing.
+   */
+  seatedTwist: {
+    label: "Sit back, feet up, turn from the ribs",
+    start: {
+      head: [40, 34], shoulder: [46, 44], elbow: [56, 50], hand: [64, 52],
+      hip: [58, 68], knee: [74, 58], foot: [84, 76],
+    },
+    end: {
+      head: [40, 34], shoulder: [46, 44], elbow: [48, 56], hand: [46, 64],
+      hip: [58, 68], knee: [74, 58], foot: [84, 76],
+    },
+  },
+  /** Heels off the floor. Nothing above the knee moves. */
+  calfRaise: {
+    label: "Up onto the toes, all the way, then all the way down",
+    start: {
+      head: [50, 15], shoulder: [50, 30], elbow: [50, 44], hand: [50, 58],
+      hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+    end: {
+      head: [50, 8], shoulder: [50, 23], elbow: [50, 37], hand: [50, 51],
+      hip: [50, 49], knee: [50, 69], foot: [50, 90],
+    },
+  },
+  /**
+   * The elbow straightening while the upper arm stays put — a pushdown, a
+   * kickback, an overhead extension. Drawn as a lateral raise the whole arm
+   * swung out from the shoulder, which is the joint that is meant to be
+   * still.
+   */
+  armExtension: {
+    label: "Upper arm still, straighten the elbow",
+    start: {
+      head: [50, 15], shoulder: [50, 30], elbow: [50, 46], hand: [42, 36],
+      hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+    end: {
+      head: [50, 15], shoulder: [50, 30], elbow: [50, 46], hand: [50, 62],
+      hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+  },
+  /** Seated, the knee straightening in front. */
+  legExtension: {
+    label: "Seated, straighten the knee",
+    start: {
+      head: [40, 24], shoulder: [42, 36], elbow: [46, 48], hand: [50, 56],
+      hip: [46, 60], knee: [64, 62], foot: [64, 82],
+    },
+    end: {
+      head: [40, 24], shoulder: [42, 36], elbow: [46, 48], hand: [50, 56],
+      hip: [46, 60], knee: [64, 62], foot: [86, 58],
+    },
+  },
+  /**
    * Shoulders straight up towards the ears; the arms hang and go along for
    * the ride. Drawn with the "raise" pose it had the arms coming out to the
    * side, which is a lateral raise and not a shrug at all.
@@ -299,6 +371,19 @@ export type PatternKey = keyof typeof PATTERNS;
  * cases sit above the general ones.
  */
 const RULES: [RegExp, PatternKey][] = [
+  /*
+   * The specific ones first, and they have to be: every one of these is a
+   * word that a later, broader rule also matches — "incline-dumbbell-press"
+   * is a press, "russian-twist" is a twist, "tricep-pushdown" is an
+   * extension — and the broader rule drew each of them as the wrong
+   * movement. Order is the whole mechanism here.
+   */
+  [/incline.*(press|bench)/, "inclinePress"],
+  [/russian-twist|seated.*twist/, "seatedTwist"],
+  [/calf-raise|calf-stretch/, "calfRaise"],
+  [/pushdown|kickback|tricep.*extension|terminal-knee/, "armExtension"],
+  [/leg-extension/, "legExtension"],
+  [/muscle-up/, "verticalPull"],
   // Before the plank rule, which otherwise catches these through `category`.
   [/punch|jab|boxer/, "punch"],
   [/v-?up|jackknife|sit-?up|toe-touch|pike-crunch/, "vSit"],

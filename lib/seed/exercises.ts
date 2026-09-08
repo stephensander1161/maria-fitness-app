@@ -715,6 +715,26 @@ export const EXERCISES: Seed[] = [
     easier: ["tricep-pushdown"], harder: ["overhead-tricep-extension"],
   },
   {
+    slug: "dumbbell-pullover", name: "Dumbbell Pullover", category: "compound",
+    // Chest and lats both, which is the argument people have about it. It is
+    // listed chest-first because that is what it is usually done for.
+    primaryMuscles: ["chest", "lats", "core"], equipment: ["dumbbell", "bench"],
+    tags: ["pullover", "pull over", "ribcage"],
+    formCues: [
+      "Lie back on the bench, one dumbbell held over your chest in both hands.",
+      "Arms nearly straight, a soft bend at the elbow that does not change.",
+      "Lower the weight back over your head until you feel the stretch across the chest and under the arms.",
+      "Pull it back over your chest with the same arms — nothing bends, nothing swings.",
+    ],
+    commonMistakes: [
+      "Bending and straightening the elbows, which turns it into an awkward triceps extension.",
+      "Going deeper than the shoulders will allow, chasing the stretch.",
+      "Letting the ribs flare and the back arch off the bench.",
+    ],
+    safetyNote: "This one takes the shoulder into deep flexion under load. Stop where the stretch is honest — a pinch at the front of the shoulder means you have gone past your range, not that you need to push into it.",
+    easier: ["dumbbell-chest-fly"],
+  },
+  {
     slug: "dumbbell-shrug", name: "Dumbbell Shrug", category: "isolation",
     primaryMuscles: ["traps"], equipment: ["dumbbell"],
     tags: ["shrug", "traps", "upper back"],
@@ -1138,8 +1158,11 @@ export const EXERCISES: Seed[] = [
     easier: ["band-row"], harder: ["dumbbell-row"],
   },
   {
+    // "Incline row" is what people call it: it is a row done chest-down on
+    // an inclined bench, and searching for that found nothing.
     slug: "chest-supported-row", name: "Chest-Supported Dumbbell Row", category: "compound",
     primaryMuscles: ["upper back", "lats", "rear delts"], equipment: ["dumbbell", "bench"],
+    tags: ["incline row", "incline bench row"],
     formCues: [
       "Set a bench to about 30 degrees and lie face down with your chest on the pad.",
       "Let the dumbbells hang straight down, arms long.",

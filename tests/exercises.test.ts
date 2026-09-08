@@ -206,10 +206,25 @@ suite("the figure shows the movement it is labelled with", () => {
     expect(patternFor("palms-up-front-raise", "isolation")).toBe("raise");
   });
 
-  it("keeps the rest of the raises where they were", () => {
-    for (const slug of ["calf-raise", "single-leg-calf-raise", "tricep-pushdown"]) {
-      expect(patternFor(slug, "isolation"), slug).toBe("raise");
-    }
+  it("draws each kind of raise as the thing it is", () => {
+    // "Raise" was catching four unrelated movements. A calf raise is heels
+    // lifting, a pushdown is an elbow straightening, an incline press is a
+    // press on a bench, and a russian twist is done sitting down — all four
+    // were drawn as an arm going out to the side.
+    expect(patternFor("calf-raise", "isolation")).toBe("calfRaise");
+    expect(patternFor("single-leg-calf-raise", "isolation")).toBe("calfRaise");
+    expect(patternFor("tricep-pushdown", "isolation")).toBe("armExtension");
+    expect(patternFor("tricep-kickback", "isolation")).toBe("armExtension");
+    expect(patternFor("incline-dumbbell-press", "compound")).toBe("inclinePress");
+    expect(patternFor("russian-twist", "core")).toBe("seatedTwist");
+    expect(patternFor("leg-extension", "isolation")).toBe("legExtension");
+    // A muscle-up is a pull-up with a press on the end, not a squat.
+    expect(patternFor("muscle-up", "compound")).toBe("verticalPull");
+    // And the ones that were right stay right.
+    expect(patternFor("front-raise", "isolation")).toBe("raise");
+    expect(patternFor("dumbbell-bench-press", "compound")).toBe("benchPress");
+    expect(patternFor("incline-push-up", "compound")).toBe("pushUp");
+    expect(patternFor("thoracic-rotation", "mobility")).toBe("rotation");
   });
 
   it("does not draw a side bend as a squat", () => {

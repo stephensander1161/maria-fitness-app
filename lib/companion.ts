@@ -117,8 +117,8 @@ export function activityState(activity: Activity, roll: number, fromX = 50): Com
       // Track and field: end to end and back, several times.
       return { ...base, duration: 7 + r * 5, toX: FAR };
     case "cartwheel":
-      // Across the whole floor, in one go.
-      return { ...base, duration: 3 + r * 1.5, toX: otherEnd };
+      // Across the whole floor, taking its time — roughly three turns.
+      return { ...base, duration: 7 + r * 2, toX: otherEnd };
     case "set":
       return { ...base, duration: 6 + r * 4, pattern: MOVES[Math.floor(r * MOVES.length)] };
     case "wave":
@@ -219,21 +219,51 @@ export function stridePose(phase: number, intensity = 1): Pose {
  * The component applies the rotation; this supplies the shape to spin.
  */
 export function cartwheelPose(phase: number): Pose {
+  // Four beats to a cartwheel — hand, hand, foot, foot — and the limbs reach
+  // in that order. A rigid star that spins is not a cartwheel; it is a
+  // starfish on a turntable, which is what it looked like.
+  const beat = (phase * 4) % 4;
+  const near = (b: number) => Math.max(0, 1 - Math.abs(beat - b));
+  // Each limb stretches out as its own beat comes round and tucks after it.
+  const armLead = 1 + near(0) * 0.35;
+  const armTrail = 1 + near(1) * 0.35;
+  const legLead = 1 + near(2) * 0.35;
+  const legTrail = 1 + near(3) * 0.35;
   const spread = 13;
-  const reach = 26;
+  const reach = 24;
+  // The body straightens through the vertical and folds a little at the ends.
+  const fold = 1 - Math.abs(Math.sin(phase * Math.PI * 4)) * 0.12;
+
   return {
-    head: [50, 22],
+    head: [50, 22 * fold],
     shoulder: [50, 34],
     hip: [50, 58],
-    armL: { elbow: [50 - spread, 46], hand: [50 - reach, 32] },
-    armR: { elbow: [50 + spread, 46], hand: [50 + reach, 32] },
-    legL: { knee: [50 - spread, 74], foot: [50 - reach, 88] },
-    legR: { knee: [50 + spread, 74], foot: [50 + reach, 88] },
+    armL: {
+      elbow: [50 - spread * armLead, 46 - near(0) * 3],
+      hand: [50 - reach * armLead, 32 - near(0) * 6],
+    },
+    armR: {
+      elbow: [50 + spread * armTrail, 46 - near(1) * 3],
+      hand: [50 + reach * armTrail, 32 - near(1) * 6],
+    },
+    legL: {
+      knee: [50 - spread * legTrail, 74 + near(3) * 2],
+      foot: [50 - reach * legTrail, 88 + near(3) * 4],
+    },
+    legR: {
+      knee: [50 + spread * legLead, 74 + near(2) * 2],
+      foot: [50 + reach * legLead, 88 + near(2) * 4],
+    },
   };
 }
 
-/** How far round the cartwheel has turned, in degrees. */
-export const cartwheelSpin = (phase: number): number => phase * 360 * 2;
+/**
+ * How far round the cartwheel has turned, in degrees.
+ *
+ * One turn per crossing, not two: at two it read as spinning rather than as
+ * a body going over its hands.
+ */
+export const cartwheelSpin = (phase: number): number => phase * 360;
 
 /** Standing, breathing, weight shifting slowly from one foot to the other. */
 export function idlePose(phase: number): Pose {
@@ -376,7 +406,9 @@ export function travel(state: CompanionState, elapsed: number): { x: number; fac
  */
 export function phaseFor(activity: Activity, elapsed: number): number {
   const perSecond =
-    activity === "cartwheel" ? 0.7
+    // One turn per cycle now, and slow: a cartwheel you cannot see the
+    // shape of is a blur, and the shape is the whole point of it.
+    activity === "cartwheel" ? 0.35
       : activity === "laps" ? 1.6
         : activity === "walk" ? 0.85
         : activity === "set" ? 0.45
