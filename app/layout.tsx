@@ -13,6 +13,7 @@ import { MobileGreeting } from "@/components/mobile-greeting";
 import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 import { CompanionGate } from "@/components/companion-gate";
+import { WeighInGate } from "@/components/weigh-in-gate";
 
 export const metadata: Metadata = {
   title: "Plate",
@@ -99,6 +100,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
         </div>
         </RestProvider>
+        {/*
+          The first thing she sees on the first open of the day, over
+          everything else: the scale. It lived on Progress, two taps away and
+          behind a screen about last week, so the number every target and
+          every trend is computed from got logged when she remembered.
+          Nothing before 5am — see lib/morning-weigh-in.ts.
+        */}
+        <WeighInGate />
         {/* Things she asked for that have shipped — see shipped-note.tsx. */}
         <ShippedNoteGate />
         <RefreshOnFocus />

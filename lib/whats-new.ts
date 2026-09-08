@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-08-morning-weigh-in",
+    date: "2026-09-08",
+    title: "The scale asks you, once a morning",
+    blurb: "Open the app for the first time in a day and it asks for your weight, full screen, before anything else. Once you have logged it, or said not today, it goes away until tomorrow. Nothing before 5am, so training past midnight is never interrupted.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-08-movement-page",
     date: "2026-09-08",
     title: "A movement gets its own screen on a phone",

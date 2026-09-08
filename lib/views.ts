@@ -2,9 +2,11 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, sql } from "dr
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, workouts,
+  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, weighIns, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
+import { profileToday } from "@/lib/profile";
+import { shouldAskToWeigh } from "@/lib/morning-weigh-in";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
@@ -930,4 +932,51 @@ export async function whatsNewForProfile(profile: {
   return unseen(profile.whatsNewSeen, {
     createdAt: profile.createdAt, recovering: profile.postpartumBirthDate !== null, owner,
   });
+}
+
+
+/**
+ * Whether to put the scale in front of her, and what to put in the box.
+ *
+ * A read model rather than something the component does for itself: a
+ * component that imports `@/lib/db` is a component that can write to it, and
+ * this codebase keeps that door shut with a test. It also cannot live beside
+ * the pure rule — `lib/morning-weigh-in.ts` is imported by the browser for
+ * the storage key, and one database import there drags the whole Postgres
+ * client into the client bundle. The build said so, loudly, which is the
+ * build doing its job.
+ *
+ * The clock question is asked in *her* timezone, never the server's, for the
+ * same reason every day-level date in this app is: they agree today by
+ * coincidence, and a second user anywhere else gets asked to weigh in at four
+ * in the morning.
+ */
+export async function morningWeighIn(profile: {
+  id: string; timezone: string | null; units: Units; startWeightKg: number | null;
+}): Promise<{ seed: number | null; unit: string; today: ISODate } | null> {
+  const today = profileToday(profile);
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: profile.timezone ?? undefined, hour: "2-digit", hour12: false,
+    }).format(new Date()),
+  );
+
+  const recent = await db
+    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+    .from(weighIns)
+    .where(eq(weighIns.profileId, profile.id))
+    .orderBy(desc(weighIns.date))
+    .limit(1);
+
+  const loggedToday = recent[0]?.date === today;
+  if (!shouldAskToWeigh({ hour, loggedToday, dismissedOn: null, today })) return null;
+
+  return {
+    // Her last known weight: the scale rarely moves far overnight, and
+    // starting from zero makes her thumb do twenty taps to answer a question
+    // she opened the app to get past.
+    seed: weightOut(recent[0]?.weightKg ?? profile.startWeightKg, profile.units),
+    unit: weightLabel(profile.units),
+    today,
+  };
 }
