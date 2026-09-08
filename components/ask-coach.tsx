@@ -36,6 +36,21 @@ export function AskCoach({
     onTurnEnd: ({ usedTools }) => { if (usedTools && refreshOnChange) router.refresh(); },
   });
   const { messages, streaming, activity, busy, error, errorCode, input, setInput, send, allowance } = thread;
+  const panel = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const come = () => {
+      panel.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // After the scroll, not during: focusing first makes the browser jump
+      // there instantly and the smooth scroll never happens.
+      window.setTimeout(
+        () => panel.current?.querySelector<HTMLInputElement>('input[type="text"], input:not([type])')?.focus(),
+        400,
+      );
+    };
+    window.addEventListener("coach:open", come);
+    return () => window.removeEventListener("coach:open", come);
+  }, []);
 
   // Follow the answer as it comes in, but only once there is a conversation —
   // scrolling an untouched panel into view on page load would yank the page.
@@ -46,7 +61,11 @@ export function AskCoach({
   }, [started, messages, streaming, activity]);
 
   return (
-    <section className="card mb-3 p-4" data-no-pull-to-refresh="">
+    // `data-ask-coach` is how the companion at the bottom of the page knows
+    // there is somewhere to send her. Tapping him scrolls here and puts the
+    // cursor in the box — one coach entry point per screen, and it is the one
+    // that knows what screen it is on.
+    <section ref={panel} className="card mb-3 p-4" data-ask-coach="" data-no-pull-to-refresh="">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2 className="text-[14px] font-semibold">{title}</h2>
         {hint && <span className="shrink-0 text-[11px] text-faint">{hint}</span>}

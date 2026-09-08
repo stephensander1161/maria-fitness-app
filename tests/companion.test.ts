@@ -162,9 +162,21 @@ suite("the poses", () => {
 suite("he is the way in to the coach", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
-  it("opens the conversation when tapped, without either knowing about the other", () => {
+  it("leads her to the page's own coach panel, which is the one entry point", () => {
+    // Not a floating window: the app deliberately has one coach entry per
+    // screen, and it is the one that knows what screen it is on.
     expect(read("components/companion.tsx")).toMatch(/new CustomEvent\("coach:open"\)/);
-    expect(read("components/coach-bubble.tsx")).toMatch(/addEventListener\("coach:open", openIt\)/);
+    const ask = read("components/ask-coach.tsx");
+    expect(ask).toMatch(/addEventListener\("coach:open", come\)/);
+    expect(ask).toMatch(/scrollIntoView\(\{ behavior: "smooth"/);
+    expect(ask).toMatch(/data-ask-coach=""/);
+  });
+
+  it("is not a button on the one screen with nowhere to send her", () => {
+    // Offering a tap that does nothing is worse than not offering it.
+    const c = read("components/companion.tsx");
+    expect(c).toMatch(/const Stage = hasPanel \? "button" : "div"/);
+    expect(c).toMatch(/document\.querySelector\("\[data-ask-coach\]"\)/);
   });
 
   it("stops and thinks while the coach is working", () => {

@@ -31,6 +31,24 @@ export function Companion() {
   const [x, setX] = useState(50);
   const [facing, setFacing] = useState<1 | -1>(1);
   const [busy, setBusy] = useState(false);
+  /**
+   * Whether this screen has somewhere to send her.
+   *
+   * Every screen but the owner's console carries an `AskCoach` panel, and
+   * that panel — not a floating window — is this app's one coach entry point
+   * per screen, because it knows what screen it is on. He leads her to it. On
+   * the one screen without one he is still there, just not a button:
+   * offering a tap that does nothing is worse than not offering it.
+   */
+  const [hasPanel, setHasPanel] = useState(false);
+  useEffect(() => {
+    // On the next frame, not synchronously: the panel is rendered by the page
+    // and this lives in the layout, so on the first pass it is not there yet.
+    const id = window.requestAnimationFrame(
+      () => setHasPanel(Boolean(document.querySelector("[data-ask-coach]"))),
+    );
+    return () => window.cancelAnimationFrame(id);
+  }, [path]);
   const started = useRef(0);
   const stateRef = useRef(state);
   // Written in an effect, not during render: a render can be thrown away, and
@@ -103,12 +121,19 @@ export function Companion() {
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
 
+  const Stage = hasPanel ? "button" : "div";
   return (
-    <button
-      onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
-      aria-label={label}
-      title={label}
-      className="group mt-6 block w-full rounded-2xl border border-line/60 bg-surface/40 px-2 py-1 transition-colors hover:bg-surface"
+    <Stage
+      {...(hasPanel
+        ? {
+          onClick: () => window.dispatchEvent(new CustomEvent("coach:open")),
+          "aria-label": label,
+          title: label,
+        }
+        : { "aria-hidden": true })}
+      className={`group mt-6 block w-full rounded-2xl border border-line/60 bg-surface/40 px-2 py-1 ${
+        hasPanel ? "transition-colors hover:bg-surface" : ""
+      }`}
     >
       <svg viewBox="0 0 100 100" className="h-24 w-full text-accent/70 group-hover:text-accent" aria-hidden>
         {/* The ground he walks on. Faint: he is furniture, not a chart. */}
@@ -123,8 +148,8 @@ export function Companion() {
           <Stick joints={pose} />
         </g>
       </svg>
-      <span className="sr-only">{label}</span>
-    </button>
+      {hasPanel && <span className="sr-only">{label}</span>}
+    </Stage>
   );
 }
 
