@@ -34,6 +34,8 @@ export class TurnGuard {
   constructor(
     private readonly startedAt: number,
     private readonly isSlow: (name: string) => boolean,
+    /** Tools whose identical repeats are her intent, not a loop. */
+    private readonly isRepeatable: (name: string) => boolean = () => false,
   ) {}
 
   /** Decide every call in one iteration, in the order the model made them. */
@@ -46,7 +48,7 @@ export class TurnGuard {
       const slow = this.isSlow(call.name);
 
       let refusal: string | null = null;
-      if (this.seen.has(key)) {
+      if (this.seen.has(key) && !this.isRepeatable(call.name)) {
         refusal = `${call.name} was already called with exactly this input in this turn. Use the result you already have; do not call it again.`;
       } else if (elapsed > TOOL_START_CUTOFF_MS) {
         refusal = "This turn has run out of time for more tool calls. Tell her what was done and what to ask next; do not retry.";

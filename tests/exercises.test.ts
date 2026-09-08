@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import { EXERCISES } from "@/lib/seed/exercises";
 import { WORKOUT_TEMPLATES } from "@/lib/seed/workout-templates";
+import { matchesQuery, queryWords } from "@/lib/search-terms";
 
 /**
  * The exercise library is the form and posture resource, and the coach
@@ -157,5 +158,38 @@ suite("finding the movement for a complaint", () => {
       .filter((e) => !e.safetyNote)
       .map((e) => e.slug);
     expect(missing, `rehab content with no safety note: ${missing.join(", ")}`).toEqual([]);
+  });
+});
+
+suite("the words people actually type", () => {
+  const curl = { name: "Dumbbell Bicep Curl", muscles: ["biceps"], tags: [] };
+
+  it("finds a movement whose name has other words in the middle", () => {
+    // "dumbbell curl" found nothing at all: the library calls it "Dumbbell
+    // Bicep Curl", and the phrase match wanted the two words adjacent. The
+    // coach then told her the library had no dumbbell curl.
+    expect(matchesQuery("dumbbell curl", curl)).toBe(true);
+    expect(matchesQuery("curl dumbbell", curl)).toBe(true);
+  });
+
+  it("expands the abbreviations and the typo everybody makes", () => {
+    expect(queryWords("db curl")).toEqual(["dumbbell", "curl"]);
+    expect(queryWords("dumbell curl")).toEqual(["dumbbell", "curl"]);
+    expect(matchesQuery("db curl", curl)).toBe(true);
+  });
+
+  it("is still an AND, so it does not match everything", () => {
+    expect(matchesQuery("barbell curl", curl)).toBe(false);
+    expect(matchesQuery("dumbbell squat", curl)).toBe(false);
+    // A single word still has to be a real substring — "cur" is not a search.
+    expect(matchesQuery("dumbbell", curl)).toBe(true);
+    expect(matchesQuery("zzz", curl)).toBe(false);
+  });
+
+  it("keeps the phrase behaviour it already had", () => {
+    const pullUp = { name: "Assisted Pull-Up", muscles: ["lats"], tags: [] };
+    for (const q of ["pull up", "pull-up", "pullup", "pull ups"]) {
+      expect(matchesQuery(q, pullUp), q).toBe(true);
+    }
   });
 });

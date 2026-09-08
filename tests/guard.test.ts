@@ -93,7 +93,7 @@ suite("the loop and the registry agree with the guard", () => {
 
   it("the loop admits through the guard before anything runs, and runs only what was admitted", () => {
     const loop = code("lib/agent/loop.ts");
-    expect(loop).toMatch(/new TurnGuard\(Date\.now\(\)/);
+    expect(loop).toMatch(/new TurnGuard\(\s*Date\.now\(\)/);
     expect(loop.indexOf("guard.admit(calls")).toBeLessThan(loop.indexOf("runTool(call.name"));
     expect(loop).toMatch(/if \(refusal !== null\)/);
     expect(loop).toMatch(/for \(const call of admitted\) yield \{ type: "tool", name: call\.name, status: "running" \}/);
@@ -104,5 +104,42 @@ suite("the loop and the registry agree with the guard", () => {
     expect(persona).toMatch(/## Adding things is one step/);
     expect(persona).toMatch(/add_exercise_to_day once per day she means/);
     expect(persona).toMatch(/Never retry a refused call/);
+  });
+});
+
+suite("a repeat she meant is not a loop", () => {
+  it("lets an expected repeat through, and still refuses one that is not", () => {
+    // Four sets of twelve at bodyweight are four identical log_set calls.
+    // The dedupe refused three of them and the coach told her to go and tap
+    // the rest in herself.
+    const g = new TurnGuard(0, slow, (name) => name === "log_set");
+    const four = Array.from({ length: 4 }, () => call("log_set", { exerciseSlug: "bicep-curl", reps: 12 }));
+    expect(refusals(g.admit(four, 1_000))).toEqual([null, null, null, null]);
+    // A read repeating itself is still a loop.
+    const g2 = new TurnGuard(0, slow, (name) => name === "log_set");
+    g2.admit([call("get_plan", {})], 100);
+    expect(refusals(g2.admit([call("get_plan", {})], 200))[0]).toMatch(/already called/);
+  });
+
+  it("marks the tools whose repeats are her intent, with the reason", () => {
+    const repeatable = [...registry.values()].filter((t) => t.repeatable).map((t) => t.name).sort();
+    expect(repeatable).toEqual(["log_meal", "log_set"]);
+    for (const name of repeatable) {
+      // The reason, not a boolean — the same rule as uiOnly.
+      expect(registry.get(name)!.repeatable!.length, name).toBeGreaterThan(20);
+    }
+    // Still bounded: a runaway cannot become unlimited just because it repeats.
+    const g = new TurnGuard(0, slow, () => true);
+    let admitted = 0;
+    for (let step = 0; step < 10; step++) {
+      admitted += refusals(g.admit(Array.from({ length: 5 }, () => call("log_set", { reps: 8 })), 1_000))
+        .filter((r) => r === null).length;
+    }
+    expect(admitted).toBe(MAX_CALLS_PER_TURN);
+  });
+
+  it("the loop tells the guard which tools those are", () => {
+    expect(fs.readFileSync("lib/agent/loop.ts", "utf8"))
+      .toMatch(/registry\.get\(name\)\?\.repeatable !== undefined/);
   });
 });

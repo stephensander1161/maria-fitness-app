@@ -24,6 +24,20 @@ export function normalise(s: string): string {
     .join(" ");
 }
 
+/**
+ * Abbreviations and the typo everybody makes, applied per word.
+ *
+ * "db curl" and "dumbell curl" are what people type; neither is in any name.
+ */
+const WORD_SYNONYMS: Record<string, string> = {
+  db: "dumbbell",
+  dumbell: "dumbbell",
+  dumbells: "dumbbell",
+  bb: "barbell",
+  kb: "kettlebell",
+  bw: "bodyweight",
+};
+
 /** A few names that differ by dialect rather than spelling. */
 const SYNONYMS: Record<string, string> = {
   "press up": "push up",
@@ -35,6 +49,21 @@ const SYNONYMS: Record<string, string> = {
   "rdl": "romanian deadlift",
   "ohp": "overhead press",
 };
+
+/**
+ * The individual words she typed, normalised and expanded.
+ *
+ * The phrase match is exact about order and adjacency, so "dumbbell curl"
+ * found nothing at all: the library calls it "Dumbbell Bicep Curl", and the
+ * two words she used are not next to each other. Every word having to appear
+ * *somewhere* on the row keeps that precise — it is still an AND — while
+ * letting the middle word she did not know about through.
+ */
+export function queryWords(raw: string): string[] {
+  const n = normalise(raw);
+  if (!n) return [];
+  return [...new Set(n.split(" ").map((w) => WORD_SYNONYMS[w] ?? w).filter(Boolean))];
+}
 
 /** Every spelling worth trying for what she typed, most specific first. */
 export function queryVariants(raw: string): string[] {
@@ -59,5 +88,9 @@ export function matchesQuery(
     .map(normalise)
     // Compare with separators removed too, so "pullup" finds "pull up".
     .flatMap((h) => [h, h.replace(/ /g, "")]);
-  return variants.some((v) => haystack.some((h) => h.includes(v)));
+  if (variants.some((v) => haystack.some((h) => h.includes(v)))) return true;
+  // The phrase missed. Every word she typed, anywhere on the row — see
+  // queryWords: this is what makes "dumbbell curl" find "Dumbbell Bicep Curl".
+  const words = queryWords(raw);
+  return words.length > 1 && words.every((w) => haystack.some((h) => h.includes(w)));
 }

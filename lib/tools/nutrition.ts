@@ -238,6 +238,7 @@ export const getMealRecipe = defineTool({
 
 export const logMeal = defineTool({
   name: "log_meal",
+  repeatable: "two of the same thing in a day is a real meal log — two coffees, the same snack twice",
   description:
     "Record what she actually ate, planned or not. Estimate calories and protein when she describes food in words. For a restaurant meal, a takeaway or anything you genuinely cannot pin down, pass caloriesLow and caloriesHigh instead of pretending to a single number — the midpoint is logged, the range travels with it, and she is told it is an estimate. That is what keeps her logging on the days tracking usually breaks. Returns the day's running totals against target — no judgement, just the numbers.",
   input: z.object({

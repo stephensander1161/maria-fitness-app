@@ -140,7 +140,11 @@ export async function* runCoach(
   try {
     let emittedText = false;
     // Time, repetition and fan-out, per turn — see lib/agent/guard.ts.
-    const guard = new TurnGuard(Date.now(), (name) => registry.get(name)?.slow === "planner");
+    const guard = new TurnGuard(
+      Date.now(),
+      (name) => registry.get(name)?.slow === "planner",
+      (name) => registry.get(name)?.repeatable !== undefined,
+    );
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       // Re-checked each iteration, not just once per turn. The loop runs up

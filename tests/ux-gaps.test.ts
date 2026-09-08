@@ -79,3 +79,49 @@ suite("the allowance is not a cliff", () => {
     expect(ALLOWANCE_WARN_PCT).toBeLessThanOrEqual(30);
   });
 });
+
+suite("a week you can build yourself", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("an empty week is seven days, not no days", () => {
+    // `days: []` meant the Plan screen's week strip rendered nothing, so a
+    // week with no plan had no day switcher — it could not be looked at, let
+    // alone added to.
+    const views = read("lib/views.ts");
+    const emptyWeek = views.slice(views.indexOf("export async function weekView"), views.indexOf("export type MealWeekView"));
+    expect(emptyWeek).toMatch(/if \(!plan\) \{[\s\S]*?DAY_NAMES\.map/);
+    const emptyMeals = views.slice(views.indexOf("export async function mealWeekView"));
+    expect(emptyMeals.slice(0, emptyMeals.indexOf("const rows"))).toMatch(/DAY_NAMES\.map/);
+  });
+
+  it("adding the first thing starts the week, and only adding does", () => {
+    const training = read("lib/tools/training.ts");
+    expect(training).toMatch(/async function startEmptyWeek/);
+    // The add path creates; remove does not — removing from a week that is
+    // not there is nothing, not a reason to make one.
+    expect(training).toMatch(/planDayFor\(ctx\.profileId, input, true\)/);
+    const remove = training.slice(training.indexOf('name: "remove_exercise_from_day"'));
+    expect(remove.slice(0, remove.indexOf("});"))).not.toMatch(/planDayFor\([^)]*true\)/);
+    expect(read("lib/tools/corrections.ts")).toMatch(/db\.insert\(mealPlans\)/);
+  });
+
+  it("neither screen hides its add button behind having a plan", () => {
+    const train = read("components/train-client.tsx");
+    expect(train).not.toMatch(/view\.hasPlan && editable && <AddExercise/);
+    // And the Plan tab no longer replaces the whole week with a model call.
+    const plan = read("components/plan-client.tsx");
+    expect(plan).not.toMatch(/week\.exists \? \(/);
+    expect(plan).toMatch(/Or ask your coach/);
+  });
+
+  it("shows what she logged even when nothing was planned", () => {
+    // The coach logged four curls and said so; the Train tab said "No workout
+    // planned" because the no-plan branch returned before it read her sets.
+    const views = read("lib/views.ts");
+    const today = views.slice(views.indexOf("export async function todayView"), views.indexOf("export type WeekView"));
+    expect(today).not.toMatch(/if \(!plan\) return base;/);
+    expect(today).toMatch(/Freestyle session/);
+    // …but a day with genuinely nothing on it still reads as empty.
+    expect(today).toMatch(/if \(!day && all\.length === 0\)/);
+  });
+});

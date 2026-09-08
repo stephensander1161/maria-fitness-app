@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -279,7 +279,7 @@ export const removePlannedMeal = defineTool({
 export const addPlannedMeal = defineTool({
   name: "add_planned_meal",
   description:
-    "Adds a meal to a day of her plan — a second snack on training days, a breakfast she wants back. Write ingredients and steps in metric; the app shows them in her kitchen's units. Keep the day's total near her calorie target.",
+    "Adds a meal to a day of her plan — a second snack on training days, a breakfast she wants back. It works whether or not she has a meal plan yet: with no week, this starts one, so never send her to create_meal_plan just to add a meal. Write ingredients and steps in metric; the app shows them in her kitchen's units. Keep the day's total near her calorie target.",
   input: z.object({
     dayOfWeek: z.number().describe("0=Monday … 6=Sunday"),
     slot: z.enum(["breakfast", "lunch", "dinner", "snack"]),
@@ -295,9 +295,29 @@ export const addPlannedMeal = defineTool({
   }),
   handler: async (input, ctx) => {
     const week = input.weekStart ?? weekStart(await todayForProfile(ctx.profileId));
-    const [plan] = await db.select().from(mealPlans)
+    let [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, week))).limit(1);
-    if (!plan) return { ok: false, error: `No meal plan for the week of ${week} — call create_meal_plan first.` };
+    // Adding the first meal starts the week, the same as adding the first
+    // movement does — "call create_meal_plan first" was a refusal she could
+    // not act on from the screen she was standing on, and it is what left the
+    // Plan tab with nothing but a button that spends money.
+    if (!plan) {
+      // The targets carry over from her last week rather than being invented
+      // here: they were set deliberately (by the check-in, or by her), and a
+      // manually started week is not the place to quietly re-derive them.
+      // Zero means "no target set", which every surface already reads as
+      // unknown rather than as a target of nothing.
+      const [previous] = await db.select({
+        calorieTarget: mealPlans.calorieTarget, proteinTargetG: mealPlans.proteinTargetG,
+      }).from(mealPlans).where(eq(mealPlans.profileId, ctx.profileId))
+        .orderBy(desc(mealPlans.weekStart)).limit(1);
+      [plan] = await db.insert(mealPlans).values({
+        profileId: ctx.profileId, weekStart: week,
+        calorieTarget: previous?.calorieTarget ?? 0,
+        proteinTargetG: previous?.proteinTargetG ?? 0,
+        rationale: null,
+      }).returning();
+    }
 
     const [row] = await db.insert(meals).values({
       mealPlanId: plan.id, dayOfWeek: input.dayOfWeek, slot: input.slot, title: input.title,

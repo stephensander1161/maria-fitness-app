@@ -115,13 +115,21 @@ export async function todayView(profileId: string, units: Units, date = today())
 
   const [plan] = await db.select({ id: plans.id }).from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, weekStart(date)))).limit(1);
-  if (!plan) return base;
 
-  const [day] = await db.select().from(planDays)
-    .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dow))).limit(1);
-  if (!day) return { ...base, hasPlan: true };
+  const [day] = plan
+    ? await db.select().from(planDays)
+      .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dow))).limit(1)
+    : [];
 
-  const items = await db.select({
+  // Deliberately not an early return when there is no plan.
+  //
+  // It used to be, and the consequence was that a set logged on a day with no
+  // plan simply did not exist on this screen: the coach logged four curls,
+  // said so, and the Train tab said "No workout planned". The work was in the
+  // database the whole time. What she *did* does not depend on whether
+  // anything was scheduled — the "extras" pass below already knew that, and
+  // the early return jumped over it.
+  const items = day ? await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category,
     isHold: exercises.isHold,
@@ -133,7 +141,8 @@ export async function todayView(profileId: string, units: Units, date = today())
   }).from(planExercises)
     .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
     .where(eq(planExercises.planDayId, day.id))
-    .orderBy(asc(planExercises.sortOrder));
+    .orderBy(asc(planExercises.sortOrder))
+    : [];
 
   const [workout] = await db.select().from(workouts)
     .where(and(eq(workouts.profileId, profileId), eq(workouts.date, date))).limit(1);
@@ -194,10 +203,15 @@ export async function todayView(profileId: string, units: Units, date = today())
     }),
   );
 
+  // A day with work logged on it is a day with something on it, whatever the
+  // plan says — otherwise the screen goes back to "nothing here" the moment
+  // she reloads it.
+  if (!day && all.length === 0) return plan ? { ...base, hasPlan: true } : base;
+
   return {
     ...base,
     hasPlan: true,
-    ...restWordsFor(day),
+    ...(day ? restWordsFor(day) : { title: "Freestyle session", isRest: false, notes: null }),
     completed: workout?.completedAt != null,
     exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
@@ -247,8 +261,17 @@ export async function weekView(
   const [plan] = await db.select().from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
   if (!plan) {
-    return { weekStart: week, exists: false, title: "", rationale: null,
-      todayIndex: dayIndex(asOf), unit: weightLabel(units), days: [] };
+    // Seven days, empty. `days: []` meant the week strip rendered nothing and
+    // the Plan screen lost its day switcher entirely, so a week with no plan
+    // could not even be looked at, let alone added to — the same rule as
+    // "an empty state is not return null", one level up.
+    return {
+      weekStart: week, exists: false, title: "", rationale: null,
+      todayIndex: dayIndex(asOf), unit: weightLabel(units),
+      days: DAY_NAMES.map((dayName, dow) => ({
+        dayOfWeek: dow, dayName, focus: null, title: "Rest", isRest: true, notes: null, exercises: [],
+      })),
+    };
   }
 
   const days = await db.select().from(planDays)
@@ -303,8 +326,14 @@ export async function mealWeekView(
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, week))).limit(1);
   if (!plan) {
-    return { exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
-      calorieTarget: 0, proteinTargetG: 0, rationale: null, days: [] };
+    // Seven empty days, for the same reason as weekView above.
+    return {
+      exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
+      calorieTarget: 0, proteinTargetG: 0, rationale: null,
+      days: DAY_NAMES.map((dayName, dow) => ({
+        dayOfWeek: dow, dayName, calories: 0, proteinG: 0, meals: [],
+      })),
+    };
   }
 
   const rows = await db.select().from(meals)

@@ -26,6 +26,16 @@ export type Tool<S extends z.ZodType = z.ZodType> = {
    * straight into the function's wall and leave the transcript unanswerable.
    */
   slow?: "planner";
+  /**
+   * Identical input twice in one turn is *meaningful* for this tool, and the
+   * turn guard must not treat it as a loop. Takes the reason.
+   *
+   * Four sets of twelve at bodyweight are four identical `log_set` calls, and
+   * the dedupe refused three of them — the coach told her to go and tap the
+   * other three in herself. A repeat of a *read* is a model looping; a repeat
+   * of a write is her doing the same thing again, which is what training is.
+   */
+  repeatable?: string;
   /** Handlers are plain async functions — the UI calls them directly, and so
    *  does the agent loop. One implementation, two callers, no drift. */
   handler: (input: z.infer<S>, ctx: ToolContext) => Promise<unknown>;

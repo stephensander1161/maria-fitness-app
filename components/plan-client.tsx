@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { MealWeekView, Pickable, PickableExercise, TodayView, WeekView } from "@/lib/views";
+import type { MealWeekView, Pickable, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
 import { DayTitle } from "./day-title";
@@ -84,7 +84,7 @@ export function PlanClient({
       />
 
       {tab === "training" ? (
-        week.exists ? (
+        (
           <div className="space-y-3">
             <section className="card p-4">
               {/* Editable here too. "Full Body B" is the planner's phrasing,
@@ -126,23 +126,26 @@ export function PlanClient({
             {week.rationale && (
               <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
             )}
+
+            {/* An option, not the only way in. This used to *replace* the
+                whole week when there was no plan — no day switcher, no add
+                button, nothing but a button that spends money — which is
+                exactly the screen that gets called broken. */}
+            {!week.exists && (
+              <AskCoach
+                title="Or ask your coach"
+                hint="It builds the whole week here"
+                placeholder="Tell your coach what you want…"
+                suggestions={[
+                  "Build my week",
+                  "I've only got three days this week",
+                  "Give me something short I can do at home",
+                ]}
+              />
+            )}
           </div>
-        ) : (
-          <>
-            <Empty body="No training plan for this week yet. Ask your coach to build one." />
-            <AskCoach
-              title="Ask your coach"
-              hint="It builds the week here"
-              placeholder="Tell your coach what you want…"
-              suggestions={[
-                "Build my week",
-                "I've only got three days this week",
-                "Give me something short I can do at home",
-              ]}
-            />
-          </>
         )
-      ) : mealWeek.exists ? (
+      ) : (
         <div className="space-y-3">
           <section className="card p-4">
             <DayHeading
@@ -163,6 +166,19 @@ export function PlanClient({
                 being able to change what is planned. */}
             <AddMeal dayOfWeek={day} />
 
+            {!mealWeek.exists && (
+              <AskCoach
+                title="Or ask your coach"
+                hint="It writes the week's meals here"
+                placeholder="Tell your coach what you want…"
+                suggestions={[
+                  "Plan my meals for the week",
+                  "Something quick for weeknights",
+                  "High protein, no fish",
+                ]}
+              />
+            )}
+
             {day === mealWeek.todayIndex && (
               <Link href="/eat"
                 className="mt-3 block rounded-xl bg-accent py-3 text-center text-[14px] font-semibold text-on-accent">
@@ -171,28 +187,16 @@ export function PlanClient({
             )}
           </section>
 
-          <div className="card flex divide-x divide-line p-4">
-            <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
-            <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
-          </div>
+          {mealWeek.calorieTarget > 0 && (
+            <div className="card flex divide-x divide-line p-4">
+              <Stat label="Daily calories" value={mealWeek.calorieTarget.toString()} />
+              <Stat label="Protein" value={`${mealWeek.proteinTargetG}g`} />
+            </div>
+          )}
 
           {mealWeek.rationale && (
             <p className="card p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
           )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <Empty body="No meal plan for this week yet. Ask your coach to put one together." />
-          <AskCoach
-            title="Ask your coach"
-            hint="It writes the week here"
-            placeholder="Tell your coach what you want…"
-            suggestions={[
-              "Plan my meals for this week",
-              "Keep it simple, I don't want to cook much",
-              "What should I eat today?",
-            ]}
-          />
         </div>
       )}
     </>
@@ -280,8 +284,3 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const Empty = ({ body }: { body: string }) => (
-  <div className="card mt-6 mb-3 p-8 text-center">
-    <p className="mx-auto max-w-xs text-sm text-muted">{body}</p>
-  </div>
-);

@@ -213,8 +213,13 @@ export function TrainClient({
         {lockBanner}
         <Empty
           title="No workout planned"
-          body="Ask your coach to build your week — it takes about a minute."
+          body="Add movements below and this becomes today's session — or ask your coach to build the whole week."
         />
+        {/* Not gated on there being a plan. It used to be, because the tool
+            refused without one and the button would have failed — so the only
+            offer on an empty week was a model call. Adding the first movement
+            starts the week now (lib/tools/training.ts startEmptyWeek). */}
+        {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
         <AskCoach
           title="Ask your coach"
           hint="It builds the week here"
@@ -225,7 +230,6 @@ export function TrainClient({
             "What should I do today?",
           ]}
         />
-        {view.hasPlan && editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
   }

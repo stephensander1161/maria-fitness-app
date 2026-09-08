@@ -1,5 +1,5 @@
 import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { queryVariants } from "@/lib/search-terms";
+import { queryVariants, queryWords } from "@/lib/search-terms";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -46,19 +46,27 @@ export const searchExercises = defineTool({
       // Every spelling of what was typed — "pull ups", "pull-up", "pullup" —
       // so the model does not have to guess the library's hyphenation.
       const variants = queryVariants(input.query);
-      if (variants.length) {
-        filters.push(or(...variants.flatMap((v) => {
-          const q = `%${v}%`;
-          return [
-            ilike(exercises.name, q),
-            ilike(exercises.slug, q),
-            sql`${exercises.primaryMuscles}::text ilike ${q}`,
-            // Tags carry the complaint — "diastasis", "postpartum", "physio" —
-            // which is how she and the coach actually look for this content.
-            sql`${exercises.tags}::text ilike ${q}`,
-          ];
-        })));
-      }
+      // Anywhere the words of a movement can live. Equipment is in here for
+      // the word search below — "dumbbell curl" should find the curl she can
+      // do with what she owns.
+      const anywhere = (q: string) => [
+        ilike(exercises.name, q),
+        ilike(exercises.slug, q),
+        sql`${exercises.primaryMuscles}::text ilike ${q}`,
+        // Tags carry the complaint — "diastasis", "postpartum", "physio" —
+        // which is how she and the coach actually look for this content.
+        sql`${exercises.tags}::text ilike ${q}`,
+        sql`${exercises.equipment}::text ilike ${q}`,
+      ];
+      const words = queryWords(input.query);
+      const clauses = [
+        ...(variants.length ? [or(...variants.flatMap((v) => anywhere(`%${v}%`)))] : []),
+        // …and, when the phrase misses, every word somewhere on the row. It
+        // is still an AND, so it stays precise: "Dumbbell Bicep Curl" has
+        // both of "dumbbell curl", and nothing else does.
+        ...(words.length > 1 ? [and(...words.map((w) => or(...anywhere(`%${w}%`))))] : []),
+      ].filter(Boolean);
+      if (clauses.length) filters.push(clauses.length === 1 ? clauses[0]! : or(...clauses));
     }
     if (input.equipment) filters.push(sql`${exercises.equipment}::text ilike ${`%${input.equipment}%`}`);
     if (input.category) filters.push(eq(exercises.category, input.category));
@@ -391,6 +399,7 @@ export const startWorkout = defineTool({
 
 export const logSet = defineTool({
   name: "log_set",
+  repeatable: "four sets of twelve at the same weight are four identical calls, and that is the commonest thing anyone logs",
   description:
     "Record one completed set. Opens today's session automatically if needed. Returns how this set compares to the last time she trained that movement — use that comparison in your reply, including when it is down.",
   input: z.object({
@@ -592,9 +601,35 @@ const volumeIn = (kg: number, units: Units) =>
   Math.round(units === "imperial" ? kgToLb(kg) : kg);
 
 /** Resolve the plan day for a date (or an explicit weekday) in one place. */
+/**
+ * Start an empty week, so that adding the first movement does not require
+ * having asked the coach for a plan first.
+ *
+ * Seven rest days and no title. "No plan for that week yet — call
+ * create_weekly_plan first" was a refusal she could not act on from the
+ * screen she was standing on: the Train tab hid its Add button because the
+ * tool would have refused, and the Plan tab offered nothing but a model call.
+ * A week you build a movement at a time is a perfectly good week.
+ */
+async function startEmptyWeek(profileId: string, week: string) {
+  const [plan] = await db.insert(plans).values({
+    profileId, weekStart: week, title: "Your week",
+    // No rationale: nothing has been reasoned about yet, and a sentence
+    // claiming otherwise is the stale-prose failure this file already knows.
+    rationale: null,
+  }).returning();
+  await db.insert(planDays).values(
+    DAY_NAMES.map((_, dow) => ({ planId: plan.id, dayOfWeek: dow, title: "Rest", isRest: true })),
+  );
+  return plan;
+}
+
 async function planDayFor(
   profileId: string,
   opts: { dayOfWeek?: number; weekStart?: string },
+  /** Create the week if it does not exist yet. Only the *add* paths do this:
+   *  removing from a week that is not there is nothing, not a new week. */
+  create = false,
 ) {
   // One lookup, not two: this helper backs add_exercise_to_day and
   // remove_exercise_from_day, which defaulted to the server's weekday and so
@@ -602,12 +637,19 @@ async function planDayFor(
   const hers = await todayForProfile(profileId);
   const week = opts.weekStart ?? weekStart(hers);
   const dow = opts.dayOfWeek ?? dayIndex(hers);
-  const [plan] = await db.select({ id: plans.id }).from(plans)
+  let [plan] = await db.select({ id: plans.id }).from(plans)
     .where(and(eq(plans.profileId, profileId), eq(plans.weekStart, week))).limit(1);
+  if (!plan && create) plan = await startEmptyWeek(profileId, week);
   if (!plan) return { error: "No plan for that week yet. Call create_weekly_plan first." } as const;
 
-  const [day] = await db.select().from(planDays)
+  let [day] = await db.select().from(planDays)
     .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dow))).limit(1);
+  // A plan built before this, or one a template left short, can be missing a
+  // day. Adding to it should fill the gap rather than refuse.
+  if (!day && create) {
+    [day] = await db.insert(planDays)
+      .values({ planId: plan.id, dayOfWeek: dow, title: "Rest", isRest: true }).returning();
+  }
   if (!day) return { error: `That plan has no ${DAY_NAMES[dow] ?? "day"}.` } as const;
   return { day, week, dow } as const;
 }
@@ -636,7 +678,7 @@ async function rationaleNoLongerApplies(planId: string) {
 export const addExerciseToDay = defineTool({
   name: "add_exercise_to_day",
   description:
-    "Append one exercise to a day of the current plan, leaving everything else in place. Use this when she wants to add something to today rather than rebuild the week — 'throw in some curls', 'can I add core work'. Defaults to today.",
+    "Append one exercise to a day of the plan, leaving everything else in place. Use this when she wants to add something to a day rather than rebuild the week — 'throw in some curls', 'can I add core work'. It works whether or not she has a plan yet: with no week, this starts one and puts the movement in it, so never send her to create_weekly_plan just to add a movement. Defaults to today.",
   input: z.object({
     slug: z.string().describe("From search_exercises"),
     sets: z.number(),
@@ -651,7 +693,8 @@ export const addExerciseToDay = defineTool({
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
-    const found = await planDayFor(ctx.profileId, input);
+    // The one path that starts a week: adding something to it.
+    const found = await planDayFor(ctx.profileId, input, true);
     if ("error" in found) return { ok: false, error: found.error };
 
     const [ex] = await db.select({ id: exercises.id, name: exercises.name })
