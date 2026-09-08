@@ -12,8 +12,12 @@ import { action, actionMessage } from "@/lib/client";
  * to ask the coach to rename a heading did not feel like the app was hers.
  */
 export function DayTitle({
-  title, dayOfWeek, focus,
-}: { title: string; dayOfWeek: number; focus: string | null }) {
+  title, dayOfWeek, focus, compact = false,
+}: {
+  title: string; dayOfWeek: number; focus: string | null;
+  /** Sharing its row with something else, so it is a heading, not a title. */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   // Keyed off the title, so a rename from anywhere else — the coach, another
@@ -46,12 +50,21 @@ export function DayTitle({
   if (!editing) {
     return (
       <>
+        {/* `min-w-0` on the flex container, not only on the text inside it.
+            A flex item will not shrink below its content by default, so the
+            `truncate` on the heading did nothing and a long session name ran
+            straight out of its column and under the button beside it. */}
         <button
           onClick={() => setEditing(true)}
-          className="group flex items-baseline gap-2 text-left"
+          className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"
           aria-label={`Rename ${title}`}
         >
-          <h1 className="truncate text-2xl font-bold tracking-tight">{title}</h1>
+          <h1 className={`min-w-0 truncate font-bold tracking-tight ${
+            // Sharing a row with the session clock, it is a heading rather
+            // than the page's title, and 24px leaves a phone nothing to put
+            // the clock in.
+            compact ? "text-[17px]" : "text-2xl"
+          }`}>{title}</h1>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
             className="shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:opacity-40"

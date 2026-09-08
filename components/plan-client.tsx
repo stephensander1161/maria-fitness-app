@@ -144,42 +144,35 @@ export function PlanClient({
       {tab === "training" ? (
         (
           <div className="space-y-3">
-            <section className="card p-4">
-              {/* Editable here too. "Full Body B" is the planner's phrasing,
-                  and the first thing anyone wants to do with a name a machine
-                  chose is change it — which only worked on the Train screen,
-                  and only for today. */}
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
-                {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
-              </p>
-              <div className="mb-3">
-                {week.exists && trainingDay && !trainingDay.isRest ? (
-                  <DayTitle title={trainingDay.title} dayOfWeek={day} focus={trainingDay.focus} />
-                ) : (
-                  <h2 className="mt-0.5 text-[17px] font-semibold">
-                    {trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
-                  </h2>
-                )}
-              </div>
-              {trainingDay?.notes && (
-                <p className="mb-2 text-[13px] italic text-faint">{trainingDay.notes}</p>
-              )}
-              {/*
-                Another day of the week is a plan she can edit. Today is a
-                session she is in the middle of — so today gets the Train
-                screen's own cards rather than a list of names that links to
-                the library, which is what "click into the movement I just
-                did" used to get her.
-              */}
-              {/* The same cards as today, on whichever day she picked. A
-                  summary of the day was a different, worse screen for the
-                  same information — and it could not be edited. */}
-              {!isToday && (
+            {/*
+              The day's name, and — on today — the session clock beside it.
+              Start workout used to be a button on a line of its own directly
+              under this card, which is two containers saying one thing and a
+              whole row of a phone between the name of the session and the
+              session. Today hands the heading to TrainClient so the two
+              share a container; every other day keeps its own, because there
+              is no clock to put in it.
+            */}
+            {isToday ? (
+              <TrainClient
+                view={today}
+                pickable={pickable}
+                targets={targets}
+                heading={<DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday />}
+              />
+            ) : (
+              <section className="card p-4">
+                <DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday={false} />
+                {/*
+                  Another day of the week is a plan she can edit. Today is a
+                  session she is in the middle of — so today gets the Train
+                  screen's own cards rather than a list of names that links to
+                  the library, which is what "click into the movement I just
+                  did" used to get her.
+                */}
                 <TrainClient view={otherDay} pickable={pickable} date={otherDate} isToday={false} />
-              )}
-            </section>
-
-            {isToday && <TrainClient view={today} pickable={pickable} targets={targets} />}
+              </section>
+            )}
 
             {week.rationale && (
               <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
@@ -270,6 +263,42 @@ export function PlanClient({
  * and each chip carries the one number that makes the week legible at a
  * glance — how many movements, or how many calories.
  */
+/**
+ * The day's name and title, in whichever container is hosting it.
+ *
+ * Editable here as well as on Train. "Full Body B" is the planner's phrasing,
+ * and the first thing anyone wants to do with a name a machine chose is
+ * change it — which used to work only on the Train screen, and only for today.
+ */
+function DayHeader({
+  day, trainingDay, exists, isToday,
+}: {
+  day: number;
+  trainingDay: WeekView["days"][number] | null;
+  exists: boolean;
+  isToday: boolean;
+}) {
+  return (
+    <>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+        {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
+      </p>
+      <div>
+        {exists && trainingDay && !trainingDay.isRest ? (
+          <DayTitle title={trainingDay.title} dayOfWeek={day} focus={trainingDay.focus} compact />
+        ) : (
+          <h2 className="mt-0.5 text-[17px] font-semibold">
+            {trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
+          </h2>
+        )}
+      </div>
+      {trainingDay?.notes && (
+        <p className="mt-2 text-[13px] italic text-faint">{trainingDay.notes}</p>
+      )}
+    </>
+  );
+}
+
 function WeekStrip({
   days, today, selected, href,
 }: {

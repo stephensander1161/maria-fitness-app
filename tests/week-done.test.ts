@@ -219,3 +219,33 @@ suite("a movement is a page on a phone, a sheet on a desktop", () => {
     expect(card()).toMatch(/That movement is not on this day/);
   });
 });
+
+suite("the day's name and its clock share a container", () => {
+  it("hands the heading to the session, on today", () => {
+    // Start workout was a button on a line of its own directly under a card
+    // saying "Today · Tuesday / Shoulders" — two containers saying one thing,
+    // and a whole row of a phone between the session's name and the session.
+    const plan = read("components/plan-client.tsx");
+    expect(plan).toMatch(/heading=\{<DayHeader day=\{day\} trainingDay=\{trainingDay\} exists=\{week\.exists\} isToday \/>\}/);
+    // One heading, used by both branches, rather than two that drift.
+    expect(plan).toMatch(/function DayHeader\(\{/);
+  });
+
+  it("floats the control right, with a floor under the heading", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-40">\{heading\}<\/div>/);
+    expect(card).toMatch(/<div className="ml-auto shrink-0">\{sessionBar\}<\/div>/);
+    // Wrapping, not squeezing: a running session shows a timer *and* a Finish
+    // button, half again as wide as "Start workout".
+    expect(card).toMatch(/flex flex-wrap items-start justify-between gap-x-3 gap-y-3/);
+  });
+
+  it("and the title can actually shrink, which is why it overlapped", () => {
+    // A flex item will not shrink below its content by default, so `truncate`
+    // on the heading inside did nothing and a long session name ran out of
+    // its column and under the button beside it.
+    const title = read("components/day-title.tsx");
+    expect(title).toMatch(/className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"/);
+    expect(title).toMatch(/compact \? "text-\[17px\]" : "text-2xl"/);
+  });
+});

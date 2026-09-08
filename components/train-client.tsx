@@ -70,6 +70,7 @@ export function TrainClient({
   isToday = true,
   focus,
   dayLabel,
+  heading,
 }: {
   view: TodayView;
   pickable: Pickable;
@@ -97,6 +98,16 @@ export function TrainClient({
   focus?: string;
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
+  /**
+   * The day's own heading, hosted here so it can share a row with the clock.
+   *
+   * Start workout was a button on a line of its own directly under a card
+   * that said "Today · Tuesday / Shoulders" — two containers saying one
+   * thing, and on a phone that is a whole row of vertical space between the
+   * name of the session and the session. Given a heading, this puts it in
+   * the same card with the control floated to the right of it.
+   */
+  heading?: React.ReactNode;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -467,17 +478,35 @@ export function TrainClient({
     );
   }
 
+  const sessionBar = isToday ? (
+    <SessionBar
+      startedAt={view.startedAt}
+      finishedAt={view.finishedAt}
+      busy={finishing}
+      onStart={startSession}
+      onFinish={() => finish()}
+    />
+  ) : null;
+
   return (
     <div className="space-y-4">
-      {isToday && (
-        <SessionBar
-          startedAt={view.startedAt}
-          finishedAt={view.finishedAt}
-          busy={finishing}
-          onStart={startSession}
-          onFinish={() => finish()}
-        />
-      )}
+      {/*
+        The day and its clock in one container, the clock on the right.
+        `basis-40` is the load-bearing part. Once the session is running the
+        controls are a timer *and* a Finish button — half again as wide as
+        "Start workout" — and without a floor under the heading the day's name
+        was squeezed to "Tues…" to make room. With one, the controls wrap onto
+        their own line when they cannot fit, and `ml-auto` keeps them right
+        where they were.
+      */}
+      {heading ? (
+        <section className="card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-3">
+            <div className="min-w-0 flex-1 basis-40">{heading}</div>
+            {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
+          </div>
+        </section>
+      ) : sessionBar}
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
