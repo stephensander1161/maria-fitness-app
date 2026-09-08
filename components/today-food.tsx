@@ -58,7 +58,9 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
     <section className="card mb-3 p-5">
       <h2 className="mb-3 text-[15px] font-semibold">Today&rsquo;s food</h2>
 
-      <div className="flex divide-x divide-line">
+      {/* Five figures do not fit across a phone. A wrapping grid keeps each
+          one readable instead of squeezing all of them to illegible. */}
+      <div className="grid grid-cols-3 gap-y-3 sm:flex sm:divide-x sm:divide-line">
         <Stat
           label="Calories"
           value={`${day.caloriesComplete ? "" : "≥"}${day.calories}`}
@@ -69,6 +71,18 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
           label="Protein"
           value={`${day.caloriesComplete ? "" : "≥"}${day.proteinG}g`}
           of={day.proteinTargetG}
+          suffix="g"
+        />
+        <Stat
+          label="Carbs"
+          value={`${day.carbsComplete ? "" : "≥"}${day.carbsG}g`}
+          of={null}
+          suffix="g"
+        />
+        <Stat
+          label="Fat"
+          value={`${day.fatComplete ? "" : "≥"}${day.fatG}g`}
+          of={null}
           suffix="g"
         />
         <Stat
@@ -114,7 +128,9 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
                 <span className="min-w-0 flex-1 truncate text-[14px]">{l.description}</span>
                 <span className="shrink-0 text-[12px] tabular text-muted">
                   {l.calories ?? "—"}
-                  {l.proteinG !== null && ` · ${l.proteinG}g`}
+                  {l.proteinG !== null && ` · ${l.proteinG}p`}
+                  {l.carbsG !== null && ` · ${l.carbsG}c`}
+                  {l.fatG !== null && ` · ${l.fatG}f`}
                 </span>
               </button>
               {/*
@@ -579,7 +595,7 @@ function Stat({
   label: string; value: string; of: number | null; suffix?: string; tone?: "on" | "over";
 }) {
   return (
-    <div className="flex-1 px-3 first:pl-0 last:pr-0">
+    <div className="min-w-0 flex-1 px-3 sm:first:pl-0 sm:last:pr-0">
       <p className="text-[11px] uppercase tracking-wide text-faint">{label}</p>
       <p className={`text-lg font-semibold tabular ${tone === "over" ? "text-miss" : ""}`}>{value}</p>
       {of !== null && (

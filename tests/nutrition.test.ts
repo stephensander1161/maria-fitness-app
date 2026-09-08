@@ -1,4 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
+import fs from "node:fs";
 import {
   CALORIE_FLOOR, directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets,
   proteinForCalories, targetDirection,
@@ -189,5 +190,34 @@ suite("protein scaled to her portion", () => {
     // too many. An empty box she fills in beats a wrong number she trusts.
     expect(proteinForCalories(25, 416, 9000)).toBeNull();
     expect(proteinForCalories(25, 416, 10)).toBeNull();
+  });
+});
+
+suite("every macro says what it knows", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+  const views = read("lib/views.ts");
+
+  it("carbs and fat are floors when an entry has no figure, like calories and fibre", () => {
+    // A meal typed in words has no macro split. Counting it as zero grams of
+    // fat is the same lie as counting it as zero calories — which this app
+    // has already shipped once, and told her she had run a deficit for it.
+    expect(views).toMatch(/carbsComplete: rows\.length > 0 && rows\.every\(\(r\) => r\.carbsG !== null\)/);
+    expect(views).toMatch(/fatComplete: rows\.length > 0 && rows\.every\(\(r\) => r\.fatG !== null\)/);
+  });
+
+  it("and the screen writes the ≥ when they are", () => {
+    const eat = read("components/today-food.tsx");
+    for (const macro of ["carbsComplete", "fatComplete", "fibreComplete", "caloriesComplete"]) {
+      expect(eat, macro).toMatch(new RegExp(`\\\$\\{day\\.${macro} \\? "" : "≥"\\}`));
+    }
+  });
+
+  it("shows all four on the day and on a meal", () => {
+    const eat = read("components/today-food.tsx");
+    for (const label of ["Calories", "Protein", "Carbs", "Fat", "Fibre"]) {
+      expect(eat, label).toContain(`label="${label}"`);
+    }
+    expect(read("components/meal-row.tsx")).toMatch(/carbsG/);
+    expect(read("components/plan-client.tsx")).toMatch(/g carbs · \$\{foodDay\.fatG\}g fat/);
   });
 });

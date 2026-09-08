@@ -90,7 +90,13 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
             <span className="mr-2 text-[11px] uppercase tracking-wide text-accent">{meal.slot}</span>
             <span className="text-[15px]">{meal.title}</span>
           </span>
-          <span className="shrink-0 text-[13px] text-muted tabular">{meal.calories} · {meal.proteinG}g</span>
+          {/* kcal, then protein / carbs / fat — the letters keep four numbers
+              legible in the width a row has. */}
+          <span className="shrink-0 text-[13px] text-muted tabular">
+            {meal.calories} · {meal.proteinG}p
+            {meal.carbsG !== null && meal.carbsG !== undefined && ` · ${meal.carbsG}c`}
+            {meal.fatG !== null && meal.fatG !== undefined && ` · ${meal.fatG}f`}
+          </span>
         </button>
         {dayOfWeek !== undefined && (
           <>

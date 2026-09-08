@@ -284,7 +284,7 @@ export function emptyMealWeekView(week: ISODate, foodUnits: Units, asOf: ISODate
     exists: false, weekStart: week, todayIndex: dayIndex(asOf), foodUnits,
     calorieTarget: 0, proteinTargetG: 0, rationale: null,
     days: DAY_NAMES.map((dayName, dow) => ({
-      dayOfWeek: dow, dayName, calories: 0, proteinG: 0, meals: [],
+      dayOfWeek: dow, dayName, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, meals: [],
     })),
   };
 }
@@ -334,8 +334,11 @@ export type MealWeekView = {
   calorieTarget: number; proteinTargetG: number; rationale: string | null;
   days: {
     dayOfWeek: number; dayName: string; calories: number; proteinG: number;
+    /** Planned meals carry a full macro split, so these are totals, not floors. */
+    carbsG: number; fatG: number;
     meals: {
       id: string; slot: string; title: string; calories: number; proteinG: number;
+      carbsG: number | null; fatG: number | null;
       prepMinutes: number | null; ingredients: string[]; steps: string[];
     }[];
   }[];
@@ -362,9 +365,11 @@ export async function mealWeekView(
         dayOfWeek: dow, dayName,
         calories: dayMeals.reduce((n, m) => n + m.calories, 0),
         proteinG: dayMeals.reduce((n, m) => n + m.proteinG, 0),
+        carbsG: dayMeals.reduce((n, m) => n + (m.carbsG ?? 0), 0),
+        fatG: dayMeals.reduce((n, m) => n + (m.fatG ?? 0), 0),
         meals: dayMeals.map((m) => ({
           id: m.id, slot: m.slot, title: m.title, calories: m.calories,
-          proteinG: m.proteinG, prepMinutes: m.prepMinutes,
+          proteinG: m.proteinG, carbsG: m.carbsG, fatG: m.fatG, prepMinutes: m.prepMinutes,
           ingredients: foodLines(m.ingredients, foodUnits), steps: foodLines(m.steps, foodUnits),
         })),
       };
@@ -489,6 +494,7 @@ export type DayFoodView = {
   logged: {
     id: string; slot: string; description: string;
     calories: number | null; proteinG: number | null; fibreG: number | null;
+    carbsG: number | null; fatG: number | null;
   }[];
   calories: number;
   proteinG: number;
@@ -499,6 +505,16 @@ export type DayFoodView = {
   fibreTargetG: number;
   /** False when any entry has no fibre figure, so the total is a floor. */
   fibreComplete: boolean;
+  /**
+   * Carbohydrate and fat, on exactly the same terms as everything else here:
+   * summed from the entries that carry a figure, with a flag saying whether
+   * any did not. A meal typed in words has no macro split, and counting it
+   * as zero grams of fat is the same lie as counting it as zero calories.
+   */
+  carbsG: number;
+  carbsComplete: boolean;
+  fatG: number;
+  fatComplete: boolean;
 };
 
 /**
@@ -526,6 +542,7 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     logged: rows.map((r) => ({
       id: r.id, slot: r.slot, description: r.description,
       calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
+      carbsG: r.carbsG, fatG: r.fatG,
     })),
     calories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
     caloriesKnownFor: counted.length,
@@ -537,6 +554,10 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     fibreG: fibre.grams,
     fibreTargetG: FIBRE_TARGET_G,
     fibreComplete: fibre.complete,
+    carbsG: rows.reduce((n, r) => n + (r.carbsG ?? 0), 0),
+    carbsComplete: rows.length > 0 && rows.every((r) => r.carbsG !== null),
+    fatG: rows.reduce((n, r) => n + (r.fatG ?? 0), 0),
+    fatComplete: rows.length > 0 && rows.every((r) => r.fatG !== null),
   };
 }
 

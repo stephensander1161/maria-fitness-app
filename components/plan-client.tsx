@@ -152,7 +152,9 @@ export function PlanClient({
               name={foodDay?.dayName ?? ""}
               isToday={day === mealWeek.todayIndex}
               title={foodDay && foodDay.meals.length > 0 ? `${foodDay.calories} kcal` : "Nothing planned"}
-              sub={foodDay && foodDay.meals.length > 0 ? `${foodDay.proteinG}g protein` : null}
+              sub={foodDay && foodDay.meals.length > 0
+                ? `${foodDay.proteinG}g protein · ${foodDay.carbsG}g carbs · ${foodDay.fatG}g fat`
+                : null}
             />
             {foodDay && foodDay.meals.length > 0 ? (
               <div>{foodDay.meals.map((m) => <MealRow key={m.id} meal={m} dayOfWeek={day} />)}</div>
