@@ -5,6 +5,7 @@
  *   npm run user -- add her@example.com "Maria"      # prompts for a password
  *   npm run user -- invite her@example.com "Maria"   # Google, or she sets a password at /signup
  *   npm run user -- role her@example.com owner    # owner = admin console
+ *   npm run user -- budget her@example.com 2      # $2/day of coach; "none" = the full ceiling
  *   npm run user -- passwd her@example.com
  *   npm run user -- signout-everywhere her@example.com
  *   npm run user -- disable her@example.com
@@ -17,6 +18,9 @@ import { createInterface } from "node:readline/promises";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, users } from "@/lib/db/schema";
+import { budgetFor, dollars } from "@/lib/budget";
+import { LIMITS } from "@/lib/limits";
+import { audit } from "@/lib/audit";
 import { hashPassword } from "@/lib/password";
 
 async function promptPassword(label: string): Promise<string> {
@@ -45,10 +49,18 @@ async function main() {
     case "list": {
       const rows = await db.select().from(users).orderBy(users.createdAt);
       if (rows.length === 0) { console.log("  No accounts yet. Create one with: npm run user -- add <email> <name>"); break; }
+      // What each one may actually spend on the coach today, which is the
+      // ceiling unless their own budget tightens it.
+      const owned = await db.select({ userId: profiles.userId, chosen: profiles.dailyBudgetMicros }).from(profiles);
+      const budgetLabels = new Map(owned.map((p) => [
+        p.userId,
+        `${dollars(p.chosen == null ? LIMITS.dailyCostMicros : Math.min(p.chosen, LIMITS.dailyCostMicros))}/day`.padEnd(9),
+      ]));
       for (const u of rows) {
         console.log(
           `  ${u.email.padEnd(28)} ${(u.name ?? "—").padEnd(14)} ${u.role.padEnd(7)}` +
-          `${u.disabledAt ? "DISABLED" : "active  "} last login ${u.lastLoginAt?.toISOString().slice(0, 16).replace("T", " ") ?? "never"}`,
+          `${u.disabledAt ? "DISABLED" : "active  "} ${budgetLabels.get(u.id) ?? "—".padEnd(9)} ` +
+          `last login ${u.lastLoginAt?.toISOString().slice(0, 16).replace("T", " ") ?? "never"}`,
         );
       }
       break;
@@ -136,6 +148,29 @@ async function main() {
       }
       await db.update(users).set({ role: wanted }).where(eq(users.id, user.id));
       console.log(`✓ ${email} is now ${wanted}.`);
+      break;
+    }
+
+    case "budget": {
+      // Not a tool, for the same reason `role` is not one: this reaches
+      // another person's account, and `users` is out of the model's reach.
+      const said = nameArg;
+      if (!email || !said) throw new Error("Usage: npm run user -- budget <email> <dollars-a-day|none>");
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!user) throw new Error(`No account for ${email}.`);
+      const [profile] = await db.select().from(profiles).where(eq(profiles.userId, user.id)).limit(1);
+      if (!profile) throw new Error(`${email} has no profile yet — they have not signed in.`);
+
+      const choice = budgetFor(said, LIMITS.dailyCostMicros);
+      if (!choice.ok) throw new Error(choice.error);
+
+      await db.update(profiles).set({ dailyBudgetMicros: choice.micros }).where(eq(profiles.id, profile.id));
+      // The same event the in-app setting writes: a spend has to be
+      // explainable later, whoever changed the number.
+      await audit("budget.changed", {
+        detail: { profileId: profile.id, byOwner: true, appliedMicros: choice.micros, ceiling: LIMITS.dailyCostMicros },
+      });
+      console.log(`✓ ${email} may spend ${choice.note} on the coach.`);
       break;
     }
 
