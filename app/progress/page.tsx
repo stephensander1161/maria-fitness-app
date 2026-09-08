@@ -164,9 +164,22 @@ export default async function ProgressPage() {
       <section className="card mb-3 grid gap-x-6 gap-y-4 p-5 md:grid-cols-2">
         <div>
           <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">This week</h2>
+          {/* What is left, first: after finishing Tuesday's session this
+              said "still to do: Monday" and nothing at all about the two
+              sessions ahead of her. */}
+          {review.remainingDays.length > 0 && (
+            <p className="mb-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] text-accent">
+              Left this week: {review.remainingDays.join(", ")}
+            </p>
+          )}
           {review.missedDays.length > 0 && (
             <p className="mb-2 rounded-xl border border-hold/30 bg-hold-soft px-3 py-2 text-[13px] text-hold">
-              {review.weekOver ? "Not done last week" : "Still to do"}: {review.missedDays.join(", ")}
+              {review.weekOver ? "Not done last week" : "Missed so far"}: {review.missedDays.join(", ")}
+            </p>
+          )}
+          {review.remainingDays.length === 0 && review.missedDays.length === 0 && review.planned > 0 && (
+            <p className="mb-2 rounded-xl border border-beat/30 bg-beat-soft px-3 py-2 text-[13px] text-beat">
+              Every session this week, done.
             </p>
           )}
           {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}

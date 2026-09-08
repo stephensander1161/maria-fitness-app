@@ -576,7 +576,7 @@ export const getExerciseHistory = defineTool({
 export const getWeekReview = defineTool({
   name: "get_week_review",
   description:
-    "The honest weekly report: sessions completed vs planned, total volume, which lifts improved, which went backwards, and the weight trend. Use it for check-ins, and name what went well as well as what did not. `missedDays` only ever lists days that have already passed — while the week is still running they are days still to do, and `weekOver` says which it is. Calling Wednesday's session missed on Tuesday tells her she is behind on something she is not behind on.",
+    "The honest weekly report: sessions completed vs planned, total volume, which lifts improved, which went backwards, and the weight trend. Use it for check-ins, and name what went well as well as what did not. Two different lists, and they are easy to confuse: `remainingDays` is what is still ahead of her this week — say this when she asks what is left — and `missedDays` is only days that have already passed without a session. Calling Wednesday's session missed on Tuesday tells her she is behind on something she is not behind on.",
   input: z.object({ weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week") }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
@@ -587,6 +587,7 @@ export const getWeekReview = defineTool({
       totalVolume: volumeIn(r.totalVolumeKg, units),
       weightChange: weightOut(r.weightChangeKg, units),
       weightChangeMeans: "latest weigh-in this week vs the last one before the week began; null when either side is missing",
+      remainingDaysMeans: "sessions still ahead of her this week, today included if today's is not done — this is the answer to \"what is left\"",
       missedDaysMeans: r.weekOver
         ? "planned days that were not trained — the week is over"
         : "planned days already past with nothing logged; the rest of the week is still ahead of her",

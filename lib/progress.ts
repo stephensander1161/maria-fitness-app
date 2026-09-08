@@ -315,6 +315,17 @@ export type WeekReview = {
    * night, a day she has not done yet is not a day she missed.
    */
   missedDays: string[];
+  /**
+   * Planned sessions still ahead of her — today included, if today's is not
+   * done.
+   *
+   * Distinct from `missedDays`, which is days that have *been* and were not
+   * trained. The screen was showing the second under the heading "still to
+   * do", which is the opposite of what it says: after finishing Tuesday's
+   * session it listed Monday, and said nothing at all about the two sessions
+   * left in the week.
+   */
+  remainingDays: string[];
   /** True once the week is over and they really are missed. */
   weekOver: boolean;
   totalVolumeKg: number;
@@ -380,10 +391,11 @@ export async function weekReview(
   // Tuesday, and a screen that says it is has told her she is behind on
   // something she is not behind on.
   const todayIndex = asOf >= week && asOf <= weekEnd ? dayIndex(asOf) : 7;
-  const missedDays = plannedDays
-    .filter((d) => !doneIds.has(d.id) && !freeformTitles.has(d.title))
-    .filter((d) => d.dayOfWeek < todayIndex)
-    .map((d) => d.title);
+  const notDone = plannedDays.filter((d) => !doneIds.has(d.id) && !freeformTitles.has(d.title));
+  const missedDays = notDone.filter((d) => d.dayOfWeek < todayIndex).map((d) => d.title);
+  // Today counts as remaining until it is done, which is what makes this the
+  // answer to "what is left" rather than "what did I skip".
+  const remainingDays = notDone.filter((d) => d.dayOfWeek >= todayIndex).map((d) => d.title);
 
   // Compare each exercise trained this week against its previous outing.
   const trained = await db
@@ -418,6 +430,7 @@ export async function weekReview(
     planned: plannedDays.length,
     completed: done.length,
     missedDays,
+    remainingDays,
     weekOver: asOf > weekEnd,
     totalVolumeKg: totals?.volume ?? 0,
     totalSets: totals?.sets ?? 0,

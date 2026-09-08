@@ -408,3 +408,29 @@ suite("the movement is on the card, moving", () => {
     expect(css).toMatch(/\.figure-end\s+\{ animation: none; opacity: 1 !important; \}/);
   });
 });
+
+suite("what is left this week", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("is a different list from what was missed", () => {
+    // After finishing Tuesday's session the screen said "still to do:
+    // Monday" — a day that had been and gone — and said nothing at all about
+    // the two sessions ahead of her.
+    const progress = read("lib/progress.ts");
+    expect(progress).toMatch(/const remainingDays = notDone\.filter\(\(d\) => d\.dayOfWeek >= todayIndex\)/);
+    expect(progress).toMatch(/const missedDays = notDone\.filter\(\(d\) => d\.dayOfWeek < todayIndex\)/);
+  });
+
+  it("leads with it on the screen, and says so when there is nothing left", () => {
+    const page = read("app/progress/page.tsx");
+    expect(page).toMatch(/Left this week:/);
+    expect(page).toMatch(/Missed so far/);
+    expect(page).toMatch(/Every session this week, done\./);
+    expect(page.indexOf("Left this week:")).toBeLessThan(page.indexOf("Missed so far"));
+  });
+
+  it("and the coach is told which list is which", () => {
+    expect(read("lib/page-context.ts")).toMatch(/Left to do this week/);
+    expect(read("lib/tools/training.ts")).toMatch(/remainingDaysMeans/);
+  });
+});

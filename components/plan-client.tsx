@@ -77,28 +77,41 @@ export function PlanClient({
       {/* A week at a time. The programme repeats by default — an empty week
           inherits the last one — so stepping forward is how she changes a
           single week without redesigning the whole thing. */}
+      {/* Arrows, not words: "‹ Previous / Back to this week / Next ›" is
+          three text links fighting for one phone row, and the middle one is
+          the only one anybody reads. */}
       <div className="mb-3 flex items-center justify-between gap-2">
         <Link
           href={href({ w: shift(-1) })}
           scroll={false}
-          className="rounded-lg px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-raised"
+          aria-label="The week before"
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
         >
-          ‹ Previous
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
         </Link>
         {onThisWeek ? (
-          <span className="text-[12px] font-medium uppercase tracking-wide text-accent">This week</span>
+          <span className="truncate text-[12px] font-medium uppercase tracking-wide text-faint">
+            This week
+          </span>
         ) : (
           <Link href={href({ w: thisWeek })} scroll={false}
-            className="text-[12px] font-medium uppercase tracking-wide text-accent">
-            Back to this week
+            className="truncate rounded-lg px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-accent transition-colors hover:bg-accent-soft">
+            Back to today
           </Link>
         )}
         <Link
           href={href({ w: shift(1) })}
           scroll={false}
-          className="rounded-lg px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-raised"
+          aria-label="The week after"
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-raised hover:text-muted"
         >
-          Next ›
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M9 6l6 6-6 6" />
+          </svg>
         </Link>
       </div>
 
