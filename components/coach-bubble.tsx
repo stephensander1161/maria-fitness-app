@@ -64,6 +64,11 @@ function CoachSheet({
   });
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  /** The paging cursor and whether anything is behind it — see /api/messages. */
+  const [oldestId, setOldestId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [boosting, setBoosting] = useState(false);
   /**
@@ -91,6 +96,8 @@ function CoachSheet({
         const data = await res.json();
         if (cancelled) return;
         setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
+        setOldestId(data.oldestId ?? null);
+        setHasMore(Boolean(data.hasMore));
         setLoaded(true);
         if (data.messages.length === 0 && !kicked.current) {
           kicked.current = true;
@@ -106,6 +113,39 @@ function CoachSheet({
     })();
     return () => { cancelled = true; };
   }, [setMessages, stream, reloadKey]);
+
+  /**
+   * The rest of the conversation, a page at a time.
+   *
+   * The scroll position is held by hand: prepending forty messages moves
+   * everything she was reading down the screen, and a chat that jumps when it
+   * loads is worse than one that does not load at all. The height difference
+   * before and after is exactly how far to put it back.
+   */
+  async function loadOlder() {
+    if (loadingOlder || !hasMore || !oldestId) return;
+    setLoadingOlder(true);
+    const el = scroller.current;
+    const heightBefore = el?.scrollHeight ?? 0;
+    try {
+      const res = await fetch(`/api/messages?before=${encodeURIComponent(oldestId)}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      setMessages((m) => [
+        ...data.messages.map((x: Msg) => ({ id: x.id, role: x.role, text: x.text })),
+        ...m,
+      ]);
+      setOldestId(data.oldestId ?? null);
+      setHasMore(Boolean(data.hasMore));
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop += el.scrollHeight - heightBefore;
+      });
+    } catch {
+      // Leave hasMore alone: the button stays, and she can try again.
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   /**
    * Her message, with the screen she sent it from — every time, not just the
@@ -207,7 +247,26 @@ function CoachSheet({
 
         {/* The scroll container. The composer sits outside it, which is the
             whole reason the last message is never hidden underneath. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div
+          ref={scroller}
+          onScroll={(e) => { if (e.currentTarget.scrollTop < 80) void loadOlder(); }}
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+        >
+          {/* The way back into everything she has said. A button as well as
+              the scroll trigger: reaching the top of a long thread by
+              flicking is not a thing anyone should have to do. */}
+          {hasMore && (
+            <div className="mb-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void loadOlder()}
+                disabled={loadingOlder}
+                className="rounded-full border border-edge px-3 py-1 text-[12px] text-muted disabled:opacity-50"
+              >
+                {loadingOlder ? "Loading…" : "Earlier messages"}
+              </button>
+            </div>
+          )}
           {!loaded && !loadFailed && messages.length === 0 && !busy && (
             // Without this the sheet opened to a header, nothing, and a text
             // box — which reads as the whole conversation having gone.

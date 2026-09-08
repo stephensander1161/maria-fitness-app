@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { messages } from "@/lib/db/schema";
 
@@ -174,16 +174,58 @@ export async function saveMessage(
   await db.insert(messages).values({ profileId, role, content });
 }
 
-export async function recentForDisplay(profileId: string, limit = 40) {
+/**
+ * A page of the conversation, newest first, ending at `before`.
+ *
+ * The sheet used to load the last forty messages and stop — everything older
+ * than that was in the database and unreachable, which for anyone who has
+ * been using this a while is most of what they have ever said. `hasMore`
+ * comes from asking for one row more than the page and throwing it away, so
+ * "load older" appears only when there is something older.
+ *
+ * Paged by `createdAt` and then by id: two messages written in the same
+ * millisecond (a turn's user row and its assistant row) would otherwise let
+ * a page boundary fall between them and repeat or skip one.
+ */
+export async function recentForDisplay(
+  profileId: string,
+  limit = 40,
+  /** Load what came *before* this message — its id, from the oldest one shown. */
+  before?: string,
+): Promise<{
+  messages: { id: string; role: "user" | "assistant"; text: string; at: Date }[];
+  hasMore: boolean;
+  /** Cursor for the next page: the oldest *row* fetched, shown or not. */
+  oldestId: string | null;
+}> {
+  const edge = before
+    ? (await db.select({ at: messages.createdAt, id: messages.id })
+        .from(messages).where(eq(messages.id, before)).limit(1))[0]
+    : undefined;
+  // A `before` that does not resolve would silently page from the top again
+  // and loop the same forty messages for ever.
+  if (before && !edge) return { messages: [], hasMore: false, oldestId: null };
+
   const rows = await db
     .select()
     .from(messages)
-    .where(eq(messages.profileId, profileId))
-    .orderBy(desc(messages.createdAt))
-    .limit(limit);
+    .where(and(
+      eq(messages.profileId, profileId),
+      ...(edge ? [or(
+        lt(messages.createdAt, edge.at),
+        and(eq(messages.createdAt, edge.at), lt(messages.id, edge.id)),
+      )!] : []),
+    ))
+    .orderBy(desc(messages.createdAt), desc(messages.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  if (hasMore) rows.pop();
 
   // Only surface human-readable text; tool traffic stays behind the scenes.
-  return rows
+  // A page can come back entirely empty that way — a turn that was nothing
+  // but tool calls — and `hasMore` is what stops that reading as the end.
+  const shown = rows
     .reverse()
     .map((r) => {
       const blocks = r.content as Anthropic.ContentBlockParam[];
@@ -195,6 +237,11 @@ export async function recentForDisplay(profileId: string, limit = 40) {
       return { id: r.id, role: r.role, text, at: r.createdAt };
     })
     .filter((m) => m.text.length > 0);
+
+  // The cursor is the oldest *row* of the page, not the oldest shown message:
+  // paging from a message we chose to display would re-fetch the tool-only
+  // rows above it on every call and never get past them.
+  return { messages: shown, hasMore, oldestId: rows[0]?.id ?? null };
 }
 
 /** Guards the one-time opening turn so it can't be replayed to spend tokens. */
