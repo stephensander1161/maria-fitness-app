@@ -166,3 +166,56 @@ suite("the plan header says which week is on screen", () => {
     expect(page).toMatch(/weeksApart === 1 \? "Next week"/);
   });
 });
+
+suite("a movement is a page on a phone, a sheet on a desktop", () => {
+  const card = () => read("components/train-client.tsx");
+
+  it("has a route of its own, per movement and per day", () => {
+    const route = read("app/train/[slug]/page.tsx");
+    expect(route).toMatch(/params: Promise<\{ slug: string \}>/);
+    // The day travels with it, or the page writes to the wrong one.
+    expect(route).toMatch(/searchParams: Promise<\{ d\?: string \}>/);
+    expect(route).toMatch(/focus=\{slug\}/);
+    // One line at the top, not three: a page title, a day title and a back
+    // link is what put the Log button under the tab bar.
+    expect(route).not.toMatch(/<header/);
+  });
+
+  it("the way in is a real link, so it works before any of this runs", () => {
+    expect(card()).toMatch(/const pageFor = \(slug: string\) => `\/train\/\$\{slug\}\$\{date \? `\?d=\$\{date\}` : ""\}`/);
+    expect(card()).toMatch(/href=\{pageFor\(ex\.slug\)\}/);
+    // TapIn renders a Link when there is somewhere to go, a button otherwise.
+    expect(card()).toMatch(/<Link href=\{href\} onClick=\{onClick\}/);
+  });
+
+  it("a wide screen still lifts the card, and the query is read on the tap", () => {
+    // Reading a media query during render is a hydration mismatch — the
+    // server has no idea how wide the screen is.
+    expect(card()).toMatch(/function onAPhone\(\): boolean \{/);
+    expect(card()).toMatch(/if \(href && onAPhone\(\)\) return;/);
+    expect(card()).toMatch(/const PHONE = "\(max-width: 767px\)"/);
+  });
+
+  it("on its own page there is no dialog at all", () => {
+    // No scrim to land a tap on, no focus trap, no pinned body — every one
+    // of which was between her and typing a number.
+    expect(card()).toMatch(/if \(asPage\) return card;/);
+    const bare = card().indexOf("if (asPage) return card;");
+    expect(bare).toBeLessThan(card().indexOf("<CardModal"));
+    expect(card()).toMatch(/const open = asPage \|\| lifted;/);
+  });
+
+  it("carries the movement either side, by name", () => {
+    // "Next" on its own makes her tap it to find out what it is.
+    expect(card()).toMatch(/aria-label="The rest of the day"/);
+    expect(card()).toMatch(/href=\{pageFor\(before\.slug\)\}/);
+    expect(card()).toMatch(/href=\{pageFor\(after\.slug\)\}/);
+    expect(card()).toMatch(/\{before\.name\}/);
+    expect(card()).toMatch(/\{after\.name\}/);
+  });
+
+  it("and says so when the movement is not on that day", () => {
+    // An empty state is not `return null`.
+    expect(card()).toMatch(/That movement is not on this day/);
+  });
+});

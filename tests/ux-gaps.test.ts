@@ -89,7 +89,7 @@ suite("the training card during a session", () => {
 
   it("an empty set square logs a set, like the + does", () => {
     // It looked like a slot to fill from the first day and did nothing.
-    expect(card).toMatch(/aria-label=\{`Log set \$\{i \+ 1\} of \$\{exercise\.name\}`\}/);
+    expect(card).toMatch(/label=\{`Log set \$\{i \+ 1\} of \$\{exercise\.name\}`\}/);
     expect(card).toMatch(/if \(!s && canLog\)/);
     // A day she cannot log to must not offer it.
     expect(card.indexOf("if (!s && canLog)")).toBeLessThan(card.indexOf("if (!s || isQueued)"));
@@ -233,12 +233,21 @@ suite("the setup cues are on the card", () => {
     expect(cue).not.toMatch(/aria-live|role="status"/);
   });
 
-  it("the card gets out of the way once the set is in", () => {
+  it("the lifted card gets out of the way once the set is in — the page does not", () => {
     // Lifted over the screen, a card that stays open hides the rest timer and
-    // the movement that is next.
+    // the movement that is next. On its own page there is nothing behind it
+    // to reveal, and closing would throw her back to the list between sets.
     const card = read("components/train-client.tsx");
     const logSet = card.slice(card.indexOf("async function logSet"));
-    expect(logSet.slice(0, logSet.indexOf("} catch"))).toMatch(/setOpen\(false\)/);
+    expect(logSet.slice(0, logSet.indexOf("} catch"))).toMatch(/if \(!asPage\) setLifted\(false\)/);
+  });
+
+  it("says why a set was refused, rather than shrugging", () => {
+    // "That didn't save" reads as a network blip and gets tapped again
+    // forever. A date in the future or reps on a hold is a real answer.
+    const card = read("components/train-client.tsx");
+    const logSet = card.slice(card.indexOf("async function logSet"));
+    expect(logSet.slice(0, logSet.indexOf("const step ="))).toMatch(/setError\(actionMessage\(e,/);
   });
 });
 

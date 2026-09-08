@@ -6,6 +6,7 @@ import { moveItem, slotFor } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { SHEET_MAX } from "@/lib/viewport-cover";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
@@ -23,6 +24,25 @@ import { useRest } from "@/components/rest-provider";
 import type { Pickable, TodayExercise, TodayView } from "@/lib/views";
 
 type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparison: string };
+
+/**
+ * Whether this is a phone, asked at the moment she taps rather than at render.
+ *
+ * A modal is fine on a desktop and was unusable on a phone: focusing a field
+ * opens the keyboard, the keyboard resizes the visual viewport, the sheet
+ * resizes with it, everything under the thumb moves, and the tap lands on the
+ * scrim — so every value she tried to enter closed the card, with no message
+ * and no way to tell why. On a phone the movement gets a page of its own.
+ *
+ * Read on the tap, not during render, because a media query read while
+ * rendering is a hydration mismatch: the server has no idea how wide the
+ * screen is. The control is a real link either way, so it works before any of
+ * this JavaScript has run.
+ */
+const PHONE = "(max-width: 767px)";
+function onAPhone(): boolean {
+  return typeof window !== "undefined" && window.matchMedia(PHONE).matches;
+}
 
 const TONE = {
   beat: "border-beat/40 bg-beat-soft text-beat",
@@ -48,6 +68,8 @@ export function TrainClient({
   targets = [],
   date,
   isToday = true,
+  focus,
+  dayLabel,
 }: {
   view: TodayView;
   pickable: Pickable;
@@ -64,6 +86,17 @@ export function TrainClient({
    * a set cannot be logged into the future.
    */
   isToday?: boolean;
+  /**
+   * Render one movement as the whole screen, rather than the day's list.
+   *
+   * The slug of the movement /train/[slug] is showing. Everything about
+   * logging a set — the outbox, the rest timer, what comes next, how the set
+   * compared — is already wired up in here, so the page borrows it rather
+   * than growing a second copy that drifts.
+   */
+  focus?: string;
+  /** What the day is called, for the one line at the top of a focused page. */
+  dayLabel?: string;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -385,6 +418,54 @@ export function TrainClient({
     );
   }
 
+  /** Where a movement's own page lives, for this day. */
+  const pageFor = (slug: string) => `/train/${slug}${date ? `?d=${date}` : ""}`;
+
+  if (focus !== undefined) {
+    const at = view.exercises.findIndex((e) => e.slug === focus);
+    const ex = at === -1 ? null : view.exercises[at];
+    return (
+      <MovementScreen
+        exercise={ex}
+        before={at > 0 ? view.exercises[at - 1] : null}
+        after={at !== -1 && at < view.exercises.length - 1 ? view.exercises[at + 1] : null}
+        position={at === -1 ? null : { n: at + 1, of: view.exercises.length }}
+        pageFor={pageFor}
+        backTo={date ? `/train?d=${date}` : "/train"}
+        dayLabel={dayLabel}
+      >
+        {ex && (
+          <ExerciseCard
+            asPage
+            exercise={ex}
+            unit={view.unit}
+            pickable={pickable}
+            date={date}
+            canLog={editable}
+            editable={editable}
+            next={targets.find((t) => t.slug === ex.slug)}
+            result={feedback[ex.slug]}
+            pending={pendingFor.get(ex.slug) ?? NO_PENDING}
+            onLogged={(r, finishedExercise, logged) => {
+              if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
+              const wasLastOfSession = finishedExercise
+                && outstanding.filter((name) => name !== ex.name).length === 0;
+              const nextUp = finishedExercise ? nextAfter(view.exercises, ex.slug) : null;
+              if (wasLastOfSession) dismissRest();
+              else if (nextUp) startRest(nextUp);
+              else startRest(ex, logged);
+              if (r) router.refresh();
+            }}
+            onRetryPending={flush}
+            onRemoved={() => router.refresh()}
+            upNext={currentSlug === ex.slug}
+            beatSeconds={beat}
+          />
+        )}
+      </MovementScreen>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {isToday && (
@@ -416,6 +497,7 @@ export function TrainClient({
           // way. Both transforms, so both animate.
           offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
           onDragStart={editable ? (y: number) => beginDrag(y, ex.slug) : undefined}
+          href={pageFor(ex.slug)}
           unit={view.unit}
           pickable={pickable}
           date={date}
@@ -939,7 +1021,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, dragging = false, onDragStart,
-  beatSeconds: beat = BEAT_CALM_S, offsetY = 0,
+  beatSeconds: beat = BEAT_CALM_S, offsetY = 0, asPage = false, href,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -968,6 +1050,14 @@ export function ExerciseCard({
   beatSeconds?: number;
   /** Where the drag has put this card, in pixels from where it sits. */
   offsetY?: number;
+  /**
+   * This card *is* the screen — /train/[slug] on a phone, rather than a sheet
+   * lifted over the day. No scrim to tap by accident, no focus trap, no
+   * pinned body, and the browser's own back button works.
+   */
+  asPage?: boolean;
+  /** The movement's own page. Where a tap goes on a phone. */
+  href?: string;
 }) {
   const done = exercise.loggedToday;
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
@@ -990,7 +1080,8 @@ export function ExerciseCard({
    * sends. Null is "she did not say", which is not zero.
    */
   const [rir, setRir] = useState<number | null>(null);
-  const [open, setOpen] = useState(false);
+  const [lifted, setLifted] = useState(false);
+  const open = asPage || lifted;
   /** The library entry, folded away until she asks for it. */
   const [showCues, setShowCues] = useState(false);
   /** Target, relabel and remove — the same fold, so only one is ever open. */
@@ -1004,9 +1095,16 @@ export function ExerciseCard({
    */
   const shell = useRef<HTMLDivElement>(null);
   const [collapsedHeight, setCollapsedHeight] = useState<number | undefined>(undefined);
-  function openCard() {
+  /**
+   * The way in. A phone goes to the movement's page; a desktop lifts the card
+   * where it is, which is what a big screen has the room for.
+   */
+  function openCard(e?: { preventDefault: () => void }) {
+    if (!canLog) return;
+    if (href && onAPhone()) return;  // let the link do its job
+    e?.preventDefault();
     setCollapsedHeight(shell.current?.offsetHeight);
-    setOpen(true);
+    setLifted(true);
   }
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -1112,7 +1210,10 @@ export function ExerciseCard({
       // that stays open hides the rest timer, the movement that is next, and
       // the highlight saying which one it is — she logged a set and could not
       // see anything that happened as a result of it.
-      setOpen(false);
+      // Out of the way once the set is in — but only where it is in the way.
+      // On its own page there is nothing behind it to reveal, and closing
+      // would throw her back to the list between every single set.
+      if (!asPage) setLifted(false);
       // How it went, for the companion at the bottom of the page. He is
       // pleased or he is not, in the register the coach speaks in.
       if (outcome.result) {
@@ -1127,8 +1228,12 @@ export function ExerciseCard({
       );
       // A good call is also the moment to drain anything stuck from earlier.
       if (!outcome.queued) onRetryPending();
-    } catch {
-      setError("That didn't save — tap to try again.");
+    } catch (e) {
+      // What the server actually said, not a shrug. A set refused for a real
+      // reason — a date in the future, a hold given reps — used to come back
+      // as "that didn't save", which reads as a network blip and gets tapped
+      // again forever.
+      setError(actionMessage(e, "That didn't save — tap to try again."));
     } finally {
       setSaving(false);
     }
@@ -1221,10 +1326,11 @@ export function ExerciseCard({
           category={exercise.category}
           className={`shrink-0 self-start text-accent/70 ${open ? "h-16 w-14" : "h-11 w-9"}`}
         />
-        <button
-          onClick={() => canLog && (open ? setOpen(false) : openCard())}
-          aria-expanded={canLog ? open : undefined}
-          aria-label={canLog ? `${open ? "Hide" : "Show"} the set counter for ${exercise.name}` : exercise.name}
+        <TapIn
+          href={canLog && !asPage ? href : undefined}
+          onClick={openCard}
+          disabled={!canLog || asPage}
+          label={canLog ? `Log a set for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
         >
           {/* Two lines, not one truncated to nothing.
@@ -1261,7 +1367,7 @@ export function ExerciseCard({
           {next && next.change === "up" && (
             <p className="mt-1 text-[12px] text-beat">Up from last time</p>
           )}
-        </button>
+        </TapIn>
         <div className="flex shrink-0 items-center gap-1.5">
           {/* The grip. `touch-action: none` is what stops the browser reading
               the drag as a page scroll and swallowing it — without it this
@@ -1293,11 +1399,11 @@ export function ExerciseCard({
             you have to be told about in a line of grey text is not one — and
             that line was the app apologising for its own layout.
           */}
-          {canLog && (
-          <button
-            onClick={() => setOpen(!open)}
-            aria-expanded={open}
-            aria-label={`${open ? "Close" : "Log a set for"} ${exercise.name}`}
+          {canLog && !asPage && (
+          <TapIn
+            href={href}
+            onClick={(e) => (lifted ? (e.preventDefault(), setLifted(false)) : openCard(e))}
+            label={`${open ? "Close" : "Log a set for"} ${exercise.name}`}
             className={`grid size-8 place-items-center rounded-full border transition-colors ${
               open ? "border-accent bg-accent-soft text-accent" : "border-edge bg-raised text-text"
             }`}
@@ -1306,7 +1412,7 @@ export function ExerciseCard({
               strokeWidth="2.4" strokeLinecap="round" aria-hidden>
               {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M12 5v14M5 12h14" />}
             </svg>
-          </button>
+          </TapIn>
           )}
 
           {/*
@@ -1458,14 +1564,16 @@ export function ExerciseCard({
           // the first day and did nothing at all.
           if (!s && canLog) {
             return (
-              <button
+              <TapIn
                 key={i}
+                href={asPage ? undefined : href}
                 onClick={openCard}
-                aria-label={`Log set ${i + 1} of ${exercise.name}`}
+                disabled={asPage}
+                label={`Log set ${i + 1} of ${exercise.name}`}
                 className={`${shape} transition-opacity hover:opacity-80`}
               >
                 {label}
-              </button>
+              </TapIn>
             );
           }
           // Only a set that has actually landed can be corrected — one still
@@ -1638,6 +1746,9 @@ export function ExerciseCard({
     </section>
   );
 
+  // Its own screen: no scrim, no placeholder, nothing lifted over anything.
+  if (asPage) return card;
+
   // Closed, it is one card among several.
   if (!open) return <div ref={shell}>{card}</div>;
 
@@ -1655,7 +1766,7 @@ export function ExerciseCard({
   return (
     <>
       <div aria-hidden className="card invisible" style={{ height: collapsedHeight }} />
-      <CardModal onClose={() => setOpen(false)}>{card}</CardModal>
+      <CardModal onClose={() => setLifted(false)}>{card}</CardModal>
     </>
   );
 }
@@ -1702,6 +1813,133 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
  * columns of a row the day view already reads. Ordered the way it is used —
  * how to set up, what goes wrong, and then the one thing worth stopping for.
  */
+/**
+ * One movement, as a whole screen.
+ *
+ * The header carries where she is in the day and the way back; the footer
+ * carries the movement either side of this one, so working through a session
+ * is a thumb on one button rather than a trip back to the list between every
+ * set. Both are ordinary links: the browser's back button, a long press to
+ * open in a new tab, and the swipe-back gesture all do what they look like
+ * they do, none of which a modal can offer.
+ */
+function MovementScreen({
+  exercise, before, after, position, pageFor, backTo, dayLabel, children,
+}: {
+  exercise: TodayExercise | null;
+  before: TodayExercise | null;
+  after: TodayExercise | null;
+  position: { n: number; of: number } | null;
+  pageFor: (slug: string) => string;
+  backTo: string;
+  dayLabel?: string;
+  children: React.ReactNode;
+}) {
+  if (!exercise) {
+    return (
+      <div className="space-y-4">
+        <Link href={backTo} className="inline-flex items-center gap-1.5 text-[13px] text-muted">
+          <Chevron dir="left" /> Back to the day
+        </Link>
+        {/* Not `return null`: a screen that vanishes is indistinguishable
+            from one that is broken. */}
+        <div className="card p-5">
+          <p className="text-[15px] font-semibold">That movement is not on this day</p>
+          <p className="mt-1 text-[13px] text-muted">
+            It may have been removed, or renamed. The day&rsquo;s list has what is there now.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <Link href={backTo}
+          className="inline-flex min-w-0 items-center gap-1.5 text-[13px] text-muted active:text-text">
+          <Chevron dir="left" /> <span className="truncate">{dayLabel ?? "Back to the day"}</span>
+        </Link>
+        {position && (
+          <span className="shrink-0 text-[12px] text-faint tabular">
+            {position.n} of {position.of}
+          </span>
+        )}
+      </div>
+
+      {children}
+
+      {/* The movement either side. Named, not just arrowed: "next" on its own
+          makes her tap it to find out what it is. */}
+      {(before || after) && (
+        <nav className="flex items-stretch gap-2" aria-label="The rest of the day">
+          {before ? (
+            <Link href={pageFor(before.slug)}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line px-3 py-2.5 active:bg-raised">
+              <Chevron dir="left" />
+              <span className="min-w-0">
+                <span className="block text-[10px] uppercase tracking-wide text-faint">Before</span>
+                <span className="block truncate text-[13px]">{before.name}</span>
+              </span>
+            </Link>
+          ) : <div className="flex-1" />}
+          {after ? (
+            <Link href={pageFor(after.slug)}
+              className="flex min-w-0 flex-1 items-center justify-end gap-2 rounded-xl border border-line px-3 py-2.5 text-right active:bg-raised">
+              <span className="min-w-0">
+                <span className="block text-[10px] uppercase tracking-wide text-faint">Next</span>
+                <span className="block truncate text-[13px]">{after.name}</span>
+              </span>
+              <Chevron dir="right" />
+            </Link>
+          ) : <div className="flex-1" />}
+        </nav>
+      )}
+    </div>
+  );
+}
+
+const Chevron = ({ dir }: { dir: "left" | "right" }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+    <path d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+  </svg>
+);
+
+/**
+ * A way into the movement: a real link, enhanced on a big screen.
+ *
+ * The href is the ground truth — it works with no JavaScript, it can be
+ * opened in a new tab, and on a phone the browser simply follows it to the
+ * movement's own page. A desktop click is intercepted and lifts the card
+ * instead, which is what a wide screen has the room for. Rendering one or the
+ * other based on a media query would be a hydration mismatch; the server has
+ * no idea how wide the screen is.
+ */
+function TapIn({
+  href, onClick, label, className, disabled = false, children,
+}: {
+  href?: string;
+  onClick: (e: React.MouseEvent) => void;
+  label: string;
+  className?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  if (disabled || !href) {
+    return (
+      <button onClick={onClick} disabled={disabled} aria-label={label} className={className}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link href={href} onClick={onClick} aria-label={label} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 /** One of the two folds under an open card. Half a row each, so both fit. */
 function FoldButton({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
   return (

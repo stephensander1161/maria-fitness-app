@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-08-movement-page",
+    date: "2026-09-08",
+    title: "A movement gets its own screen on a phone",
+    blurb: "Tapping a movement on Train now opens a page rather than a sheet over the day, with the movement either side of it at the bottom — so you work through a session without going back to the list between sets. The back button works. On a desktop the card still opens where it sits.",
+    href: "/train",
+  },
+  {
     id: "2026-09-08-milestones",
     date: "2026-09-08",
     title: "The steps between here and your goal",
