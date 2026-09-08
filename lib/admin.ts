@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/schema";
 import { currentUser } from "@/lib/session";
 import { securitySignals, type Signal } from "@/lib/security-signals";
+import { LIMITS } from "@/lib/limits";
 import { backupSignal, errorSignals, recentErrors, type ErrorGroup } from "@/lib/errors";
 import { addDays, today, type ISODate } from "@/lib/date";
 import type { User } from "@/lib/db/schema";
@@ -35,6 +36,10 @@ export async function requireOwner(): Promise<User> {
 }
 
 export type AccountRow = {
+  /** What they may spend on the coach today, and whether they have asked for more. */
+  budgetTodayMicros: number;
+  askedForMore: boolean;
+  toppedUpMicros: number;
   userId: string;
   profileId: string | null;
   email: string;
@@ -63,6 +68,8 @@ export type AccountRow = {
 export type AdminOverview = {
   accounts: AccountRow[];
   totals: { accounts: number; active30d: number; spendTodayMicros: number; spend30dMicros: number };
+  /** The deployment's own daily ceiling — what a per-person budget tightens. */
+  ceilingMicros: number;
   recentEvents: { at: string; event: string; severity: string; ip: string | null; location: string | null; detail: string | null }[];
   /** What the log is worth telling someone about — see lib/security-signals.ts
    *  and, for the app's own errors and the nightly backup, lib/errors.ts. */
@@ -95,13 +102,29 @@ export async function adminOverview(): Promise<AdminOverview> {
       profileId: profiles.id,
       onboardedAt: profiles.onboardedAt,
       timezone: profiles.timezone,
+      dailyBudgetMicros: profiles.dailyBudgetMicros,
+      topUpMicros: profiles.topUpMicros,
+      topUpOn: profiles.topUpOn,
+      topUpRequestedOn: profiles.topUpRequestedOn,
     })
     .from(users)
     .leftJoin(profiles, eq(profiles.userId, users.id))
     .orderBy(users.createdAt);
 
+  const ceiling = LIMITS.dailyCostMicros;
+
   const accounts = await Promise.all(accountRows.map(async (u): Promise<AccountRow> => {
+    // What they may actually spend today: the ceiling unless their own budget
+    // tightens it, plus any grant for this ledger day.
+    const chosen = u.dailyBudgetMicros == null ? ceiling : Math.min(u.dailyBudgetMicros, ceiling);
+    const granted = u.topUpOn === day ? (u.topUpMicros ?? 0) : 0;
+
     const base: AccountRow = {
+      budgetTodayMicros: chosen + granted,
+      toppedUpMicros: granted,
+      // Answered grants clear the ask, so this is only ever someone still
+      // waiting — today, not a fortnight ago.
+      askedForMore: u.topUpRequestedOn === day && u.topUpOn !== day,
       userId: u.userId,
       profileId: u.profileId,
       email: u.email,
@@ -196,6 +219,7 @@ export async function adminOverview(): Promise<AdminOverview> {
 
   return {
     accounts,
+    ceilingMicros: ceiling,
     totals: {
       accounts: accounts.length,
       // "Signed in within the last 30 days" — the only activity signal that

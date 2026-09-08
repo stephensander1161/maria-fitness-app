@@ -37,6 +37,7 @@ Read it as an honest inventory, not a certificate.
 | Per-user revocation — `signout-everywhere`, disable, and password change all invalidate that account's sessions immediately, without touching anyone else's | `scripts/users.ts` |
 | Account disable retains history rather than deleting it | `users.disabledAt` |
 | Global revocation by secret rotation | `AUTH_SECRET` |
+| A per-person daily spend budget that can only tighten the deployment ceiling; the one thing that exceeds it is a capped, single-day top-up granted from the command line and unreachable from any session or prompt | `lib/limits.ts`, `lib/budget.ts`, `scripts/users.ts` |
 | Brute-force ceilings, per-IP **and** global — `x-forwarded-for` is client-supplied, so a per-IP limit alone can be rotated around | `lib/limits.ts` |
 | Every tool handler scoped to a server-supplied `profileId`, never a client-supplied one | `lib/tools/` |
 | Sharing training between accounts is opt-in both ways, carries training only (no weight, measurements, photos, food or conversation), and a *pending* request reveals nothing | `lib/friends.ts`, `tests/friends.test.ts` |

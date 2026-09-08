@@ -70,11 +70,35 @@ export default async function AdminPage() {
           )}
         </section>
 
+        {/* Someone mid-question with no allowance left is the one thing here
+            that is costing a person something right now, so it sits above the
+            counts — with the exact command, because the grant is deliberately
+            not a button: nothing reachable from a session may lift the cap. */}
+        {data.accounts.some((a) => a.askedForMore) && (
+          <section className="card border-hold/50 p-5">
+            <h2 className="text-[15px] font-semibold">Asked for more allowance today</h2>
+            <ul className="mt-2 space-y-2">
+              {data.accounts.filter((a) => a.askedForMore).map((a) => (
+                <li key={a.userId} className="text-[13px]">
+                  <span className="font-medium">{a.name ?? a.email}</span>
+                  <span className="text-muted"> spent {money(a.spendTodayMicros)} of {money(a.budgetTodayMicros)}.</span>
+                  <code className="mt-1 block overflow-x-auto rounded-lg bg-raised px-2 py-1 text-[12px] text-faint">
+                    npm run user -- topup {a.email} 1
+                  </code>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="card grid grid-cols-2 gap-x-6 gap-y-4 p-5 sm:grid-cols-4">
           <Figure label="Accounts" value={String(data.totals.accounts)} />
           <Figure label="Signed in" value={String(data.totals.active30d)} sub="last 30 days" />
           <Figure label="Coach spend" value={money(data.totals.spendTodayMicros)} sub="today" />
           <Figure label="Coach spend" value={money(data.totals.spend30dMicros)} sub="30 days" />
+          {/* The deployment's own cap. A per-person budget can only tighten
+              this; only a day's top-up goes above it. */}
+          <Figure label="Ceiling" value={money(data.ceilingMicros)} sub="per person, a day" />
         </section>
 
         {data.accounts.map((a) => (
@@ -109,6 +133,11 @@ export default async function AdminPage() {
               <Figure label="Days of food" value={String(a.daysLoggedFood)} />
               <Figure label="Coach messages" value={String(a.coachMessages)} />
               <Figure label="Spend" value={money(a.spend30dMicros)} sub="30 days" />
+              <Figure
+                label="Budget"
+                value={money(a.budgetTodayMicros)}
+                sub={a.toppedUpMicros > 0 ? `today, +${money(a.toppedUpMicros)} granted` : "a day"}
+              />
               {a.openFeedback > 0 && <Figure label="Feedback" value={String(a.openFeedback)} sub="unanswered" />}
             </dl>
 

@@ -6,6 +6,16 @@
  * case and a 5xx are the only ones worth retrying later; a 4xx is a real
  * rejection and replaying it would just fail again.
  */
+/** A refusal that came back as JSON rather than a stream, with its code. */
+export class CoachError extends Error {
+  readonly code?: "spent" | "rate" | "messages";
+  constructor(message: string, code?: "spent" | "rate" | "messages") {
+    super(message);
+    this.name = "CoachError";
+    this.code = code;
+  }
+}
+
 export class ActionError extends Error {
   readonly status: number | null;
 
@@ -72,7 +82,9 @@ export type CoachEvent =
   | { type: "done" }
   /** How much of today's coach allowance is left, sent as a turn ends. */
   | { type: "allowance"; leftPct: number }
-  | { type: "error"; message: string };
+  /** `code` says whether there is anything she can do about it — "spent" is
+   *  the one she can, by asking the owner for more (components/coach-thread). */
+  | { type: "error"; message: string; code?: "spent" | "rate" | "messages" };
 
 /** Consume the coach's SSE stream as an async iterable of events. */
 export async function* streamCoach(
@@ -96,8 +108,8 @@ export async function* streamCoach(
   // watched the dots stop, and was told nothing at all. On the one screen this
   // app is built around, on the most predictable event in the system.
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Coach unavailable (${res.status})`);
+    const body = (await res.json().catch(() => null)) as { error?: string; code?: "spent" | "rate" | "messages" } | null;
+    throw new CoachError(body?.error ?? `Coach unavailable (${res.status})`, body?.code);
   }
   if (!res.body) throw new Error("No response stream");
 

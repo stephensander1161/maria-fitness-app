@@ -114,7 +114,7 @@ function Sheet({
   const router = useRouter();
   const path = usePathname();
   const {
-    messages, streaming, activity, busy, error, input, setInput, stream, send,
+    messages, streaming, activity, busy, error, errorCode, input, setInput, stream, send,
   } = useCoachThread({ onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); } });
   const [opened, setOpened] = useState(mode === "ask" && !ask);
   const end = useRef<HTMLDivElement>(null);
@@ -200,6 +200,7 @@ function Sheet({
               activity={activity}
               busy={busy && messages.length > 0}
               error={error}
+              errorCode={errorCode}
               onReplay={(text) => void send(text, path)}
             />
           )}

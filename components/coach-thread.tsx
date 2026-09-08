@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
+import { action, actionMessage } from "@/lib/client";
 
 import type { Msg } from "@/lib/use-coach-thread";
 import { RichText } from "./rich-text";
@@ -10,14 +12,54 @@ import { RichText } from "./rich-text";
  * while it does it. Shared by the Coach tab and every inline "ask about this"
  * panel, so a message looks the same wherever she is standing.
  */
+/**
+ * The way out of the one refusal that has one.
+ *
+ * "Your coach is back tomorrow" is the app deciding, on her behalf, that her
+ * evening is over — and the person who pays for the coach is in the same
+ * house. So the dead end offers to ask him. It cannot grant anything: the
+ * top-up that lifts a cap is the owner's command line and nothing reachable
+ * from a session can touch it (lib/tools/top-up.ts).
+ */
+function AskForMore() {
+  const [state, setState] = useState<"idle" | "asking" | "asked">("idle");
+  const [said, setSaid] = useState<string | null>(null);
+
+  if (state === "asked") {
+    return <p className="mt-2 text-[13px] text-muted">{said ?? "Asked."}</p>;
+  }
+  return (
+    <button
+      type="button"
+      disabled={state === "asking"}
+      onClick={async () => {
+        setState("asking");
+        try {
+          const out = await action<{ message?: string }>("request_top_up", {});
+          setSaid(out.message ?? "Asked.");
+          setState("asked");
+        } catch (err) {
+          setSaid(actionMessage(err, "Couldn't send that just now."));
+          setState("asked");
+        }
+      }}
+      className="mt-2 rounded-full border border-miss/40 px-3 py-1 text-[13px] font-medium text-miss disabled:opacity-50"
+    >
+      {state === "asking" ? "Asking…" : "Ask for more today"}
+    </button>
+  );
+}
+
 export function ThreadMessages({
-  messages, streaming, activity, busy, error, compact, onReplay,
+  messages, streaming, activity, busy, error, errorCode, compact, onReplay,
 }: {
   messages: Msg[];
   streaming: string;
   activity: string | null;
   busy: boolean;
   error: string | null;
+  /** "spent" turns the dead end into an ask — see AskForMore above. */
+  errorCode?: "spent" | "rate" | "messages" | null;
   compact?: boolean;
   /** Send one of her earlier messages again — after an error, or because the
    *  answer was worth a second try. Given by every surface that can send. */
@@ -80,6 +122,7 @@ export function ThreadMessages({
       {error && (
         <div role="alert" className="rounded-xl border border-miss/40 bg-miss-soft px-3 py-2 text-sm text-miss">
           {error}
+          {errorCode === "spent" && <AskForMore />}
         </div>
       )}
     </div>

@@ -169,12 +169,22 @@ export async function effectiveDailyLimit(profileId?: string): Promise<number> {
   if (!profileId) return ceiling;
 
   const [row] = await db
-    .select({ chosen: profiles.dailyBudgetMicros })
+    .select({
+      chosen: profiles.dailyBudgetMicros,
+      topUpMicros: profiles.topUpMicros,
+      topUpOn: profiles.topUpOn,
+    })
     .from(profiles)
     .where(eq(profiles.id, profileId))
     .limit(1);
+  if (!row) return ceiling;
 
-  return row?.chosen == null ? ceiling : Math.min(row.chosen, ceiling);
+  const chosen = row.chosen == null ? ceiling : Math.min(row.chosen, ceiling);
+  // The one documented way past the ceiling, and it is deliberately not
+  // reachable from a session: the owner grants it from the command line, for
+  // one ledger day, capped. Everything else here only ever tightens.
+  const granted = row.topUpOn === today() ? row.topUpMicros : 0;
+  return chosen + granted;
 }
 
 /**
@@ -236,7 +246,9 @@ async function admit(bucket: string, seconds: number, limit: number): Promise<bo
   return (await countRecent(bucket, seconds)) <= limit;
 }
 
-export type Denial = { allowed: false; reason: string };
+/** `spent` is the one denial with something she can do about it. */
+export type DenialCode = "spent" | "rate" | "messages";
+export type Denial = { allowed: false; reason: string; code: DenialCode };
 export type Allowance = { allowed: true };
 
 /**
@@ -248,17 +260,17 @@ export async function checkChatAllowed(profileId?: string): Promise<Allowance | 
   // everyone's rate limit.
   const bucket = `chat:${profileId ?? "anon"}`;
   if (!(await admit(bucket, 60, LIMITS.chatPerMinute))) {
-    return { allowed: false, reason: "Slow down a moment — too many messages at once. Try again shortly." };
+    return { allowed: false, code: "rate", reason: "Slow down a moment — too many messages at once. Try again shortly." };
   }
 
   const perDay = await countRecent(bucket, 86_400);
   if (perDay > LIMITS.chatPerDay) {
-    return { allowed: false, reason: "That's today's message limit. Your coach will be back tomorrow — everything else still works." };
+    return { allowed: false, code: "messages", reason: "That's today's message limit. Your coach will be back tomorrow — everything else still works." };
   }
 
   const spend = await todaySpend(profileId);
   if (spend.costMicros >= spend.limitMicros) {
-    return { allowed: false, reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work." };
+    return { allowed: false, code: "spent", reason: "Today's usage budget is spent. Logging, plans and progress all still work." };
   }
 
   return { allowed: true };
@@ -285,7 +297,7 @@ export async function checkLoginAllowed(ip: string, email?: string): Promise<All
   ]);
 
   if (!perIp || !perAccount || !global) {
-    return { allowed: false, reason: "Too many attempts. Try again in an hour." };
+    return { allowed: false, code: "rate", reason: "Too many attempts. Try again in an hour." };
   }
   return { allowed: true };
 }
@@ -315,12 +327,13 @@ export function clientIp(req: Request): string {
  */
 export async function checkSpendAllowed(
   profileId?: string,
-): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+): Promise<Allowance | Denial> {
   const spend = await todaySpend(profileId);
   if (spend.costMicros >= spend.limitMicros) {
     return {
       allowed: false,
-      reason: "Today's usage budget is spent. Your coach is back tomorrow — logging, plans and progress all still work.",
+      code: "spent",
+      reason: "Today's usage budget is spent. Logging, plans and progress all still work.",
     };
   }
   return { allowed: true };
@@ -336,7 +349,7 @@ export async function checkSpendAllowed(
  */
 export async function checkActionAllowed(profileId: string): Promise<Allowance | Denial> {
   if (!(await admit(`action:${profileId}`, 60, LIMITS.actionsPerMinute))) {
-    return { allowed: false, reason: "Too many requests at once. Give it a moment." };
+    return { allowed: false, code: "rate", reason: "Too many requests at once. Give it a moment." };
   }
   return { allowed: true };
 }

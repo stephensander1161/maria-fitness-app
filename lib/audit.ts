@@ -57,6 +57,11 @@ export type AuditEventName =
   | "account.deleted"
   | "onboarding.completed"
   | "spend.ceiling_reached"
+  /** She ran out of coach allowance and asked for more; the owner granted a
+   *  day's extra from the command line. The grant is the only thing that
+   *  lifts anyone above the deployment ceiling, so both halves are recorded. */
+  | "topup.requested"
+  | "topup.granted"
   /** The nightly copy to the blob store: where it went and how big, never
    *  what. A failure is warn-level so the console can say how stale the last
    *  good one is — a backup job that fails silently is worse than none. */

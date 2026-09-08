@@ -93,7 +93,7 @@ export async function POST(req: Request) {
   const gate = await checkChatAllowed(profile.id);
   if (!gate.allowed) {
     await audit("spend.ceiling_reached", { req, detail: { reason: gate.reason } });
-    return Response.json({ error: gate.reason }, { status: 429 });
+    return Response.json({ error: gate.reason, code: gate.code }, { status: 429 });
   }
 
   const encoder = new TextEncoder();

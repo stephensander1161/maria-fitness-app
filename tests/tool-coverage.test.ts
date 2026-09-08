@@ -213,7 +213,16 @@ suite("every tool dates her day in her timezone", () => {
     // today() alone left twelve call sites still on the server's weekday —
     // which is how add_exercise_to_day came to edit the wrong day of her plan.
     const serverDated = /(?<![.\w])(today|weekStart|dayIndex)\s*\(\s*\)/;
-    const offenders = walk("lib/tools").filter((file) => serverDated.test(read(file)));
+    // One exemption, and it is the opposite mistake: the spend ledger is
+    // counted in ONE global day (lib/limits.ts todaySpend), deliberately —
+    // it is the deployment's day, not any one person's. A top-up asked for
+    // or granted against her local day could land on a spend window that has
+    // already reset, or refuse one that has not. It must use the same clock
+    // the money does.
+    const LEDGER_DAY = ["lib/tools/top-up.ts"];
+    const offenders = walk("lib/tools")
+      .filter((file) => !LEDGER_DAY.includes(file))
+      .filter((file) => serverDated.test(read(file)));
 
     expect(
       offenders,

@@ -419,6 +419,38 @@ itself, and the screen makes a second call to `create_meal_plan`. **Two planner
 calls in one request blow the 60-second function limit** — she ends up on a
 spinner with half a plan.
 
+## What one person may spend
+
+Three numbers, and only one of them can ever go up.
+
+- `DAILY_COST_LIMIT_MICROS` is the **deployment's ceiling**, per person, per
+  day. Raising it raises it for everyone who has not been pinned below it —
+  which is why giving one person more means setting everyone else's budget
+  *first*, then the ceiling.
+- `profiles.daily_budget_micros` **only tightens** it. That is why
+  `set_coach_budget` takes a percentage rather than an amount: there is no
+  number a session can send that means "more". `npm run user -- budget
+  <email> <dollars>` is the owner's version, and it refuses an amount above
+  the ceiling with what to do instead rather than clamping silently.
+- `profiles.top_up_micros` + `top_up_on` is the **one thing that goes above
+  the ceiling**, for one ledger day, capped at `MAX_TOP_UP_MICROS`. It is
+  granted from the command line (`npm run user -- topup`) and is out of the
+  model's reach entirely. She can *ask* — `request_top_up` sets
+  `top_up_requested_on` and the console shows who is waiting — and only the
+  owner answers. A prompt that could grant is a prompt that could buy itself
+  an unlimited day.
+
+The spend window is **one global day**, deliberately: it is the deployment's
+ledger, not anyone's local calendar. `lib/tools/top-up.ts` is therefore the
+one tool exempt from the her-timezone rule, and `tests/tool-coverage.test.ts`
+names it and says why — an ask dated in her day could land against a spend
+window that has already reset.
+
+Running out used to be a dead end that said "back tomorrow", which is the app
+deciding her evening is over while the person who pays for it is in the same
+house. The refusal now carries a `code`, and `spent` — alone among them —
+renders a button that asks.
+
 ## Everything can be undone
 
 Almost every table could be written to and not corrected, so the coach's

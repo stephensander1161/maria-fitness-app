@@ -27,7 +27,7 @@ export type CoachEvent =
   | { type: "done" }
   /** How much of today's coach allowance is left, sent as a turn ends. */
   | { type: "allowance"; leftPct: number }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: "spent" | "rate" | "messages" };
 
 // Lazy for the same reason as the planner: importing this module must not
 // require credentials.
@@ -148,7 +148,7 @@ export async function* runCoach(
       // turn could carry on well past the daily cap before anything looked.
       const budget = await checkSpendAllowed(profile.id);
       if (!budget.allowed) {
-        yield { type: "error", message: budget.reason };
+        yield { type: "error", message: budget.reason, code: budget.code };
         return;
       }
 

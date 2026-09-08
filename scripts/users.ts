@@ -6,6 +6,7 @@
  *   npm run user -- invite her@example.com "Maria"   # Google, or she sets a password at /signup
  *   npm run user -- role her@example.com owner    # owner = admin console
  *   npm run user -- budget her@example.com 2      # $2/day of coach; "none" = the full ceiling
+ *   npm run user -- topup her@example.com 1       # $1 extra for today only, when she has run out
  *   npm run user -- passwd her@example.com
  *   npm run user -- signout-everywhere her@example.com
  *   npm run user -- disable her@example.com
@@ -18,7 +19,8 @@ import { createInterface } from "node:readline/promises";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, users } from "@/lib/db/schema";
-import { budgetFor, dollars } from "@/lib/budget";
+import { budgetFor, dollars, topUpFor } from "@/lib/budget";
+import { today } from "@/lib/date";
 import { LIMITS } from "@/lib/limits";
 import { audit } from "@/lib/audit";
 import { hashPassword } from "@/lib/password";
@@ -171,6 +173,35 @@ async function main() {
         detail: { profileId: profile.id, byOwner: true, appliedMicros: choice.micros, ceiling: LIMITS.dailyCostMicros },
       });
       console.log(`✓ ${email} may spend ${choice.note} on the coach.`);
+      break;
+    }
+
+    case "topup": {
+      // The only thing in the app that lifts anyone above the deployment's
+      // ceiling, which is exactly why it is here and not a tool: no session
+      // and no prompt can reach this file.
+      const said = nameArg;
+      if (!email || !said) throw new Error("Usage: npm run user -- topup <email> <dollars-for-today|none>");
+      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (!user) throw new Error(`No account for ${email}.`);
+      const [profile] = await db.select().from(profiles).where(eq(profiles.userId, user.id)).limit(1);
+      if (!profile) throw new Error(`${email} has no profile yet — they have not signed in.`);
+
+      const choice = topUpFor(said);
+      if (!choice.ok) throw new Error(choice.error);
+
+      const day = today();
+      await db.update(profiles).set({
+        topUpMicros: choice.micros ?? 0,
+        topUpOn: choice.micros ? day : null,
+        // The ask is answered either way, so the console stops showing it.
+        topUpRequestedOn: null,
+      }).where(eq(profiles.id, profile.id));
+      await audit("topup.granted", { detail: { profileId: profile.id, micros: choice.micros, day } });
+
+      const base = profile.dailyBudgetMicros == null
+        ? LIMITS.dailyCostMicros : Math.min(profile.dailyBudgetMicros, LIMITS.dailyCostMicros);
+      console.log(`✓ ${email}: ${choice.note}. Today's allowance is ${dollars(base + (choice.micros ?? 0))}; back to ${dollars(base)} tomorrow.`);
       break;
     }
 

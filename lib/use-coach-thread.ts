@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamCoach, type CoachEvent } from "@/lib/client";
+import { CoachError, streamCoach, type CoachEvent } from "@/lib/client";
 import { TOOL_LABELS } from "@/lib/tool-labels";
 
 export type Msg = { id: string; role: "user" | "assistant"; text: string };
@@ -25,6 +25,8 @@ export function useCoachThread(
   const [activity, setActivity] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Why it failed, when there is something she can do about it. */
+  const [errorCode, setErrorCode] = useState<"spent" | "rate" | "messages" | null>(null);
   const [input, setInput] = useState("");
   /** Percent of today's allowance left, once a turn has told us. Null until then. */
   const [allowance, setAllowance] = useState<number | null>(null);
@@ -41,6 +43,7 @@ export function useCoachThread(
   const stream = useCallback(async (body: Body, opts: { signal?: AbortSignal } = {}) => {
     setBusy(true);
     setError(null);
+    setErrorCode(null);
     let acc = "";
     let failed = false;
     let usedTools = false;
@@ -54,11 +57,14 @@ export function useCoachThread(
           if (e.status === "running") usedTools = true;
           setActivity(e.status === "running" ? TOOL_LABELS[e.name] ?? "working" : null);
         } else if (e.type === "allowance") { setAllowance(e.leftPct); }
-        else if (e.type === "error") { setError(e.message); failed = true; }
+        else if (e.type === "error") { setError(e.message); setErrorCode(e.code ?? null); failed = true; }
       }
     } catch (err) {
       if (opts.signal?.aborted) return false;
       setError(err instanceof Error ? err.message : "Connection lost");
+      // The spend cap answers with JSON before the stream opens, so the code
+      // arrives on the thrown error rather than as an event.
+      setErrorCode(err instanceof CoachError ? err.code ?? null : null);
       failed = true;
     }
 
@@ -99,7 +105,7 @@ export function useCoachThread(
   );
 
   return {
-    messages, setMessages, streaming, activity, busy, error, setError,
+    messages, setMessages, streaming, activity, busy, error, setError, errorCode,
     input, setInput, stream, send, allowance,
   };
 }

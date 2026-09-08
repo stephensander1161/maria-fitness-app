@@ -123,6 +123,19 @@ export const profiles = pgTable("profiles", {
    *  exceed it — see lib/limits.ts effectiveDailyLimit. */
   dailyBudgetMicros: bigint("daily_budget_micros", { mode: "number" }),
   /**
+   * Extra allowance the owner granted for one day, and the ledger day it
+   * applies to. This is the **only** thing in the app that can take someone
+   * above the deployment's ceiling, so it is granted from the command line
+   * and is out of the model's reach entirely — a prompt that could set it is
+   * a prompt that could buy itself an unlimited day. She can ask (that is
+   * `topUpRequestedOn`); only the owner can answer.
+   */
+  topUpMicros: bigint("top_up_micros", { mode: "number" }).default(0).notNull(),
+  topUpOn: date("top_up_on"),
+  /** The ledger day she asked for more, so the console can see who is stuck
+   *  and one ask does not become twenty. */
+  topUpRequestedOn: date("top_up_requested_on"),
+  /**
    * A planned break from the deficit, eating at maintenance, until this date.
    *
    * Its value is mostly psychological and the app should say so: the pooled

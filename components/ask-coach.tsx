@@ -35,7 +35,7 @@ export function AskCoach({
   const thread = useCoachThread({
     onTurnEnd: ({ usedTools }) => { if (usedTools && refreshOnChange) router.refresh(); },
   });
-  const { messages, streaming, activity, busy, error, input, setInput, send, allowance } = thread;
+  const { messages, streaming, activity, busy, error, errorCode, input, setInput, send, allowance } = thread;
 
   // Follow the answer as it comes in, but only once there is a conversation —
   // scrolling an untouched panel into view on page load would yank the page.
@@ -60,6 +60,7 @@ export function AskCoach({
             activity={activity}
             busy={busy}
             error={error}
+            errorCode={errorCode}
             compact
             onReplay={send}
           />

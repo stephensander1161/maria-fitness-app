@@ -16,6 +16,15 @@ export const MICROS_PER_DOLLAR = 1_000_000;
 
 export const dollars = (micros: number): string => `$${(micros / MICROS_PER_DOLLAR).toFixed(2)}`;
 
+/**
+ * The most one day's top-up may add, however it is asked for.
+ *
+ * A grant is the only thing that can take someone above the deployment's
+ * ceiling, so it has a ceiling of its own — a mistyped "20" for "2.0" should
+ * cost a couple of dollars, not twenty.
+ */
+export const MAX_TOP_UP_MICROS = 5_000_000;
+
 export type BudgetChoice =
   | { ok: true; micros: number | null; note: string }
   | { ok: false; error: string };
@@ -24,6 +33,27 @@ export type BudgetChoice =
  * `amount` as typed: a sum in dollars, or "none" for the full ceiling.
  * `ceiling` is the deployment's own cap, in micros.
  */
+/**
+ * A one-day grant, in dollars. Unlike a budget this *adds* to the ceiling,
+ * which is why it is capped here and granted only from the owner's command
+ * line — there is no session, and no prompt, that can reach it.
+ */
+export function topUpFor(amount: string, max = MAX_TOP_UP_MICROS): BudgetChoice {
+  const said = amount.trim().toLowerCase().replace(/^\$/, "");
+  if (said === "none" || said === "clear" || said === "0") {
+    return { ok: true, micros: 0, note: "no extra today" };
+  }
+  const parsed = said === "" ? NaN : Number(said);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { ok: false, error: `"${amount}" is not an amount. Give dollars to add for today — 1, 2.50 — or "none" to take it back.` };
+  }
+  const micros = Math.round(parsed * MICROS_PER_DOLLAR);
+  if (micros > max) {
+    return { ok: false, error: `${dollars(micros)} is more than a single day's top-up may add (${dollars(max)}). Grant it again tomorrow, or raise the ceiling.` };
+  }
+  return { ok: true, micros, note: `${dollars(micros)} extra today` };
+}
+
 export function budgetFor(amount: string, ceiling: number): BudgetChoice {
   const said = amount.trim().toLowerCase();
   if (said === "none" || said === "full" || said === "default") {
