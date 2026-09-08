@@ -653,6 +653,15 @@ export function ExerciseCard({
   const [weight, setWeight] = useState(seedWeight);
   const [reps, setReps] = useState(seedReps);
   const [saving, setSaving] = useState(false);
+  /**
+   * Reps left in the tank, chosen but not yet sent.
+   *
+   * Tapping a number used to log the set on the spot, which meant answering
+   * this was also committing to the reps and weight above it — and there was
+   * no way back if the number was wrong. It selects now; the button below
+   * sends. Null is "she did not say", which is not zero.
+   */
+  const [rir, setRir] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -1098,10 +1107,13 @@ export function ExerciseCard({
                 {[0, 1, 2, 3].map((n) => (
                   <button
                     key={n}
-                    onClick={() => logSet(n)}
+                    onClick={() => setRir(rir === n ? null : n)}
                     disabled={saving}
-                    aria-label={`Log set ${setCount + 1} with ${n === 3 ? "3 or more" : n} reps left`}
-                    className="min-w-11 flex-1 rounded-lg border border-edge py-2.5 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+                    aria-pressed={rir === n}
+                    aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank`}
+                    className={`min-w-11 flex-1 rounded-lg border py-2.5 text-[13px] active:bg-raised disabled:opacity-40 ${
+                      rir === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                    }`}
                   >
                     {n === 3 ? "3+" : n}
                   </button>
@@ -1110,7 +1122,7 @@ export function ExerciseCard({
             )}
 
             <button
-              onClick={() => logSet()}
+              onClick={() => logSet(rir ?? undefined)}
               disabled={saving}
               className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
             >

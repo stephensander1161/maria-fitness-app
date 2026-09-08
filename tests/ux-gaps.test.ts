@@ -125,3 +125,26 @@ suite("which movement comes next", () => {
     expect(nextAfter([ex("a", 3, 3), ex("b", 0, 0)] as never[], "a")).toBeNull();
   });
 });
+
+suite("left in the tank is answered, not committed to", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("selects rather than logging on the spot, on both surfaces", () => {
+    // Tapping a number used to send the set, so answering this was also
+    // committing to the reps and weight above it, with no way back.
+    for (const f of ["components/train-client.tsx", "components/go-screen.tsx"]) {
+      const src = read(f);
+      expect(src, f).toMatch(/onClick=\{\(\) => setRir\(rir === n \? null : n\)\}/);
+      expect(src, f).toMatch(/aria-pressed=\{rir === n\}/);
+      // The button below is what sends it.
+      expect(src, f).toMatch(/rir \?\? undefined/);
+    }
+  });
+
+  it("and tapping the same number again clears it, because unknown is not zero", () => {
+    for (const f of ["components/train-client.tsx", "components/go-screen.tsx"]) {
+      expect(read(f), f).toMatch(/rir === n \? null : n/);
+      expect(read(f), f).toMatch(/useState<number \| null>\(null\)/);
+    }
+  });
+});

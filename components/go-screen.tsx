@@ -38,6 +38,8 @@ export function GoScreen({
   const [reps, setReps] = useState(rest.reps);
   const [weight, setWeight] = useState(rest.weight ?? 0);
   const [busy, setBusy] = useState(false);
+  /** Chosen, not sent — see the card. Null is "she did not say". */
+  const [rir, setRir] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dismissed = useRef(false);
 
@@ -144,10 +146,13 @@ export function GoScreen({
               {[0, 1, 2, 3].map((n) => (
                 <button
                   key={n}
-                  onClick={() => void log(n)}
+                  onClick={() => setRir(rir === n ? null : n)}
                   disabled={busy}
-                  aria-label={`Log it with ${n === 3 ? "3 or more" : n} reps left`}
-                  className="min-w-11 flex-1 rounded-lg border border-edge py-2.5 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+                  aria-pressed={rir === n}
+                  aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank`}
+                  className={`min-w-11 flex-1 rounded-lg border py-2.5 text-[13px] active:bg-raised disabled:opacity-40 ${
+                    rir === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                  }`}
                 >
                   {n === 3 ? "3+" : n}
                 </button>
@@ -158,7 +163,7 @@ export function GoScreen({
           {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
 
           <button
-            onClick={() => void log()}
+            onClick={() => void log(rir ?? undefined)}
             disabled={busy}
             className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-50"
           >
