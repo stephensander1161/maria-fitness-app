@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { allowanceLeftPct, ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
+import { nextAfter } from "@/components/train-client";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
 
@@ -80,3 +81,47 @@ suite("the allowance is not a cliff", () => {
   });
 });
 
+
+suite("the training card during a session", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+  const card = read("components/train-client.tsx");
+
+  it("an empty set square logs a set, like the + does", () => {
+    // It looked like a slot to fill from the first day and did nothing.
+    expect(card).toMatch(/aria-label=\{`Log set \$\{i \+ 1\} of \$\{exercise\.name\}`\}/);
+    expect(card).toMatch(/if \(!s && canLog\)/);
+    // A day she cannot log to must not offer it.
+    expect(card.indexOf("if (!s && canLog)")).toBeLessThan(card.indexOf("if (!s || isQueued)"));
+  });
+
+  it("shows last time set by set where this set is being entered", () => {
+    // The header line summarises "12, 12, 10" as "3×12", which loses exactly
+    // the comparison she is making.
+    expect(card).toMatch(/Last time \(\{exercise\.lastTime\.date\.slice\(5\)\}\)/);
+    expect(card).toMatch(/\.join\(" · "\)/);
+  });
+
+  it("rests into the next movement when one is finished, and marks it", () => {
+    // The rest used to be for the movement she had just finished — the GO
+    // screen offered her a fifth set of something she had done four of.
+    expect(card).toMatch(/const next = finishedExercise \? nextAfter\(view\.exercises, ex\.slug\) : null/);
+    expect(card).toMatch(/setUpNext\(next\.slug\); startRest\(next\)/);
+    expect(card).toMatch(/upNext \? "border-accent" : ""/);
+  });
+});
+
+suite("which movement comes next", () => {
+  it("skips finished movements and never returns the one just done", () => {
+    // Pure, so the wrap-around is checked rather than assumed.
+    const ex = (slug: string, target: number, logged: number) =>
+      ({ slug, targetSets: target, loggedToday: Array.from({ length: logged }, () => ({})) });
+    const list = [ex("a", 3, 3), ex("b", 3, 3), ex("c", 3, 0), ex("d", 3, 1)] as never[];
+    expect(nextAfter(list, "b")?.slug).toBe("c");
+    // Wraps: she may have worked down the list and come back.
+    expect(nextAfter(list, "d")?.slug).toBe("c");
+    // Nothing left but the one she just did.
+    expect(nextAfter([ex("a", 3, 3), ex("b", 3, 2)] as never[], "b")?.slug).toBe(undefined);
+    // A movement with no target is not "outstanding".
+    expect(nextAfter([ex("a", 3, 3), ex("b", 0, 0)] as never[], "a")).toBeNull();
+  });
+});

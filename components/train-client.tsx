@@ -107,6 +107,8 @@ export function TrainClient({
     ),
   );
   const movementsWorked = view.exercises.filter((e) => e.loggedToday.length > 0).length;
+  /** The movement the rest is counting down to, highlighted while it runs. */
+  const [upNext, setUpNext] = useState<string | null>(null);
   // Movements that still have sets left in them. "Complete" has to mean
   // every one is done, or adding an exercise after signing off leaves the
   // card claiming the session is finished when it plainly isn't.
@@ -266,14 +268,21 @@ export function TrainClient({
             // session, and that is the one that stops the timer.
             const wasLastOfSession = finishedExercise
               && outstanding.filter((name) => name !== ex.name).length === 0;
-            if (wasLastOfSession) dismissRest();
-            else startRest(ex, logged);
+            // Finishing a movement rests *into the next one*, not back into
+            // the one she has just finished — that rest is over before she
+            // walks to the rack, and the GO screen was offering her a fifth
+            // set of something she had done four of.
+            const next = finishedExercise ? nextAfter(view.exercises, ex.slug) : null;
+            if (wasLastOfSession) { setUpNext(null); dismissRest(); }
+            else if (next) { setUpNext(next.slug); startRest(next); }
+            else { setUpNext(null); startRest(ex, logged); }
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
+          upNext={upNext === ex.slug}
         />
       ))}
       </div>
@@ -360,6 +369,19 @@ export function TrainClient({
 const todayOnDevice = () => new Date().toLocaleDateString("en-CA");
 
 /** 0=Monday, from a YYYY-MM-DD. Undefined when the caller means today. */
+/**
+ * The next movement with sets left in it, after this one.
+ *
+ * Wraps, because she may have skipped down the card list and come back — the
+ * one thing it will not return is the movement she has just finished.
+ */
+export function nextAfter(exercises: TodayExercise[], slug: string): TodayExercise | null {
+  const at = exercises.findIndex((e) => e.slug === slug);
+  if (at === -1) return null;
+  const order = [...exercises.slice(at + 1), ...exercises.slice(0, at)];
+  return order.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets) ?? null;
+}
+
 function dayOfWeekOf(date?: string): number | undefined {
   if (!date) return undefined;
   const d = new Date(`${date}T00:00:00Z`).getUTCDay();
@@ -597,7 +619,7 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
-  onLogged, onRetryPending, onRemoved,
+  onLogged, onRetryPending, onRemoved, upNext = false,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -616,6 +638,8 @@ export function ExerciseCard({
   ) => void;
   onRetryPending: () => void;
   onRemoved: () => void;
+  /** The rest running right now is counting down to this movement. */
+  upNext?: boolean;
 }) {
   const done = exercise.loggedToday;
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
@@ -748,7 +772,9 @@ export function ExerciseCard({
   const step = weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
 
   return (
-    <section className="card overflow-hidden">
+    // The movement the rest is counting down to wears the accent, so she can
+    // see where she is going without reading the timer.
+    <section className={`card overflow-hidden ${upNext ? "border-accent" : ""}`}>
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         {/*
           The name and the target are the card's own open/close control. She
@@ -918,6 +944,21 @@ export function ExerciseCard({
                 : "border border-dashed border-edge text-faint"
           }`;
 
+          // A square with nothing in it is the next set: tapping it opens the
+          // entry, the same as the + does. It looked like a slot to fill from
+          // the first day and did nothing at all.
+          if (!s && canLog) {
+            return (
+              <button
+                key={i}
+                onClick={() => setOpen(true)}
+                aria-label={`Log set ${i + 1} of ${exercise.name}`}
+                className={`${shape} transition-opacity hover:opacity-80`}
+              >
+                {label}
+              </button>
+            );
+          }
           // Only a set that has actually landed can be corrected — one still
           // in the outbox has no row to correct yet.
           if (!s || isQueued) return <div key={i} className={shape}>{label}</div>;
@@ -992,6 +1033,18 @@ export function ExerciseCard({
       <div className={open ? "border-t border-line bg-ink/40 p-3" : "hidden"}>
         {!open ? null : (
           <div className="space-y-3">
+            {/* Last time, set by set, right where this set is being typed.
+                The summary on the header line collapses "12, 12, 10" into
+                "3×12" and loses exactly the comparison she is making — the
+                deeper read is Progress; this is the glance. */}
+            {exercise.lastTime && (
+              <p className="text-[11px] text-faint tabular">
+                Last time ({exercise.lastTime.date.slice(5)}):{" "}
+                {exercise.lastTime.sets
+                  .map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`)
+                  .join(" · ")}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
                 {loaded && (
                   <NumberField
