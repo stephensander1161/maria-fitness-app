@@ -761,6 +761,11 @@ export function ExerciseCard({
         ),
       );
       // Whether that was the last set she planned for this movement.
+      // Out of the way once the set is in. Lifted over the screen, a card
+      // that stays open hides the rest timer, the movement that is next, and
+      // the highlight saying which one it is — she logged a set and could not
+      // see anything that happened as a result of it.
+      setOpen(false);
       onLogged(
         outcome.result,
         exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets,
@@ -936,6 +941,9 @@ export function ExerciseCard({
       )}
 
       {exercise.notes && <p className="px-4 pb-3 text-[13px] text-faint italic">{exercise.notes}</p>}
+
+      {/* The setup cues, one at a time, whether or not she opens the guide. */}
+      <CyclingCue cues={exercise.formCues} />
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
           looks logged, because it is; the outline says it hasn't gone up yet.
@@ -1197,6 +1205,39 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
   );
 }
 
+
+/**
+ * One setup cue at a time, on the card, always.
+ *
+ * The library's cues were behind the help button, which meant they were read
+ * once — on the day she looked something up — and never again. They are the
+ * form resource this app has, and a rack is where they matter. So one shows
+ * at a time and they take turns, and over a few sessions she has seen all of
+ * them without ever opening anything.
+ *
+ * Deliberately not a live region: it repaints on a timer, and announcing each
+ * change would talk over everything else the way the rest countdown once did.
+ */
+function CyclingCue({ cues }: { cues: string[] }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (cues.length < 2) return;
+    const id = window.setInterval(() => setI((n) => (n + 1) % cues.length), CUE_MS);
+    return () => window.clearInterval(id);
+  }, [cues.length]);
+
+  if (cues.length === 0) return null;
+  const cue = cues[i % cues.length];
+  return (
+    <p className="px-4 pb-3 text-[12px] leading-relaxed text-faint">
+      {/* Keyed on the text, so React swaps the node and the fade runs again. */}
+      <span key={cue} className="cue-fade block">{cue}</span>
+    </p>
+  );
+}
+
+/** Long enough to read one twice, short enough to see several in a session. */
+const CUE_MS = 7000;
 
 function Empty({ title, body }: { title: string; body: string }) {
   return (

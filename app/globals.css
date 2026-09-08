@@ -383,3 +383,16 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .card-scrim, .card-lift { animation: none; }
 }
+
+/* One setup cue at a time, changing quietly. A crossfade rather than a slide:
+   the card is a working surface and something sliding across it during a set
+   pulls the eye off the numbers. */
+@keyframes cue-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.cue-fade { animation: cue-fade 420ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cue-fade { animation: none; }
+}

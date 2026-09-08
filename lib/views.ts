@@ -60,6 +60,9 @@ function restWordsFor(day: { title: string; isRest: boolean; notes: string | nul
 }
 export type TodayExercise = {
   slug: string; name: string; bodyweight: boolean;
+  /** The library's setup cues, cycled one at a time on the card — see
+   *  components/train-client.tsx CyclingCue. */
+  formCues: string[];
   /**
    * The library says this movement can hold a weight.
    *
@@ -131,7 +134,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   // the early return jumped over it.
   const items = day ? await db.select({
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
-    bodyweight: exercises.bodyweight, category: exercises.category,
+    bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
     isHold: exercises.isHold,
     equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
@@ -163,7 +166,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const extras = extraIds.length
     ? await db.select({
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
-        bodyweight: exercises.bodyweight, category: exercises.category,
+        bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
         isHold: exercises.isHold,
         equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       }).from(exercises).where(inArray(exercises.id, extraIds))
@@ -217,6 +220,7 @@ export async function todayView(profileId: string, units: Units, date = today())
       const prev = lastTime.get(i.exerciseId);
       return {
         slug: i.slug, name: i.name, bodyweight: i.bodyweight,
+        formCues: i.formCues ?? [],
         loadable: canHoldWeight(i.equipment),
         isHold: i.isHold ?? false,
         category: i.category, extra: i.extra,

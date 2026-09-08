@@ -197,7 +197,41 @@ suite("the movement she is working on comes forward", () => {
     const css = read("app/globals.css");
     expect(css).toMatch(/@keyframes card-lift-in/);
     expect(css).toMatch(/@keyframes card-scrim-in/);
-    const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
-    expect(reduced).toMatch(/\.card-scrim, \.card-lift \{ animation: none; \}/);
+    // Every animation this app adds has to have an off switch for someone
+    // who has asked for less motion.
+    for (const cls of ["card-scrim, .card-lift", "cue-fade"]) {
+      const blocks = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
+      expect(blocks.some((b) => b.includes(`.${cls}`)), cls).toBe(true);
+    }
+  });
+});
+
+suite("the setup cues are on the card", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("come from the library through the day view, not a second fetch", () => {
+    expect(read("lib/views.ts")).toMatch(/formCues: exercises\.formCues/);
+    expect(read("lib/views.ts")).toMatch(/formCues: i\.formCues \?\? \[\]/);
+  });
+
+  it("show one at a time and take turns, so all of them get read eventually", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/function CyclingCue/);
+    expect(card).toMatch(/\(n \+ 1\) % cues\.length/);
+    expect(card).toMatch(/<CyclingCue cues=\{exercise\.formCues\} \/>/);
+    // A movement with one cue does not need a timer running for ever.
+    expect(card).toMatch(/if \(cues\.length < 2\) return;/);
+    // And never a live region: it repaints on a timer, and announcing each
+    // change would talk over everything else the way the countdown once did.
+    const cue = card.slice(card.indexOf("function CyclingCue"), card.indexOf("const CUE_MS"));
+    expect(cue).not.toMatch(/aria-live|role="status"/);
+  });
+
+  it("the card gets out of the way once the set is in", () => {
+    // Lifted over the screen, a card that stays open hides the rest timer and
+    // the movement that is next.
+    const card = read("components/train-client.tsx");
+    const logSet = card.slice(card.indexOf("async function logSet"));
+    expect(logSet.slice(0, logSet.indexOf("} catch"))).toMatch(/setOpen\(false\)/);
   });
 });
