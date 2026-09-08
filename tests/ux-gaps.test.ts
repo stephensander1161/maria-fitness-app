@@ -356,13 +356,16 @@ suite("the open card shows the whole movement", () => {
     // One scroller, and the entry outside it. Two nested scrollers is how the
     // sheet ended up unscrollable on a phone; the Log button below a screenful
     // of cues is how it ended up unreachable when it did scroll.
-    expect(card).toMatch(/open \? "flex max-h-\[86dvh\] flex-col" : ""/);
+    expect(card).toMatch(/open \? "flex flex-col" : ""/);
+    // Height from the visual viewport, not dvh — see tests/week-done.ts.
+    expect(card).toMatch(/maxHeight: SHEET_MAX/);
     expect(card).toMatch(/open \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
     expect(card).toMatch(/open \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
-    expect(card).toMatch(/\? <FullCues exercise=\{exercise\} \/>/);
-    expect(card).toMatch(/: <CyclingCue cues=\{exercise\.formCues\} \/>/);
+    // The cue line and the drawing are always there; the full entry folds.
+    expect(card).toMatch(/\{open && showCues && <FullCues exercise=\{exercise\} \/>\}/);
+    expect(card).toMatch(/<CyclingCue cues=\{exercise\.formCues\} \/>/);
   });
 
   it("without a second fetch — it is three columns of a row already read", () => {
@@ -382,9 +385,17 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     // Once the open card carried the whole library entry, a "?" that opened
     // the card was the same button as the "+" beside it. Two round buttons
     // doing one job, on a row where the movement's name was losing to them.
+    //
+    // The entry itself now folds inside the card rather than printing in
+    // full — a screenful of reading between the name and the Log button on a
+    // phone. What must not come back is a *second surface*: no round button
+    // in the header row, and nothing that opens on top of the card.
     const card = read("components/train-client.tsx");
-    expect(card).not.toMatch(/How to do/);
     expect(card).toMatch(/<FullCues exercise=\{exercise\} \/>/);
+    expect(card).toMatch(/setShowCues\(!showCues\)/);
+    // Inside the card's own flow, not a dialog of its own.
+    expect(card.split("function FullCues")[0]).not.toMatch(/CardModal[^]{0,200}FullCues/);
+    expect(card).not.toMatch(/aria-label=\{`(Show|Open) the (guide|help)/);
   });
 
   it("keeps the edits inside the open card, so the name has the row", () => {
@@ -429,9 +440,12 @@ suite("what is left this week", () => {
     // After finishing Tuesday's session the screen said "still to do:
     // Monday" — a day that had been and gone — and said nothing at all about
     // the two sessions ahead of her.
-    const progress = read("lib/progress.ts");
-    expect(progress).toMatch(/const remainingDays = notDone\.filter\(\(d\) => d\.dayOfWeek >= todayIndex\)/);
-    expect(progress).toMatch(/const missedDays = notDone\.filter\(\(d\) => d\.dayOfWeek < todayIndex\)/);
+    // The split moved into lib/week-done.ts, where it is tested against days
+    // rather than against the source text that computes them.
+    const wd = read("lib/week-done.ts");
+    expect(wd).toMatch(/remainingDays: notDone\.filter\(\(d\) => d\.dayOfWeek >= todayIndex\)/);
+    expect(wd).toMatch(/missedDays: notDone\.filter\(\(d\) => d\.dayOfWeek < todayIndex\)/);
+    expect(read("lib/progress.ts")).toMatch(/splitWeek\(/);
   });
 
   it("leads with it on the screen, and says so when there is nothing left", () => {

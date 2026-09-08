@@ -5,6 +5,7 @@ import { useDialog } from "@/lib/use-dialog";
 import { moveItem, slotFor } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
+import { SHEET_MAX } from "@/lib/viewport-cover";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
@@ -990,6 +991,10 @@ export function ExerciseCard({
    */
   const [rir, setRir] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  /** The library entry, folded away until she asks for it. */
+  const [showCues, setShowCues] = useState(false);
+  const hasDetail =
+    exercise.formCues.length > 1 || exercise.commonMistakes.length > 0 || exercise.safetyNote !== null;
   /**
    * The card's height while closed, held so the grid does not collapse
    * behind it when it lifts out — measured at the moment it opens, which is
@@ -1175,10 +1180,15 @@ export function ExerciseCard({
         // entry sat below the cues, so opening a card to log a set put the
         // Log button off the bottom of a phone — and the long-press drag ate
         // the scroll that would have reached it.
-        open ? "flex max-h-[86dvh] flex-col" : ""
+        open ? "flex flex-col" : ""
       } ${upNext ? "border-beat now-glow" : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
       style={{
+        // Sized to what is on screen, not to `dvh`. Chrome on iOS resolves
+        // `dvh` against the viewport with its toolbars retracted, so an 86dvh
+        // sheet came out taller than the visible strip and opened with its
+        // own title clipped away above the address bar.
+        ...(open ? { maxHeight: SHEET_MAX } : {}),
         ...(upNext ? { animationDuration: `${beat}s` } : {}),
         ...(offsetY !== 0 || dragging
           ? {
@@ -1397,9 +1407,33 @@ export function ExerciseCard({
       {/* Closed, one cue at a time — a card in a grid has room for a line.
           Open, the whole entry: she has the screen, and the reason to read it
           is that she is about to do the movement. */}
-      {open
-        ? <FullCues exercise={exercise} />
-        : <CyclingCue cues={exercise.formCues} />}
+      {/*
+        One cue, and the rest folded away.
+        Open, this printed the whole library entry — four numbered cues, the
+        common mistakes and the safety note — which on a phone is a screenful
+        of reading between the movement's name and the thing she opened the
+        card to do. She is standing there holding a dumbbell. The cue line and
+        the drawing are the glance; the full entry is one tap away on the day
+        she wants it.
+      */}
+      <CyclingCue cues={exercise.formCues} />
+      {open && hasDetail && (
+        <div className="px-4 pb-3">
+          <button
+            onClick={() => setShowCues(!showCues)}
+            aria-expanded={showCues}
+            className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[12px] text-muted active:bg-raised"
+          >
+            {showCues ? "Hide how to do it" : "How to do it"}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+              className={showCues ? "rotate-180 transition-transform" : "transition-transform"}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {open && showCues && <FullCues exercise={exercise} />}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
           looks logged, because it is; the outline says it hasn't gone up yet.

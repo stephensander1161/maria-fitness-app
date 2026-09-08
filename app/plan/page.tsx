@@ -2,7 +2,7 @@ import { PlanClient } from "@/components/plan-client";
 import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
-import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
+import { addDays, dayIndex, daysBetween, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { rollForward } from "@/lib/plan-rollover";
 import type { ISODate } from "@/lib/date";
@@ -44,6 +44,10 @@ export default async function PlanPage({
   // fills in on the next navigation.
   await rollForward(profile.id, shownWeek);
 
+  // How far from today the week on screen is, so the header can say so in
+  // words. Whole weeks: both are Mondays.
+  const weeksApart = Math.round(daysBetween(thisWeek, shownWeek) / 7);
+
   const [week, mealWeek, today, otherDay, pickable, targets] = await Promise.all([
     weekView(profile.id, profile.units, shownWeek, her),
     mealWeekView(profile.id, foodUnitsOf(profile), shownWeek, her),
@@ -64,14 +68,26 @@ export default async function PlanPage({
           {/* Today, big, because "week of the 31st" answers a question nobody
               asked while leaving the one they did — what day is it — to be
               worked out from a date range. */}
-          <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
+          {/* The week on screen, not today's.
+              Stepping a week changed the cards and left the two biggest lines
+              on the page saying the same thing — and because an untouched
+              week inherits the last one, the cards are identical too. Both
+              arrows worked and the screen looked like it had ignored her. */}
+          <h1 className="truncate text-2xl font-bold tracking-tight">
+            {shownWeek === thisWeek ? prettyDate(her) : `Week of ${prettyDate(shownWeek)}`}
+          </h1>
           {/* The week's own name is gone. It is the template's — "Full Body
               3× — Dumbbells & Bench" — and it goes stale the moment she
               renames a day or adds one, exactly like the blurb underneath it
               did. The days below say what the week is; the header only needs
               to say which week. */}
           <p className="mt-0.5 truncate text-[13px] text-muted">
-            Week of {prettyDate(weekStart(her))}
+            {shownWeek === thisWeek
+              ? `Week of ${prettyDate(shownWeek)}`
+              : weeksApart === 1 ? "Next week"
+              : weeksApart === -1 ? "Last week"
+              : weeksApart > 0 ? `${weeksApart} weeks ahead`
+              : `${Math.abs(weeksApart)} weeks back`}
           </p>
         </div>
         <AiOpinion page="plan" label="plan" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { coveredBottom } from "@/lib/viewport-cover";
+import { coveredBottom, visibleHeight } from "@/lib/viewport-cover";
 
 /**
  * Keeps `--covered-bottom` on <html> equal to what the browser toolbar is
@@ -15,11 +15,21 @@ export function ViewportCover() {
     const vv = window.visualViewport;
     if (!vv) return;
     let last = -1;
+    let lastTall = -1;
     const update = () => {
       const px = coveredBottom({ innerHeight: window.innerHeight, offsetTop: vv.offsetTop, height: vv.height, scale: vv.scale });
-      if (px === last) return;
-      last = px;
-      document.documentElement.style.setProperty("--covered-bottom", `${px}px`);
+      if (px !== last) {
+        last = px;
+        document.documentElement.style.setProperty("--covered-bottom", `${px}px`);
+      }
+      // And how tall the visible strip is, for sheets that fill it. Chrome on
+      // iOS reports a `dvh` bigger than what is on screen, so a sheet sized in
+      // `dvh` opens with its top clipped away above the address bar.
+      const tall = visibleHeight({ height: vv.height, scale: vv.scale });
+      if (tall !== null && tall !== lastTall) {
+        lastTall = tall;
+        document.documentElement.style.setProperty("--visual-height", `${tall}px`);
+      }
     };
     update();
     vv.addEventListener("resize", update);
@@ -30,6 +40,7 @@ export function ViewportCover() {
       vv.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       document.documentElement.style.removeProperty("--covered-bottom");
+      document.documentElement.style.removeProperty("--visual-height");
     };
   }, []);
   return null;

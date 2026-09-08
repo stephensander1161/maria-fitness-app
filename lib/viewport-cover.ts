@@ -25,3 +25,30 @@ export function coveredBottom(v: { innerHeight: number; offsetTop: number; heigh
 
 /** The CSS every bottom-anchored surface adds to its safe-area padding. */
 export const COVERED = "var(--covered-bottom, 0px)";
+
+/**
+ * How tall the visible page actually is, for anything sized to fill it.
+ *
+ * `dvh` is supposed to be this and on Chrome for iOS it is not: it resolves
+ * against the viewport with the toolbars retracted, so a sheet at `86dvh`
+ * comes out taller than the strip between the address bar and the toolbar and
+ * its top is clipped away off-screen. That is the set sheet opening with its
+ * own title missing.
+ *
+ * Unlike `coveredBottom` this does *not* ignore the keyboard: a keyboard
+ * really has taken the space, and a sheet that keeps its full height behind
+ * one is the same clipped sheet again. A pinch zoom is still ignored —
+ * nothing should resize because she zoomed in to read something.
+ */
+export function visibleHeight(v: { height: number; scale: number }): number | null {
+  if (v.scale !== 1) return null;
+  if (!Number.isFinite(v.height) || v.height <= 0) return null;
+  return Math.round(v.height);
+}
+
+/**
+ * The tallest a centred sheet may be: what is visible, less the scrim's own
+ * padding. Falls back to `dvh` on a browser with no Visual Viewport API,
+ * which is every browser that gets `dvh` right anyway.
+ */
+export const SHEET_MAX = "min(86dvh, calc(var(--visual-height, 86dvh) - 2.5rem))";

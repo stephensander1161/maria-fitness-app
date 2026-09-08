@@ -342,6 +342,9 @@ export const adjustPlanDay = defineTool({
  *  the fast-log UI so both land in the same session row. */
 // `date` is required: both callers compute it in her timezone, and a default
 // in the server's would silently open a session on the wrong day.
+/** What a session with no plan day behind it is called. */
+export const FREESTYLE = "Freestyle session";
+
 /**
  * Today's session, created once.
  *
@@ -362,7 +365,6 @@ export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
     const [open] = await tx.select().from(workouts)
       .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
       .orderBy(desc(workouts.startedAt)).limit(1);
-    if (open) return open;
 
     const week = weekStart(date);
     const [plan] = await tx.select({ id: plans.id }).from(plans)
@@ -372,10 +374,31 @@ export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
       [planDay] = await tx.select({ id: planDays.id, title: planDays.title }).from(planDays)
         .where(and(eq(planDays.planId, plan.id), eq(planDays.dayOfWeek, dayIndex(date)))).limit(1);
     }
+
+    if (open) {
+      // Adopt the plan day if one has appeared since. This binding was made
+      // once, at creation, and a session started before the programme rolled
+      // forward into the new week was bound to nothing — hers read "Freestyle
+      // session" on the Monday the plan called Biceps and Triceps, and the
+      // week review counted the session she had just done as missed.
+      if (open.planDayId === null && planDay) {
+        const [adopted] = await tx.update(workouts)
+          .set({
+            planDayId: planDay.id,
+            // The placeholder title goes with it. Anything she named herself
+            // stays hers.
+            ...(open.title === FREESTYLE ? { title: planDay.title } : {}),
+          })
+          .where(eq(workouts.id, open.id)).returning();
+        return adopted;
+      }
+      return open;
+    }
+
     const [created] = await tx.insert(workouts).values({
       profileId: ctx.profileId, date,
       planDayId: planDay?.id ?? null,
-      title: planDay?.title ?? "Freestyle session",
+      title: planDay?.title ?? FREESTYLE,
     }).returning();
     return created;
   });

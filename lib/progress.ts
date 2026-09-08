@@ -9,6 +9,7 @@ import { goalDirection } from "@/lib/nutrition";
 import { burnForSession, weeklyBurn, type DailyBurn, type LoggedSet } from "@/lib/burn";
 import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
+import { splitWeek } from "@/lib/week-done";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
  *  3×10@40 against 4×6@50. Bodyweight sets fall back to total reps. */
@@ -367,11 +368,18 @@ export async function weekReview(
         .where(and(eq(planDays.planId, plan.id), eq(planDays.isRest, false)))
     : [];
 
-  const done = await db
-    .select({ id: workouts.id, date: workouts.date, planDayId: workouts.planDayId, title: workouts.title })
+  // Every session this week, finished or not, with how much is logged
+  // against it. `completedAt is not null` used to be the filter here, and it
+  // is the Finish workout button — which nobody presses. See lib/week-done.ts.
+  const sessions = await db
+    .select({
+      id: workouts.id, date: workouts.date, planDayId: workouts.planDayId, title: workouts.title,
+      completedAt: workouts.completedAt,
+      sets: sql<number>`(select count(*)::int from ${setLogs} where ${setLogs.workoutId} = ${workouts.id})`,
+    })
     .from(workouts)
-    .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd),
-      sql`${workouts.completedAt} is not null`));
+    .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd)));
+  const done = sessions.filter((w) => w.sets > 0 || w.completedAt !== null);
 
   const [totals] = await db
     .select({
@@ -382,20 +390,21 @@ export async function weekReview(
     .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
     .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week), lte(workouts.date, weekEnd)));
 
-  // A planned day is done when a completed workout points at it. Title is
-  // only the fallback for workouts started freeform (no plan day): matching
-  // on title alone let one "Full body" session tick off both of them.
-  const doneIds = new Set(done.map((w) => w.planDayId).filter((id): id is string => id !== null));
-  const freeformTitles = new Set(done.filter((w) => w.planDayId === null).map((w) => w.title));
   // Only days that have actually passed. Wednesday's session is not missed on
   // Tuesday, and a screen that says it is has told her she is behind on
   // something she is not behind on.
   const todayIndex = asOf >= week && asOf <= weekEnd ? dayIndex(asOf) : 7;
-  const notDone = plannedDays.filter((d) => !doneIds.has(d.id) && !freeformTitles.has(d.title));
-  const missedDays = notDone.filter((d) => d.dayOfWeek < todayIndex).map((d) => d.title);
-  // Today counts as remaining until it is done, which is what makes this the
-  // answer to "what is left" rather than "what did I skip".
-  const remainingDays = notDone.filter((d) => d.dayOfWeek >= todayIndex).map((d) => d.title);
+  const { missedDays, remainingDays } = splitWeek(
+    plannedDays,
+    sessions.map((w) => ({
+      planDayId: w.planDayId,
+      title: w.title,
+      dayOfWeek: dayIndex(w.date),
+      sets: w.sets,
+      completed: w.completedAt !== null,
+    })),
+    todayIndex,
+  );
 
   // Compare each exercise trained this week against its previous outing.
   const trained = await db
