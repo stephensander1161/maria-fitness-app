@@ -402,13 +402,25 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    that glance is the whole job: "which one am I doing". So the current card
    breathes — a green ring that swells and settles, slowly enough not to nag
    for the length of a session. */
+/* Two knocks and a pause — lub-dub — rather than a sine swell, which reads as
+   breathing rather than as a pulse. The duration is set per card in
+   components/train-client.tsx: quick just after a set, settling as the rest
+   runs down, the way a heart rate actually recovers. */
 @keyframes now-glow {
-  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-beat) 35%, transparent); }
-  50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-beat) 18%, transparent); }
+  0%   { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 40%, transparent); }
+  12%  { box-shadow: 0 0 0 4px var(--color-beat), 0 0 26px 7px color-mix(in srgb, var(--color-beat) 75%, transparent); }
+  24%  { box-shadow: 0 0 0 2px var(--color-beat), 0 0 14px 2px color-mix(in srgb, var(--color-beat) 45%, transparent); }
+  36%  { box-shadow: 0 0 0 3px var(--color-beat), 0 0 22px 5px color-mix(in srgb, var(--color-beat) 65%, transparent); }
+  50%, 100% { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 40%, transparent); }
 }
-.now-glow { animation: now-glow 2.4s ease-in-out infinite; }
+/* The border itself goes full-strength too — a 50%-mixed edge under a bright
+   ring reads as a shadow around a grey card rather than as a green one. */
+.now-glow { animation: now-glow 2.4s ease-in-out infinite; border-color: var(--color-beat); }
 
 @media (prefers-reduced-motion: reduce) {
   /* Still unmistakable, just still. */
-  .now-glow { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-beat) 30%, transparent); }
+  .now-glow {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--color-beat), 0 0 18px 4px color-mix(in srgb, var(--color-beat) 55%, transparent);
+  }
 }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
+import { moveItem, slotFor } from "@/lib/reorder";
+import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
@@ -146,6 +148,85 @@ export function TrainClient({
    * The rest still wins when one is running: it is the most specific thing
    * the app knows. Otherwise it is the first movement with sets left in it.
    */
+  /**
+   * Dragging a movement to a new place in the day.
+   *
+   * Pointer events rather than HTML5 drag-and-drop: that API does not fire on
+   * touch at all, and this is a phone app first. The list reorders live under
+   * her finger and the new order is written once, on release — a write per
+   * pixel of movement would be a hundred round trips for one drag.
+   */
+  const listRef = useRef<HTMLDivElement>(null);
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null);
+  const [draggingSlug, setDraggingSlug] = useState<string | null>(null);
+
+  const shown = dragOrder
+    ? dragOrder.flatMap((slug) => view.exercises.filter((e) => e.slug === slug))
+    : view.exercises;
+
+  function beginDrag(e: React.PointerEvent, slug: string) {
+    const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
+    if (rows.length < 2) return;
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    setDraggingSlug(slug);
+
+    // Measured once, at the start: re-reading them mid-drag reads the
+    // positions the drag has already changed, and the list oscillates.
+    const mids = rows.map((r) => r.getBoundingClientRect().top + r.getBoundingClientRect().height / 2);
+    let order = shown.map((x) => x.slug);
+    const from = order.indexOf(slug);
+
+    const move = (ev: PointerEvent) => {
+      const to = slotFor(mids, ev.clientY);
+      const next = moveItem(shown.map((x) => x.slug), from, to);
+      order = next;
+      setDragOrder(next);
+    };
+    const end = async () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      setDraggingSlug(null);
+      const before = view.exercises.map((x) => x.slug).join();
+      if (order.join() === before) { setDragOrder(null); return; }
+      try {
+        await action("reorder_day_exercises", {
+          slugs: order,
+          ...(dayOfWeekOf(date) === undefined ? {} : { dayOfWeek: dayOfWeekOf(date) }),
+        });
+        router.refresh();
+      } catch {
+        setError("Couldn't save the new order.");
+      } finally {
+        // Held until the refresh lands, or the list snaps back to the old
+        // order for a frame and then forward again.
+        setTimeout(() => setDragOrder(null), 400);
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
+  /**
+   * The marker's pulse, re-read every couple of seconds.
+   *
+   * Not every frame: the duration is a CSS animation property, and changing
+   * it restarts the animation — at 60fps that is not a heartbeat, it is a
+   * flicker. Every two seconds is often enough to feel it settle across a
+   * ninety-second rest and rare enough that each beat completes.
+   */
+  const [beat, setBeat] = useState(BEAT_CALM_S);
+  useEffect(() => {
+    const tick = () => setBeat(runningRest
+      ? beatSeconds(runningRest.endsAt - Date.now(), runningRest.seconds * 1000)
+      : BEAT_CALM_S);
+    tick();
+    const id = window.setInterval(tick, 2000);
+    return () => window.clearInterval(id);
+  }, [runningRest]);
+
   const currentSlug = runningRest?.slug
     ?? view.exercises.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
     ?? null;
@@ -248,11 +329,16 @@ export function TrainClient({
         A grid rather than a flowed column: a card grows when she opens the
         stepper, and in a flow that would shove every later card sideways.
       */}
-      <div className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}>
-      {view.exercises.map((ex) => (
+      <div
+        ref={listRef}
+        className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
+      >
+      {shown.map((ex) => (
         <ExerciseCard
           key={ex.slug}
           exercise={ex}
+          dragging={draggingSlug === ex.slug}
+          onDragStart={editable ? (e) => beginDrag(e, ex.slug) : undefined}
           unit={view.unit}
           pickable={pickable}
           date={date}
@@ -284,6 +370,7 @@ export function TrainClient({
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
           upNext={currentSlug === ex.slug}
+          beatSeconds={beat}
         />
       ))}
       </div>
@@ -617,7 +704,8 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
-  onLogged, onRetryPending, onRemoved, upNext = false,
+  onLogged, onRetryPending, onRemoved, upNext = false, dragging = false, onDragStart,
+  beatSeconds: beat = BEAT_CALM_S,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -638,6 +726,12 @@ export function ExerciseCard({
   onRemoved: () => void;
   /** The rest running right now is counting down to this movement. */
   upNext?: boolean;
+  /** Being dragged to a new place in the day. */
+  dragging?: boolean;
+  /** Absent on a day she cannot edit — no handle is drawn. */
+  onDragStart?: (e: React.PointerEvent) => void;
+  /** How fast the marker beats — a heart rate settling through the rest. */
+  beatSeconds?: number;
 }) {
   const done = exercise.loggedToday;
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
@@ -799,7 +893,12 @@ export function ExerciseCard({
        findable in a glance down at a bench — this is green, ringed and
        breathing, because the question it answers is "which one am I doing"
        and she is asking it mid-set with a dumbbell in her hand. */
-    <section className={`card overflow-hidden ${upNext ? "border-beat now-glow" : ""}`}>
+    <section
+      className={`card overflow-hidden transition-shadow ${
+        upNext ? "border-beat now-glow" : ""
+      } ${dragging ? "scale-[1.02] opacity-95 shadow-xl shadow-scrim/60" : ""}`}
+      style={upNext ? { animationDuration: `${beat}s` } : undefined}
+    >
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         {/*
           The name and the target are the card's own open/close control. She
@@ -840,6 +939,24 @@ export function ExerciseCard({
           )}
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* The grip. `touch-action: none` is what stops the browser reading
+              the drag as a page scroll and swallowing it — without it this
+              works with a mouse and does nothing at all on a phone, which is
+              the device it is for. */}
+          {onDragStart && (
+            <button
+              onPointerDown={onDragStart}
+              aria-label={`Reorder ${exercise.name}`}
+              className="grid size-8 shrink-0 cursor-grab place-items-center rounded-full text-faint active:cursor-grabbing active:bg-raised"
+              style={{ touchAction: "none" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+              </svg>
+            </button>
+          )}
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
             <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-on-accent"
               aria-label="Target sets complete">✓</span>
@@ -1210,7 +1327,11 @@ function CardModal({ onClose, children }: { onClose: () => void; children: React
       <div
         ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="card-lift w-full max-w-md overscroll-contain"
+        // The padding is not decoration: the marker is a box-shadow, and a
+        // scrolling box clips anything drawn outside it — which showed as the
+        // green appearing at the corners only. This gives the glow room
+        // inside the panel it scrolls in.
+        className="card-lift w-full max-w-md overscroll-contain p-2"
         style={{ maxHeight: "88dvh", overflowY: "auto" }}
       >
         {children}

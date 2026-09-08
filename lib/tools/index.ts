@@ -142,6 +142,7 @@ const all: Tool[] = [
   body.logMeasurement,
   feedback.submitFeedback,
   training.removeExerciseFromDay,
+  training.reorderDayExercises,
   foodTools.findRecipes,
   foodTools.lookupFood,
   nutrition.logMeal,

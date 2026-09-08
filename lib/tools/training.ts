@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { queryVariants, queryWords } from "@/lib/search-terms";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -734,6 +734,48 @@ export const addExerciseToDay = defineTool({
       }).where(eq(planDays.id, found.day.id));
     }
     return { ok: true, added: ex.name, day: DAY_NAMES[found.dow] };
+  },
+});
+
+export const reorderDayExercises = defineTool({
+  name: "reorder_day_exercises",
+  description:
+    "Put a day's exercises in a new order — 'do the squats first', 'move the curls to the end'. Give every slug already on that day, in the order she wants them. Anything you leave out keeps its place at the end, so a partial list cannot silently drop a movement. Defaults to today.",
+  input: z.object({
+    slugs: z.array(z.string()).describe("Every exercise on that day, in the new order"),
+    dayOfWeek: z.number().optional().describe("OMIT for today. 0=Monday … 6=Sunday."),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+
+    const rows = await db.select({
+      id: planExercises.id, slug: exercises.slug, sortOrder: planExercises.sortOrder,
+    }).from(planExercises)
+      .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+      .where(eq(planExercises.planDayId, found.day.id))
+      .orderBy(asc(planExercises.sortOrder));
+
+    const unknown = input.slugs.filter((s) => !rows.some((r) => r.slug === s));
+    if (unknown.length > 0) {
+      return { ok: false, error: `Not on ${DAY_NAMES[found.dow]}: ${unknown.join(", ")}. Call get_plan for what is.` };
+    }
+
+    // Anything she did not name keeps its place at the end, in the order it
+    // already had. A reorder that silently dropped a movement would be a
+    // delete wearing a different name.
+    const named = input.slugs.filter((s, i) => input.slugs.indexOf(s) === i);
+    const rest = rows.filter((r) => !named.includes(r.slug)).map((r) => r.slug);
+    const order = [...named, ...rest];
+
+    for (const [i, slug] of order.entries()) {
+      const row = rows.find((r) => r.slug === slug)!;
+      if (row.sortOrder !== i) {
+        await db.update(planExercises).set({ sortOrder: i }).where(eq(planExercises.id, row.id));
+      }
+    }
+    return { ok: true, day: DAY_NAMES[found.dow], order };
   },
 });
 

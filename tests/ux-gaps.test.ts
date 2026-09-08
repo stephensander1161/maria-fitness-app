@@ -2,6 +2,7 @@ import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { allowanceLeftPct, ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
 import { nextAfter } from "@/components/train-client";
+import { moveItem, slotFor } from "@/lib/reorder";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
 
@@ -255,6 +256,55 @@ suite("which movement am I on", () => {
     expect(css).toMatch(/var\(--color-beat\)/);
     // Still unmistakable for someone who asked for less motion — still, not gone.
     const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
-    expect(reduced).toMatch(/\.now-glow \{ animation: none; box-shadow:/);
+    expect(reduced).toMatch(/\.now-glow \{\s*animation: none;/);
+  });
+});
+
+suite("reordering the day by dragging", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("moves an item in either direction without an off-by-one", () => {
+    const list = ["a", "b", "c", "d"];
+    expect(moveItem(list, 0, 2)).toEqual(["b", "c", "a", "d"]);
+    expect(moveItem(list, 3, 1)).toEqual(["a", "d", "b", "c"]);
+    expect(moveItem(list, 1, 1)).toEqual(list);
+    // Out of range is clamped, never a hole in the list.
+    expect(moveItem(list, 0, 99)).toEqual(["b", "c", "d", "a"]);
+    expect(moveItem(list, 0, -5)).toEqual(list);
+    expect(moveItem(list, 9, 0)).toEqual(list);
+  });
+
+  it("puts the row under the finger, not one behind it", () => {
+    const mids = [50, 150, 250];
+    expect(slotFor(mids, 0)).toBe(0);
+    expect(slotFor(mids, 60)).toBe(0);
+    expect(slotFor(mids, 160)).toBe(1);
+    expect(slotFor(mids, 999)).toBe(2);
+  });
+
+  it("uses pointer events, because HTML5 drag does not fire on touch at all", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/onPointerDown=\{onDragStart\}/);
+    expect(card).toMatch(/style=\{\{ touchAction: "none" \}\}/);
+    expect(card).not.toMatch(/draggable=|onDragOver=/);
+  });
+
+  it("writes the order once, on release", () => {
+    // A write per pixel of movement is a hundred round trips for one drag.
+    const card = read("components/train-client.tsx");
+    const begin = card.slice(card.indexOf("function beginDrag"));
+    expect(begin.slice(0, begin.indexOf("\n  }"))).toMatch(/const end = async/);
+    expect(card).toMatch(/action\("reorder_day_exercises"/);
+    // And not at all when nothing moved.
+    expect(card).toMatch(/if \(order\.join\(\) === before\)/);
+  });
+
+  it("the tool keeps every movement, in a stated order", () => {
+    // A reorder that silently dropped one would be a delete wearing another
+    // name — anything not named keeps its place at the end.
+    const training = read("lib/tools/training.ts");
+    expect(training).toMatch(/name: "reorder_day_exercises"/);
+    expect(training).toMatch(/const rest = rows\.filter\(\(r\) => !named\.includes\(r\.slug\)\)/);
+    expect(training).toMatch(/Not on \$\{DAY_NAMES\[found\.dow\]\}/);
   });
 });
