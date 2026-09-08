@@ -491,18 +491,17 @@ export function TrainClient({
   return (
     <div className="space-y-4">
       {/*
-        The day and its clock in one container, the clock on the right.
-        `basis-40` is the load-bearing part. Once the session is running the
-        controls are a timer *and* a Finish button — half again as wide as
-        "Start workout" — and without a floor under the heading the day's name
-        was squeezed to "Tues…" to make room. With one, the controls wrap onto
-        their own line when they cannot fit, and `ml-auto` keeps them right
-        where they were.
+        The day and its clock in one row: the name on the left, the control on
+        the right, one line in both states. Wrapping is the fallback and not
+        the plan — the controls were sized down until the running pair fits
+        beside a session name on a phone, because a card whose contents jump
+        onto a second line the moment she presses Start is a card that changes
+        shape underneath her.
       */}
       {heading ? (
         <section className="card p-4">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-3">
-            <div className="min-w-0 flex-1 basis-40">{heading}</div>
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+            <div className="min-w-0 flex-1 basis-32">{heading}</div>
             {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
           </div>
         </section>
@@ -764,9 +763,9 @@ function SessionBar({
       <button
         onClick={onStart}
         disabled={busy}
-        className="flex items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-[14px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-[14px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M8 5v14l11-7z" />
         </svg>
         {busy ? "Starting…" : "Start workout"}
@@ -782,21 +781,32 @@ function SessionBar({
     );
   }
 
+  /*
+    Running, this has two controls where the stopped state had one, and it
+    shares its row with the day's name. At "Finish workout" in full, on
+    generous padding, the pair came to about 270px of a 361px row — so the
+    session's name was squeezed to "Tues…", and giving it room instead pushed
+    the controls onto a second line with a lake of empty card beside them.
+    Neither is worth the extra word: the timer says what is running, so the
+    button only has to say how to stop it. The full phrase stays in the label
+    a screen reader gets.
+  */
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3.5 py-2.5">
-        <span className="size-2 animate-pulse rounded-full bg-beat" aria-hidden />
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 rounded-full border border-edge bg-surface px-2.5 py-2">
+        <span className="size-1.5 animate-pulse rounded-full bg-beat" aria-hidden />
         {/* Not a live region: it repaints every second, and announcing each
             tick would talk over everything else the way the rest countdown
             once did. */}
-        <span className="text-[15px] font-semibold tabular-nums">{clockDuration(ms)}</span>
+        <span className="text-[14px] font-semibold tabular-nums">{clockDuration(ms)}</span>
       </div>
       <button
         onClick={onFinish}
         disabled={busy}
-        className="rounded-full border border-edge px-4 py-2.5 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+        aria-label="Finish workout"
+        className="rounded-full border border-edge px-3 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
       >
-        {busy ? "Finishing…" : "Finish workout"}
+        {busy ? "Finishing…" : "Finish"}
       </button>
     </div>
   );
