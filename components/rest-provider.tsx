@@ -225,7 +225,10 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
                 go.slug,
                 set.holdSeconds === undefined ? set.reps ?? 0 : { holdSeconds: set.holdSeconds },
                 set.weight,
-                undefined,
+                // How much was left in the tank, when she said. The GO screen
+                // is where she is most likely to know: she has just put the
+                // weight down.
+                set.rir,
                 go.date as ISODate | undefined,
               ),
             );

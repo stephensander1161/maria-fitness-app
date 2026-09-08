@@ -507,11 +507,16 @@ export async function todaySnapshot(
   // one's weight once reported "6×8 @ 60lb" for a session whose last three sets
   // were at 95 — the model then told her she was still at 60, because that is
   // what this line said. It hid a PR.
+  // The count is stated, not left to be counted. Four sets were listed here
+  // correctly and the coach said "three" — the state block is the thing the
+  // model believes completely, so a number it has to derive is a number it
+  // can get wrong. Same rule as every other fact in this block.
   const summary = [...byExercise.entries()]
-    .map(([name, sets]) => `${name} ${describe(sets, units)}`)
+    .map(([name, sets]) => `${name} — ${sets.length} set${sets.length === 1 ? "" : "s"}: ${describe(sets, units)}`)
     .join("; ");
+  const total = rows.length;
 
-  return `Today she has ALREADY LOGGED: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
+  return `Today she has ALREADY LOGGED ${total} set${total === 1 ? "" : "s"} in total: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Those counts are exact — use them rather than counting the sets yourself. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
 }
 
 /* ── Body measurements ─────────────────────────────────────────────────── */

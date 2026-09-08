@@ -30,7 +30,7 @@ export function GoScreen({
 }: {
   rest: Rest;
   /** Log the set she just did and start the next rest. */
-  onLog: (set: { reps?: number; holdSeconds?: number; weight: number | null }) => Promise<void>;
+  onLog: (set: { reps?: number; holdSeconds?: number; weight: number | null; rir?: number }) => Promise<void>;
   onDismiss: () => void;
 }) {
   const { name, slug, category } = rest;
@@ -54,7 +54,7 @@ export function GoScreen({
     return () => window.removeEventListener("keydown", onKey);
   }, [onDismiss]);
 
-  async function log() {
+  async function log(rir?: number) {
     setBusy(true);
     setError(null);
     try {
@@ -63,6 +63,7 @@ export function GoScreen({
       await onLog({
         ...(held ? { holdSeconds: reps } : { reps }),
         weight: rest.loadable && weight > 0 ? weight : null,
+        ...(rir === undefined ? {} : { rir }),
       });
     } catch (err) {
       setError(actionMessage(err, "That didn't log — try again."));
@@ -130,10 +131,34 @@ export function GoScreen({
             />
           </div>
 
+          {/* The same question the card asks, in the same words. It is the
+              only fatigue signal this app has, and the GO screen is where she
+              is most likely to know the answer — she has just put the weight
+              down. Skipping it is fine: unknown is not zero, and zero here
+              means she went to failure. */}
+          {!held && (
+            <div className="flex items-center gap-1.5">
+              <span className="mr-0.5 shrink-0 text-[11px] uppercase tracking-wide text-faint">
+                Left in tank
+              </span>
+              {[0, 1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => void log(n)}
+                  disabled={busy}
+                  aria-label={`Log it with ${n === 3 ? "3 or more" : n} reps left`}
+                  className="min-w-11 flex-1 rounded-lg border border-edge py-2.5 text-[13px] text-muted active:bg-raised disabled:opacity-40"
+                >
+                  {n === 3 ? "3+" : n}
+                </button>
+              ))}
+            </div>
+          )}
+
           {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
 
           <button
-            onClick={log}
+            onClick={() => void log()}
             disabled={busy}
             className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-50"
           >
