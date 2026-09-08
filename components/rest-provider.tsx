@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logSetOrQueue, setInput } from "@/lib/offline";
 import type { ISODate } from "@/lib/date";
-import { RestTimerBar, type Rest } from "@/components/rest-timer";
+import { heartbeat, RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
 import { advance, isOver, lastFired, markFired, nextRest, shouldFire } from "@/lib/rest-alarm";
 
@@ -169,6 +169,8 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
 
   const start = useCallback((r: Rest) => {
     if (r.seconds <= 0) return;
+    // A set has just been finished. Three beats, then the border carries it.
+    heartbeat();
     setGo(null);
     // A new rest means a set was just logged, which is exactly the thing the
     // reminder was waiting for.

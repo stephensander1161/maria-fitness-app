@@ -49,3 +49,30 @@ suite("how fast the marker beats", () => {
     expect(card).toMatch(/animationDuration: `\$\{beat\}s`/);
   });
 });
+
+suite("the sound that goes with it", () => {
+  const src = fs.readFileSync("components/rest-timer.tsx", "utf8");
+
+  it("is a few beats at the moment a set finishes, never a loop", () => {
+    // A heartbeat running under her music for ninety seconds is a thing
+    // anyone turns off inside one session.
+    expect(src).toMatch(/export function heartbeat\(beats = 3/);
+    const fn = src.slice(src.indexOf("export function heartbeat"));
+    expect(fn.slice(0, fn.indexOf("\n}"))).not.toMatch(/setInterval|requestAnimationFrame/);
+    expect(fs.readFileSync("components/rest-provider.tsx", "utf8")).toMatch(/heartbeat\(\);/);
+  });
+
+  it("is a thump, not a beep: low, falling, and short", () => {
+    const fn = src.slice(src.indexOf("export function heartbeat"), src.indexOf("A notification, for the case"));
+    expect(fn).toMatch(/\[0, 62, 0\.42\], \[0\.15, 48, 0\.26\]/);
+    expect(fn).toMatch(/exponentialRampToValueAtTime\(hz \* 0\.6/);
+  });
+
+  it("stays silent when the browser has not let us make a sound", () => {
+    // iOS suspends the context in the background; a missing thump must never
+    // break the workout.
+    const fn = src.slice(src.indexOf("export function heartbeat"));
+    expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/if \(ctx\.state !== "running"\) return;/);
+    expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/catch \{/);
+  });
+});

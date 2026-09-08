@@ -105,6 +105,47 @@ function beep() {
 }
 
 /**
+ * A few beats of a heart, at the moment a set finishes.
+ *
+ * Deliberately not a loop. A heartbeat running under her music for the whole
+ * ninety seconds is a thing anyone turns off inside one session; three beats
+ * mark the transition — set done, rest started, pulse up — and then get out
+ * of the way, which is also what the pulsing border goes on to say silently.
+ *
+ * Two thumps per beat, low and short: 62Hz then 48Hz, the second softer, with
+ * a fast decay so it reads as a chest thump rather than a bass note.
+ */
+export function heartbeat(beats = 3, intervalS = 0.6) {
+  const ctx = audio;
+  if (!ctx) return;
+  try {
+    if (ctx.state === "suspended") void ctx.resume();
+    if (ctx.state !== "running") return;
+    const t0 = ctx.currentTime;
+    for (let b = 0; b < beats; b++) {
+      const at = t0 + b * intervalS;
+      for (const [offset, hz, peak] of [[0, 62, 0.42], [0.15, 48, 0.26]] as const) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(hz, at + offset);
+        // A pitch that falls away is what makes it a thump rather than a beep.
+        osc.frequency.exponentialRampToValueAtTime(hz * 0.6, at + offset + 0.12);
+        gain.gain.setValueAtTime(0.0001, at + offset);
+        gain.gain.exponentialRampToValueAtTime(peak, at + offset + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + offset + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at + offset);
+        osc.stop(at + offset + 0.18);
+      }
+    }
+  } catch {
+    /* ignore — a missing thump must never break the workout */
+  }
+}
+
+/**
  * A notification, for the case the beep cannot cover: the phone is locked or
  * the app is in the background, where iOS suspends the AudioContext and
  * nothing this page draws is on screen at all.
