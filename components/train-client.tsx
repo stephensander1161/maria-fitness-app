@@ -1204,10 +1204,16 @@ export function ExerciseCard({
           aria-label={canLog ? `${open ? "Hide" : "Show"} the set counter for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
         >
-          {/* Truncated in the grid, where every card must stay the same
-              height; whole when it is the only thing on the screen. "Dumbbell
-              Hammer …" is not a movement anyone can read back. */}
-          <h2 className={`text-[17px] font-semibold ${open ? "" : "truncate"}`}>{exercise.name}</h2>
+          {/* Two lines, not one truncated to nothing.
+              With four round buttons beside it a phone left about a third of
+              the row for the name, and "Dumbb…" is not a movement anyone can
+              read back. Two of those buttons are edits and have moved into
+              the open card; this wraps into what is left rather than
+              disappearing. Two lines, so a long name cannot make one card
+              taller than its neighbours in the grid. */}
+          <h2 className={`text-[17px] font-semibold leading-tight ${open ? "" : "line-clamp-2"}`}>
+            {exercise.name}
+          </h2>
           {/* The computed target where there is one — worked out from what she
               actually logged, not re-derived by the model each week. Labelled
               as a target, because a target read as an achievement is a bug
@@ -1279,32 +1285,14 @@ export function ExerciseCard({
             </svg>
           </button>
           )}
-          {/* The open card already carries the whole library entry — the
-              cues, the mistakes, the safety note — so asking for help there
-              was stacking a second copy of it in a modal on top of the one
-              she was looking at. Closed, this opens the card, which is where
-              the help lives. */}
-          {!open && (
-          <button
-            onClick={openCard}
-            aria-label={`How to do ${exercise.name}`}
-            className="grid size-8 place-items-center rounded-full border border-line text-muted"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9.5" />
-              <path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5" />
-              <path d="M12 17h.01" />
-            </svg>
-          </button>
-          )}
+
           {/*
             "That was actually a different movement." The sets she has already
             logged come with it — she did the work, she just called it
             something else, and a relabel that loses the history is a delete
             wearing a friendly name.
           */}
-          {editable && (
+          {editable && open && (
           <button
             onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
             aria-label={`Change what ${exercise.name} is`}
@@ -1325,7 +1313,7 @@ export function ExerciseCard({
             mean no button at all, which left a movement she had logged once
             with no way off the screen.
           */}
-          {editable && (!exercise.extra || setCount > 0) && (
+          {editable && open && (!exercise.extra || setCount > 0) && (
             <button
               onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
               aria-label={`Remove ${exercise.name} from today`}

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
 import {
-  activityState, cartwheelPose, cartwheelSpin, celebratePose, idlePose, nextActivity, phaseFor,
-  reactionFor, setPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
+  activityState, cartwheelPose, cartwheelSpin, celebratePose, CROWD, idlePose, nextActivity,
+  phaseFor, reactionFor, setPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
   type Activity, type CompanionState, type Pose, type Tone,
 } from "@/lib/companion";
 
@@ -106,7 +106,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
           {/* The ground he walks on. Faint: he is furniture, not a chart. */}
           <line x1="0" y1="96" x2={STAGE_W} y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
           {Array.from({ length: crew }, (_, i) => (
-            <Walker key={i} index={i} tone={tone} busy={busy} />
+            <Walker key={i} index={i} tone={tone} busy={busy} crowded={crew >= CROWD} />
           ))}
         </svg>
         {hasPanel && <span className="sr-only">{label}</span>}
@@ -142,15 +142,31 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
  * of individuals rather than one animation drawn six times — they start on
  * different activities and drift apart within seconds.
  */
-function Walker({ index, tone, busy }: { index: number; tone: Tone; busy: boolean }) {
+/**
+ * A hue each, so a crowd is a crowd of people rather than one figure printed
+ * six times. The first keeps the app's own accent — he is the coach, and
+ * changing colour when a friend turns up would read as a different person.
+ * The rest are spread evenly round the wheel at one saturation and lightness,
+ * which is what stops it looking like a bag of highlighters.
+ */
+function hueFor(index: number): string | undefined {
+  if (index === 0) return undefined;
+  return `hsl(${(index * 47) % 360} 70% 62%)`;
+}
+
+function Walker({
+  index, tone, busy, crowded,
+}: { index: number; tone: Tone; busy: boolean; crowded: boolean }) {
   const root = useRef<SVGGElement>(null);
   const parts = useRef<Record<string, SVGElement>>({});
   const state = useRef<CompanionState>(activityState("walk", (index * 0.37) % 1, 20 + ((index * 29) % 60)));
   const startedAt = useRef(0);
   const busyRef = useRef(false);
   const toneRef = useRef<Tone>(tone);
+  const crowdedRef = useRef(crowded);
 
   useEffect(() => { toneRef.current = tone; }, [tone]);
+  useEffect(() => { crowdedRef.current = crowded; }, [crowded]);
 
   function interrupt(activity: Activity) {
     const where = travel(state.current, (performance.now() - startedAt.current) / 1000);
@@ -228,7 +244,7 @@ function Walker({ index, tone, busy }: { index: number; tone: Tone; busy: boolea
         startedAt.current = now;
         state.current = busyRef.current
           ? activityState("think", 0.5, where0.x)
-          : nextActivity(s.activity, Math.random(), Math.random(), where0.x);
+          : nextActivity(s.activity, Math.random(), Math.random(), where0.x, crowdedRef.current);
       }
 
       const where = travel(state.current, elapsed);
@@ -236,7 +252,7 @@ function Walker({ index, tone, busy }: { index: number; tone: Tone; busy: boolea
       const phase = phaseFor(a, elapsed);
       draw(
         a === "cartwheel" ? cartwheelPose(phase)
-          : a === "set" ? setPose(state.current.pattern, phase)
+          : a === "set" || a === "spar" ? setPose(state.current.pattern, phase)
             : a === "wave" ? wavePose(phase)
               : a === "celebrate" ? celebratePose(phase)
                 : a === "unimpressed" ? unimpressedPose(phase)
@@ -255,7 +271,14 @@ function Walker({ index, tone, busy }: { index: number; tone: Tone; busy: boolea
   }, [index]);
 
   return (
-    <g ref={root} stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none">
+    <g
+      ref={root}
+      style={{ color: hueFor(index) }}
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      fill="none"
+    >
       {/* The far arm and leg sit behind, a shade lighter, so a stride reads
           as two of each rather than as one thick one. */}
       <g opacity="0.55">

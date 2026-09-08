@@ -365,13 +365,19 @@ suite("the open card shows the whole movement", () => {
 suite("asking for help opens the card, rather than stacking on it", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
-  it("the help button opens the card, and is not offered once it is open", () => {
-    // The open card already carries the whole library entry, so asking for
-    // help there put a second copy of it in a modal on top of the one she
-    // was reading.
+  it("has no separate help button at all — the card is the help", () => {
+    // Once the open card carried the whole library entry, a "?" that opened
+    // the card was the same button as the "+" beside it. Two round buttons
+    // doing one job, on a row where the movement's name was losing to them.
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/\{!open && \(\s*<button\s*onClick=\{openCard\}/);
-    expect(card).toMatch(/aria-label=\{`How to do \$\{exercise\.name\}`\}/);
+    expect(card).not.toMatch(/How to do/);
+    expect(card).toMatch(/<FullCues exercise=\{exercise\} \/>/);
+  });
+
+  it("keeps the edits inside the open card, so the name has the row", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/\{editable && open && \(/);
+    expect(card).toMatch(/line-clamp-2/);
   });
 
   it("and the card no longer opens a guide of its own", () => {

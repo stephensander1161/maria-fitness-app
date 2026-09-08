@@ -15,7 +15,9 @@ import { PATTERNS, type Joints, type PatternKey } from "@/lib/movement-patterns"
  */
 
 export type Activity =
-  | "walk" | "laps" | "cartwheel" | "set" | "wave" | "think" | "idle" | "celebrate" | "unimpressed";
+  | "walk" | "laps" | "cartwheel" | "set" | "wave" | "think" | "idle" | "celebrate" | "unimpressed"
+  /** Shadow-boxing. What a crowded floor turns into. */
+  | "spar";
 
 /** The three registers the app already speaks in — profiles.coach_tone. */
 export type Tone = "encouraging" | "plain" | "hype";
@@ -45,15 +47,37 @@ const MOVES: PatternKey[] = ["squat", "lunge", "curl", "raise", "punch", "hinge"
  * finished, which is what stops him doing four sets of squats in a row while
  * standing still.
  */
-export function nextActivity(previous: Activity, roll: number, roll2 = 0.5, fromX = 50): CompanionState {
-  const table: [Activity, number][] = [
-    ["walk", 0.28],
-    ["set", 0.24],
-    ["laps", 0.16],
-    ["cartwheel", 0.12],
-    ["idle", 0.10],
-    ["wave", 0.10],
-  ];
+export function nextActivity(
+  previous: Activity,
+  roll: number,
+  roll2 = 0.5,
+  fromX = 50,
+  /**
+   * Too many of them on one floor.
+   *
+   * Past a certain crowd nobody has room to run laps or turn a cartwheel, so
+   * it turns into a boxing gym: mostly shadow-boxing, with the odd set. It
+   * is a joke, but it is also the honest thing for the space — figures
+   * cartwheeling through each other looks broken, and figures throwing jabs
+   * on the spot looks deliberate.
+   */
+  crowded = false,
+): CompanionState {
+  const table: [Activity, number][] = crowded
+    ? [
+      ["spar", 0.62],
+      ["set", 0.18],
+      ["idle", 0.12],
+      ["wave", 0.08],
+    ]
+    : [
+      ["walk", 0.28],
+      ["set", 0.24],
+      ["laps", 0.16],
+      ["cartwheel", 0.12],
+      ["idle", 0.10],
+      ["wave", 0.10],
+    ];
   const choices = table.filter(([a]) => a !== previous);
   const total = choices.reduce((n, [, w]) => n + w, 0);
   let at = Math.max(0, Math.min(0.999, roll)) * total;
@@ -96,6 +120,8 @@ export function reactionFor(
 /** The shape of one activity: how long it runs and where it goes. */
 export const NEAR = 8;
 export const FAR = 92;
+/** Past this many, there is no room to run and it becomes a boxing gym. */
+export const CROWD = 8;
 
 /**
  * `fromX` is where he already is.
@@ -121,6 +147,9 @@ export function activityState(activity: Activity, roll: number, fromX = 50): Com
       return { ...base, duration: 7 + r * 2, toX: otherEnd };
     case "set":
       return { ...base, duration: 6 + r * 4, pattern: MOVES[Math.floor(r * MOVES.length)] };
+    case "spar":
+      // On the spot, because the floor is full.
+      return { ...base, duration: 4 + r * 4, pattern: "punch" };
     case "wave":
       return { ...base, duration: 2.5 };
     case "celebrate":
@@ -411,6 +440,7 @@ export function phaseFor(activity: Activity, elapsed: number): number {
     activity === "cartwheel" ? 0.35
       : activity === "laps" ? 1.6
         : activity === "walk" ? 0.85
+        : activity === "spar" ? 0.9
         : activity === "set" ? 0.45
           : activity === "celebrate" ? 1.1
             : activity === "wave" ? 0.9

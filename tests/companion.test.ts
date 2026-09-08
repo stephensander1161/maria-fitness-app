@@ -351,3 +351,48 @@ suite("his world", () => {
     expect(c).toMatch(/activityState\("walk", \(index \* 0\.37\) % 1/);
   });
 });
+
+suite("a crowd", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("turns into a boxing gym once there is no room to run", () => {
+    // Figures cartwheeling through each other looks broken; figures throwing
+    // jabs on the spot looks deliberate.
+    const crowdedPicks = new Set(
+      Array.from({ length: 400 }, (_, i) => nextActivity("idle", i / 400, 0.5, 50, true).activity),
+    );
+    expect(crowdedPicks.has("spar")).toBe(true);
+    // Nothing that needs the floor to itself.
+    expect(crowdedPicks.has("laps")).toBe(false);
+    expect(crowdedPicks.has("cartwheel")).toBe(false);
+    expect(crowdedPicks.has("walk")).toBe(false);
+  });
+
+  it("and goes back to wandering when it thins out", () => {
+    const roomy = new Set(
+      Array.from({ length: 400 }, (_, i) => nextActivity("idle", i / 400, 0.5, 50, false).activity),
+    );
+    expect(roomy.has("walk")).toBe(true);
+    expect(roomy.has("laps")).toBe(true);
+    expect(roomy.has("spar")).toBe(false);
+  });
+
+  it("spars on the spot, with the punches", () => {
+    const s = activityState("spar", 0.5, 70);
+    expect(s.pattern).toBe("punch");
+    expect(s.x).toBe(70);
+    expect(travel(s, 99).x).toBe(70);
+    // Faster than a set, because it is not one.
+    expect(phaseFor("spar", 0.5)).toBeGreaterThan(phaseFor("set", 0.5));
+  });
+
+  it("gives each of them their own colour, and leaves the first one alone", () => {
+    // He is the coach; changing colour when a friend turns up would read as
+    // a different person.
+    const c = read("components/companion.tsx");
+    expect(c).toMatch(/function hueFor\(index: number\)/);
+    expect(c).toMatch(/if \(index === 0\) return undefined;/);
+    expect(c).toMatch(/hsl\(\$\{\(index \* 47\) % 360\} 70% 62%\)/);
+    expect(c).toMatch(/style=\{\{ color: hueFor\(index\) \}\}/);
+  });
+});
