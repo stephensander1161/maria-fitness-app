@@ -813,7 +813,23 @@ export async function goalProgress(profileId: string, units: Units): Promise<str
     .from(goals)
     .where(and(eq(goals.profileId, profileId), sql`${goals.achievedAt} is null`))
     .orderBy(goals.sortOrder, goals.createdAt);
-  if (open.length === 0) return "No open milestones.";
+  // Reached, and she has not been told. The weight ladder settles itself off
+  // her trend, so this is the only place the coach finds out — and a
+  // milestone nobody mentions is a milestone that may as well not have been
+  // set. `celebrated` is what stops it being announced every turn; the model
+  // sets it by calling achieve_goal once it has actually said so.
+  const uncelebrated = await db
+    .select({ id: goals.id, title: goals.title })
+    .from(goals)
+    .where(and(eq(goals.profileId, profileId),
+      sql`${goals.achievedAt} is not null`, eq(goals.celebrated, false)))
+    .orderBy(desc(goals.achievedAt))
+    .limit(3);
+  const fanfare = uncelebrated.length === 0 ? "" :
+    `SHE HAS JUST REACHED, and has not been told: ${uncelebrated
+      .map((g) => `"${g.title}" (id ${g.id})`).join(", ")}. Say so specifically, then call achieve_goal on each.\n`;
+
+  if (open.length === 0) return `${fanfare}No open milestones.`.trim();
 
   const [latestWeight] = await db
     .select({ weightKg: weighIns.weightKg })
@@ -872,7 +888,7 @@ export async function goalProgress(profileId: string, units: Units): Promise<str
     }),
   );
 
-  return `Open milestones, measured from her logged data:\n${lines.join("\n")}`;
+  return `${fanfare}Open milestones, measured from her logged data:\n${lines.join("\n")}`;
 }
 
 /* ── Progression over time ─────────────────────────────────────────────── */

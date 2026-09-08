@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-08-milestones",
+    date: "2026-09-08",
+    title: "The steps between here and your goal",
+    blurb: "Your goal weight now comes with a ladder — five pounds at a time, or two kilos, counting the way you are actually going. Rungs tick themselves off as your trend passes them, and the goal is yours to change from Progress whenever you want.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-07-recipe-photo",
     date: "2026-09-07",
     title: "Photograph a recipe, get the numbers",

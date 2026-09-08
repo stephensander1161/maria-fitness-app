@@ -1,6 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
+import { GoalCard } from "@/components/goal-card";
+import { runTool } from "@/lib/tools";
+import { goalDirection } from "@/lib/nutrition";
 import { requireOnboarded } from "@/lib/session";
 import {
   currentStreak, exerciseProgression, measurementProgress, nutritionTrend, weekReview,
@@ -53,6 +56,31 @@ export default async function ProgressPage() {
   const weekly = weightOut(trend.weeklyChangeKg, u);
   const start = weightOut(profile.startWeightKg, u);
   const goal = weightOut(profile.goalWeightKg, u);
+  // Which way she is going — the one place that decides, not a subtraction
+  // done again here. Judged on the trend, like everything else that reads her
+  // weight over time.
+  const direction = goalDirection(latest ?? profile.startWeightKg ?? 0, profile.goalWeightKg);
+
+  // Accounts that predate the ladder have a goal and no rungs. Built once,
+  // here, through the tool — the same shape as the meal panel asking for a
+  // recipe the planner left blank: only when there is nothing, so the second
+  // open does no work, and never a model call. A "hold" has no rungs by
+  // design, so it is not treated as missing.
+  let rows = milestones;
+  if (direction !== "hold" && !milestones.some((m) => m.source === "auto")) {
+    await runTool("set_weight_milestones", {}, { profileId: profile.id });
+    rows = await db.select().from(goals).where(eq(goals.profileId, profile.id))
+      .orderBy(goals.sortOrder, goals.createdAt);
+  }
+  const ladder = rows.map((m) => ({
+    id: m.id,
+    title: m.title,
+    target: m.kind === "weight" || m.kind === "strength" ? weightOut(m.targetValue, u) : m.targetValue,
+    achieved: m.achievedAt !== null,
+    achievedOn: m.achievedAt ? prettyDate(m.achievedAt.toISOString().slice(0, 10)) : null,
+    auto: m.source === "auto",
+    targetDate: m.targetDate,
+  }));
   const lost = start !== null && current !== null ? Math.round((start - current) * 10) / 10 : null;
   const toGo = goal !== null && current !== null ? Math.round((current - goal) * 10) / 10 : null;
   const pct =
@@ -161,7 +189,17 @@ export default async function ProgressPage() {
         — "still to do this week" and "no milestones yet" do not each need a
         heading, a border, and a screenful of scroll between them.
       */}
-      <section className="card mb-3 grid gap-x-6 gap-y-4 p-5 md:grid-cols-2">
+      <GoalCard
+        goal={goal}
+        current={current}
+        start={start}
+        unit={unit}
+        goalDate={profile.goalDate}
+        direction={direction}
+        rungs={ladder}
+      />
+
+      <section className="card mb-3 p-5">
         <div>
           <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">This week</h2>
           {/* What is left, first: after finishing Tuesday's session this
@@ -189,43 +227,6 @@ export default async function ProgressPage() {
           )}
         </div>
 
-        <div>
-          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Milestones</h2>
-          {milestones.length === 0 ? (
-            <p className="text-[13px] leading-relaxed text-faint">
-              None yet. Ask your coach to set a few — they make the big goal feel reachable.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {milestones.map((m) => (
-                <li key={m.id} className="flex items-start gap-2.5">
-                  {/* The tick used to render in both states, transparent when
-                      unachieved — so a milestone she has not hit announced as
-                      "✓ Squat bodyweight". */}
-                  <span
-                    aria-hidden={!m.achievedAt}
-                    aria-label={m.achievedAt ? "Achieved" : undefined}
-                    className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border text-[10px] ${
-                      m.achievedAt ? "border-beat bg-beat text-on-accent" : "border-edge text-transparent"
-                    }`}
-                  >
-                    {m.achievedAt ? "✓" : ""}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-[13px] leading-snug ${m.achievedAt ? "text-muted line-through" : ""}`}>
-                      {m.title}
-                    </p>
-                    <p className="text-[11px] text-faint">
-                      {m.achievedAt
-                        ? `Hit ${prettyDate(m.achievedAt.toISOString().slice(0, 10))}`
-                        : m.targetDate ? `By ${prettyDate(m.targetDate)}` : m.kind}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </section>
 
 

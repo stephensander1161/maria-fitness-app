@@ -120,6 +120,13 @@ export async function POST(req: Request) {
   const today = profileToday({ timezone: input.timezone ?? null });
   await runTool("log_weight", { weight: input.currentWeight, date: today }, ctx);
 
+  // The ladder between where she is and where she said she wants to be. On
+  // day one, because a goal thirty pounds away with nothing in between is one
+  // number that does not move for months — and the rungs are the only thing
+  // the app can give her to hit in the meantime. Her direction, so someone
+  // asking to gain is not handed "Down 5 lb" on the first screen they see.
+  await runTool("set_weight_milestones", {}, ctx);
+
   await audit("onboarding.completed", { req, detail: { userId: user.id } });
 
   // Targets from her own numbers, in the direction she actually asked for.

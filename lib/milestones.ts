@@ -70,6 +70,15 @@ export function weightLadder(input: {
   if (goal === null || goal === undefined) return [];
   if (direction === "hold") return [];
 
+  // The direction decided elsewhere has to agree with the two numbers, or
+  // there is nothing honest to build. This is not defensive tidying: a goal
+  // of 160 from a start of 180 with a direction of "gain" is two sources
+  // disagreeing about what she asked for, and picking either one silently is
+  // how someone gets handed the opposite of their own request. Empty, and the
+  // caller says it cannot build one.
+  if (direction === "gain" && goal <= start) return [];
+  if (direction === "lose" && goal >= start) return [];
+
   const distance = Math.abs(goal - start);
   const asked = input.step ?? LADDER_STEP[units];
   if (!(asked > 0) || !Number.isFinite(distance) || distance === 0) return [];

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { LATEST_ID } from "@/lib/whats-new";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -8,6 +8,8 @@ import { daysBetween, FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import { heightLabel, inToCm, weightIn, weightLabel, weightOut } from "@/lib/units";
 import { missingForPlan, profileToday, todayForProfile, ageFrom } from "@/lib/profile";
 import { weightTrend } from "@/lib/trend";
+import { goalDirection, type GoalDirection } from "@/lib/nutrition";
+import { rungReached, rungTitle, weightLadder, type Rung } from "@/lib/milestones";
 import { foodUnitsOf } from "@/lib/food-units";
 import { MAX_REST_SECONDS, MIN_REST_SECONDS, REST_GROUPS } from "@/lib/rest";
 import { explainScaleMove } from "@/lib/weight-explainer";
@@ -161,6 +163,16 @@ export const updateProfile = defineTool({
         .values({ profileId: ctx.profileId, date: profileToday(p), weightKg: kg })
         .onConflictDoUpdate({ target: [weighIns.profileId, weighIns.date], set: { weightKg: kg } });
     }
+    // A goal she has changed is a ladder pointing at the old number. Rebuilt
+    // here rather than left to the model to remember, because the milestone
+    // that quietly still asks for the weight she has stopped chasing is the
+    // one that makes the whole feature feel broken. Her own milestones and
+    // every rung she has already reached survive it.
+    if (patch.goalWeightKg !== undefined || patch.startWeightKg !== undefined) {
+      await rebuildWeightLadder(ctx.profileId);
+      await settleWeightLadder(ctx.profileId);
+    }
+
     return { ok: true, updated: Object.keys(patch) };
   },
 });
@@ -194,6 +206,10 @@ export const logWeight = defineTool({
         set: { weightKg: kg, note: input.note },
       });
 
+    // Whatever the trend has just passed. On the trend rather than this
+    // number: a single morning crosses a rung and uncrosses it tomorrow.
+    const justHit = await settleWeightLadder(ctx.profileId);
+
     const u = p.units;
     const toGoal = p.goalWeightKg !== null ? kg - p.goalWeightKg : null;
 
@@ -217,6 +233,11 @@ export const logWeight = defineTool({
       changeSinceLast: prev && prev.date !== date ? weightOut(kg - prev.weightKg, u) : null,
       changeSinceStart: p.startWeightKg !== null ? weightOut(kg - p.startWeightKg, u) : null,
       remainingToGoal: weightOut(toGoal, u),
+      // Milestones her *trend* has just passed. Named here so the moment is
+      // not missed — a milestone nobody mentions is a milestone that may as
+      // well not have been set. Call achieve_goal on each once you have said
+      // so, or it comes back on the next weigh-in.
+      milestonesJustReached: justHit.length > 0 ? justHit : undefined,
       // One reading is never progress; this says what it *is*.
       context: context?.note ?? null,
     };
@@ -301,6 +322,139 @@ export const setGoal = defineTool({
   },
 });
 
+/**
+ * Rebuild the automatic weight ladder for a profile.
+ *
+ * Shared by the tool, by onboarding, and by every path that moves her goal
+ * weight, because a ladder pointing at a goal she has changed is worse than
+ * no ladder — it is the app still asking her for the old thing.
+ *
+ * Milestones she or the coach wrote by hand are never touched. Rungs she has
+ * already reached are never deleted either: hitting ten pounds down happened,
+ * and it stays happened whatever she does with the goal afterwards.
+ */
+export async function rebuildWeightLadder(
+  profileId: string, opts: { step?: number } = {},
+): Promise<{ rungs: Rung[]; created: number; direction: GoalDirection }> {
+  const [p] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  if (!p) throw new Error("Profile not found");
+  const u = p.units;
+
+  const weighs = await db
+    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+    .from(weighIns).where(eq(weighIns.profileId, profileId)).orderBy(desc(weighIns.date));
+  const currentKg = weighs[0]?.weightKg ?? p.startWeightKg;
+
+  // The ladder is measured from where she *started*, not from today: "down
+  // 10 lb" means ten from the beginning, and rebasing it every weigh-in
+  // would move the finish line every morning.
+  const startKg = p.startWeightKg ?? currentKg;
+  const direction = goalDirection(currentKg ?? 0, p.goalWeightKg);
+
+  const rungs = weightLadder({
+    startWeight: weightOut(startKg, u),
+    goalWeight: weightOut(p.goalWeightKg, u),
+    direction,
+    units: u,
+    step: opts.step,
+  });
+
+  const existing = await db.select().from(goals)
+    .where(and(eq(goals.profileId, profileId), eq(goals.source, "auto")));
+  const keep = existing.filter((g) => g.achievedAt !== null);
+  const stale = existing.filter((g) => g.achievedAt === null);
+
+  if (stale.length > 0) {
+    await db.delete(goals).where(inArray(goals.id, stale.map((g) => g.id)));
+    await audit("data.deleted", {
+      detail: { profileId, scope: "weight_milestones", removed: stale.length },
+    });
+  }
+
+  // An already-reached rung at the same weight is not created twice.
+  const have = new Set(keep.map((g) => g.targetValue === null ? "" : g.targetValue.toFixed(2)));
+  const fresh = rungs.filter((r) => !have.has(weightIn(r.target, u).toFixed(2)));
+  if (fresh.length > 0) {
+    await db.insert(goals).values(fresh.map((r, i) => ({
+      profileId,
+      title: rungTitle(r, direction, weightLabel(u)),
+      kind: "weight" as const,
+      targetValue: weightIn(r.target, u),
+      unit: weightLabel(u),
+      source: "auto" as const,
+      // Nearest rung first, and always after anything she wrote herself.
+      sortOrder: 100 + i,
+    })));
+  }
+  return { rungs, created: fresh.length, direction };
+}
+
+/**
+ * Mark every rung the trend has passed, and hand back the ones just reached.
+ *
+ * Judged on the trend rather than this morning's number, because this app
+ * celebrates milestones out loud and a raw weigh-in crosses a rung and
+ * uncrosses it a day later on water alone. Congratulating her on five pounds
+ * and silently taking it back is worse than saying it three days late.
+ */
+export async function settleWeightLadder(profileId: string): Promise<string[]> {
+  const [p] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+  if (!p) return [];
+  const weighs = await db
+    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+    .from(weighIns).where(eq(weighIns.profileId, profileId)).orderBy(desc(weighIns.date));
+  if (weighs.length === 0) return [];
+
+  const trend = weightTrend([...weighs].reverse(), weighs[0].date);
+  const trendKg = trend.trendKg;
+  if (trendKg === null) return [];
+
+  const direction = goalDirection(trendKg, p.goalWeightKg);
+  if (direction === "hold") return [];
+
+  const open = await db.select().from(goals).where(and(
+    eq(goals.profileId, profileId), eq(goals.source, "auto"), sql`${goals.achievedAt} is null`,
+  ));
+  const hit = open.filter((g) => g.targetValue !== null
+    && rungReached({ target: g.targetValue, moved: 0, isGoal: false }, trendKg, direction));
+  if (hit.length === 0) return [];
+
+  await db.update(goals)
+    .set({ achievedAt: new Date(), celebrated: false })
+    .where(inArray(goals.id, hit.map((g) => g.id)));
+  return hit.map((g) => g.title);
+}
+
+export const setWeightMilestones = defineTool({
+  name: "set_weight_milestones",
+  description:
+    "Builds the ladder of weight milestones between where she started and her goal — five pounds at a time, or two kilos, in whichever direction she is actually going. Call it when she sets or changes a goal weight, or asks for milestones toward one. Rebuilding is safe and idempotent: milestones she wrote herself are left alone, and rungs she has already reached stay reached. Pass `spacing` only if she asks for bigger or smaller steps.",
+  input: z.object({
+    spacing: z.number().optional()
+      .describe("Distance between rungs in her units — 5 or 10 lb. Leave out for the default."),
+  }),
+  handler: async (input, ctx) => {
+    const p = await profileOf(ctx);
+    const out = await rebuildWeightLadder(ctx.profileId, { step: input.spacing });
+    await settleWeightLadder(ctx.profileId);
+    if (out.rungs.length === 0) {
+      return {
+        ok: true,
+        rungs: [],
+        note: out.direction === "hold"
+          ? "Her goal is where she already is, so there is nothing to ladder toward — say that plainly rather than inventing steps. If she wants a target, ask what it is."
+          : "No start weight or no goal weight on file, so there is nothing to build from. Ask for the missing one and call set_profile.",
+      };
+    }
+    return {
+      ok: true,
+      direction: out.direction,
+      unit: weightLabel(p.units),
+      rungs: out.rungs.map((r) => ({ target: r.target, title: rungTitle(r, out.direction, weightLabel(p.units)) })),
+    };
+  },
+});
+
 export const listGoals = defineTool({
   name: "list_goals",
   description: "All her goals and milestones, with which are achieved and which are still open.",
@@ -330,15 +484,20 @@ export const listGoals = defineTool({
 export const achieveGoal = defineTool({
   name: "achieve_goal",
   description:
-    "Mark a milestone as hit. Call this the moment the data supports it — then celebrate it specifically, naming what she did.",
+    "Mark a milestone as hit, and record that she has been told. Call it the moment the data supports it — then celebrate it specifically, naming what she did. Weight milestones mark themselves as her trend passes them; calling this on one of those is how you record that you have actually said so, and it is what stops the same milestone being announced every turn.",
   input: z.object({ goalId: z.string() }),
   handler: async (input, ctx) => {
+    const [before] = await db.select().from(goals)
+      .where(and(eq(goals.id, input.goalId), eq(goals.profileId, ctx.profileId))).limit(1);
+    if (!before) throw new Error("Goal not found");
+    // Weight rungs settle themselves from the trend, so this is often called
+    // on one that is already marked. Calling it then means "I have told her"
+    // — which is what stops the same milestone being announced every turn.
     const [row] = await db.update(goals)
-      .set({ achievedAt: new Date() })
-      .where(and(eq(goals.id, input.goalId), eq(goals.profileId, ctx.profileId)))
+      .set({ achievedAt: before.achievedAt ?? new Date(), celebrated: true })
+      .where(eq(goals.id, before.id))
       .returning();
-    if (!row) throw new Error("Goal not found");
-    return { ok: true, title: row.title, achievedAt: row.achievedAt };
+    return { ok: true, title: row.title, achievedAt: row.achievedAt, alreadyHit: before.achievedAt !== null };
   },
 });
 

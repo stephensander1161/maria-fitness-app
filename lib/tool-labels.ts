@@ -31,6 +31,7 @@ export const TOOL_LABELS: Record<string, string> = {
   delete_progress_photos: "deleting your photos", clear_range: "clearing those days",
   forget_conversation: "forgetting that",
   set_goal: "setting a milestone", list_goals: "reviewing your goals",
+  set_weight_milestones: "laying out your weight milestones",
   achieve_goal: "marking a milestone hit", search_exercises: "searching exercises",
   get_exercise_guide: "pulling up the form guide", create_weekly_plan: "building your week",
   get_plan: "checking your plan", adjust_plan_day: "adjusting your plan",

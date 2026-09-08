@@ -503,6 +503,14 @@ export const goals = pgTable("goals", {
   exerciseId: uuid("exercise_id").references(() => exercises.id, { onDelete: "set null" }),
   achievedAt: timestamp("achieved_at", { withTimezone: true }),
   celebrated: boolean("celebrated").default(false).notNull(),
+  /**
+   * Who put it there. "auto" is a rung of the weight ladder, rebuilt whenever
+   * the goal moves; "manual" is one she or the coach wrote, and is never
+   * touched by a rebuild. Without the distinction, changing a goal weight
+   * either orphans a ladder pointing at the old number or deletes the
+   * milestone she asked for by hand.
+   */
+  source: text("source", { enum: ["manual", "auto"] }).default("manual").notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: createdAt(),
 });
