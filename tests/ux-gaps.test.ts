@@ -148,3 +148,17 @@ suite("left in the tank is answered, not committed to", () => {
     }
   });
 });
+
+suite("no day is locked", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("a past day can be logged to like any other", () => {
+    // Training past midnight puts the session she is *in* on "yesterday", so
+    // the lock fell on exactly the person who most needed to type.
+    const card = read("components/train-client.tsx");
+    expect(card).not.toMatch(/lockBanner|setUnlocked|Locked so a stray/);
+    expect(card).toMatch(/const editable = true;/);
+    // And nothing is left computing whether a day is in the past.
+    expect(card).not.toMatch(/todayOnDevice/);
+  });
+});

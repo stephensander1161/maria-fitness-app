@@ -197,21 +197,6 @@ suite("it works with a mouse too", () => {
     expect(signOut.match(/fetch\("\/api\/login"/g)).toHaveLength(1);
   });
 
-  it("never locks a day without offering the key", () => {
-    // A past *rest* day had neither an add button nor the Edit that brings one
-    // back: no exercises, so the early return fired; past, so it was not
-    // editable. A dead end, and the one people actually hit — "I cannot add a
-    // workout to a rest day" is exactly what that looks like from outside.
-    // The banner is defined once and rendered by every branch, so the lock and
-    // its key cannot be separated again.
-    const src = read("components/train-client.tsx");
-    expect(src).toMatch(/const lockBanner = past \?/);
-    // Every early return renders it, not just the main one.
-    const returns = src.split("return (").length - 1;
-    expect(returns).toBeGreaterThan(2);
-    expect((src.match(/\{lockBanner\}/g) ?? []).length).toBeGreaterThanOrEqual(3);
-  });
-
   it("gives every bottom sheet a desktop position", () => {
     // An 88dvh sheet glued to the bottom edge of a 27-inch screen is a phone
     // app in a window.

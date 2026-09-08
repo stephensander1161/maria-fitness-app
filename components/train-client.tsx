@@ -66,17 +66,18 @@ export function TrainClient({
   const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
   /**
-   * A finished day is read-first.
+   * Every day is editable, including the ones behind her.
    *
-   * The cards are the same on every day, which is right — but a past session
-   * is something she is *reading*, and every control that logs a set is one
-   * mis-tap away from rewriting a workout she has already done. So the past
-   * arrives locked and she opens it deliberately. Today and the days ahead
-   * are for doing and planning, and are not locked.
+   * A past day used to arrive locked, on the reasoning that a finished
+   * session is something she is reading and a mis-tap would rewrite it. The
+   * cost turned out to be higher than the risk, and it lands on exactly the
+   * person who most needs to type: training past midnight puts the session
+   * she is *in* on "yesterday", so the app locks the workout she is doing
+   * and asks her to tap Edit to carry on. A stray tap opens a stepper she
+   * then has to confirm; that is a cheap mistake. Being unable to log the
+   * set in front of her is not.
    */
-  const past = !isToday && date !== undefined && date < todayOnDevice();
-  const [unlocked, setUnlocked] = useState(false);
-  const editable = isToday || !past || unlocked;
+  const editable = true;
   const [error, setError] = useState<string | null>(null);
   // The countdown lives above the router now, so it keeps running when she
   // wanders off to the food screen mid-rest.
@@ -186,40 +187,10 @@ export function TrainClient({
     }
   }
 
-  /**
-   * The lock on a past day, and the way out of it.
-   *
-   * This used to live only in the main return, which meant a *past rest day*
-   * had neither an add button nor the Edit that would bring one back: no
-   * exercises, so the early return fired; past, so `editable` was false. A
-   * dead end, and the one people hit — "I cannot add a workout to a rest day"
-   * is exactly what that looks like from outside.
-   *
-   * It is defined here and rendered by every branch instead, so the lock and
-   * its key are never separated again.
-   */
-  const lockBanner = past ? (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
-      <p className="min-w-0 text-[12px] text-faint">
-        {unlocked
-          ? "Editing a day that has already been."
-          : "A day that has already been. Locked so a stray tap cannot change it."}
-      </p>
-      <button
-        onClick={() => setUnlocked(!unlocked)}
-        className={`shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-          unlocked ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted hover:bg-raised"
-        }`}
-      >
-        {unlocked ? "Done editing" : "Edit"}
-      </button>
-    </div>
-  ) : null;
 
   if (view.isRest && view.exercises.length === 0) {
     return (
       <div className="space-y-4">
-        {lockBanner}
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
         {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
@@ -228,7 +199,6 @@ export function TrainClient({
   if (!view.hasPlan || view.exercises.length === 0) {
     return (
       <div className="space-y-4">
-        {lockBanner}
         <Empty
           title="No workout planned"
           body="Add movements below and this becomes today's session — or ask your coach to build the whole week."
@@ -254,8 +224,6 @@ export function TrainClient({
 
   return (
     <div className="space-y-4">
-      {lockBanner}
-
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -384,9 +352,6 @@ export function TrainClient({
     </div>
   );
 }
-
-/** Her device's today, for deciding whether a screen's day is in the past. */
-const todayOnDevice = () => new Date().toLocaleDateString("en-CA");
 
 /** 0=Monday, from a YYYY-MM-DD. Undefined when the caller means today. */
 /**
