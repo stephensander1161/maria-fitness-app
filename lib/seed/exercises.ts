@@ -687,6 +687,9 @@ export const EXERCISES: Seed[] = [
   {
     slug: "lateral-raise", name: "Dumbbell Lateral Raise", category: "isolation",
     primaryMuscles: ["shoulders"], equipment: ["dumbbell"],
+    // What people call it. "Side raise" found nothing at all, which is how
+    // you end up believing the library has no lateral raise in it.
+    tags: ["side raise", "side lateral", "delts", "shoulder raise"],
     formCues: ["Light dumbbells, slight bend in the elbows.", "Lead with your elbows, not your hands.", "Stop at shoulder height, then lower slowly."],
     commonMistakes: ["Swinging the weight with body momentum.", "Going too heavy — this one is built with control, not load."],
     harder: ["palms-up-lateral-raise"],
@@ -717,7 +720,7 @@ export const EXERCISES: Seed[] = [
     // biceps and forearms to work holding the dumbbell there, which is where
     // people actually feel this one.
     primaryMuscles: ["shoulders", "biceps", "forearms"], equipment: ["dumbbell"],
-    tags: ["supinated", "open palm", "palm up", "underhand"],
+    tags: ["supinated", "open palm", "palm up", "underhand", "side raise", "delts"],
     formCues: [
       "Dumbbells at your sides, palms turned up and open — the weight rests across the hand rather than being squeezed.",
       "Slight bend in the elbows, and it stays the same the whole way.",

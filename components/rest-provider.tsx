@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  createContext, startTransition, useCallback, useContext, useMemo, useState,
+  createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState,
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { logSetOrQueue, setInput } from "@/lib/offline";
 import type { ISODate } from "@/lib/date";
 import { RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
+import { isOver, lastFired, markFired, nextRest, shouldFire } from "@/lib/rest-alarm";
 
 /**
  * The rest timer, hoisted out of the Train screen and into the app.
@@ -157,7 +158,40 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const dismiss = useCallback(() => { setGo(null); setAwaiting(null); write(null); }, []);
-  const fireGo = useCallback(() => { setGo(getSnapshot()); }, []);
+  // Never raise an empty GO screen: `getSnapshot()` is null the moment the
+  // rest is dismissed, and racing that produced a black screen with nothing
+  // on it.
+  const fireGo = useCallback(() => { setGo((g) => g ?? getSnapshot()); }, []);
+
+  /**
+   * The backstop.
+   *
+   * The alarm is fired by the countdown bar, which is fine until the bar is
+   * not being rendered or its interval has been throttled to a stop by a
+   * backgrounded phone — and then the rest runs out and nothing happens at
+   * all. This watches the rest itself: it fires the moment it is due, on a
+   * timer sized to the rest, and immediately if it is already past.
+   */
+  useEffect(() => {
+    if (!rest) return;
+    const fire = () => {
+      if (!shouldFire(rest, Date.now(), lastFired())) return;
+      markFired(rest.endsAt);
+      setGo((g) => g ?? rest);
+    };
+    if (isOver(rest, Date.now())) { fire(); return; }
+    const id = window.setTimeout(fire, Math.max(0, rest.endsAt - Date.now()));
+    // Coming back from a locked screen: the timeout may have been throttled
+    // past its due time, so check on the way in rather than waiting for it.
+    const onBack = () => { if (isOver(rest, Date.now())) fire(); };
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("focus", onBack);
+    };
+  }, [rest]);
 
   /**
    * Clearing the GO screen is not the same as doing the set.
@@ -199,12 +233,15 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
             // logging here rather than on the card.
             setGo(null);
             // Seed the next rest with whatever she just did, in its own unit.
-            write({
+            // nextRest refuses to build one from a length that is not a
+            // positive number of seconds: `endsAt` would be NaN, and a NaN
+            // rest never comes due, so the countdown sits there and the alarm
+            // never fires again for the rest of the session.
+            write(nextRest({
               ...go,
-              endsAt: Date.now() + go.seconds * 1000,
               reps: set.holdSeconds ?? set.reps ?? go.reps,
               weight: set.weight,
-            });
+            }, Date.now()));
             setAwaiting(null);
             startTransition(() => router.refresh());
           }}

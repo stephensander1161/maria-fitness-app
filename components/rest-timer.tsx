@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { lastFired, markFired, shouldFire } from "@/lib/rest-alarm";
 import { PATTERNS } from "@/lib/movement-patterns";
 
 /**
@@ -361,20 +362,23 @@ export function RestTimerBar({
   const now = useFrameClock(!over);
   const startedAt = rest.endsAt - rest.seconds * 1000;
   const elapsed = now === 0 ? 0 : now - startedAt;
-  const firedFor = useRef<number | null>(null);
+
 
   useScreenAwake(!over);
 
   useEffect(() => {
-    if (!over || firedFor.current === rest.endsAt) return;
-    firedFor.current = rest.endsAt;
+    // The guard lives outside React (lib/rest-alarm.ts): in a ref it reset on
+    // every remount, and a router.refresh() after logging a set from the GO
+    // screen was enough to raise a second GO screen for a rest that had
+    // already gone off.
+    if (!shouldFire(rest, Date.now(), lastFired())) return;
+    markFired(rest.endsAt);
     // If the phone was locked through the whole rest, this runs on the way
     // back in — late, but she still gets the buzz and the beep.
     fireAlarm(rest.name);
     onOver?.();
-    // `rest.name` only rides along for the notification text; `firedFor` is
-    // what guarantees one alarm per rest however often this re-runs.
-  }, [over, rest.endsAt, rest.name, onOver]);
+    // `rest.name` only rides along for the notification text.
+  }, [over, rest, rest.endsAt, rest.name, onOver]);
 
   /**
    * The tab itself shouts. On a desktop the app is usually behind an editor or
