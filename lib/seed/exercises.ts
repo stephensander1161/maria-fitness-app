@@ -689,6 +689,28 @@ export const EXERCISES: Seed[] = [
     primaryMuscles: ["shoulders"], equipment: ["dumbbell"],
     formCues: ["Light dumbbells, slight bend in the elbows.", "Lead with your elbows, not your hands.", "Stop at shoulder height, then lower slowly."],
     commonMistakes: ["Swinging the weight with body momentum.", "Going too heavy — this one is built with control, not load."],
+    harder: ["palms-up-lateral-raise"],
+  },
+  {
+    slug: "palms-up-lateral-raise", name: "Palms-Up Lateral Raise", category: "isolation",
+    // Side delt does the lifting; the open, supinated hand is what puts the
+    // biceps and forearms to work holding the dumbbell there, which is where
+    // people actually feel this one.
+    primaryMuscles: ["shoulders", "biceps", "forearms"], equipment: ["dumbbell"],
+    tags: ["supinated", "open palm", "palm up", "underhand"],
+    formCues: [
+      "Dumbbells at your sides, palms turned up and open — the weight rests across the hand rather than being squeezed.",
+      "Slight bend in the elbows, and it stays the same the whole way.",
+      "Raise out to the side until the arms are straight out at shoulder height.",
+      "Lower slowly. The open palm is the point: if you have to grip hard to keep it there, the weight is too heavy.",
+    ],
+    commonMistakes: [
+      "Gripping the handle tight, which turns it back into an ordinary lateral raise.",
+      "Going above shoulder height, where the shoulder blade takes over from the delt.",
+      "Swinging up with the body — this one is built with control, not load.",
+    ],
+    safetyNote: "Turning the palm up rotates the shoulder outward under load. If it pinches at the top, lower the range and the weight before anything else.",
+    easier: ["lateral-raise"],
   },
   {
     slug: "tricep-pushdown", name: "Cable Tricep Pushdown", category: "isolation",
