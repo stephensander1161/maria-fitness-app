@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
 import {
-  activityState, cartwheelPose, cartwheelSpin, celebratePose, CROWD, idlePose, nextActivity,
+  activityState, cartwheelPose, cartwheelSpin, celebratePose, idlePose, nextActivity,
   phaseFor, reactionFor, setPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
   type Activity, type CompanionState, type Pose, type Tone,
 } from "@/lib/companion";
@@ -29,49 +30,21 @@ import {
 
 /** The stage is wide and short, so he has a floor rather than a square. */
 const STAGE_W = 300;
-const CREW_KEY = "coach.crew";
-/** Enough to be silly, few enough to still be a stage rather than a crowd. */
-const MAX_CREW = 25;
 
-export function Companion({ tone = "plain" }: { tone?: Tone }) {
+export function Companion({
+  tone = "plain", scale = 1, fullness = null, bark = null, barkKind = "idle",
+}: {
+  tone?: Tone;
+  /** How big he is, from what she has trained this fortnight. See lib/buddy. */
+  scale?: number;
+  /** Today's protein against target, 0–1. Null when it cannot honestly be said. */
+  fullness?: number | null;
+  /** The one line he has to say, chosen by what is true. */
+  bark?: string | null;
+  barkKind?: "protein" | "training" | "weigh-in" | "praise" | "idle";
+}) {
   const path = usePathname();
   const [busy, setBusy] = useState(false);
-  /**
-   * How many of him there are.
-   *
-   * Kept in this browser: it is a preference about how busy the bottom of
-   * the screen is and nothing else. It goes down to none, deliberately — if
-   * he is annoying, the answer has to be that he can go.
-   */
-  const [crew, setCrew] = useState(1);
-
-  useEffect(() => {
-    // On the next frame, not synchronously: reading storage during the first
-    // effect pass sets state before the first paint has landed.
-    const id = window.requestAnimationFrame(() => {
-      try {
-        // Nothing saved is not zero of him.
-        //
-        // `Number(null)` is 0, which is finite and within range, so every
-        // browser that had never touched the buttons read "none" and got an
-        // empty strip. The same trap this codebase has written down twice:
-        // an absent value is unknown, and unknown is not zero.
-        const raw = window.localStorage.getItem(CREW_KEY);
-        if (raw === null) return;
-        const saved = Number(raw);
-        if (Number.isFinite(saved) && saved >= 0 && saved <= MAX_CREW) setCrew(saved);
-      } catch { /* private mode — one of him, then */ }
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, []);
-
-  function setCrewSaved(n: number) {
-    const next = Math.max(0, Math.min(MAX_CREW, n));
-    setCrew(next);
-    try { window.localStorage.setItem(CREW_KEY, String(next)); } catch { /* fine */ }
-  }
-
-
 
   useEffect(() => {
     const on = () => setBusy(true);
@@ -87,18 +60,16 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
   if (isChromeless(path)) return null;
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
+  const hungry = fullness !== null && fullness < 0.7;
 
   return (
-    <div className="tap-only relative mt-6 rounded-2xl border border-line/60 bg-surface/40">
-      {/* The strip itself is the way in to the coach. The two little buttons
-          sit on top of it and stop the tap reaching it. */}
+    <div className="tap-only relative mt-6 overflow-hidden rounded-2xl border border-line/60 bg-surface/40">
       {/*
-        Always the way in, on every screen.
-        This used to sniff the DOM once, on the frame after mount, for an
-        inline coach panel — and render itself aria-hidden with no handler at
-        all when it did not find one. On a soft navigation the query ran
-        before the next page had mounted, so the commonest way to arrive at a
-        screen was also the way to get a companion you could not tap.
+        One of him.
+        He was briefly a crowd with buttons to add and remove, which was funny
+        for a day and then was a row of strangers doing star jumps under her
+        session. One figure can mean something: he is the size of her fortnight
+        and he says the one thing most worth saying.
       */}
       <button
         type="button"
@@ -108,7 +79,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
         onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
         aria-label={label}
         title={label}
-        className="tap-only group block w-full px-2 py-1 transition-colors hover:bg-surface/60"
+        className="tap-only group block w-full px-2 pt-1 transition-colors hover:bg-surface/60"
       >
         <svg
           viewBox={`0 0 ${STAGE_W} 100`}
@@ -118,9 +89,7 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
         >
           {/* The ground he walks on. Faint: he is furniture, not a chart. */}
           <line x1="0" y1="96" x2={STAGE_W} y2="96" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
-          {Array.from({ length: crew }, (_, i) => (
-            <Walker key={i} index={i} tone={tone} busy={busy} crowded={crew >= CROWD} />
-          ))}
+          <Walker index={0} tone={tone} busy={busy} crowded={false} scale={scale} />
         </svg>
         {/*
           No text inside the button.
@@ -132,25 +101,48 @@ export function Companion({ tone = "plain" }: { tone?: Tone }) {
         */}
       </button>
 
-      {/* Bottom corners of his world: one fewer, one more. */}
-      <button
-        type="button"
-        onClick={() => setCrewSaved(crew - 1)}
-        disabled={crew === 0}
-        aria-label="One fewer"
-        className="absolute bottom-1 left-1 grid size-7 place-items-center rounded-full text-[15px] leading-none text-faint transition-colors hover:bg-raised hover:text-muted disabled:opacity-25"
-      >
-        −
-      </button>
-      <button
-        type="button"
-        onClick={() => setCrewSaved(crew + 1)}
-        disabled={crew >= MAX_CREW}
-        aria-label="One more"
-        className="absolute bottom-1 right-1 grid size-7 place-items-center rounded-full text-[15px] leading-none text-faint transition-colors hover:bg-raised hover:text-muted disabled:opacity-25"
-      >
-        +
-      </button>
+      {/*
+        What he has to say, and how fed he is.
+        Outside the button, because "Feed" goes somewhere else and a link
+        inside a button is not a thing. The line is never random — it is
+        whichever true thing most needed saying, see lib/buddy.ts.
+      */}
+      <div className="flex items-center gap-2 border-t border-line/50 px-3 py-2">
+        <p className={`min-w-0 flex-1 truncate text-[12px] ${
+          barkKind === "praise" ? "text-beat" : barkKind === "idle" ? "text-faint" : "text-muted"
+        }`}>
+          {bark}
+        </p>
+        {/* Only offered when there is something to fix. A Feed button on a day
+            she has already hit her protein is a button that does nothing. */}
+        {hungry && (
+          <Link
+            href="/eat"
+            className="shrink-0 rounded-full border border-edge px-2.5 py-1 text-[11px] font-medium text-muted active:bg-raised"
+          >
+            Feed
+          </Link>
+        )}
+      </div>
+
+      {/*
+        How full he is, as a line rather than a number: the grams are on Eat,
+        said properly and with the floor spelled out when some of the day was
+        typed in words. Hidden entirely when it cannot be said — an empty bar
+        reads as zero, and nothing logged is not zero protein.
+      */}
+      {fullness !== null && (
+        <div
+          className="h-1 w-full bg-raised"
+          role="img"
+          aria-label={`Protein today, about ${Math.round(fullness * 100)} percent of target`}
+        >
+          <div
+            className={`h-full transition-all duration-500 ${fullness >= 1 ? "bg-beat" : "bg-accent"}`}
+            style={{ width: `${Math.round(fullness * 100)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -175,8 +167,18 @@ function hueFor(index: number): string | undefined {
 }
 
 function Walker({
-  index, tone, busy, crowded,
-}: { index: number; tone: Tone; busy: boolean; crowded: boolean }) {
+  index, tone, busy, crowded, scale = 1,
+}: {
+  index: number; tone: Tone; busy: boolean; crowded: boolean;
+  /**
+   * How big he is drawn, from what she has actually trained this fortnight.
+   *
+   * Applied here in the transform rather than on the <svg>, so his feet stay
+   * on the same floor as he grows — scaling the whole stage would lift him
+   * off the ground or sink him through it.
+   */
+  scale?: number;
+}) {
   const root = useRef<SVGGElement>(null);
   const parts = useRef<Record<string, SVGElement>>({});
   const state = useRef<CompanionState>(activityState("walk", (index * 0.37) % 1, 20 + ((index * 29) % 60)));
@@ -184,9 +186,11 @@ function Walker({
   const busyRef = useRef(false);
   const toneRef = useRef<Tone>(tone);
   const crowdedRef = useRef(crowded);
+  const scaleRef = useRef(scale);
 
   useEffect(() => { toneRef.current = tone; }, [tone]);
   useEffect(() => { crowdedRef.current = crowded; }, [crowded]);
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
 
   function interrupt(activity: Activity) {
     const where = travel(state.current, (performance.now() - startedAt.current) / 1000);
@@ -233,10 +237,14 @@ function Walker({
       // His own box is 100 wide; the stage is three times that, so he walks
       // the whole floor rather than a square in the middle of it.
       const at = x * (STAGE_W / 100);
+      // Scaled about his feet (y = 96, the floor), so a bigger figure stands
+      // taller rather than hovering above the line or sinking through it.
+      const k = scaleRef.current;
       g.setAttribute(
         "transform",
         `translate(${at - 50} 0)${facing === -1 ? " translate(100 0) scale(-1 1)" : ""}`
-        + (spin ? ` rotate(${spin} 50 58)` : ""),
+        + (spin ? ` rotate(${spin} 50 58)` : "")
+        + (k === 1 ? "" : ` translate(50 96) scale(${k}) translate(-50 -96)`),
       );
       const set = (key: string, attrs: Record<string, number>) => {
         const el = parts.current[key];

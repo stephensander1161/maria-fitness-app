@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-08-buddy",
+    date: "2026-09-08",
+    title: "One of him, and he knows how you're doing",
+    blurb: "The crowd at the bottom of the screen is one figure again — and now he is the size of your last fortnight of training, fills up as you log protein, and says the one thing most worth saying. Never a random line: whatever he tells you is read off your own numbers.",
+    href: "/train",
+  },
+  {
     id: "2026-09-08-morning-weigh-in",
     date: "2026-09-08",
     title: "The scale asks you, once a morning",

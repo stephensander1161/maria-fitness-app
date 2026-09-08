@@ -1,12 +1,14 @@
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
   foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, weighIns, workouts,
 } from "@/lib/db/schema";
-import { addDays, DAY_NAMES, dayIndex, today, weekStart, type ISODate } from "@/lib/date";
+import { addDays, DAY_NAMES, dayIndex, daysBetween, today, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { shouldAskToWeigh } from "@/lib/morning-weigh-in";
+import { goalDirection } from "@/lib/nutrition";
+import type { BuddyState, Tone as BuddyTone } from "@/lib/buddy";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
@@ -978,5 +980,89 @@ export async function morningWeighIn(profile: {
     seed: weightOut(recent[0]?.weightKg ?? profile.startWeightKg, profile.units),
     unit: weightLabel(profile.units),
     today,
+  };
+}
+
+
+/**
+ * Everything the companion knows, read once for the screen he sits on.
+ *
+ * All of it from her own rows: sessions with work in them over the last
+ * fortnight, what the plan asked for over the same stretch, today's protein
+ * against today's target, and whether she has weighed in. Nothing is
+ * estimated and nothing missing is filled in with a zero — see lib/buddy.ts
+ * for why that distinction is the whole feature.
+ */
+export async function buddyState(profile: {
+  id: string; timezone: string | null; units: Units; coachTone: BuddyTone | null;
+  startWeightKg: number | null; goalWeightKg: number | null;
+}): Promise<BuddyState> {
+  const her = profileToday(profile);
+  const from = addDays(her, -13);
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: profile.timezone ?? undefined, hour: "2-digit", hour12: false,
+    }).format(new Date()),
+  );
+
+  const [sessions, planCounts, food, weighed, lastTarget, latest] = await Promise.all([
+    // Sessions with work in them. A row with no sets is a Start she walked
+    // away from, and counting it would grow him for a button press.
+    db.select({ date: workouts.date, sets: sql<number>`count(${setLogs.id})::int` })
+      .from(workouts)
+      .leftJoin(setLogs, eq(setLogs.workoutId, workouts.id))
+      .where(and(eq(workouts.profileId, profile.id), gte(workouts.date, from), lte(workouts.date, her)))
+      .groupBy(workouts.date),
+    // What the plan asked for over the same fortnight, counted from the plans
+    // that actually exist rather than from days-per-week — a fortnight with
+    // no plan is not a fortnight of failures.
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(planDays)
+      .innerJoin(plans, eq(planDays.planId, plans.id))
+      .where(and(
+        eq(plans.profileId, profile.id), eq(planDays.isRest, false),
+        gte(plans.weekStart, weekStart(from)), lte(plans.weekStart, weekStart(her)),
+      )),
+    dayFoodView(profile.id, her),
+    db.select({ date: weighIns.date, weightKg: weighIns.weightKg }).from(weighIns)
+      .where(eq(weighIns.profileId, profile.id)).orderBy(desc(weighIns.date)).limit(1),
+    // Her standing protein target. It lives on the week's meal plan, so a
+    // week without one had no target at all and he could never mention
+    // protein — which is most of what he is for. The number does not change
+    // week to week, so the most recent one that was set is hers.
+    db.select({ proteinTargetG: mealPlans.proteinTargetG }).from(mealPlans)
+      .where(eq(mealPlans.profileId, profile.id))
+      .orderBy(desc(mealPlans.weekStart)).limit(1),
+    db.select({ date: workouts.date, sets: sql<number>`count(${setLogs.id})::int` })
+      .from(workouts)
+      .leftJoin(setLogs, eq(setLogs.workoutId, workouts.id))
+      .where(eq(workouts.profileId, profile.id))
+      .groupBy(workouts.date).orderBy(desc(workouts.date)).limit(30),
+  ]);
+
+  const worked = sessions.filter((w) => w.sets > 0);
+  const lastWorked = latest.filter((w) => w.sets > 0)[0]?.date ?? null;
+
+  return {
+    sessions14: worked.length,
+    planned14: planCounts[0]?.n ?? 0,
+    daysSinceSession: lastWorked === null ? null : daysBetween(lastWorked, her),
+    trainedToday: worked.some((w) => w.date === her),
+    // Nothing logged is not zero protein: she has eaten, she has not written
+    // it down. The count of entries is what tells the two apart.
+    proteinG: food.logged.length === 0 ? null : food.proteinG,
+    // The week's meal plan first, then her own standing target. Reading only
+    // the plan meant anyone without one this week had no target at all, and
+    // he could never mention protein — which is most of what he is for.
+    proteinTargetG: food.proteinTargetG ?? lastTarget[0]?.proteinTargetG ?? null,
+    proteinComplete: food.logged.length > 0 && food.logged.every((l) => l.proteinG !== null),
+    entriesToday: food.logged.length,
+    weighedToday: weighed[0]?.date === her,
+    hour,
+    // Which way she is going, from the one place that decides — and from what
+    // she weighs, not from the goal compared with itself, which is "hold"
+    // every time and would have had him saying the same thing to everyone.
+    direction: goalDirection(weighed[0]?.weightKg ?? profile.startWeightKg ?? 0, profile.goalWeightKg),
+    tone: profile.coachTone ?? "plain",
   };
 }

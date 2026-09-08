@@ -375,15 +375,14 @@ suite("his world", () => {
     expect(c).toMatch(/const at = x \* \(STAGE_W \/ 100\)/);
   });
 
-  it("can be crowded, and can be emptied", () => {
-    // If he is annoying the answer has to be that he can go, not that he
-    // gets smaller.
-    expect(c).toMatch(/const MAX_CREW = 25/);
-    expect(c).toMatch(/aria-label="One more"/);
-    expect(c).toMatch(/aria-label="One fewer"/);
-    expect(c).toMatch(/Math\.max\(0, Math\.min\(MAX_CREW, n\)\)/);
-    // Remembered per browser: it is a preference about the screen, nothing more.
-    expect(c).toMatch(/localStorage\.setItem\(CREW_KEY/);
+  it("is one of him, sized by what she has actually trained", () => {
+    // He was briefly a crowd with buttons to add and remove, which was funny
+    // for a day and then was a row of strangers doing star jumps under her
+    // session. One figure can mean something.
+    expect(c).not.toMatch(/MAX_CREW|CREW_KEY|aria-label="One more"|aria-label="One fewer"/);
+    expect(c).toMatch(/<Walker index=\{0\} tone=\{tone\} busy=\{busy\} crowded=\{false\} scale=\{scale\} \/>/);
+    // Scaled about his feet, or a bigger figure hovers above the floor line.
+    expect(c).toMatch(/translate\(50 96\) scale\(\$\{k\}\) translate\(-50 -96\)/);
   });
 
   it("gives each of them their own loop, so a crew is not one animation six times", () => {
@@ -438,14 +437,38 @@ suite("a crowd", () => {
   });
 });
 
-suite("how many of him there are to begin with", () => {
-  it("treats nothing saved as one, never as none", () => {
-    // `Number(null)` is 0, which is finite and in range — so a browser that
-    // had never touched the buttons read "none" and got an empty strip. The
-    // same trap this codebase has written down twice for food.
-    const c = fs.readFileSync("components/companion.tsx", "utf8");
-    expect(c).toMatch(/const raw = window\.localStorage\.getItem\(CREW_KEY\);/);
-    expect(c).toMatch(/if \(raw === null\) return;/);
-    expect(c).toMatch(/useState\(1\)/);
+suite("what he says and how big he is", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("reads it all off her own rows, on the server", () => {
+    const gate = read("components/companion-gate.tsx");
+    expect(gate).toMatch(/const state = await buddyState\(profile\)/);
+    expect(gate).toMatch(/scale=\{condition\(state\)\.scale\}/);
+    expect(gate).toMatch(/fullness=\{fullness\(state\)\}/);
+    expect(gate).toMatch(/bark=\{bark\(state\)\.text\}/);
+  });
+
+  it("only counts a session that has work in it", () => {
+    // A workout row with no sets is a Start she walked away from, and
+    // counting it would grow him for a button press.
+    const views = read("lib/views.ts");
+    const fn = views.slice(views.indexOf("export async function buddyState"));
+    expect(fn).toMatch(/const worked = sessions\.filter\(\(w\) => w\.sets > 0\)/);
+  });
+
+  it("does not show an empty protein bar, because nothing logged is not zero", () => {
+    const c = read("components/companion.tsx");
+    expect(c).toMatch(/\{fullness !== null && \(/);
+    // And the read model says so at the source.
+    const views = read("lib/views.ts");
+    const fn = views.slice(views.indexOf("export async function buddyState"));
+    expect(fn).toMatch(/proteinG: food\.logged\.length === 0 \? null : food\.proteinG/);
+  });
+
+  it("offers Feed only when there is something to fix", () => {
+    const c = read("components/companion.tsx");
+    expect(c).toMatch(/const hungry = fullness !== null && fullness < 0\.7/);
+    expect(c).toMatch(/\{hungry && \(/);
+    expect(c).toMatch(/href="\/eat"/);
   });
 });
