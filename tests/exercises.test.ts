@@ -207,7 +207,7 @@ suite("the figure shows the movement it is labelled with", () => {
   });
 
   it("keeps the rest of the raises where they were", () => {
-    for (const slug of ["calf-raise", "single-leg-calf-raise", "dumbbell-shrug"]) {
+    for (const slug of ["calf-raise", "single-leg-calf-raise", "tricep-pushdown"]) {
       expect(patternFor(slug, "isolation"), slug).toBe("raise");
     }
   });
@@ -222,5 +222,21 @@ suite("the figure shows the movement it is labelled with", () => {
     expect(Math.abs(p.end.hand[0] - p.start.hand[0])).toBeGreaterThan(15);
     expect(p.end.hand[1]).toBeLessThan(p.start.hand[1]);
     expect(p.end.hand[1]).toBeCloseTo(p.end.shoulder[1], -1);
+  });
+});
+
+suite("a shrug is shoulders, not arms", () => {
+  it("lifts the shoulders and leaves the arms hanging", () => {
+    // Drawn with the "raise" pose the arms came out to the side, which is a
+    // lateral raise and not a shrug at all.
+    expect(patternFor("dumbbell-shrug", "isolation")).toBe("shrug");
+    const p = PATTERNS.shrug;
+    // Up: y decreases.
+    expect(p.end.shoulder[1]).toBeLessThan(p.start.shoulder[1]);
+    // And the arms hang: they travel the same distance up, and not sideways.
+    expect(p.end.hand[0]).toBe(p.start.hand[0]);
+    expect(p.start.hand[1] - p.end.hand[1]).toBe(p.start.shoulder[1] - p.end.shoulder[1]);
+    // The head does not move; that is what makes it read as shoulders rising.
+    expect(p.end.head).toEqual(p.start.head);
   });
 });

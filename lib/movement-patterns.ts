@@ -189,6 +189,22 @@ export const PATTERNS: Record<string, Pattern> = {
     },
   },
   /**
+   * Shoulders straight up towards the ears; the arms hang and go along for
+   * the ride. Drawn with the "raise" pose it had the arms coming out to the
+   * side, which is a lateral raise and not a shrug at all.
+   */
+  shrug: {
+    label: "Shoulders straight up, arms hanging",
+    start: {
+      head: [50, 15], shoulder: [50, 30], elbow: [50, 44], hand: [50, 58],
+      hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+    end: {
+      head: [50, 15], shoulder: [50, 22], elbow: [50, 36], hand: [50, 50],
+      hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+  },
+  /**
    * Out to the sides, seen from the front.
    *
    * The only pose in here drawn facing the viewer, because a lateral raise
@@ -304,6 +320,7 @@ const RULES: [RegExp, PatternKey][] = [
   [/curl|bicep/, "curl"],
   // Sides before fronts: "palms-up-lateral-raise" must not be caught by the
   // front-raise rule below just because it contains "raise".
+  [/shrug/, "shrug"],
   [/side-bend/, "rotation"],
   [/lateral-raise|side-raise|side-lateral/, "lateral"],
   [/raise|shrug|pushdown|extension|kickback|calf/, "raise"],

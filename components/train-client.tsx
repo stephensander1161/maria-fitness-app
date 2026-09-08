@@ -8,6 +8,7 @@ import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
+import { ExerciseFigure } from "./exercise-figure";
 import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
 import { MovementPicker } from "./movement-picker";
@@ -1072,6 +1073,16 @@ export function ExerciseCard({
           obvious thing; making her find a button lower down was a step for
           nothing. The controls to the right keep their own jobs.
         */}
+        {/* The movement itself, cross-fading between its two poses.
+            It lived in the help sheet, which meant it was seen once, on the
+            day someone went looking — and it is the fastest way to tell
+            whether the name on the card is the thing you are about to do.
+            Small beside the name; the size of the card when it is open. */}
+        <ExerciseFigure
+          slug={exercise.slug}
+          category={exercise.category}
+          className={`shrink-0 self-start text-accent/70 ${open ? "h-24 w-20" : "h-11 w-9"}`}
+        />
         <button
           onClick={() => canLog && (open ? setOpen(false) : openCard())}
           aria-expanded={canLog ? open : undefined}

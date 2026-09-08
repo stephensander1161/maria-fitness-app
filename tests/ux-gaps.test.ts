@@ -374,3 +374,26 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     expect(card).not.toMatch(/FormGuide|guideOpen/);
   });
 });
+
+suite("the movement is on the card, moving", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("the figure lives on the card, not behind a button", () => {
+    // It was in the help sheet, which meant it was seen once — on the day
+    // someone went looking — and it is the fastest way to tell whether the
+    // name on the card is the thing you are about to do.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/<ExerciseFigure\s+slug=\{exercise\.slug\}/);
+    expect(card).toMatch(/open \? "h-24 w-20" : "h-11 w-9"/);
+  });
+
+  it("and it still cross-fades between the two poses", () => {
+    const figure = read("components/exercise-figure.tsx");
+    expect(figure).toMatch(/className="figure-start"/);
+    expect(figure).toMatch(/className="figure-end"/);
+    const css = read("app/globals.css");
+    expect(css).toMatch(/@keyframes figure-in/);
+    // Still, not gone, for anyone who asked for less motion.
+    expect(css).toMatch(/\.figure-end\s+\{ animation: none; opacity: 1 !important; \}/);
+  });
+});
