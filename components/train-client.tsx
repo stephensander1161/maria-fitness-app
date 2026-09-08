@@ -10,7 +10,6 @@ import { action, actionMessage } from "@/lib/client";
 import { AddExercise } from "./add-exercise";
 import { AskCoach } from "./ask-coach";
 import { NumberField } from "./number-field";
-import { FormGuide } from "./form-guide";
 import { MovementPicker } from "./movement-picker";
 import { SessionDone } from "./session-done";
 import {
@@ -916,7 +915,6 @@ export function ExerciseCard({
     setOpen(true);
   }
   const [error, setError] = useState<string | null>(null);
-  const [guideOpen, setGuideOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [changing, setChanging] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -1152,8 +1150,14 @@ export function ExerciseCard({
             </svg>
           </button>
           )}
+          {/* The open card already carries the whole library entry — the
+              cues, the mistakes, the safety note — so asking for help there
+              was stacking a second copy of it in a modal on top of the one
+              she was looking at. Closed, this opens the card, which is where
+              the help lives. */}
+          {!open && (
           <button
-            onClick={() => setGuideOpen(true)}
+            onClick={openCard}
             aria-label={`How to do ${exercise.name}`}
             className="grid size-8 place-items-center rounded-full border border-line text-muted"
           >
@@ -1164,6 +1168,7 @@ export function ExerciseCard({
               <path d="M12 17h.01" />
             </svg>
           </button>
+          )}
           {/*
             "That was actually a different movement." The sets she has already
             logged come with it — she did the work, she just called it
@@ -1444,14 +1449,6 @@ export function ExerciseCard({
         )}
       </div>
 
-      {guideOpen && (
-        <FormGuide
-          slug={exercise.slug}
-          name={exercise.name}
-          category={exercise.category}
-          onClose={() => setGuideOpen(false)}
-        />
-      )}
     </section>
   );
 

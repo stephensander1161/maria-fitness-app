@@ -201,7 +201,11 @@ suite("it works with a mouse too", () => {
     // An 88dvh sheet glued to the bottom edge of a 27-inch screen is a phone
     // app in a window.
     const sheets = screens.filter((f) => /items-end justify-center/.test(read(f)));
-    expect(sheets.length).toBeGreaterThan(3);
+    // A guard on the scan itself, not a rule about how many sheets the app
+    // should have: without it, a regex that stopped matching would leave this
+    // test passing over an empty list for ever. The count moves as sheets
+    // come and go — the form guide became part of the card it was covering.
+    expect(sheets.length).toBeGreaterThan(1);
     const stuck = sheets.filter((f) => !/md:(items-center|justify-center|self-auto)/.test(read(f)));
     expect(stuck, `these still rise from the bottom edge on a desktop: ${stuck.join(", ")}`).toEqual([]);
   });

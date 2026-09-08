@@ -356,3 +356,21 @@ suite("the open card shows the whole movement", () => {
     expect(fn).toMatch(/Commonly gets wrong/);
   });
 });
+
+suite("asking for help opens the card, rather than stacking on it", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("the help button opens the card, and is not offered once it is open", () => {
+    // The open card already carries the whole library entry, so asking for
+    // help there put a second copy of it in a modal on top of the one she
+    // was reading.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/\{!open && \(\s*<button\s*onClick=\{openCard\}/);
+    expect(card).toMatch(/aria-label=\{`How to do \$\{exercise\.name\}`\}/);
+  });
+
+  it("and the card no longer opens a guide of its own", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).not.toMatch(/FormGuide|guideOpen/);
+  });
+});
