@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-pause",
+    date: "2026-09-09",
+    title: "Pause a session, and drag cards on a desktop",
+    blurb: "A pause button sits beside Finish while you train, and the time it is stopped for comes off what the session is reported as. Reordering movements by dragging now works on a wide screen too, where the day is laid out as a grid.",
+    href: "/train",
+  },
+  {
     id: "2026-09-08-buddy-sleeps",
     date: "2026-09-08",
     title: "He sleeps, and he trains when you do",

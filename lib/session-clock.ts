@@ -8,13 +8,33 @@
  * edges, and the edges are what everything else can then rely on.
  */
 
-/** Milliseconds, from two ISO strings. Null when it has not started. */
-export function elapsedMs(startedAt: string | null, until: number, finishedAt: string | null = null): number | null {
+/**
+ * Milliseconds actually trained. Null when it has not started.
+ *
+ * Paused time is taken off, and while it *is* paused the clock stops where it
+ * was rather than carrying on behind a stopped-looking button. A session left
+ * running through a two-hour dinner otherwise reports two hours of training,
+ * and "you trained for 2h today" is a number this app either tells the truth
+ * about or should not show.
+ */
+export function elapsedMs(
+  startedAt: string | null,
+  until: number,
+  finishedAt: string | null = null,
+  paused: { since: string | null; alreadyMs: number } = { since: null, alreadyMs: 0 },
+): number | null {
   if (!startedAt) return null;
   const from = Date.parse(startedAt);
   if (!Number.isFinite(from)) return null;
   const to = finishedAt ? Date.parse(finishedAt) : until;
-  return Math.max(0, (Number.isFinite(to) ? to : until) - from);
+  const end = Number.isFinite(to) ? to : until;
+
+  // Paused right now: the clock reads what it read when she paused it.
+  const since = paused.since ? Date.parse(paused.since) : null;
+  const stoppedAt = since !== null && Number.isFinite(since) && !finishedAt ? since : end;
+
+  const banked = Number.isFinite(paused.alreadyMs) ? Math.max(0, paused.alreadyMs) : 0;
+  return Math.max(0, stoppedAt - from - banked);
 }
 
 /** "1h 24m", "48m", "40s" — the shortest true thing. */

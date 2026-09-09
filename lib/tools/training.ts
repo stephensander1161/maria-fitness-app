@@ -420,6 +420,47 @@ export const startWorkout = defineTool({
   },
 });
 
+export const pauseWorkout = defineTool({
+  name: "pause_workout",
+  description:
+    "Stops today's session clock without ending the session — for a phone call, a queue for the rack, or a break she is coming back from. The time paused is taken off what the session is reported as, so \"you trained for an hour\" stays true. Call resume_workout to start it again; finishing while paused ends it at the moment she paused.",
+  input: z.object({ date: z.string().optional() }),
+  handler: async (input, ctx) => {
+    const date = input.date ?? (await todayFor(ctx));
+    const [w] = await db.select().from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
+      .orderBy(desc(workouts.startedAt)).limit(1);
+    if (!w) return { ok: false, error: "No session open for that date. Call start_workout first." };
+    if (w.completedAt) return { ok: false, error: "That session is already finished." };
+    // Already paused is not an error: she tapped twice, or two devices did.
+    if (w.pausedAt) return { ok: true, alreadyPaused: true, pausedAt: w.pausedAt };
+    await db.update(workouts).set({ pausedAt: new Date() }).where(eq(workouts.id, w.id));
+    return { ok: true, paused: true };
+  },
+});
+
+export const resumeWorkout = defineTool({
+  name: "resume_workout",
+  description:
+    "Starts today's session clock again after a pause, and banks the time it was stopped for so the session's length stays honest. Safe to call when it is not paused.",
+  input: z.object({ date: z.string().optional() }),
+  handler: async (input, ctx) => {
+    const date = input.date ?? (await todayFor(ctx));
+    const [w] = await db.select().from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
+      .orderBy(desc(workouts.startedAt)).limit(1);
+    if (!w) return { ok: false, error: "No session open for that date." };
+    if (!w.pausedAt) return { ok: true, alreadyRunning: true };
+    // Banked, not recomputed: every earlier pause is already in there, and a
+    // clock that forgets the first one reports a longer session than she did.
+    const held = Math.max(0, Date.now() - w.pausedAt.getTime());
+    await db.update(workouts)
+      .set({ pausedAt: null, pausedMs: w.pausedMs + held })
+      .where(eq(workouts.id, w.id));
+    return { ok: true, resumed: true, pausedForMs: held };
+  },
+});
+
 export const logSet = defineTool({
   name: "log_set",
   repeatable: "four sets of twelve at the same weight are four identical calls, and that is the commonest thing anyone logs",

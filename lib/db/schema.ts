@@ -735,6 +735,17 @@ export const workouts = pgTable(
     title: text("title").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    /**
+     * Paused since when, and how long it has been paused for already.
+     *
+     * Two fields because a pause can happen more than once: the timestamp is
+     * the current one, the total is every pause before it. A session left
+     * running through a two-hour dinner otherwise reports two hours of
+     * training, and "you trained for 2h today" has to be true or it is worth
+     * nothing.
+     */
+    pausedAt: timestamp("paused_at", { withTimezone: true }),
+    pausedMs: integer("paused_ms").default(0).notNull(),
     /** 1–5, how it felt. Drives how the coach adjusts next week. */
     feeling: integer("feeling"),
     notes: text("notes"),

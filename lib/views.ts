@@ -109,6 +109,9 @@ export type TodayView = {
   /** When this session was opened, and whether it is still running. */
   startedAt: string | null;
   finishedAt: string | null;
+  /** Paused since when, and the milliseconds already banked from earlier pauses. */
+  pausedAt: string | null;
+  pausedMs: number;
   date: ISODate; dayName: string; hasPlan: boolean;
   title: string; focus: string | null; isRest: boolean; notes: string | null;
   unit: string; units: Units;
@@ -128,7 +131,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     date, dayName: DAY_NAMES[dow], unit: weightLabel(units), units,
     hasPlan: false, title: "No plan yet", focus: null, isRest: false,
     notes: null, exercises: [], completed: false,
-    startedAt: null, finishedAt: null,
+    startedAt: null, finishedAt: null, pausedAt: null, pausedMs: 0,
   } satisfies TodayView;
 
   const [plan] = await db.select({ id: plans.id }).from(plans)
@@ -237,6 +240,9 @@ export async function todayView(profileId: string, units: Units, date = today())
     // it rather than inferring a workout from whether any sets exist.
     startedAt: workout?.startedAt?.toISOString() ?? null,
     finishedAt: workout?.completedAt?.toISOString() ?? null,
+    /** Paused since, and how long it has been stopped for already. */
+    pausedAt: workout?.pausedAt?.toISOString() ?? null,
+    pausedMs: workout?.pausedMs ?? 0,
     exercises: all.map((i) => {
       const prev = lastTime.get(i.exerciseId);
       return {

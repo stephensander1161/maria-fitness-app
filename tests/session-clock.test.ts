@@ -74,7 +74,7 @@ suite("the session has edges", () => {
     expect(card).toMatch(/Start workout/);
     expect(card).toMatch(/Finish workout/);
     // The clock is read under the day's name, not tapped beside the button.
-    expect(card).toMatch(/clockDuration\(elapsedMs\(startedAt, now, finishedAt\)\)/);
+    expect(card).toMatch(/clockDuration\(elapsedMs\(startedAt, now, finishedAt,/);
   });
 
   it("does not announce every tick of it", () => {
@@ -88,7 +88,7 @@ suite("the session has edges", () => {
 
   it("carries the length through to the celebration, frozen at the finish", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/setFinishedMs\(elapsedMs\(view\.startedAt, Date\.now\(\), view\.finishedAt\)\)/);
+    expect(card).toMatch(/setFinishedMs\(elapsedMs\(view\.startedAt, Date\.now\(\), view\.finishedAt,/);
     expect(card).toMatch(/durationMs=\{finishedMs\}/);
     const done = read("components/session-done.tsx");
     expect(done).toMatch(/label="on your feet"/);
@@ -99,5 +99,55 @@ suite("the session has edges", () => {
     const views = read("lib/views.ts");
     expect(views).toMatch(/startedAt: workout\?\.startedAt\?\.toISOString\(\) \?\? null/);
     expect(views).toMatch(/finishedAt: workout\?\.completedAt\?\.toISOString\(\) \?\? null/);
+  });
+});
+
+suite("pausing a session", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+  const t = (iso: string) => Date.parse(iso);
+
+  it("stops the clock where it was, rather than behind a stopped button", () => {
+    const started = "2026-09-09T18:00:00.000Z";
+    const paused = "2026-09-09T18:30:00.000Z";
+    // Half an hour in, paused, and an hour of wall clock later it still
+    // reads half an hour.
+    expect(elapsedMs(started, t("2026-09-09T19:30:00.000Z"), null,
+      { since: paused, alreadyMs: 0 })).toBe(30 * 60_000);
+  });
+
+  it("takes earlier pauses off once it is running again", () => {
+    // A session left running through a two-hour dinner otherwise reports two
+    // hours of training, and "you trained for 2h today" has to be true.
+    const started = "2026-09-09T18:00:00.000Z";
+    expect(elapsedMs(started, t("2026-09-09T20:00:00.000Z"), null,
+      { since: null, alreadyMs: 60 * 60_000 })).toBe(60 * 60_000);
+  });
+
+  it("banks every pause, not just the last one", () => {
+    // Recomputing from the current pause forgets the earlier ones and reports
+    // a longer session than she did.
+    const tools = read("lib/tools/training.ts");
+    const fn = tools.slice(tools.indexOf("export const resumeWorkout"));
+    expect(fn.slice(0, 1500)).toMatch(/pausedMs: w\.pausedMs \+ held/);
+  });
+
+  it("never reads negative, whatever the clocks say", () => {
+    expect(elapsedMs("2026-09-09T18:00:00.000Z", t("2026-09-09T17:00:00.000Z"))).toBe(0);
+    expect(elapsedMs("2026-09-09T18:00:00.000Z", t("2026-09-09T18:10:00.000Z"), null,
+      { since: null, alreadyMs: 99 * 60_000 })).toBe(0);
+  });
+
+  it("is a glyph beside Finish, and both tools are registered", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/aria-label=\{paused \? "Start the clock again" : "Pause the session"\}/);
+    expect(card).toMatch(/action\(view\.pausedAt \? "resume_workout" : "pause_workout"/);
+    const index = read("lib/tools/index.ts");
+    expect(index).toMatch(/training\.pauseWorkout/);
+    expect(index).toMatch(/training\.resumeWorkout/);
+  });
+
+  it("does not tick while it is stopped", () => {
+    // Nothing to tick: the reading cannot change.
+    expect(read("components/train-client.tsx")).toMatch(/if \(finishedAt \|\| pausedAt\) return;/);
   });
 });

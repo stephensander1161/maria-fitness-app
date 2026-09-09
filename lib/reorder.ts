@@ -26,3 +26,41 @@ export function slotFor(mids: number[], y: number): number {
   for (let i = 0; i < mids.length; i++) if (y > mids[i]) slot = i;
   return slot;
 }
+
+/**
+ * Which slot the pointer is over when the rows are not in one column.
+ *
+ * On a wide screen the day is a grid, two or three cards abreast, and the
+ * vertical rule above is meaningless there: half the cards share a `y`, so
+ * dragging sideways moved nothing and dragging down jumped whole rows. That
+ * is why reordering worked on a phone and did nothing on a desktop.
+ *
+ * Nearest centre, in both axes. It reduces to the same answer as `slotFor`
+ * in a single column and is the only thing that means anything in a grid.
+ */
+export function slotForPoint(
+  centres: { x: number; y: number }[], x: number, y: number,
+): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < centres.length; i++) {
+    const dx = centres[i].x - x;
+    const dy = centres[i].y - y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+/**
+ * Whether these rows are stacked in one column.
+ *
+ * Two cards that start at the same height are side by side, which is the
+ * whole difference between the two rules above. Measured rather than assumed
+ * from a breakpoint: the same list is a column on a phone, a grid on a
+ * laptop, and a wider grid on a monitor.
+ */
+export function isSingleColumn(tops: number[]): boolean {
+  for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[0]) < 4) return false;
+  return true;
+}

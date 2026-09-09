@@ -155,6 +155,8 @@ const all: Tool[] = [
   foodTools.searchFoodLibrary,
   training.searchExercises,
   budget.setCoachBudget,
+  training.pauseWorkout,
+  training.resumeWorkout,
   profile.setGoal,
   profile.setWeightMilestones,
   training.startWorkout,

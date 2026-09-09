@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
-import { moveItem, slotFor } from "@/lib/reorder";
+import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { SHEET_MAX } from "@/lib/viewport-cover";
@@ -215,7 +215,11 @@ export function TrainClient({
    * never moved with her and everything else jumped around it: it worked and
    * felt broken.
    */
-  const [drag, setDrag] = useState<{ slug: string; dy: number; from: number; to: number; height: number } | null>(null);
+  const [drag, setDrag] = useState<{
+    slug: string; dx: number; dy: number; from: number; to: number; height: number;
+    /** One column, so the neighbours can slide out of the way. */
+    column: boolean;
+  } | null>(null);
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
 
   const shown = dragOrder
@@ -224,7 +228,9 @@ export function TrainClient({
 
   /** How far card `i` slides to make room for the one being dragged. */
   function shiftFor(i: number): number {
-    if (!drag || i === drag.from) return 0;
+    // Only in a single column. Side by side, sliding a card down by one card's
+    // height moves it onto the one beneath rather than out of the way.
+    if (!drag || !drag.column || i === drag.from) return 0;
     if (drag.to > drag.from && i > drag.from && i <= drag.to) return -drag.height;
     if (drag.to < drag.from && i < drag.from && i >= drag.to) return drag.height;
     return 0;
@@ -235,7 +241,7 @@ export function TrainClient({
    * drag with the point the finger went down at — not where it had drifted
    * to by the time the press was recognised.
    */
-  function beginDrag(startY: number, slug: string) {
+  function beginDrag(startY: number, slug: string, startX = 0) {
     const rows = [...(listRef.current?.children ?? [])] as HTMLElement[];
     if (rows.length < 2) return;
 
@@ -243,18 +249,24 @@ export function TrainClient({
     // during the drag, so these stay true for the whole gesture.
     const rects = rows.map((r) => r.getBoundingClientRect());
     const mids = rects.map((r) => r.top + r.height / 2);
+    const centres = rects.map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 }));
+    // One column on a phone, a grid from `xl` up. Measured rather than assumed
+    // from a breakpoint, and it decides both how the target is worked out and
+    // whether the neighbours can meaningfully slide out of the way.
+    const column = isSingleColumn(rects.map((r) => r.top));
     const slugs = shown.map((x) => x.slug);
     const from = slugs.indexOf(slug);
     if (from === -1) return;
     const height = rects[from].height + 16; // the card plus the gap below it
     let to = from;
 
-    setDrag({ slug, dy: 0, from, to, height });
+    setDrag({ slug, dx: 0, dy: 0, from, to, height, column });
 
     const move = (ev: PointerEvent) => {
       const dy = ev.clientY - startY;
-      to = slotFor(mids, ev.clientY);
-      setDrag({ slug, dy, from, to, height });
+      const dx = ev.clientX - startX;
+      to = column ? slotFor(mids, ev.clientY) : slotForPoint(centres, ev.clientX, ev.clientY);
+      setDrag({ slug, dx, dy, from, to, height, column });
     };
     const end = async () => {
       window.removeEventListener("pointermove", move);
@@ -377,6 +389,26 @@ export function TrainClient({
     }
   }
 
+  /**
+   * Stop the clock without ending the session.
+   *
+   * A phone call, a queue for the rack, a break she is coming back from. The
+   * time is banked and taken off, because "you trained for an hour" has to be
+   * true or it is worth nothing.
+   */
+  async function togglePause() {
+    setFinishing(true);
+    setError(null);
+    try {
+      await action(view.pausedAt ? "resume_workout" : "pause_workout", date === undefined ? {} : { date });
+      router.refresh();
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't change the clock — check your signal and try again."));
+    } finally {
+      setFinishing(false);
+    }
+  }
+
   async function finish(feeling?: number) {
     setFinishing(true);
     setError(null);
@@ -389,7 +421,8 @@ export function TrainClient({
       // Said properly, once, and only when she says she is done — a card
       // quietly turning green was the whole celebration for the thing this
       // app exists to get her to do.
-      setFinishedMs(elapsedMs(view.startedAt, Date.now(), view.finishedAt));
+      setFinishedMs(elapsedMs(view.startedAt, Date.now(), view.finishedAt,
+        { since: view.pausedAt, alreadyMs: view.pausedMs }));
       setDone(true);
       router.refresh();
     } catch {
@@ -487,9 +520,11 @@ export function TrainClient({
     <SessionBar
       startedAt={view.startedAt}
       finishedAt={view.finishedAt}
+      paused={view.pausedAt !== null}
       busy={finishing}
       onStart={startSession}
       onFinish={() => finish()}
+      onPause={togglePause}
     />
   ) : null;
 
@@ -509,7 +544,12 @@ export function TrainClient({
             <div className="min-w-0 flex-1 basis-32">
               {heading}
               {isToday && view.startedAt && !view.finishedAt && (
-                <SessionClock startedAt={view.startedAt} finishedAt={view.finishedAt} />
+                <SessionClock
+                  startedAt={view.startedAt}
+                  finishedAt={view.finishedAt}
+                  pausedAt={view.pausedAt}
+                  pausedMs={view.pausedMs}
+                />
               )}
             </div>
             {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
@@ -535,7 +575,12 @@ export function TrainClient({
           // The dragged card rides the finger; the others slide out of its
           // way. Both transforms, so both animate.
           offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
-          onDragStart={editable ? (y: number) => beginDrag(y, ex.slug) : undefined}
+          offsetX={drag?.slug === ex.slug && !drag.column ? drag.dx : 0}
+          // In a grid nothing slides aside, so the target slot is marked
+          // instead — otherwise a drag across two columns has no feedback at
+          // all beyond the card under the finger.
+          dropTarget={drag !== null && !drag.column && drag.to === i && drag.from !== i}
+          onDragStart={editable ? (y: number, x: number) => beginDrag(y, ex.slug, x) : undefined}
           href={pageFor(ex.slug)}
           unit={view.unit}
           pickable={pickable}
@@ -758,30 +803,37 @@ function TargetEditor({
  * card changed shape the moment she pressed Start — and put a tap target
  * next to the one button that ends the session.
  */
-function SessionClock({ startedAt, finishedAt }: { startedAt: string; finishedAt: string | null }) {
+function SessionClock({
+  startedAt, finishedAt, pausedAt, pausedMs,
+}: { startedAt: string; finishedAt: string | null; pausedAt: string | null; pausedMs: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (finishedAt) return;
+    // Nothing to tick while it is stopped: the reading cannot change.
+    if (finishedAt || pausedAt) return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [finishedAt]);
+  }, [finishedAt, pausedAt]);
   return (
     // Not a live region: it repaints every second, and announcing each tick
     // would talk over everything else the way the rest countdown once did.
-    <p className="mt-1 text-[13px] font-medium tabular-nums text-beat">
-      {clockDuration(elapsedMs(startedAt, now, finishedAt))}
+    <p className={`mt-1 text-[13px] font-medium tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
+      {clockDuration(elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs }))}
+      {pausedAt && <span className="ml-1.5 text-[11px] uppercase tracking-wide">paused</span>}
     </p>
   );
 }
 
 function SessionBar({
-  startedAt, finishedAt, busy, onStart, onFinish,
+  startedAt, finishedAt, paused, busy, onStart, onFinish, onPause,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
+  /** Stopped, but not over. */
+  paused: boolean;
   busy: boolean;
   onStart: () => void;
   onFinish: () => void;
+  onPause: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -825,14 +877,31 @@ function SessionBar({
     ending it by accident.
   */
   return (
-    <button
-      onClick={onFinish}
-      disabled={busy}
-      className="flex items-center gap-1.5 rounded-full border border-edge px-3.5 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
-    >
-      <span className="size-1.5 animate-pulse rounded-full bg-beat" aria-hidden />
-      {busy ? "Finishing…" : "Finish workout"}
-    </button>
+    <div className="flex items-center gap-2">
+      {/* A glyph, not a word: it sits beside a button that already has three,
+          and pause is the one symbol everybody reads without being told. */}
+      <button
+        onClick={onPause}
+        disabled={busy}
+        aria-label={paused ? "Start the clock again" : "Pause the session"}
+        title={paused ? "Start the clock again" : "Pause the session"}
+        className={`grid size-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
+          paused ? "border-beat text-beat" : "border-edge text-muted active:bg-raised"
+        }`}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          {paused ? <path d="M8 5v14l11-7z" /> : <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />}
+        </svg>
+      </button>
+      <button
+        onClick={onFinish}
+        disabled={busy}
+        className="flex items-center gap-1.5 rounded-full border border-edge px-3.5 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+      >
+        <span className={`size-1.5 rounded-full bg-beat ${paused ? "" : "animate-pulse"}`} aria-hidden />
+        {busy ? "Finishing…" : "Finish workout"}
+      </button>
+    </div>
   );
 }
 
@@ -1088,7 +1157,8 @@ function summariseSets(sets: { reps: number; weight: number | null }[], unit: st
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
-  beatSeconds: beat = BEAT_CALM_S, offsetY = 0, asPage = false, href,
+  beatSeconds: beat = BEAT_CALM_S, offsetY = 0, offsetX = 0, dropTarget = false,
+  asPage = false, href,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -1122,11 +1192,15 @@ export function ExerciseCard({
   /** Being dragged to a new place in the day. */
   dragging?: boolean;
   /** Absent on a day she cannot edit — no handle is drawn. */
-  onDragStart?: (startY: number) => void;
+  onDragStart?: (startY: number, startX: number) => void;
   /** How fast the marker beats — a heart rate settling through the rest. */
   beatSeconds?: number;
   /** Where the drag has put this card, in pixels from where it sits. */
   offsetY?: number;
+  /** The same sideways, which only a grid needs. */
+  offsetX?: number;
+  /** Where the held card would land. Marked, because in a grid nothing moves aside. */
+  dropTarget?: boolean;
   /**
    * This card *is* the screen — /train/[slug] on a phone, rather than a sheet
    * lifted over the day. No scrim to tap by accident, no focus trap, no
@@ -1348,7 +1422,7 @@ export function ExerciseCard({
         if ((e.target as HTMLElement).closest("button, input, [role='button']")) return;
         const startY = e.clientY;
         const startX = e.clientX;
-        const hold = window.setTimeout(() => { onDragStart(startY); }, 400);
+        const hold = window.setTimeout(() => { onDragStart(startY, startX); }, 400);
         const cancel = (ev: PointerEvent) => {
           if (Math.abs(ev.clientY - startY) < 10 && Math.abs(ev.clientX - startX) < 10) return;
           window.clearTimeout(hold);
@@ -1372,6 +1446,7 @@ export function ExerciseCard({
         // Log button off the bottom of a phone — and the long-press drag ate
         // the scroll that would have reached it.
         open ? "flex flex-col" : ""
+      } ${dropTarget ? "border-accent ring-2 ring-accent/40" : ""
       } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
       style={{
@@ -1381,9 +1456,9 @@ export function ExerciseCard({
         // own title clipped away above the address bar.
         ...(open ? { maxHeight: SHEET_MAX } : {}),
         ...(upNext && live ? { animationDuration: `${beat}s` } : {}),
-        ...(offsetY !== 0 || dragging
+        ...(offsetY !== 0 || offsetX !== 0 || dragging
           ? {
-            transform: `translateY(${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
+            transform: `translate(${offsetX}px, ${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
             // The card in her hand tracks the finger with no easing at all;
             // the ones getting out of the way ease, or the list snaps.
             transition: dragging ? "none" : "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -1459,7 +1534,7 @@ export function ExerciseCard({
               the device it is for. */}
           {onDragStart && !open && (
             <button
-              onPointerDown={(e) => { e.preventDefault(); onDragStart(e.clientY); }}
+              onPointerDown={(e) => { e.preventDefault(); onDragStart(e.clientY, e.clientX); }}
               aria-label={`Reorder ${exercise.name}`}
               className="grid size-8 shrink-0 cursor-grab place-items-center rounded-full text-faint active:cursor-grabbing active:bg-raised"
               style={{ touchAction: "none" }}

@@ -2,7 +2,7 @@ import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { allowanceLeftPct, ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
 import { nextAfter } from "@/components/train-client";
-import { moveItem, slotFor } from "@/lib/reorder";
+import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
 
@@ -299,10 +299,10 @@ suite("reordering the day by dragging", () => {
 
   it("uses pointer events, because HTML5 drag does not fire on touch at all", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/onDragStart\(e\.clientY\)/);
+    expect(card).toMatch(/onDragStart\(e\.clientY, e\.clientX\)/);
     // …and a long press anywhere on the card, because eight pixels of grip
     // among four other round buttons is a handle most thumbs never hit.
-    expect(card).toMatch(/window\.setTimeout\(\(\) => \{ onDragStart\(startY\); \}, 400\)/);
+    expect(card).toMatch(/window\.setTimeout\(\(\) => \{ onDragStart\(startY, startX\); \}, 400\)/);
     // …and never inside the open card, where a press that holds still for
     // 400ms is what scrolling a long sheet with one thumb looks like.
     expect(card).toMatch(/if \(!onDragStart \|\| dragging \|\| open\) return;/);
@@ -324,7 +324,7 @@ suite("reordering the day by dragging", () => {
     // taken at the start stop being true half way through the gesture.
     const move = card.slice(card.indexOf("const move = (ev: PointerEvent)"), card.indexOf("const end = async"));
     expect(move).not.toMatch(/setDragOrder/);
-    expect(move).toMatch(/setDrag\(\{ slug, dy, from, to, height \}\)/);
+    expect(move).toMatch(/setDrag\(\{ slug, dx, dy, from, to, height, column \}\)/);
   });
 
   it("writes the order once, on release", () => {
@@ -509,5 +509,39 @@ suite("the marker beats only while the session is running", () => {
     expect(still).toMatch(/box-shadow/);
     expect(still).toMatch(/border-color: var\(--color-beat\)/);
     expect(still).not.toMatch(/animation/);
+  });
+});
+
+suite("reordering works in a grid too, not only in a column", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("picks the nearest card in both axes", () => {
+    // On a wide screen the day is a grid, two or three cards abreast, and a
+    // vertical-only rule is meaningless there: half the cards share a `y`, so
+    // dragging sideways moved nothing and dragging down jumped whole rows.
+    // That is why it worked on a phone and did nothing on a desktop.
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/to = column \? slotFor\(mids, ev\.clientY\) : slotForPoint\(centres, ev\.clientX, ev\.clientY\)/);
+    expect(card).toMatch(/const column = isSingleColumn\(rects\.map\(\(r\) => r\.top\)\)/);
+  });
+
+  it("measures the shape rather than guessing it from a breakpoint", () => {
+    // The same list is a column on a phone, a grid on a laptop and a wider
+    // grid on a monitor.
+    expect(isSingleColumn([0, 200, 400])).toBe(true);
+    expect(isSingleColumn([0, 0, 200])).toBe(false);
+    expect(isSingleColumn([100])).toBe(true);
+    // Nearest centre, in two dimensions.
+    const grid = [{ x: 50, y: 50 }, { x: 250, y: 50 }, { x: 50, y: 250 }, { x: 250, y: 250 }];
+    expect(slotForPoint(grid, 240, 60)).toBe(1);
+    expect(slotForPoint(grid, 60, 240)).toBe(2);
+    expect(slotForPoint(grid, 245, 245)).toBe(3);
+  });
+
+  it("and shows where it will land, since nothing slides aside in a grid", () => {
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/if \(!drag \|\| !drag\.column \|\| i === drag\.from\) return 0;/);
+    expect(card).toMatch(/dropTarget=\{drag !== null && !drag\.column && drag\.to === i && drag\.from !== i\}/);
+    expect(card).toMatch(/dropTarget \? "border-accent ring-2 ring-accent\/40" : ""/);
   });
 });
