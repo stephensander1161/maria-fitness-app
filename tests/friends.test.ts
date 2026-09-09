@@ -185,3 +185,44 @@ suite("the tools enforce it too", () => {
     expect(source).not.toMatch(/\busers\b/);
   });
 });
+
+suite("a friend's screen shows what they have actually done", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("counts a session that happened, not one that was finished", () => {
+    // `completedAt` is the Finish workout button, and almost nobody presses
+    // it — the week review had exactly this bug and reported real sessions as
+    // missed. Here it meant a friend who trains four times a week showed as
+    // zero, which is most of the reason the screen looked empty.
+    const src = read("lib/friends.ts");
+    expect(src).toMatch(/const worked = sql`exists \(select 1 from \$\{setLogs\}/);
+    expect(src).toMatch(/\$\{workouts\.completedAt\} is not null or \$\{worked\}/);
+  });
+
+  it("carries the long view, which a quiet week does not erase", () => {
+    const src = read("lib/friends.ts");
+    for (const field of ["setsAllTime", "volumeThisWeek", "movementsThisWeek", "lastSessionOn", "bestEver"]) {
+      expect(src, field).toMatch(new RegExp(`${field}:`));
+    }
+    const ui = read("components/friends-client.tsx");
+    expect(ui).toMatch(/label="Volume"/);
+    expect(ui).toMatch(/label="Movements"/);
+    expect(ui).toMatch(/Best ever/);
+  });
+
+  it("shows one line per movement in the all-time list", () => {
+    // Three sets of the same lift is one fact printed three times.
+    const src = read("lib/friends.ts");
+    const fn = src.slice(src.indexOf("function dedupeByExercise"));
+    expect(fn.slice(0, 600)).toMatch(/if \(seen\.has\(r\.name\)\) continue;/);
+  });
+
+  it("and still nothing about a body crosses", () => {
+    // The rule this feature exists under: training crosses, a body never does.
+    const shape = read("lib/friends.ts");
+    const type = shape.slice(shape.indexOf("export type FriendTraining"), shape.indexOf("};", shape.indexOf("export type FriendTraining")));
+    for (const word of ["weightKg", "bodyFat", "measurement", "waist", "calorie", "protein", "photo", "cycle"]) {
+      expect(type.toLowerCase(), word).not.toContain(word.toLowerCase());
+    }
+  });
+});

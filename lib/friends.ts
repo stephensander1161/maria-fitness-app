@@ -6,7 +6,7 @@ import { exercises, friendships, profiles, setLogs, workouts } from "@/lib/db/sc
 import { addDays, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { streakWeeks, titleFor } from "@/lib/titles";
-import { weightOut, weightLabel, type Units } from "@/lib/units";
+import { kgToLb, weightOut, weightLabel, type Units } from "@/lib/units";
 
 /**
  * Friends, and the exact list of what one can see about another.
@@ -21,6 +21,20 @@ import { weightOut, weightLabel, type Units } from "@/lib/units";
  */
 
 /** Exactly what leaves one profile for another. Nothing else is ever selected. */
+/** Heaviest per movement, in the viewer's units. Three of one lift is one fact. */
+function dedupeByExercise(
+  rows: { name: string; weightKg: number | null; reps: number }[], units: Units,
+): { exercise: string; weight: number | null; reps: number; unit: string }[] {
+  const seen = new Set<string>();
+  const out: { exercise: string; weight: number | null; reps: number; unit: string }[] = [];
+  for (const r of rows) {
+    if (seen.has(r.name)) continue;
+    seen.add(r.name);
+    out.push({ exercise: r.name, weight: weightOut(r.weightKg, units), reps: r.reps, unit: weightLabel(units) });
+  }
+  return out;
+}
+
 export type FriendTraining = {
   name: string;
   /** Her rank, which only ever goes up — see lib/titles.ts. Never a body fact. */
@@ -45,6 +59,16 @@ export type FriendTraining = {
    * never started is a different sentence, and the screen says which.
    */
   hasEverLogged: boolean;
+  /** Sets logged in total, ever. */
+  setsAllTime: number;
+  /** Load times reps this week, in the viewer's units. */
+  volumeThisWeek: number;
+  /** Distinct movements trained this week. */
+  movementsThisWeek: number;
+  /** The day of her last session. Null when she has never logged one. */
+  lastSessionOn: ISODate | null;
+  /** Her heaviest ever, one per movement, in the viewer's units. */
+  bestEver: { exercise: string; weight: number | null; reps: number; unit: string }[];
 };
 
 export type FriendEdge = {
@@ -228,9 +252,20 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
   const theirToday: ISODate = profileToday(friend);
   const week = weekStart(theirToday);
   const weekEnd = addDays(week, 6);
-  const done = and(eq(workouts.profileId, friendProfileId), isNotNull(workouts.completedAt));
+  /**
+   * A session that happened, which is not the same as one that was finished.
+   *
+   * `completedAt` is the Finish workout button, and almost nobody presses it —
+   * the week review had exactly this bug and reported real sessions as
+   * missed. Here it meant a friend who trains four times a week showed as
+   * zero, which is most of the reason this screen looked empty.
+   */
+  const mine = eq(workouts.profileId, friendProfileId);
+  const worked = sql`exists (select 1 from ${setLogs} where ${setLogs.workoutId} = ${workouts.id})`;
+  const done = and(mine, sql`(${workouts.completedAt} is not null or ${worked})`);
 
-  const [[sessionsWeek], [setsWeek], [allTime], sessionDates, best] = await Promise.all([
+  const [[sessionsWeek], [setsWeek], [allTime], sessionDates, best,
+    [volumeWeek], [movesWeek], [setsEver], bestEver] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(workouts)
       .where(and(done, gte(workouts.date, week), lte(workouts.date, weekEnd))),
     db.select({ n: sql<number>`count(*)::int` }).from(setLogs)
@@ -249,6 +284,27 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
       ))
       .orderBy(desc(setLogs.weightKg))
       .limit(3),
+    // Tonnage this week: load times reps, which is the one number that says
+    // how much work a week actually was rather than how many times she turned
+    // up. A hold has no load, so it contributes none — same rule as everywhere.
+    db.select({ kg: sql<number>`coalesce(sum(coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}), 0)::real` })
+      .from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .where(and(mine, gte(workouts.date, week), lte(workouts.date, weekEnd))),
+    // How much of the body the week covered, as a count of distinct movements.
+    db.select({ n: sql<number>`count(distinct ${setLogs.exerciseId})::int` })
+      .from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .where(and(mine, gte(workouts.date, week), lte(workouts.date, weekEnd))),
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id)).where(mine),
+    // The heaviest she has ever put up, per movement, three of them. A week
+    // can be quiet; what somebody has lifted is the part worth showing.
+    db.select({ name: exercises.name, weightKg: setLogs.weightKg, reps: setLogs.reps })
+      .from(setLogs)
+      .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .innerJoin(exercises, eq(setLogs.exerciseId, exercises.id))
+      .where(and(mine, isNotNull(setLogs.weightKg)))
+      .orderBy(desc(setLogs.weightKg))
+      .limit(12),
   ]);
 
   const sessionsAllTime = allTime?.n ?? 0;
@@ -271,6 +327,13 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
       reps: b.reps,
       unit: weightLabel(viewerUnits),
     })),
+    setsAllTime: setsEver?.n ?? 0,
+    volumeThisWeek: Math.round(viewerUnits === "imperial" ? kgToLb(volumeWeek?.kg ?? 0) : (volumeWeek?.kg ?? 0)),
+    movementsThisWeek: movesWeek?.n ?? 0,
+    lastSessionOn: sessionDates[0]?.date as ISODate | undefined ?? null,
+    // One entry per movement, heaviest first — three of the same lift is one
+    // fact printed three times.
+    bestEver: dedupeByExercise(bestEver, viewerUnits).slice(0, 3),
     hasEverLogged: sessionsAllTime > 0,
   };
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { prettyDate } from "@/lib/date";
 import type { FriendCard } from "@/app/friends/page";
 
 type Edge = { friendshipId: string; name: string; state: string };
@@ -253,23 +254,63 @@ function FriendWeek({
         <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
           <Stat label="Sessions" value={String(friend.sessionsThisWeek)} sub="this week" />
           <Stat label="Hard sets" value={String(friend.setsThisWeek)} sub="this week" />
+          {/* Load times reps: the number that says how much work a week was,
+              rather than how many times somebody turned up. */}
+          {friend.volumeThisWeek > 0 && (
+            <Stat label="Volume" value={friend.volumeThisWeek.toLocaleString()} sub={`${friend.bestLifts[0]?.unit ?? "lb"} this week`} />
+          )}
+          {friend.movementsThisWeek > 0 && (
+            <Stat label="Movements" value={String(friend.movementsThisWeek)} sub="this week" />
+          )}
           {friend.streakWeeks > 0 && (
             <Stat label="Streak" value={String(friend.streakWeeks)} sub={friend.streakWeeks === 1 ? "week" : "weeks"} />
           )}
         </dl>
       )}
 
+      {/* The long view, which a quiet week does not erase. */}
+      {friend.hasEverLogged && (
+        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 border-t border-line/60 pt-3">
+          <Stat label="Sessions" value={friend.sessionsAllTime.toLocaleString()} sub="all time" />
+          <Stat label="Sets" value={friend.setsAllTime.toLocaleString()} sub="all time" />
+          {friend.lastSessionOn && (
+            <Stat label="Last session" value={prettyDate(friend.lastSessionOn)} sub="" />
+          )}
+        </dl>
+      )}
+
       {friend.bestLifts.length > 0 && (
-        <ul className="mt-3 space-y-1 border-t border-line/60 pt-3">
-          {friend.bestLifts.map((b, i) => (
-            <li key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
-              <span className="min-w-0 truncate text-muted">{b.exercise}</span>
-              <span className="shrink-0 tabular-nums">
-                {b.weight !== null ? `${b.weight} ${b.unit}` : "bodyweight"} × {b.reps}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-3 border-t border-line/60 pt-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-faint">Heaviest this week</p>
+          <ul className="space-y-1">
+            {friend.bestLifts.map((b, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span className="min-w-0 truncate text-muted">{b.exercise}</span>
+                <span className="shrink-0 tabular-nums">
+                  {b.weight !== null ? `${b.weight} ${b.unit}` : "bodyweight"} × {b.reps}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Best ever, one line per movement. A week can be quiet; what somebody
+          has actually lifted is the part worth showing either way. */}
+      {friend.bestEver.length > 0 && (
+        <div className="mt-3 border-t border-line/60 pt-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-faint">Best ever</p>
+          <ul className="space-y-1">
+            {friend.bestEver.map((b, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span className="min-w-0 truncate text-muted">{b.exercise}</span>
+                <span className="shrink-0 tabular-nums text-beat">
+                  {b.weight !== null ? `${b.weight} ${b.unit}` : "bodyweight"} × {b.reps}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <button

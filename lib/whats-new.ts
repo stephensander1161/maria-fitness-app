@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-friends-stats",
+    date: "2026-09-09",
+    title: "Friends actually show what they have done",
+    blurb: "A friend's card counted only sessions where they had pressed Finish, so someone training four times a week showed as nothing. It counts the work now, and carries volume, movements, lifetime sets, when they last trained, and their heaviest ever.",
+    href: "/friends",
+  },
+  {
     id: "2026-09-09-pause",
     date: "2026-09-09",
     title: "Pause a session, and drag cards on a desktop",
