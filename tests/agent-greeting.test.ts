@@ -39,3 +39,23 @@ suite("the coach never hands a contradiction back", () => {
     expect(persona).toMatch(/never narrate your own reasoning about what you were told/);
   });
 });
+
+suite("a stranded reply is not a conversation", () => {
+  it("takes something she said for history to exist", () => {
+    // A turn can end with the assistant's reply written and nothing after it
+    // — or, as happened, the coach can answer the opening briefing by
+    // objecting to it. What is left is one assistant message with nothing
+    // before it. Counting rows made that a conversation: it displayed on
+    // every open, and because a row existed the opening was never sent
+    // again, so "new chat" showed the same stranded paragraph for ever.
+    const h = read("lib/agent/history.ts");
+    const fn = h.slice(h.indexOf("export async function hasHistory"));
+    expect(fn.slice(0, 400)).toMatch(/eq\(messages\.role, "user"\)/);
+  });
+
+  it("and nothing she said means nothing shown", () => {
+    const h = read("lib/agent/history.ts");
+    const fn = h.slice(h.indexOf("export async function recentForDisplay"));
+    expect(fn.slice(0, 1400)).toMatch(/if \(!\(await hasHistory\(profileId\)\)\) return \{ messages: \[\], hasMore: false, oldestId: null \}/);
+  });
+});

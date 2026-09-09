@@ -198,6 +198,11 @@ export async function recentForDisplay(
   /** Cursor for the next page: the oldest *row* fetched, shown or not. */
   oldestId: string | null;
 }> {
+  // Nothing she has said means nothing to show — the same rule hasHistory
+  // uses, and the reason a stranded assistant fragment no longer greets her
+  // on every open.
+  if (!(await hasHistory(profileId))) return { messages: [], hasMore: false, oldestId: null };
+
   const edge = before
     ? (await db.select({ at: messages.createdAt, id: messages.id })
         .from(messages).where(eq(messages.id, before)).limit(1))[0]
@@ -245,11 +250,26 @@ export async function recentForDisplay(
 }
 
 /** Guards the one-time opening turn so it can't be replayed to spend tokens. */
+/**
+ * Whether there is a conversation to continue.
+ *
+ * A row is not a conversation: **it takes something she said.** A turn can
+ * fail after the assistant's reply is written and before her next message —
+ * or, as happened, the coach can answer an opening briefing by objecting to
+ * it — and what is left is one assistant message with nothing before it.
+ * That is not a thread; it is a fragment.
+ *
+ * Counting rows made it one. The fragment displayed on every open, and
+ * because a row existed the opening was never sent again, so "new chat"
+ * showed the same stranded paragraph for ever with no way to clear it from
+ * the app. Asking for a user message heals every account in that state on
+ * the next open, without anybody running anything against the database.
+ */
 export async function hasHistory(profileId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: messages.id })
     .from(messages)
-    .where(eq(messages.profileId, profileId))
+    .where(and(eq(messages.profileId, profileId), eq(messages.role, "user")))
     .limit(1);
   return row !== undefined;
 }

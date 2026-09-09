@@ -506,7 +506,12 @@ export function TrainClient({
       {heading ? (
         <section className="card p-4">
           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div className="min-w-0 flex-1 basis-32">{heading}</div>
+            <div className="min-w-0 flex-1 basis-32">
+              {heading}
+              {isToday && view.startedAt && !view.finishedAt && (
+                <SessionClock startedAt={view.startedAt} finishedAt={view.finishedAt} />
+              )}
+            </div>
             {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
           </div>
         </section>
@@ -745,6 +750,30 @@ function TargetEditor({
  * of the session sits inside — and because "have I started?" is the question
  * she asks first when she picks the phone up mid-workout.
  */
+/**
+ * How long she has been at it, under the day's name.
+ *
+ * Read, never tapped. It used to be a chip beside the Finish button, which
+ * made the running state two controls where the stopped state had one — the
+ * card changed shape the moment she pressed Start — and put a tap target
+ * next to the one button that ends the session.
+ */
+function SessionClock({ startedAt, finishedAt }: { startedAt: string; finishedAt: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (finishedAt) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [finishedAt]);
+  return (
+    // Not a live region: it repaints every second, and announcing each tick
+    // would talk over everything else the way the rest countdown once did.
+    <p className="mt-1 text-[13px] font-medium tabular-nums text-beat">
+      {clockDuration(elapsedMs(startedAt, now, finishedAt))}
+    </p>
+  );
+}
+
 function SessionBar({
   startedAt, finishedAt, busy, onStart, onFinish,
 }: {
@@ -787,33 +816,23 @@ function SessionBar({
   }
 
   /*
-    Running, this has two controls where the stopped state had one, and it
-    shares its row with the day's name. At "Finish workout" in full, on
-    generous padding, the pair came to about 270px of a 361px row — so the
-    session's name was squeezed to "Tues…", and giving it room instead pushed
-    the controls onto a second line with a lake of empty card beside them.
-    Neither is worth the extra word: the timer says what is running, so the
-    button only has to say how to stop it. The full phrase stays in the label
-    a screen reader gets.
+    One control, in the slot Start was in.
+    It was a timer chip *and* a button, which is two things where the stopped
+    state had one — the card changed shape the moment she pressed Start, and
+    the pair was wide enough to squeeze the session's name to "Tues…". The
+    clock has not gone anywhere: it sits under the day's name, where it is
+    read rather than tapped. Nothing about a running session should be
+    ending it by accident.
   */
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1.5 rounded-full border border-edge bg-surface px-2.5 py-2">
-        <span className="size-1.5 animate-pulse rounded-full bg-beat" aria-hidden />
-        {/* Not a live region: it repaints every second, and announcing each
-            tick would talk over everything else the way the rest countdown
-            once did. */}
-        <span className="text-[14px] font-semibold tabular-nums">{clockDuration(ms)}</span>
-      </div>
-      <button
-        onClick={onFinish}
-        disabled={busy}
-        aria-label="Finish workout"
-        className="rounded-full border border-edge px-3 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
-      >
-        {busy ? "Finishing…" : "Finish"}
-      </button>
-    </div>
+    <button
+      onClick={onFinish}
+      disabled={busy}
+      className="flex items-center gap-1.5 rounded-full border border-edge px-3.5 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+    >
+      <span className="size-1.5 animate-pulse rounded-full bg-beat" aria-hidden />
+      {busy ? "Finishing…" : "Finish workout"}
+    </button>
   );
 }
 

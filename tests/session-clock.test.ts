@@ -73,7 +73,8 @@ suite("the session has edges", () => {
     expect(card).toMatch(/action\("start_workout"/);
     expect(card).toMatch(/Start workout/);
     expect(card).toMatch(/Finish workout/);
-    expect(card).toMatch(/clockDuration\(ms\)/);
+    // The clock is read under the day's name, not tapped beside the button.
+    expect(card).toMatch(/clockDuration\(elapsedMs\(startedAt, now, finishedAt\)\)/);
   });
 
   it("does not announce every tick of it", () => {

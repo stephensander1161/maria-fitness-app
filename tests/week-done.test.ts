@@ -247,20 +247,29 @@ suite("the day's name and its clock share a container", () => {
 
   it("floats the control right, on one row in both states", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32">\{heading\}<\/div>/);
+    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32">/);
     expect(card).toMatch(/<div className="ml-auto shrink-0">\{sessionBar\}<\/div>/);
     expect(card).toMatch(/flex flex-wrap items-start justify-between gap-x-3 gap-y-2/);
   });
 
-  it("shortens the running label rather than wrapping or clipping", () => {
-    // A timer and "Finish workout" came to about 270px of a 361px row, so
-    // either the session name was squeezed to "Tues…" or the controls dropped
-    // onto a second line with a lake of empty card beside them. The timer
-    // already says what is running; the button only says how to stop it.
-    const bar = read("components/train-client.tsx");
-    expect(bar).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
-    // The full phrase still reaches a screen reader.
-    expect(bar).toMatch(/aria-label="Finish workout"/);
+  it("and the running control is one button, not a pair", () => {
+    const card = read("components/train-client.tsx");
+    const bar = card.slice(card.indexOf("One control, in the slot Start was in"), card.indexOf("/** 0=Monday"));
+    expect(bar).toMatch(/\{busy \? "Finishing…" : "Finish workout"\}/);
+    expect(bar).not.toMatch(/clockDuration/);
+  });
+
+  it("is one control in the running state too, where Start was", () => {
+    // A timer chip *and* a button is two things where the stopped state had
+    // one: the card changed shape the moment she pressed Start, and it put a
+    // tap target beside the one button that ends the session.
+    const card = read("components/train-client.tsx");
+    const bar = card.slice(card.indexOf("One control, in the slot Start was in"), card.indexOf("/** 0=Monday"));
+    expect(bar).toMatch(/onClick=\{onFinish\}/);
+    expect(bar).not.toMatch(/clockDuration/);
+    // The clock is read, under the day's name, rather than tapped.
+    expect(card).toMatch(/function SessionClock\(/);
+    expect(card).toMatch(/<SessionClock startedAt=\{view\.startedAt\} finishedAt=\{view\.finishedAt\} \/>/);
   });
 
   it("and the title can actually shrink, which is why it overlapped", () => {
