@@ -50,9 +50,15 @@ export function AskCoach({
     // `data-ask-coach` marks a coach entry that lives in the page's own flow,
     // next to the thing it is about, rather than in the sheet over it.
     <section ref={panel} className="card mb-3 p-4" data-ask-coach="" data-no-pull-to-refresh="">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-[14px] font-semibold">{title}</h2>
-        {hint && <span className="shrink-0 text-[11px] text-faint">{hint}</span>}
+      {/* The hint carried `shrink-0` and the heading did not, so on a phone a
+          sentence-long hint took the whole row and "Ask about your friends"
+          was squeezed into a four-line column one word wide. The heading is
+          short and fixed; the hint is the long part, so the hint is the part
+          that gives way — and below `sm` it takes its own line rather than
+          competing for that one at all. */}
+      <div className="mb-3 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+        <h2 className="text-[14px] font-semibold sm:shrink-0">{title}</h2>
+        {hint && <span className="min-w-0 text-[11px] leading-snug text-faint sm:text-right">{hint}</span>}
       </div>
 
       {started && (

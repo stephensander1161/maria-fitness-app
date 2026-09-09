@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
 import { action, actionMessage } from "@/lib/client";
 
@@ -181,9 +181,34 @@ export function Composer({
 export function Suggestions({
   items, onPick, busy,
 }: { items: string[]; onPick: (text: string) => void; busy: boolean }) {
+  // The row scrolls sideways rather than wrapping, so on a phone a chip is cut
+  // off at the card's edge on purpose — and a half-drawn button with nothing
+  // to say why reads as a layout that has gone wrong. The fade says "there is
+  // more this way", and it is measured rather than assumed: painting it over a
+  // row that fits would dim a chip that is perfectly visible.
+  const row = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => setOverflows(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const child of el.children) ro.observe(child);
+    return () => ro.disconnect();
+  }, [items]);
+
   if (items.length === 0) return null;
   return (
-    <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+    <div
+      ref={row}
+      className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      style={overflows ? {
+        maskImage: "linear-gradient(to right, #000 calc(100% - 28px), transparent)",
+        WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 28px), transparent)",
+      } : undefined}
+    >
       {items.map((s) => (
         <button
           key={s}
