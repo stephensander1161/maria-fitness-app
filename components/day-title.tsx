@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { dayEyebrow } from "@/lib/day-label";
 
 /**
  * The day's name, editable where she reads it.
@@ -12,11 +13,14 @@ import { action, actionMessage } from "@/lib/client";
  * to ask the coach to rename a heading did not feel like the app was hers.
  */
 export function DayTitle({
-  title, dayOfWeek, focus, compact = false,
+  title, dayOfWeek, focus, compact = false, prefix,
 }: {
   title: string; dayOfWeek: number; focus: string | null;
   /** Sharing its row with something else, so it is a heading, not a title. */
   compact?: boolean;
+  /** The day, set inline before the name — "Tuesday · Shoulders" reads as one
+   *  thing, where an uppercase eyebrow above it was two. */
+  prefix?: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -30,6 +34,8 @@ export function DayTitle({
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (editing) input.current?.select(); }, [editing]);
+
+  const eyebrow = dayEyebrow(prefix, title);
 
   async function save() {
     const next = value.trim();
@@ -59,6 +65,11 @@ export function DayTitle({
           className="group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center"
           aria-label={`Rename ${title}`}
         >
+          {eyebrow && (
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-accent">
+              {eyebrow} ·
+            </span>
+          )}
           <h1 className={`min-w-0 font-bold tracking-tight ${compact ? "line-clamp-2 break-words" : "truncate"} ${
             // Sharing a row with the session clock on a phone, it is a heading
             // rather than a title, so 17px there — but a desktop pins the
@@ -67,7 +78,7 @@ export function DayTitle({
           }`}>{title}</h1>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
-            className="shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:opacity-40"
+            className="hidden shrink-0 text-faint transition-opacity md:block md:opacity-40 md:group-hover:opacity-100 md:group-focus-visible:opacity-100"
             aria-hidden>
             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>

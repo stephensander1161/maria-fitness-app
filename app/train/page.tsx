@@ -7,6 +7,7 @@ import { todayTargets } from "@/lib/tools/progression-targets";
 import { PlanSetupInvite } from "@/components/plan-setup";
 import { equipmentToday } from "@/lib/tools/phases";
 import { DayTitle } from "@/components/day-title";
+import { dayEyebrow } from "@/lib/day-label";
 import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
 import { rollForward } from "@/lib/plan-rollover";
 import { DayNav } from "@/components/day-nav";
@@ -103,14 +104,17 @@ export default async function TrainPage({
         // which on a phone is most of what is above the first movement.
         heading={
           <>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">{view.dayName}</p>
             {view.hasPlan ? (
-              <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} compact />
+              <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} compact prefix={view.dayName} />
             ) : (
-              <>
-                <h2 className="mt-0.5 text-[17px] font-semibold md:text-2xl">{view.title}</h2>
-                {view.focus && <p className="mt-1 text-[13px] text-muted">{view.focus}</p>}
-              </>
+              <p className="text-[17px] font-semibold md:text-2xl">
+                {dayEyebrow(view.dayName, view.title) && (
+                  <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                    {dayEyebrow(view.dayName, view.title)} ·
+                  </span>
+                )}
+                {view.title}
+              </p>
             )}
           </>
         }

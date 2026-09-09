@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { prettyDate } from "@/lib/date";
@@ -21,19 +21,28 @@ type Edge = { friendshipId: string; name: string; state: string };
  *   one of them can say it did not work, out loud, with role="alert".
  */
 export function FriendsClient({
-  myCode, friends, waitingOnYou, waitingOnThem,
+  myCode, friends, waitingOnYou, waitingOnThem, highFives,
 }: {
   myCode: string;
   friends: FriendCard[];
   waitingOnYou: Edge[];
   waitingOnThem: Edge[];
+  highFives: { count: number; from: string[] };
 }) {
   const router = useRouter();
+  // Seen the moment she opens the screen — the badge is "since you last
+  // looked", so looking is what clears it.
+  useEffect(() => {
+    if (highFives.count > 0) void action("acknowledge_high_fives", {}).catch(() => {});
+  }, [highFives.count]);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const cheer = highFives.count > 0
+    ? `🙌 ${highFives.count} high five${highFives.count === 1 ? "" : "s"} from ${highFives.from.slice(0, 3).join(", ")}${highFives.from.length > 3 ? " and more" : ""}`
+    : null;
 
   /**
    * A tool that *refuses* comes back as `{ ok: false, error }` — it does not
@@ -42,13 +51,15 @@ export function FriendsClient({
    * with nothing changed, which is precisely the silent-failure this project
    * has a rule against. Both shapes are handled here, in one place.
    */
-  async function run(key: string, fn: () => Promise<unknown>, fallback: string) {
+  async function run(key: string, fn: () => Promise<unknown>, fallback: string, success?: string) {
     setBusy(key);
     setError(null);
     setNote(null);
     try {
       const res = (await fn()) as { ok?: boolean; error?: string } | null;
       if (res && res.ok === false) { setError(res.error ?? fallback); return; }
+      // A high five needs no reload — just say it went.
+      if (success) { setNote(success); return; }
       router.refresh();
     } catch (err) {
       setError(actionMessage(err, fallback));
@@ -91,6 +102,11 @@ export function FriendsClient({
 
   return (
     <div className="space-y-3">
+      {cheer && (
+        <div className="card border-beat/40 bg-beat-soft p-4 text-center text-[14px] font-medium text-beat">
+          {cheer}
+        </div>
+      )}
       {/* Her code, first: nothing else on this screen works until someone has it. */}
       <section className="card p-5">
         <h2 className="text-[15px] font-semibold">Your friend code</h2>
@@ -195,6 +211,10 @@ export function FriendsClient({
               key={f.friendshipId}
               friend={f}
               busy={busy === f.friendshipId}
+              onHighFive={() => run(`hi:${f.friendshipId}`, () =>
+                action("send_high_five", { friendshipId: f.friendshipId }),
+                "Couldn't send that.", `Sent ${f.name} a high five 🙌`)}
+              hiBusy={busy === `hi:${f.friendshipId}`}
               onRemove={() => run(f.friendshipId, () =>
                 action("remove_friend", { friendshipId: f.friendshipId }),
                 "Couldn't remove them.")}
@@ -233,9 +253,10 @@ export function FriendsClient({
 }
 
 function FriendWeek({
-  friend, busy, onRemove,
+  friend, busy, onRemove, onHighFive, hiBusy,
 }: {
   friend: FriendCard; busy: boolean; onRemove: () => void;
+  onHighFive: () => void; hiBusy: boolean;
 }) {
   return (
     <section className="card p-5">
@@ -313,6 +334,13 @@ function FriendWeek({
         </div>
       )}
 
+      <button
+        onClick={onHighFive}
+        disabled={hiBusy}
+        className="mt-3 mr-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat active:opacity-80 disabled:opacity-50"
+      >
+        {hiBusy ? "…" : "High five 🙌"}
+      </button>
       <button
         onClick={onRemove}
         disabled={busy}

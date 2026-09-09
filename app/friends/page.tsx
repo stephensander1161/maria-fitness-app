@@ -2,7 +2,7 @@ import { requireOnboarded } from "@/lib/session";
 import { runTool } from "@/lib/tools";
 import { AskCoach } from "@/components/ask-coach";
 import { FriendsClient } from "@/components/friends-client";
-import type { FriendTraining } from "@/lib/friends";
+import { unseenHighFives, type FriendTraining } from "@/lib/friends";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +22,13 @@ export default async function FriendsPage() {
   const profile = await requireOnboarded();
   const ctx = { profileId: profile.id };
 
-  const [code, list, stats] = await Promise.all([
+  const [code, list, stats, highFives] = await Promise.all([
     runTool("get_share_code", {}, ctx) as Promise<{ code: string }>,
     runTool("list_friends", {}, ctx) as Promise<{
       friends: Edge[]; waitingOnYou: Edge[]; waitingOnThem: Edge[];
     }>,
     runTool("get_friend_stats", {}, ctx) as Promise<{ friends?: FriendCard[] }>,
+    unseenHighFives(profile.id),
   ]);
 
   return (
@@ -45,6 +46,7 @@ export default async function FriendsPage() {
           friends={stats.friends ?? []}
           waitingOnYou={list.waitingOnYou}
           waitingOnThem={list.waitingOnThem}
+          highFives={highFives}
         />
 
         <div className="mt-6">

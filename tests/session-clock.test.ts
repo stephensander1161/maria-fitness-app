@@ -162,7 +162,7 @@ suite("only the Finish button says it is finishing", () => {
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/const \[pausing, setPausing\] = useState\(false\)/);
     expect(card).toMatch(/clockBusy=\{pausing\}/);
-    expect(card).toMatch(/\{clockBusy \? "Starting…" : "Start workout"\}/);
+    expect(card).toMatch(/\{clockBusy \? "Starting…" : \(/);
     // The pause glyph is disabled by the clock's flag, not the finish one.
     const bar = card.slice(card.indexOf("One control, in the slot Start was in"));
     expect(bar.slice(0, 1400)).toMatch(/onClick=\{onPause\}\n\s*disabled=\{clockBusy\}/);

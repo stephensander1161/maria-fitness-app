@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-high-fives",
+    date: "2026-09-09",
+    title: "Send a friend a high five",
+    blurb: "A button on every friend's card. They see it the next time they open Friends, with who sent it — nothing to reply to, nothing to keep up with. It travels with the training you already share, and never anything about your body.",
+    href: "/friends",
+  },
+  {
     id: "2026-09-09-friends-stats",
     date: "2026-09-09",
     title: "Friends actually show what they have done",

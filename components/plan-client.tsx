@@ -280,16 +280,22 @@ function DayHeader({
 }) {
   return (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
-        {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
-      </p>
       <div>
         {exists && trainingDay && !trainingDay.isRest ? (
-          <DayTitle title={trainingDay.title} dayOfWeek={day} focus={trainingDay.focus} compact />
+          <DayTitle
+            title={trainingDay.title}
+            dayOfWeek={day}
+            focus={trainingDay.focus}
+            compact
+            prefix={isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
+          />
         ) : (
-          <h2 className="mt-0.5 text-[17px] font-semibold">
+          <p className="text-[17px] font-semibold md:text-2xl">
+            <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+              {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""} ·
+            </span>
             {trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
-          </h2>
+          </p>
         )}
       </div>
       {trainingDay?.notes && (

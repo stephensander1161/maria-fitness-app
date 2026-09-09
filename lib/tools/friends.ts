@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { friendships, profiles } from "@/lib/db/schema";
+import { friendships, highFives, profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { audit } from "@/lib/audit";
 import {
@@ -178,6 +178,36 @@ export const removeFriend = defineTool({
       .returning({ id: friendships.id });
     if (deleted.length === 0) return { ok: false, error: "You don't have a friend with that id." };
     await audit("friend.removed", { detail: { friendshipId: input.friendshipId } });
+    return { ok: true };
+  },
+});
+
+export const sendHighFive = defineTool({
+  name: "send_high_five",
+  description:
+    "Sends a friend a high five — a bit of encouragement, nothing else. Only works between accepted friends. Use it when she wants to cheer someone on after a good week.",
+  input: z.object({ friendshipId: z.string().describe("From list_friends") }),
+  handler: async (input, ctx) => {
+    const [f] = await db.select().from(friendships)
+      .where(and(
+        eq(friendships.id, input.friendshipId),
+        eq(friendships.status, "accepted"),
+        or(eq(friendships.requesterId, ctx.profileId), eq(friendships.addresseeId, ctx.profileId)),
+      )).limit(1);
+    if (!f) return { ok: false, error: "You can only high-five an accepted friend." };
+    const toId = f.requesterId === ctx.profileId ? f.addresseeId : f.requesterId;
+    await db.insert(highFives).values({ fromId: ctx.profileId, toId });
+    return { ok: true };
+  },
+});
+
+export const acknowledgeHighFives = defineTool({
+  name: "acknowledge_high_fives",
+  description: "Marks the high fives she has received as seen, so the badge clears. Called by the friends screen when she opens it.",
+  input: z.object({}),
+  handler: async (_input, ctx) => {
+    await db.update(highFives).set({ seenAt: new Date() })
+      .where(and(eq(highFives.toId, ctx.profileId), isNull(highFives.seenAt)));
     return { ok: true };
   },
 });

@@ -256,6 +256,29 @@ export const friendships = pgTable(
 );
 
 /**
+ * A high five sent from one friend to another.
+ *
+ * Encouragement crosses; a body never does — the same rule the friends
+ * feature runs on. A high five carries nothing but "well done", and the pair
+ * has to be accepted friends before one can be sent. `seenAt` is what turns
+ * off the little badge once she has seen it.
+ */
+export const highFives = pgTable(
+  "high_fives",
+  {
+    id: id(),
+    fromId: uuid("from_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    toId: uuid("to_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    seenAt: timestamp("seen_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("high_fives_to").on(t.toId, t.seenAt),
+    index("high_fives_from").on(t.fromId),
+  ],
+);
+
+/**
  * What she cooked in bulk and has left.
  *
  * The missing object between an ingredient and a meal. Meal plans fail for a

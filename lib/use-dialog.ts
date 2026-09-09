@@ -102,7 +102,6 @@ export function useDialog(onClose: () => void) {
       opener?.focus?.({ preventScroll: true });
     };
     // Once, for the life of the dialog — see `close` above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return panel;

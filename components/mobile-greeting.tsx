@@ -28,19 +28,24 @@ export async function MobileGreeting() {
   const name = user.name ?? profile.name;
 
   return (
-    <div className="mb-4 flex items-baseline justify-between gap-3 md:hidden">
-      {/* The comma belongs to the greeting, not to the name — inside the
-          bolder span it was a stray dark tick sitting against grey text. */}
-      <p className="min-w-0 truncate text-[13px] text-muted">
-        {greeting}
-        {name ? <>, <span className="font-semibold text-text">{name}</span></> : null}
-      </p>
-      <p
-        className="shrink-0 text-[10px] font-medium uppercase tracking-widest text-accent"
-        title={title.blurb}
-      >
-        {title.name}
-      </p>
+    <div className="mb-4 flex items-start justify-between gap-3 md:hidden">
+      {/* Two lines, not one squeezed row. Sharing a row with the rank, the
+          greeting truncated to "Good night, …" — cutting off the one word on
+          this screen that is her own name. Stacked, both fit whole. */}
+      <div className="min-w-0 flex-1">
+        {/* The comma belongs to the greeting, not to the name — inside the
+            bolder span it was a stray dark tick sitting against grey text. */}
+        <p className="text-[13px] text-muted">
+          {greeting}
+          {name ? <>, <span className="font-semibold text-text">{name}</span></> : null}
+        </p>
+        <p
+          className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-accent"
+          title={title.blurb}
+        >
+          {title.name}
+        </p>
+      </div>
       <span className="sr-only">{title.blurb}</span>
       {/* The rest of the app. It used to be a row of pills at the end of every
           page — half the app below the fold on the device most people use. */}

@@ -911,7 +911,15 @@ function SessionBar({
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M8 5v14l11-7z" />
         </svg>
-        {clockBusy ? "Starting…" : "Start workout"}
+        {clockBusy ? "Starting…" : (
+          <>
+            {/* "Start workout" beside a session name is 75px this row does not
+                have on a phone — it is what pushed "Shoulders" onto a second
+                line, mid-word. The triangle already says workout. */}
+            <span className="md:hidden">Start</span>
+            <span className="hidden md:inline">Start workout</span>
+          </>
+        )}
       </button>
     );
   }
@@ -1603,7 +1611,11 @@ export function ExerciseCard({
           {chainAbove ? "Superset · then this" : "Superset · this first"}
         </div>
       )}
-      <div className="flex items-start justify-between gap-3 p-4 pb-3">
+      {/* On a phone the icon cluster wraps to its own row, so the name and
+          target get the full width instead of a third of it — "Dumbbell
+          Lateral Raise" was truncating to "Dumbbe Later…". A single row from
+          `md` up, where there is room for both. */}
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2 p-4 pb-3 md:flex-nowrap md:justify-between">
         {/*
           The name and the target are the card's own open/close control. She
           is looking at the movement she is about to do and tapping it is the
@@ -1679,7 +1691,7 @@ export function ExerciseCard({
             <p className="mt-1 text-[12px] text-beat">Target up from last time</p>
           )}
         </TapIn>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex basis-full items-center justify-end gap-1.5 md:basis-auto md:shrink-0">
           {/* The grip. `touch-action: none` is what stops the browser reading
               the drag as a page scroll and swallowing it — without it this
               works with a mouse and does nothing at all on a phone, which is

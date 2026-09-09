@@ -1,8 +1,8 @@
 import { randomInt } from "node:crypto";
-import { and, desc, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { exercises, friendships, profiles, setLogs, workouts } from "@/lib/db/schema";
+import { exercises, friendships, highFives, profiles, setLogs, workouts } from "@/lib/db/schema";
 import { addDays, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { streakWeeks, titleFor } from "@/lib/titles";
@@ -336,4 +336,20 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
     bestEver: dedupeByExercise(bestEver, viewerUnits).slice(0, 3),
     hasEverLogged: sessionsAllTime > 0,
   };
+}
+
+
+/**
+ * The high fives she has been sent and not yet seen.
+ *
+ * Encouragement in, nothing else: a count and the names, for the badge and
+ * the little celebratory line. Names come from the sender's profile — the
+ * only thing that crosses is that they cheered her on.
+ */
+export async function unseenHighFives(profileId: string): Promise<{ count: number; from: string[] }> {
+  const rows = await db.select({ name: profiles.name })
+    .from(highFives).innerJoin(profiles, eq(highFives.fromId, profiles.id))
+    .where(and(eq(highFives.toId, profileId), isNull(highFives.seenAt)))
+    .orderBy(desc(highFives.createdAt));
+  return { count: rows.length, from: [...new Set(rows.map((r) => r.name ?? "A friend"))] };
 }

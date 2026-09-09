@@ -2,7 +2,7 @@ import { del, list } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { blobConfigured, putPrivate } from "@/lib/blob";
 import {
-  complaints, cycleEvents, factViews, feedback, friendships, goals, mealLogs, mealPlans, meals, measurements, messages,
+  complaints, cycleEvents, factViews, feedback, friendships, goals, highFives, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
   pushSubscriptions, savedMeals, setLogs, shoppingExtras,
   usageDaily, weighIns, workouts,
@@ -36,7 +36,7 @@ export const BACKUP_TABLES = {
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
   messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
-  friendships,
+  friendships, highFives,
 } as const;
 
 export const BACKUP_SCHEMA_VERSION = 1;

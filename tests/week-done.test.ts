@@ -229,7 +229,7 @@ suite("the day's name and its clock share a container", () => {
     // first movement.
     const page = read("app/train/page.tsx");
     expect(page).toMatch(/heading=\{/);
-    expect(page).toMatch(/<DayTitle title=\{view\.title\} dayOfWeek=\{dayIndex\(on\)\} focus=\{view\.focus\} compact \/>/);
+    expect(page).toMatch(/<DayTitle title=\{view\.title\} dayOfWeek=\{dayIndex\(on\)\} focus=\{view\.focus\} compact prefix=\{view\.dayName\} \/>/);
     // And DayNav no longer carries the title as well.
     expect(page).not.toMatch(/<\/DayNav>/);
   });
