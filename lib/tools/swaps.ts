@@ -137,6 +137,18 @@ export const substituteExercise = defineTool({
       .limit(1);
     if (!row) return { ok: false, error: `${input.slug} is not on that day. Call get_plan.` };
 
+    // Same guard as change_exercise: two rows for one movement on one day is
+    // two lists of sets that every screen then shows as one.
+    const [clash] = await db.select({ id: planExercises.id }).from(planExercises)
+      .where(and(eq(planExercises.planDayId, day.id), eq(planExercises.exerciseId, replacement.id)))
+      .limit(1);
+    if (clash) {
+      return {
+        ok: false,
+        error: `${replacement.name} is already in that day's session. Remove one of them first, or pick a different movement.`,
+      };
+    }
+
     // Sets, reps and rest carry across; the load does not. A different movement
     // at the same weight is a guess, and get_next_targets will work out a real
     // one from what she logs on it.
@@ -184,11 +196,34 @@ export const changeExercise = defineTool({
     if (!from || !to) return { ok: false, unknownSlugs, error: "Use search_exercises for the right slug." };
     if (from.id === to.id) return { ok: false, error: "That is already the movement it is recorded as." };
 
+    // The target must not already be on the day. Relabelling curls as hammer
+    // curls when hammer curls are already there made a second row for the
+    // same movement, and every screen that groups a day by movement then
+    // showed the two sets of sets as one — "just terrible", accurately. The
+    // honest answer is to refuse and say why; merging is a decision she has
+    // not made.
+    const week = weekStart(on);
+    const dow = dayIndex(on);
+    const [clash] = await db
+      .select({ id: planExercises.id })
+      .from(planExercises)
+      .innerJoin(planDays, eq(planExercises.planDayId, planDays.id))
+      .innerJoin(plans, eq(planDays.planId, plans.id))
+      .where(and(
+        eq(plans.profileId, ctx.profileId), eq(plans.weekStart, week),
+        eq(planDays.dayOfWeek, dow), eq(planExercises.exerciseId, to.id),
+      ))
+      .limit(1);
+    if (clash) {
+      return {
+        ok: false,
+        error: `${to.name} is already in that day's session. Remove one of them first, or pick a different movement — the sets cannot be merged without losing which was which.`,
+      };
+    }
+
     // The plan row for that day, if there is one. An exercise she added on the
     // spot has one too; an exercise from a week with no plan does not, and the
     // logged sets are still worth moving.
-    const week = weekStart(on);
-    const dow = dayIndex(on);
     const [row] = await db
       .select({ id: planExercises.id })
       .from(planExercises)

@@ -587,3 +587,30 @@ suite("relabel and remove are on the card", () => {
     expect(tool).toMatch(/bringing every set she already logged against it along/);
   });
 });
+
+suite("a dialog is set up once, for its whole life", () => {
+  it("does not tear down and re-arm on every render", () => {
+    // Every caller passes an inline arrow for onClose, so an effect keyed on
+    // it re-ran on every render: cleanup handed focus back to the opener,
+    // setup focused the first field. The Train screen re-renders every card
+    // every two seconds for the rest marker, which yanked focus out of the
+    // movement search to the swap icon on a timer while she typed.
+    const hook = fs.readFileSync("lib/use-dialog.ts", "utf8");
+    expect(hook).toMatch(/const close = useRef\(onClose\)/);
+    expect(hook).toMatch(/if \(e\.key === "Escape"\) \{ close\.current\(\); return; \}/);
+    expect(hook).not.toMatch(/\}, \[onClose\]\);\n\n  return panel;/);
+  });
+});
+
+suite("a movement cannot be swapped onto one already in the day", () => {
+  it("both relabel and substitute refuse, and say why", () => {
+    // Relabelling curls as hammer curls when hammer curls were already there
+    // made a second row for one movement, and every screen that groups a day
+    // by movement showed the two lists of sets as one.
+    const src = fs.readFileSync("lib/tools/swaps.ts", "utf8");
+    const matches = src.match(/is already in that day's session\. Remove one of them first/g) ?? [];
+    expect(matches).toHaveLength(2);
+    expect(src).toMatch(/eq\(planExercises\.exerciseId, to\.id\)/);
+    expect(src).toMatch(/eq\(planExercises\.exerciseId, replacement\.id\)/);
+  });
+});

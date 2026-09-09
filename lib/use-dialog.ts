@@ -22,6 +22,19 @@ import { useEffect, useRef } from "react";
  */
 export function useDialog(onClose: () => void) {
   const panel = useRef<HTMLDivElement>(null);
+  /**
+   * The latest close handler, read at the moment Escape is pressed.
+   *
+   * The effect below used to depend on `onClose` directly, and every caller
+   * passes an inline arrow — a new function on every render. So every render
+   * of the sheet tore the dialog down and set it up again: the cleanup handed
+   * focus back to the button that opened it, the setup focused the first
+   * field. The Train screen re-renders every card every two seconds for the
+   * rest marker's pulse, which meant that while she typed in the movement
+   * search, focus was yanked to the swap icon on a two-second timer.
+   */
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -39,7 +52,7 @@ export function useDialog(onClose: () => void) {
     if (node && !node.contains(document.activeElement)) first?.focus({ preventScroll: true });
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") { close.current(); return; }
       if (e.key !== "Tab" || !node) return;
 
       const items = focusable();
@@ -88,7 +101,9 @@ export function useDialog(onClose: () => void) {
       // top of the page, and focusing it scrolled her there.
       opener?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+    // Once, for the life of the dialog — see `close` above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return panel;
 }
