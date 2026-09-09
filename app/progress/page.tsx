@@ -6,12 +6,12 @@ import { runTool } from "@/lib/tools";
 import { goalDirection } from "@/lib/nutrition";
 import { requireOnboarded } from "@/lib/session";
 import {
-  currentStreak, exerciseProgression, measurementProgress, nutritionTrend, weekReview,
+  burnThisWeek, currentStreak, exerciseProgression, measurementProgress, nutritionTrend,
+  trainingTotals, weekReview,
 } from "@/lib/progress";
-import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
+import { kgToLb, lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { BurnCard } from "@/components/burn-card";
-import { burnThisWeek } from "@/lib/progress";
 import { WeighIn } from "@/components/weigh-in";
 import { prettyDate, weekStart } from "@/lib/date";
 import { weightTrend } from "@/lib/trend";
@@ -33,7 +33,7 @@ export default async function ProgressPage() {
 
   const her = profileToday(profile);
 
-  const [history, milestones, review, streak, sites, library, progression, eating, burn] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -44,6 +44,7 @@ export default async function ProgressPage() {
     exerciseProgression(profile.id, u, { asOf: her }),
     nutritionTrend(profile.id, 14, her),
     burnThisWeek(profile.id, weekStart(her), profile.startWeightKg ?? 70),
+    trainingTotals(profile.id, her),
   ]);
 
   // The trend, not this morning's reading: a day's weight moves on water,
@@ -198,6 +199,26 @@ export default async function ProgressPage() {
         direction={direction}
         rungs={ladder}
       />
+
+      {/* Everything she has ever lifted, added up. The one number that only
+          ever goes up — the session-done screen shows it for one workout;
+          this is all of them, and it is pure confidence. */}
+      {totals.sessions > 0 && (
+        <section className="card mb-3 overflow-hidden p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-beat">Lifted, all time</p>
+          <p className="mt-1 text-4xl font-bold tabular tracking-tight">
+            {(u === "imperial" ? Math.round(kgToLb(totals.volumeKg)) : Math.round(totals.volumeKg)).toLocaleString()}
+            <span className="ml-1.5 text-lg font-semibold text-muted">{unit}</span>
+          </p>
+          <p className="mt-1 text-[13px] text-muted">
+            across {totals.sessions.toLocaleString()} session{totals.sessions === 1 ? "" : "s"} and{" "}
+            {totals.sets.toLocaleString()} set{totals.sets === 1 ? "" : "s"}
+            {totals.thisWeekVolumeKg > 0 && (
+              <> · <span className="text-beat">{(u === "imperial" ? Math.round(kgToLb(totals.thisWeekVolumeKg)) : Math.round(totals.thisWeekVolumeKg)).toLocaleString()} {unit}</span> this week</>
+            )}
+          </p>
+        </section>
+      )}
 
       <section className="card mb-3 p-5">
         <div>

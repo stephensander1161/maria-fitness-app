@@ -1189,3 +1189,39 @@ export function summariseNutrition(
     avgCalories, avgProteinG: avg((d) => d.proteinG), daysOnTarget, trend, headline,
   };
 }
+
+
+/**
+ * The lifetime tallies worth being proud of.
+ *
+ * Everything she has ever lifted, added up — the number the session-done
+ * screen shows for one workout, but for all of them. It is the most direct
+ * confidence there is: not a rate, not a trend that can dip, just a total
+ * that only ever goes up. Volume is load times reps; a hold has no load and
+ * contributes none, the same rule as everywhere.
+ */
+export async function trainingTotals(
+  profileId: string,
+  /** Her today, so "this week" is her week — never the server's. */
+  asOf: ISODate = today(),
+): Promise<{
+  volumeKg: number; sets: number; sessions: number; thisWeekVolumeKg: number;
+}> {
+  const week = weekStart(asOf);
+  const [[all], [wk]] = await Promise.all([
+    db.select({
+      volume: sql<number>`coalesce(sum(coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}), 0)::real`,
+      sets: sql<number>`count(*)::int`,
+      sessions: sql<number>`count(distinct ${setLogs.workoutId})::int`,
+    }).from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .where(eq(workouts.profileId, profileId)),
+    db.select({
+      volume: sql<number>`coalesce(sum(coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}), 0)::real`,
+    }).from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+      .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week))),
+  ]);
+  return {
+    volumeKg: all?.volume ?? 0, sets: all?.sets ?? 0, sessions: all?.sessions ?? 0,
+    thisWeekVolumeKg: wk?.volume ?? 0,
+  };
+}

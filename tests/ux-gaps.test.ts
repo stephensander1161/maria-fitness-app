@@ -699,3 +699,16 @@ suite("supersets on the card", () => {
     expect(card()).toMatch(/setError\(actionMessage\(err, "Couldn't remove that set/);
   });
 });
+
+suite("lifetime volume is tracked and shown", () => {
+  it("totals everything ever lifted, in her week for the weekly slice", () => {
+    const prog = fs.readFileSync("lib/progress.ts", "utf8");
+    const fn = prog.slice(prog.indexOf("export async function trainingTotals"));
+    expect(fn).toMatch(/asOf: ISODate = today\(\)/);
+    expect(fn).toMatch(/const week = weekStart\(asOf\)/);
+    expect(fn).toMatch(/sessions: sql<number>`count\(distinct \$\{setLogs\.workoutId\}\)::int`/);
+    const page = fs.readFileSync("app/progress/page.tsx", "utf8");
+    expect(page).toMatch(/Lifted, all time/);
+    expect(page).toMatch(/trainingTotals\(profile\.id, her\)/);
+  });
+});
