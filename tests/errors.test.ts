@@ -182,3 +182,44 @@ suite("a failed usage write does not throw away a turn she paid for", () => {
     expect((reported as Error).message).toBe("db is gone");
   });
 });
+
+suite("a tool that throws leaves a trace", () => {
+  const loop = () => fs.readFileSync("lib/agent/loop.ts", "utf8");
+
+  it("is recorded, not only handed to the model", () => {
+    // It used to be completely invisible: the raw message went to the model
+    // and nowhere else, so the only trace of a failed write was the coach
+    // paraphrasing it as "there's a database issue on the server side", and
+    // afterwards there was no way to find out what had gone wrong.
+    const src = loop();
+    expect(src).toMatch(/console\.error\("\[tool-threw\]", call\.name, detail\)/);
+    expect(src).toMatch(/kind: `tool:\$\{call\.name\}`/);
+    // The logger failing must not take the turn down with it.
+    expect(src).toMatch(/\}\)\.catch\(\(\) => \{ \/\* the logger failing must not take the turn down \*\/ \}\)/);
+  });
+
+  it("and the model never sees the query or her data", () => {
+    // A failed query reads `Failed query: insert into "meal_logs" … params:
+    // <what she ate>`. Handed back as a tool_result it is written into the
+    // transcript and sent to the model again on every later turn.
+    const src = loop();
+    const block = src.slice(src.indexOf("const detail = err instanceof Error"), src.indexOf("// Everything the coach"));
+    expect(block).not.toMatch(/content: detail/);
+    expect(block).toMatch(/did not run — nothing was saved/);
+    // And it must not describe it to her as a server fault.
+    expect(block).toMatch(/Never describe it as a database or server problem/);
+  });
+});
+
+suite("choosing a photo means choosing", () => {
+  it("no file input forces the camera", () => {
+    // `capture` takes the choice away: iOS opens the camera directly with no
+    // way to reach the library. A recipe is very often a photo she already
+    // has, so the case that mattered most was the one it refused.
+    for (const f of ["components/recipe-scan.tsx", "components/photos.tsx"]) {
+      const src = fs.readFileSync(f, "utf8");
+      expect(src, f).toMatch(/accept="image\/\*"/);
+      expect(src, f).not.toMatch(/\n\s*capture=/);
+    }
+  });
+});

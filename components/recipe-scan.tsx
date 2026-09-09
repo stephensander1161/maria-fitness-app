@@ -109,11 +109,17 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
         with what they assume. The photo is not kept.
       </p>
 
+      {/*
+        No `capture`. The button says "take or choose", and `capture` takes the
+        choice away: iOS opens the camera directly and there is no way to reach
+        the library from it. A recipe is very often a photo she already has —
+        a screenshot of a page, a label photographed in a shop — so the one
+        that mattered most was the one it refused.
+      */}
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="sr-only"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); }}
       />

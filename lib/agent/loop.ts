@@ -226,11 +226,33 @@ export async function* runCoach(
               content: JSON.stringify(result ?? { ok: true }),
             };
           } catch (err) {
+            /*
+              A tool that throws used to be completely invisible.
+              The raw message went to the model and nowhere else — nothing in
+              app_errors, no line in the console — so the only trace of a
+              failed write was the coach paraphrasing it to her as "there's a
+              database issue on the server side", and afterwards there was no
+              way to find out what had actually gone wrong.
+
+              And the raw message is the wrong thing to hand over twice.
+              A failed query reads "Failed query: insert into "meal_logs" …
+              params: <what she ate>" — her data and the schema, written into
+              the transcript as a tool_result and sent back to the model on
+              every turn afterwards. The model gets a short instruction; the
+              detail goes to app_errors, where the console can find it.
+            */
+            const detail = err instanceof Error ? err.message : String(err);
+            console.error("[tool-threw]", call.name, detail);
+            void recordError({
+              route: "/api/chat", method: "TOOL", kind: `tool:${call.name}`,
+              message: detail.slice(0, 2000),
+              stack: err instanceof Error ? err.stack?.slice(0, 2000) ?? null : null,
+            }).catch(() => { /* the logger failing must not take the turn down */ });
             return {
               type: "tool_result",
               tool_use_id: call.id,
               is_error: true,
-              content: err instanceof Error ? err.message : String(err),
+              content: `${call.name} did not run — nothing was saved. Do not retry it: say plainly that it did not save, and offer the screen she can do it on instead. Never describe it as a database or server problem.`,
             };
           }
         }),
