@@ -553,9 +553,15 @@ export function TrainClient({
       */}
       {heading ? (
         <section className="card p-4">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div className="min-w-0 flex-1 basis-32">{heading}</div>
-            {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
+          {/* On a phone the day's name shares its row with the controls, on
+              the left. A desktop has the width to give the session its proper
+              heading: the name centred and large across the card, with the
+              clock and Finish pinned to the top-right corner. `md:block` drops
+              the flex row so the centred text is genuinely centred on the
+              card, not on the space left over beside the controls. */}
+          <div className="relative flex flex-wrap items-start justify-between gap-x-3 gap-y-2 md:block md:text-center">
+            <div className="min-w-0 flex-1 basis-32 md:flex-none">{heading}</div>
+            {sessionBar && <div className="ml-auto shrink-0 md:absolute md:right-0 md:top-0">{sessionBar}</div>}
           </div>
         </section>
       ) : sessionBar}

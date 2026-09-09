@@ -108,7 +108,7 @@ export default async function TrainPage({
               <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} compact />
             ) : (
               <>
-                <h2 className="mt-0.5 text-[17px] font-semibold">{view.title}</h2>
+                <h2 className="mt-0.5 text-[17px] font-semibold md:text-2xl">{view.title}</h2>
                 {view.focus && <p className="mt-1 text-[13px] text-muted">{view.focus}</p>}
               </>
             )}

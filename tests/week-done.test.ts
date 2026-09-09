@@ -336,3 +336,16 @@ suite("one Finish workout, not two", () => {
     expect(card()).toMatch(/inert=\{open\}/);
   });
 });
+
+suite("the session heading grows up on a desktop", () => {
+  it("centres the day name and pins the controls to the corner", () => {
+    const card = read("components/train-client.tsx");
+    // Block + centred on md, controls absolute top-right; the phone keeps the
+    // left-aligned row it shares with the controls.
+    expect(card).toMatch(/md:block md:text-center/);
+    expect(card).toMatch(/md:absolute md:right-0 md:top-0/);
+    const title = read("components/day-title.tsx");
+    expect(title).toMatch(/compact \? "text-\[17px\] md:text-2xl" : "text-2xl"/);
+    expect(title).toMatch(/md:mx-auto md:w-fit md:justify-center/);
+  });
+});

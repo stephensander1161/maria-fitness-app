@@ -56,14 +56,14 @@ export function DayTitle({
             straight out of its column and under the button beside it. */}
         <button
           onClick={() => setEditing(true)}
-          className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"
+          className="group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center"
           aria-label={`Rename ${title}`}
         >
           <h1 className={`min-w-0 font-bold tracking-tight ${compact ? "line-clamp-2 break-words" : "truncate"} ${
-            // Sharing a row with the session clock, it is a heading rather
-            // than the page's title, and 24px leaves a phone nothing to put
-            // the clock in.
-            compact ? "text-[17px]" : "text-2xl"
+            // Sharing a row with the session clock on a phone, it is a heading
+            // rather than a title, so 17px there — but a desktop pins the
+            // clock in the corner and has the room to make the name big again.
+            compact ? "text-[17px] md:text-2xl" : "text-2xl"
           }`}>{title}</h1>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
