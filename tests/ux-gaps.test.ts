@@ -615,3 +615,36 @@ suite("a movement cannot be swapped onto one already in the day", () => {
     expect(src).toMatch(/eq\(planExercises\.exerciseId, replacement\.id\)/);
   });
 });
+
+suite("a logged set can be removed directly", () => {
+  const card = () => fs.readFileSync("components/train-client.tsx", "utf8");
+
+  it("has a long-press / right-click menu with Remove", () => {
+    // "Let me just delete it" — without the three-tap trip through the set
+    // editor and its Delete button.
+    const c = card();
+    expect(c).toMatch(/function SetSquare\(/);
+    expect(c).toMatch(/onContextMenu=\{editable \? \(e\) => \{ e\.preventDefault\(\); setMenu\(true\); \}/);
+    expect(c).toMatch(/setTimeout\(\(\) => \{ if \(!moved\.current\) setMenu\(true\); \}, 450\)/);
+    expect(c).toMatch(/onClick=\{\(\) => \{ setMenu\(false\); onRemove\(\); \}\}/);
+  });
+
+  it("removes it with delete_set, optimistically", () => {
+    const c = card();
+    expect(c).toMatch(/async function removeSet\(setNumber: number\)/);
+    expect(c).toMatch(/await action\("delete_set", \{\n\s*exerciseSlug: exercise\.slug, setNumber,/);
+  });
+
+  it("does not open a smooth scroll that steals the tap on iOS", () => {
+    // A scroll animation still running when her thumb lands moves the button
+    // out from under it and iOS cancels the click.
+    expect(card()).toMatch(/scrollIntoView\(\{ block: "nearest", behavior: "auto" \}\)/);
+    expect(card()).not.toMatch(/scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/);
+  });
+
+  it("lets an empty square open the new-set entry even mid-edit", () => {
+    // The entry is hidden while a set is being edited, so a tap on an empty
+    // square did nothing until she cancelled the editor by hand.
+    expect(card()).toMatch(/onClick=\{\(e\) => \{ setEditingSet\(null\); openCard\(e\); \}\}/);
+  });
+});

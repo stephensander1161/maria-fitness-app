@@ -1124,7 +1124,11 @@ function SetEditor({
    */
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    box.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // "auto", not "smooth": a scroll animation still running when her thumb
+    // lands moves the button out from under it mid-tap, and iOS cancels the
+    // click. Instant is jump-free here because the padding already keeps it
+    // close, and it never steals the tap that follows.
+    box.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
   }, []);
   const [error, setError] = useState<string | null>(null);
 
@@ -1258,6 +1262,31 @@ export function ExerciseCard({
   href?: string;
 }) {
   const done = exercise.loggedToday;
+  const [removingSet, setRemovingSet] = useState<number | null>(null);
+  /**
+   * Remove one logged set outright — the answer to "just let me delete it".
+   *
+   * The set editor's Delete works, but it is three taps and a full form for
+   * throwing one row away. A long press or a right-click on the square offers
+   * Remove directly, and this is what it calls. Optimistic refresh: the row
+   * is gone the moment the tool returns.
+   */
+  async function removeSet(setNumber: number) {
+    if (removingSet !== null) return;
+    setRemovingSet(setNumber);
+    try {
+      await action("delete_set", {
+        exerciseSlug: exercise.slug, setNumber,
+        ...(date === undefined ? {} : { date }),
+      });
+      if (editingSet === setNumber) setEditingSet(null);
+      onRemoved();
+    } catch {
+      /* the square stays; she can try the editor's Delete */
+    } finally {
+      setRemovingSet(null);
+    }
+  }
   const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
   // Prefill from what she did on the last set today — including one still in
   // the outbox — else last session, else target.
@@ -1785,7 +1814,10 @@ export function ExerciseCard({
               <TapIn
                 key={i}
                 href={asPage ? undefined : href}
-                onClick={openCard}
+                // Close whatever set she was editing: the new-set entry is
+                // hidden while one is open, so without this a tap on an empty
+                // square did nothing and she had to cancel the editor by hand.
+                onClick={(e) => { setEditingSet(null); openCard(e); }}
                 disabled={asPage}
                 label={`Log set ${i + 1} of ${exercise.name}`}
                 className={`${shape} transition-opacity hover:opacity-80`}
@@ -1798,16 +1830,16 @@ export function ExerciseCard({
           // in the outbox has no row to correct yet.
           if (!s || isQueued) return <div key={i} className={shape}>{label}</div>;
           return (
-            <button
+            <SetSquare
               key={i}
-              onClick={() => editable && setEditingSet(editingSet === i + 1 ? null : i + 1)}
-              aria-label={`Edit set ${i + 1}: ${label}`}
-              className={`${shape} transition-opacity hover:opacity-80 ${
-                editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""
-              }`}
-            >
-              {label}
-            </button>
+              label={label}
+              className={`${shape} ${editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""}`}
+              setNumber={i + 1}
+              name={exercise.name}
+              editable={editable}
+              onEdit={() => setEditingSet(editingSet === i + 1 ? null : i + 1)}
+              onRemove={() => removeSet(i + 1)}
+            />
           );
         })}
       </div>
@@ -2167,6 +2199,83 @@ function TapIn({
     <Link href={href} onClick={onClick} aria-label={label} className={className}>
       {children}
     </Link>
+  );
+}
+
+/**
+ * A logged set, with a menu of its own.
+ *
+ * A tap edits it, as before. A long press or a right-click brings up Edit and
+ * Remove — the answer to "let me just delete it" without the three-tap trip
+ * through the set editor and its Delete button. The menu closes on the next
+ * touch anywhere, or on Escape.
+ */
+function SetSquare({
+  label, className, setNumber, name, editable, onEdit, onRemove,
+}: {
+  label: string;
+  className: string;
+  setNumber: number;
+  name: string;
+  editable: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const hold = useRef<number | null>(null);
+  const moved = useRef(false);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(false);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
+    // Next tick, so the touch that opened it does not immediately close it.
+    const id = window.setTimeout(() => {
+      window.addEventListener("pointerdown", close);
+      window.addEventListener("keydown", onKey);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        onClick={() => { if (!menu) onEdit(); }}
+        onContextMenu={editable ? (e) => { e.preventDefault(); setMenu(true); } : undefined}
+        onPointerDown={editable ? () => {
+          moved.current = false;
+          hold.current = window.setTimeout(() => { if (!moved.current) setMenu(true); }, 450);
+        } : undefined}
+        onPointerMove={() => { moved.current = true; }}
+        onPointerUp={() => { if (hold.current) window.clearTimeout(hold.current); }}
+        onPointerLeave={() => { if (hold.current) window.clearTimeout(hold.current); }}
+        aria-label={`Set ${setNumber} of ${name}: ${label}. Long press for options.`}
+        className={`${className} transition-opacity hover:opacity-80`}
+        style={{ touchAction: "manipulation" }}
+      >
+        {label}
+      </button>
+      {menu && (
+        <div
+          role="menu"
+          className="card-lift absolute bottom-full left-1/2 z-30 mb-1 flex -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-raised shadow-lg shadow-scrim/60"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button role="menuitem" onClick={() => { setMenu(false); onEdit(); }}
+            className="px-3.5 py-2 text-[13px] text-muted active:bg-surface">
+            Edit
+          </button>
+          <button role="menuitem" onClick={() => { setMenu(false); onRemove(); }}
+            className="border-l border-line px-3.5 py-2 text-[13px] font-medium text-miss active:bg-surface">
+            Remove
+          </button>
+        </div>
+      )}
+    </span>
   );
 }
 
