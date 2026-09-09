@@ -626,7 +626,10 @@ suite("a logged set can be removed directly", () => {
     expect(c).toMatch(/function SetSquare\(/);
     expect(c).toMatch(/onContextMenu=\{editable \? \(e\) => \{ e\.preventDefault\(\); setMenu\(true\); \}/);
     expect(c).toMatch(/setTimeout\(\(\) => \{ if \(!moved\.current\) setMenu\(true\); \}, 450\)/);
-    expect(c).toMatch(/onClick=\{\(\) => \{ setMenu\(false\); onRemove\(\); \}\}/);
+    // On pointerdown, not click: the window-level close listener watches
+    // pointerdown and would unmount the button before a click could land.
+    expect(c).toMatch(/onPointerDown=\{\(e\) => \{ e\.preventDefault\(\); setMenu\(false\); onRemove\(\); \}\}/);
+    expect(c).toMatch(/onPointerDown=\{\(e\) => e\.stopPropagation\(\)\}/);
   });
 
   it("removes it with delete_set, optimistically", () => {

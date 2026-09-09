@@ -2270,13 +2270,20 @@ function SetSquare({
         <div
           role="menu"
           className="card-lift absolute bottom-full left-1/2 z-30 mb-1 flex -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-raised shadow-lg shadow-scrim/60"
+          // Both stopped: the window-level close listener watches pointerdown,
+          // and a bare button would be unmounted by it before its own click
+          // could fire — which is why Remove did nothing at all. The menu
+          // swallows the press, and the items act on pointerdown themselves.
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <button role="menuitem" onClick={() => { setMenu(false); onEdit(); }}
+          <button role="menuitem"
+            onPointerDown={(e) => { e.preventDefault(); setMenu(false); onEdit(); }}
             className="px-3.5 py-2 text-[13px] text-muted active:bg-surface">
             Edit
           </button>
-          <button role="menuitem" onClick={() => { setMenu(false); onRemove(); }}
+          <button role="menuitem"
+            onPointerDown={(e) => { e.preventDefault(); setMenu(false); onRemove(); }}
             className="border-l border-line px-3.5 py-2 text-[13px] font-medium text-miss active:bg-surface">
             Remove
           </button>
