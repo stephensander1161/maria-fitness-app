@@ -544,3 +544,46 @@ suite("reordering works in a grid too, not only in a column", () => {
     expect(card).toMatch(/dropTarget \? "border-accent ring-2 ring-accent\/40" : ""/);
   });
 });
+
+suite("the next set starts from the last one", () => {
+  const card = () => fs.readFileSync("components/train-client.tsx", "utf8");
+
+  it("re-seeds as each set lands, rather than reading the seed once", () => {
+    // `useState(seedWeight)` reads it on mount, so the second set of the
+    // evening opened on whatever the *first* was seeded from rather than on
+    // the weight she had just used.
+    expect(card()).toMatch(/const entryKey = `\$\{done\.length\}:\$\{queued\.length\}`/);
+    expect(card()).toMatch(/const fresh = entry\.for !== entryKey/);
+    expect(card()).toMatch(/const weight = fresh \? seedWeight : entry\.weight/);
+    // The last set she actually did comes first in the seed.
+    expect(card()).toMatch(/queued\.at\(-1\)\?\.weight \?\? done\.at\(-1\)\?\.weight \?\?/);
+  });
+
+  it("keeps what she has typed for the set she is on", () => {
+    // Keyed, not an effect: re-seeding on every render would fight her thumb.
+    expect(card()).toMatch(/setEntry\(\{ for: entryKey, weight: w, reps \}\)/);
+    expect(card()).not.toMatch(/useEffect\(\(\) => \{[^}]*setWeight\(/);
+  });
+});
+
+suite("relabel and remove are on the card", () => {
+  const card = () => fs.readFileSync("components/train-client.tsx", "utf8");
+
+  it("not only inside the one she is about to perform", () => {
+    // They were in the header, then behind an Edit fold inside the open card
+    // only — so the two things she does to a movement she is *not* doing were
+    // reachable only by opening the one she is.
+    expect(card()).toMatch(/\{editable && !asPage && \(\n\s*<button\n\s*onClick=\{\(\) => \{ setChanging\(!changing\)/);
+    expect(card()).toMatch(/\{editable && !asPage && \(!exercise\.extra \|\| setCount > 0\) && \(/);
+  });
+
+  it("and a swap keeps the sets she already logged", () => {
+    // change_exercise relabels the movement and brings its sets with it —
+    // substitute_exercise is the other case, where the earlier sets really
+    // were the old movement.
+    const changer = card().slice(card().indexOf("function ChangeMovement"));
+    expect(changer.slice(0, 3000)).toMatch(/action\("change_exercise"/);
+    const tool = fs.readFileSync("lib/tools/swaps.ts", "utf8");
+    expect(tool).toMatch(/bringing every set she already logged against it along/);
+  });
+});

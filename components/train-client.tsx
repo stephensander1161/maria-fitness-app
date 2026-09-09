@@ -112,6 +112,14 @@ export function TrainClient({
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
+  /**
+   * Pausing and starting have their own flag.
+   *
+   * They shared `finishing`, so tapping pause turned the button beside it
+   * into "Finishing…" for a second — the app announcing it was about to do
+   * the one thing she had not asked for.
+   */
+  const [pausing, setPausing] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
   /** How long the session ran, taken once when she finishes it. */
@@ -371,7 +379,7 @@ export function TrainClient({
    * there is no session at all. A start and a finish give it edges.
    */
   async function startSession() {
-    setFinishing(true);
+    setPausing(true);
     setError(null);
     try {
       // Her tap is also the gesture iOS needs before any of this can beep.
@@ -385,7 +393,7 @@ export function TrainClient({
     } catch {
       setError("Couldn't start the session — check your signal and try again.");
     } finally {
-      setFinishing(false);
+      setPausing(false);
     }
   }
 
@@ -397,7 +405,7 @@ export function TrainClient({
    * true or it is worth nothing.
    */
   async function togglePause() {
-    setFinishing(true);
+    setPausing(true);
     setError(null);
     try {
       await action(view.pausedAt ? "resume_workout" : "pause_workout", date === undefined ? {} : { date });
@@ -405,7 +413,7 @@ export function TrainClient({
     } catch (err) {
       setError(actionMessage(err, "Couldn't change the clock — check your signal and try again."));
     } finally {
-      setFinishing(false);
+      setPausing(false);
     }
   }
 
@@ -523,6 +531,7 @@ export function TrainClient({
       pausedAt={view.pausedAt}
       pausedMs={view.pausedMs}
       busy={finishing}
+      clockBusy={pausing}
       onStart={startSession}
       // The confirmation moved up here with the button. Ending a session with
       // movements still on the plan is a thing she may well mean; doing it by
@@ -812,14 +821,17 @@ function SessionClock({
 }
 
 function SessionBar({
-  startedAt, finishedAt, pausedAt, pausedMs, busy, onStart, onFinish, onPause,
+  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
   /** Stopped, but not over. */
   pausedAt: string | null;
   pausedMs: number;
+  /** Finishing. Only the Finish button may say so. */
   busy: boolean;
+  /** Starting or pausing — a different thing, and a different button. */
+  clockBusy: boolean;
   onStart: () => void;
   onFinish: () => void;
   onPause: () => void;
@@ -838,13 +850,13 @@ function SessionBar({
     return (
       <button
         onClick={onStart}
-        disabled={busy}
+        disabled={clockBusy}
         className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-[14px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M8 5v14l11-7z" />
         </svg>
-        {busy ? "Starting…" : "Start workout"}
+        {clockBusy ? "Starting…" : "Start workout"}
       </button>
     );
   }
@@ -882,7 +894,7 @@ function SessionBar({
           and pause is the one symbol everybody reads without being told. */}
       <button
         onClick={onPause}
-        disabled={busy}
+        disabled={clockBusy}
         aria-label={paused ? "Start the clock again" : "Pause the session"}
         title={paused ? "Start the clock again" : "Pause the session"}
         className={`grid size-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
@@ -1219,8 +1231,23 @@ export function ExerciseCard({
     exercise.lastTime?.sets.at(-1)?.weight ?? exercise.targetWeight ?? 0;
   const seedReps = queued.at(-1)?.reps ?? done.at(-1)?.reps ?? exercise.targetReps;
 
-  const [weight, setWeight] = useState(seedWeight);
-  const [reps, setReps] = useState(seedReps);
+  /**
+   * The entry, re-seeded whenever a set lands.
+   *
+   * `useState(seedWeight)` reads the seed once, on mount — so the second set
+   * of the evening opened on whatever the *first* had been seeded from, not
+   * on the weight she had just used. Keyed off how many sets are in, the way
+   * DayTitle keys off the title: it follows the last set without an effect
+   * that writes state during render, and anything she has typed for *this*
+   * set survives until that set is logged.
+   */
+  const entryKey = `${done.length}:${queued.length}`;
+  const [entry, setEntry] = useState({ for: entryKey, weight: seedWeight, reps: seedReps });
+  const fresh = entry.for !== entryKey;
+  const weight = fresh ? seedWeight : entry.weight;
+  const reps = fresh ? seedReps : entry.reps;
+  const setWeight = (w: number) => setEntry({ for: entryKey, weight: w, reps });
+  const setReps = (r: number) => setEntry({ for: entryKey, weight, reps: r });
   const [saving, setSaving] = useState(false);
   /**
    * Reps left in the tank, chosen but not yet sent.
@@ -1558,6 +1585,39 @@ export function ExerciseCard({
               </svg>
             </button>
           )}
+          {/*
+            Relabel and remove, on the card itself.
+            They were in the header, then behind an Edit fold inside the open
+            card only — which meant the two things she does to a movement she
+            is *not* about to perform were reachable only by opening the one
+            she is. Small and outlined, so the name still has the row.
+          */}
+          {editable && !asPage && (
+            <button
+              onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
+              aria-expanded={changing}
+              aria-label={`Change what ${exercise.name} is`}
+              className={`grid size-7 shrink-0 place-items-center rounded-full border ${
+                changing ? "border-accent text-accent" : "border-line text-faint active:bg-raised"
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 8h13l-3-3M20 16H7l3 3" />
+              </svg>
+            </button>
+          )}
+          {editable && !asPage && (!exercise.extra || setCount > 0) && (
+            <button
+              onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
+              aria-label={`Remove ${exercise.name} from today`}
+              className="grid size-7 shrink-0 place-items-center rounded-full border border-line text-faint active:bg-raised"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M5 12h14" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
             <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-on-accent"
               aria-label="Target sets complete">✓</span>
@@ -1686,25 +1746,7 @@ export function ExerciseCard({
             dayOfWeek={dayOfWeekOf(date)}
             onSaved={onRemoved}
           />
-          <div className="flex gap-2 px-4 pb-2">
-            <button
-              onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
-              aria-expanded={changing}
-              className={`flex-1 rounded-lg border py-2 text-[12px] ${
-                changing ? "border-accent text-accent" : "border-line text-muted"
-              }`}
-            >
-              This was something else
-            </button>
-            {(!exercise.extra || setCount > 0) && (
-              <button
-                onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
-                className="rounded-lg border border-line px-3 py-2 text-[12px] text-muted"
-              >
-                Remove
-              </button>
-            )}
-          </div>
+
         </div>
       )}
 
