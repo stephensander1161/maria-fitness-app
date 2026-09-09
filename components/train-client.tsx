@@ -1525,6 +1525,7 @@ export function ExerciseCard({
         // the scroll that would have reached it.
         open ? "flex flex-col" : ""
       } ${dropTarget ? "border-accent ring-2 ring-accent/40" : ""
+      } ${targetMet && !upNext ? "done-card" : ""
       } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
       style={{
@@ -1675,7 +1676,7 @@ export function ExerciseCard({
             </button>
           )}
           {done.length >= exercise.targetSets && exercise.targetSets > 0 && (
-            <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] text-on-accent"
+            <span className="grid size-6 place-items-center rounded-full bg-beat text-[12px] font-bold text-on-accent"
               aria-label="Target sets complete">✓</span>
           )}
           {exercise.extra && (

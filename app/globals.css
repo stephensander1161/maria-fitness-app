@@ -417,6 +417,19 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    ring reads as a shadow around a grey card rather than as a green one. */
 .now-glow { animation: now-glow 2.4s ease-in-out infinite; border-color: var(--color-beat); }
 
+/* A movement whose sets are all in.
+   Not just a tick in the corner: a dark green edge and a pale green wash, so
+   a glance down the day says at once what is finished. `beat` is the app's
+   green already (a set that moved up, the streak); this leans on it rather
+   than inventing a second one. The border is beat at full strength; the fill
+   is a whisper of it over the card so text on the card still clears contrast. */
+.done-card {
+  border-color: var(--color-beat);
+  background-image: linear-gradient(0deg,
+    color-mix(in srgb, var(--color-beat) 9%, transparent),
+    color-mix(in srgb, var(--color-beat) 9%, transparent));
+}
+
 /*
    A control that is only ever tapped, never read or selected.
 

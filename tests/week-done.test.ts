@@ -324,7 +324,7 @@ suite("one Finish workout, not two", () => {
     // The browser's "in view" stops at the viewport edge and knows nothing
     // about the nav fixed over it, so the editor's buttons opened under the
     // tab bar and tapping Delete tapped the nav.
-    expect(card()).toMatch(/box\.current\?\.scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/);
+    expect(card()).toMatch(/box\.current\?\.scrollIntoView\(\{ block: "nearest", behavior: "auto" \}\)/);
     const css = fs.readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/scroll-padding-bottom: calc\(6rem \+ env\(safe-area-inset-bottom\) \+ var\(--covered-bottom, 0px\)\)/);
   });

@@ -648,3 +648,14 @@ suite("a logged set can be removed directly", () => {
     expect(card()).toMatch(/onClick=\{\(e\) => \{ setEditingSet\(null\); openCard\(e\); \}\}/);
   });
 });
+
+suite("a finished movement looks finished", () => {
+  it("gets a green edge and a pale green wash, not just a tick", () => {
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/targetMet && !upNext \? "done-card" : ""/);
+    const css = fs.readFileSync("app/globals.css", "utf8");
+    const rule = css.slice(css.indexOf(".done-card {"), css.indexOf("}", css.indexOf(".done-card {")));
+    expect(rule).toMatch(/border-color: var\(--color-beat\)/);
+    expect(rule).toMatch(/linear-gradient/);
+  });
+});
