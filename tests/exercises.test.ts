@@ -227,8 +227,15 @@ suite("the figure shows the movement it is labelled with", () => {
     expect(patternFor("thoracic-rotation", "mobility")).toBe("rotation");
   });
 
-  it("does not draw a side bend as a squat", () => {
-    expect(patternFor("dumbbell-side-bend", "core")).toBe("rotation");
+  it("draws a side bend front-on, bending to the side — not a squat, not a twist", () => {
+    expect(patternFor("dumbbell-side-bend", "core")).toBe("sideBend");
+    const p = PATTERNS.sideBend;
+    // The head and shoulders lean sideways (x moves), the hips stay put, and
+    // the hand slides down the side — lateral flexion, seen from the front.
+    expect(p.end.head[0] - p.start.head[0]).toBeGreaterThan(6);
+    expect(p.end.hand[1]).toBeGreaterThan(p.start.hand[1]);
+    expect(p.end.hip[0]).toBe(p.start.hip[0]);
+    expect(p.end.foot).toEqual(p.start.foot);
   });
 
   it("the lateral pose actually takes the arm out to the side", () => {

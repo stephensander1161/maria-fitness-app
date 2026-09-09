@@ -246,8 +246,8 @@ suite("the day's name and its clock share a container", () => {
 
   it("floats the control right, on one row in both states", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32">/);
-    expect(card).toMatch(/<div className="ml-auto shrink-0">\{sessionBar\}<\/div>/);
+    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32 md:flex-none">/);
+    expect(card).toMatch(/<div className="ml-auto shrink-0 md:absolute md:right-0 md:top-0">\{sessionBar\}<\/div>/);
     expect(card).toMatch(/flex flex-wrap items-start justify-between gap-x-3 gap-y-2/);
   });
 
@@ -278,8 +278,8 @@ suite("the day's name and its clock share a container", () => {
     // on the heading inside did nothing and a long session name ran out of
     // its column and under the button beside it.
     const title = read("components/day-title.tsx");
-    expect(title).toMatch(/className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"/);
-    expect(title).toMatch(/compact \? "text-\[17px\]" : "text-2xl"/);
+    expect(title).toMatch(/className="group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center"/);
+    expect(title).toMatch(/compact \? "text-\[17px\] md:text-2xl" : "text-2xl"/);
   });
 });
 

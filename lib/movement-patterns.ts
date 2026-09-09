@@ -306,6 +306,26 @@ export const PATTERNS: Record<string, Pattern> = {
     },
   },
   /**
+   * Standing tall, seen from the front, bending straight over to one side.
+   *
+   * Drawn front-on, not side-on: a side bend seen from the side is a figure
+   * that barely appears to move, which is exactly why it read wrong. Here the
+   * head and shoulders lean over while the hand slides down the outside of
+   * the thigh, and the feet stay planted apart — the lateral flexion is the
+   * whole movement and it is unmistakable from the front.
+   */
+  sideBend: {
+    label: "Stand tall, bend straight to one side — not forward",
+    start: {
+      head: [50, 15], shoulder: [50, 30], elbow: [58, 42], hand: [60, 55],
+      hip: [50, 56], knee: [44, 76], foot: [42, 94],
+    },
+    end: {
+      head: [61, 20], shoulder: [59, 34], elbow: [66, 48], hand: [69, 63],
+      hip: [50, 56], knee: [44, 76], foot: [42, 94],
+    },
+  },
+  /**
    * Sitting on a bench, leaning back, punching across the body.
    *
    * It used to fall through to the plank, which is a person lying face down —
@@ -406,7 +426,7 @@ const RULES: [RegExp, PatternKey][] = [
   // Sides before fronts: "palms-up-lateral-raise" must not be caught by the
   // front-raise rule below just because it contains "raise".
   [/shrug/, "shrug"],
-  [/side-bend/, "rotation"],
+  [/side-bend|side.bend/, "sideBend"],
   [/lateral-raise|side-raise|side-lateral/, "lateral"],
   [/raise|shrug|pushdown|extension|kickback|calf/, "raise"],
   [/walk|run|jog|bike|row-machine|elliptical|jump|skip|march|stair|shadow|swim|intervals/, "cardio"],
