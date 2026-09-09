@@ -1676,7 +1676,7 @@ export function ExerciseCard({
             )}
           </p>
           {next && next.change === "up" && (
-            <p className="mt-1 text-[12px] text-beat">Up from last time</p>
+            <p className="mt-1 text-[12px] text-beat">Target up from last time</p>
           )}
         </TapIn>
         <div className="flex shrink-0 items-center gap-1.5">

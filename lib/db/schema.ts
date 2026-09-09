@@ -808,6 +808,13 @@ export const setLogs = pgTable(
     index("set_logs_exercise").on(t.exerciseId),
     index("set_logs_workout").on(t.workoutId),
     uniqueIndex("set_logs_client_key").on(t.clientKey),
+    // No two sets of one movement in one session share a number. The card
+    // addresses a set by its position, so a duplicate number made delete and
+    // edit target a set that did not exist — silently. The advisory lock in
+    // log_set numbers sequentially under serialisation, so the honest path
+    // never conflicts; anything that would double-number now fails loudly
+    // instead of corrupting, which is this app's rule about unknowns.
+    uniqueIndex("set_logs_number").on(t.workoutId, t.exerciseId, t.setNumber),
   ],
 );
 
