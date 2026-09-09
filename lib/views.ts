@@ -98,6 +98,8 @@ export type TodayExercise = {
   /** For a hold: the seconds to aim for. Null for anything counted. */
   targetHoldSeconds: number | null;
   restSeconds: number; notes: string | null;
+  /** The superset this belongs to, or null when it stands alone. */
+  supersetGroup: string | null;
   lastTime: { date: ISODate; sets: { reps: number; weight: number | null }[] } | null;
   loggedToday: { setNumber: number; reps: number; weight: number | null }[];
   /** Recent sessions, oldest first, for the trend shown once she finishes her
@@ -160,6 +162,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     targetHoldSeconds: planExercises.targetHoldSeconds,
     targetWeightKg: planExercises.targetWeightKg,
     restSeconds: planExercises.restSeconds, notes: planExercises.notes,
+    supersetGroup: planExercises.supersetGroup,
   }).from(planExercises)
     .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
     .where(eq(planExercises.planDayId, day.id))
@@ -199,6 +202,7 @@ export async function todayView(profileId: string, units: Units, date = today())
       targetSets: 0, targetReps: 0, targetWeightKg: null as number | null,
       targetHoldSeconds: null as number | null,
       restSeconds: 90, notes: null as string | null,
+      supersetGroup: null as string | null,
     })),
   ];
 
@@ -260,6 +264,7 @@ export async function todayView(profileId: string, units: Units, date = today())
           i.restSeconds,
         ),
         notes: i.notes,
+        supersetGroup: i.supersetGroup ?? null,
         lastTime: prev
           ? { date: prev.date, sets: prev.sets.map((s) => ({ reps: s.reps, weight: weightOut(s.weightKg, units) })) }
           : null,

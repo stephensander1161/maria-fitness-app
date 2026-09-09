@@ -662,3 +662,20 @@ suite("a finished movement looks finished", () => {
     expect(rule).toMatch(/linear-gradient/);
   });
 });
+
+suite("supersets: the data and the tools", () => {
+  it("registers group and ungroup, and labels them", () => {
+    const idx = fs.readFileSync("lib/tools/index.ts", "utf8");
+    expect(idx).toMatch(/training\.supersetExercises/);
+    expect(idx).toMatch(/training\.removeSuperset/);
+    expect(fs.readFileSync("lib/tool-labels.ts", "utf8")).toMatch(/superset_exercises:/);
+  });
+  it("shares a group id across members and exposes it on the view", () => {
+    const t = fs.readFileSync("lib/tools/training.ts", "utf8");
+    const fn = t.slice(t.indexOf("export const supersetExercises"), t.indexOf("export const removeSuperset"));
+    expect(fn).toMatch(/const group = randomUUID\(\)/);
+    // members are made adjacent, not left scattered down the day
+    expect(fn).toMatch(/const anchor = Math\.min/);
+    expect(fs.readFileSync("lib/views.ts", "utf8")).toMatch(/supersetGroup: i\.supersetGroup \?\? null/);
+  });
+});

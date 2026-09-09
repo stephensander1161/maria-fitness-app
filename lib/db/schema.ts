@@ -719,6 +719,15 @@ export const planExercises = pgTable(
     /** Null until she has a working weight; the coach fills it from history. */
     targetWeightKg: real("target_weight_kg"),
     restSeconds: integer("rest_seconds").default(90).notNull(),
+    /**
+     * Which superset this movement belongs to, or null when it stands alone.
+     *
+     * Two movements sharing a group id are chained: performed back to back,
+     * one rest for the pair, and marked together on the screen. The id is
+     * shared rather than a "next" pointer so a group reads the same from
+     * either card and a third movement can join later.
+     */
+    supersetGroup: uuid("superset_group"),
     notes: text("notes"),
   },
   (t) => [index("plan_exercises_day").on(t.planDayId)],

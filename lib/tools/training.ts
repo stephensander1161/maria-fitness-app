@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { queryVariants, queryWords } from "@/lib/search-terms";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -841,6 +842,66 @@ export const setExerciseTarget = defineTool({
     await db.update(planExercises).set(patch).where(eq(planExercises.id, row.id));
     await rationaleNoLongerApplies(found.day.planId);
     return { ok: true, exercise: row.name, day: DAY_NAMES[found.dow], changed: Object.keys(patch).length };
+  },
+});
+
+export const supersetExercises = defineTool({
+  name: "superset_exercises",
+  description:
+    "Chain two or more of a day's movements into a superset — done back to back with one rest for the whole group, marked together on the screen. Give the slugs to link. They are ordered as given, and made adjacent in the day. Call remove_superset with any one of them to unchain the group.",
+  input: z.object({
+    slugs: z.array(z.string()).min(2).describe("Two or more movements on that day, in the order she does them"),
+    dayOfWeek: z.number().optional().describe("OMIT for today. 0=Monday … 6=Sunday."),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+    const rows = await db.select({ id: planExercises.id, slug: exercises.slug, sortOrder: planExercises.sortOrder })
+      .from(planExercises).innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+      .where(eq(planExercises.planDayId, found.day.id)).orderBy(asc(planExercises.sortOrder));
+    const unknown = input.slugs.filter((s) => !rows.some((r) => r.slug === s));
+    if (unknown.length > 0) return { ok: false, error: `Not on ${DAY_NAMES[found.dow]}: ${unknown.join(", ")}.` };
+
+    const group = randomUUID();
+    // Made adjacent, in the order she gave, starting where the first one sits.
+    // A superset whose members are scattered down the day is not a superset;
+    // the screen chains neighbours.
+    const members = input.slugs.filter((s, i) => input.slugs.indexOf(s) === i)
+      .map((s) => rows.find((r) => r.slug === s)!);
+    const anchor = Math.min(...members.map((m) => m.sortOrder));
+    const rest = rows.filter((r) => !members.some((m) => m.id === r.id));
+    const order = [...rest.filter((r) => r.sortOrder < anchor), ...members, ...rest.filter((r) => r.sortOrder >= anchor)];
+    for (const [i, r] of order.entries()) {
+      const inGroup = members.some((m) => m.id === r.id);
+      await db.update(planExercises)
+        .set({ sortOrder: i, ...(inGroup ? { supersetGroup: group } : {}) })
+        .where(eq(planExercises.id, r.id));
+    }
+    return { ok: true, day: DAY_NAMES[found.dow], superset: input.slugs, group };
+  },
+});
+
+export const removeSuperset = defineTool({
+  name: "remove_superset",
+  description:
+    "Unchain a superset — the movements go back to standing on their own, each with its own rest. Name any one movement that is in the group.",
+  input: z.object({
+    slug: z.string().describe("Any movement currently in the superset"),
+    dayOfWeek: z.number().optional().describe("OMIT for today. 0=Monday … 6=Sunday."),
+    weekStart: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const found = await planDayFor(ctx.profileId, input);
+    if ("error" in found) return { ok: false, error: found.error };
+    const [row] = await db.select({ group: planExercises.supersetGroup })
+      .from(planExercises).innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
+      .where(and(eq(planExercises.planDayId, found.day.id), eq(exercises.slug, input.slug))).limit(1);
+    if (!row?.group) return { ok: false, error: `${input.slug} is not in a superset on that day.` };
+    const cleared = await db.update(planExercises).set({ supersetGroup: null })
+      .where(and(eq(planExercises.planDayId, found.day.id), eq(planExercises.supersetGroup, row.group)))
+      .returning({ id: planExercises.id });
+    return { ok: true, day: DAY_NAMES[found.dow], unchained: cleared.length };
   },
 });
 
