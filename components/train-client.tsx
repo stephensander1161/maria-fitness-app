@@ -335,6 +335,24 @@ export function TrainClient({
     (stillToDo(runningRest?.slug) ? runningRest?.slug : undefined)
     ?? view.exercises.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
     ?? null;
+  // A superset pulses and rests as one: if the current movement is in a
+  // group, every member of that group is "up next" too.
+  const currentGroup = view.exercises.find((e) => e.slug === currentSlug)?.supersetGroup ?? null;
+  const isUpNext = (ex: TodayExercise) =>
+    currentSlug === ex.slug || (ex.supersetGroup !== null && ex.supersetGroup === currentGroup);
+
+  async function superset(slugs: string[]) {
+    try {
+      await action("superset_exercises", { slugs, ...(dayOfWeekOf(date) === undefined ? {} : { dayOfWeek: dayOfWeekOf(date) }) });
+      router.refresh();
+    } catch { setError("Couldn't chain those together."); }
+  }
+  async function unsuperset(slug: string) {
+    try {
+      await action("remove_superset", { slug, ...(dayOfWeekOf(date) === undefined ? {} : { dayOfWeek: dayOfWeekOf(date) }) });
+      router.refresh();
+    } catch { setError("Couldn't unchain that."); }
+  }
 
   const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null }) => {
     beginRest({
@@ -591,10 +609,22 @@ export function TrainClient({
         ref={listRef}
         className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
       >
-      {shown.map((ex, i) => (
+      {shown.map((ex, i) => {
+        const below = shown[i + 1];
+        const above = shown[i - 1];
+        const chainBelow = !!(ex.supersetGroup && below?.supersetGroup === ex.supersetGroup);
+        const chainAbove = !!(ex.supersetGroup && above?.supersetGroup === ex.supersetGroup);
+        return (
         <ExerciseCard
           key={ex.slug}
           exercise={ex}
+          chainAbove={chainAbove}
+          chainBelow={chainBelow}
+          // The movement just below, so "chain these two" has a partner; and
+          // whether this one is already in a group, so the control unlinks.
+          canChainBelow={editable && !!below && !ex.supersetGroup && !below.supersetGroup}
+          onChainBelow={below ? () => void superset([ex.slug, below.slug]) : undefined}
+          onUnchain={ex.supersetGroup ? () => void unsuperset(ex.slug) : undefined}
           dragging={drag?.slug === ex.slug}
           // The dragged card rides the finger; the others slide out of its
           // way. Both transforms, so both animate.
@@ -636,13 +666,14 @@ export function TrainClient({
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
-          upNext={currentSlug === ex.slug}
+          upNext={isUpNext(ex)}
           // Still until she starts. The beat is a rest counting down; before
           // the clock is running there is no rest and nothing to hurry for.
           live={view.startedAt !== null}
           beatSeconds={beat}
         />
-      ))}
+        );
+      })}
       </div>
 
       {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
@@ -1216,6 +1247,7 @@ export function ExerciseCard({
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
   beatSeconds: beat = BEAT_CALM_S, offsetY = 0, offsetX = 0, dropTarget = false,
   asPage = false, href,
+  chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   pickable: Pickable;
@@ -1258,6 +1290,14 @@ export function ExerciseCard({
   offsetX?: number;
   /** Where the held card would land. Marked, because in a grid nothing moves aside. */
   dropTarget?: boolean;
+  /** Chained to the card above / below in a superset. */
+  chainAbove?: boolean;
+  chainBelow?: boolean;
+  /** This card and the one below can be fused into a superset. */
+  canChainBelow?: boolean;
+  onChainBelow?: () => void;
+  /** Already in a group — offer to break it. */
+  onUnchain?: () => void;
   /**
    * This card *is* the screen — /train/[slug] on a phone, rather than a sheet
    * lifted over the day. No scrim to tap by accident, no focus trap, no
@@ -1287,8 +1327,8 @@ export function ExerciseCard({
       });
       if (editingSet === setNumber) setEditingSet(null);
       onRemoved();
-    } catch {
-      /* the square stays; she can try the editor's Delete */
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't remove that set — try again."));
     } finally {
       setRemovingSet(null);
     }
@@ -1531,6 +1571,8 @@ export function ExerciseCard({
         // the scroll that would have reached it.
         open ? "flex flex-col" : ""
       } ${dropTarget ? "border-accent ring-2 ring-accent/40" : ""
+      } ${chainAbove ? "-mt-3 rounded-t-none" : ""
+      } ${chainBelow ? "rounded-b-none" : ""
       } ${targetMet && !upNext ? "done-card" : ""
       } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
@@ -1553,6 +1595,14 @@ export function ExerciseCard({
           : { transition: "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)" }),
       }}
     >
+      {(chainAbove || chainBelow) && (
+        <div className="flex items-center gap-1.5 px-4 pt-2 text-[10px] font-semibold uppercase tracking-widest text-beat">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+            <path d="M9 12h6M8.5 8.5 7 7a3.5 3.5 0 0 0-5 5l2 2a3.5 3.5 0 0 0 5 0M15.5 15.5 17 17a3.5 3.5 0 0 0 5-5l-2-2a3.5 3.5 0 0 0-5 0" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {chainAbove ? "Superset · then this" : "Superset · this first"}
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         {/*
           The name and the target are the card's own open/close control. She
@@ -1667,6 +1717,21 @@ export function ExerciseCard({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M4 8h13l-3-3M20 16H7l3 3" />
+              </svg>
+            </button>
+          )}
+          {(onChainBelow || onUnchain) && !asPage && (
+            <button
+              onClick={() => (onUnchain ? onUnchain() : onChainBelow?.())}
+              aria-label={onUnchain ? `Unchain ${exercise.name} from its superset` : `Superset ${exercise.name} with the movement below`}
+              title={onUnchain ? "Unchain this superset" : "Chain with the movement below into a superset"}
+              className={`grid size-7 shrink-0 place-items-center rounded-full border ${
+                onUnchain ? "border-beat text-beat" : "border-line text-faint active:bg-raised"
+              } ${!onUnchain && !canChainBelow ? "hidden" : ""}`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 12h6M8.5 8.5 7 7a3.5 3.5 0 0 0-5 5l2 2a3.5 3.5 0 0 0 5 0M15.5 15.5 17 17a3.5 3.5 0 0 0 5-5l-2-2a3.5 3.5 0 0 0-5 0" />
               </svg>
             </button>
           )}
@@ -1851,6 +1916,15 @@ export function ExerciseCard({
         })}
       </div>
 
+      {/* A remove/edit failure has to be visible where she is looking — the
+          card-level alert lower down only renders inside the open card's
+          entry, so on a closed card a failed delete looked like nothing at
+          all happening. */}
+      {error && editingSet === null && (
+        <p role="alert" className="mx-4 mb-3 rounded-lg border border-miss/40 bg-miss-soft px-3 py-2 text-center text-[12px] text-miss">
+          {error}
+        </p>
+      )}
       {editable && editingSet !== null && done[editingSet - 1] && (
         <SetEditor
           slug={exercise.slug}

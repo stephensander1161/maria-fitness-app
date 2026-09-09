@@ -679,3 +679,23 @@ suite("supersets: the data and the tools", () => {
     expect(fs.readFileSync("lib/views.ts", "utf8")).toMatch(/supersetGroup: i\.supersetGroup \?\? null/);
   });
 });
+
+suite("supersets on the card", () => {
+  const card = () => fs.readFileSync("components/train-client.tsx", "utf8");
+  it("pulses the whole group together and rests as one", () => {
+    expect(card()).toMatch(/const currentGroup = view\.exercises\.find\(\(e\) => e\.slug === currentSlug\)\?\.supersetGroup \?\? null/);
+    expect(card()).toMatch(/ex\.supersetGroup !== null && ex\.supersetGroup === currentGroup/);
+    expect(card()).toMatch(/upNext=\{isUpNext\(ex\)\}/);
+  });
+  it("has a fuse button and a chained look", () => {
+    expect(card()).toMatch(/onChainBelow\?\.\(\)/);
+    expect(card()).toMatch(/chainAbove \? "-mt-3 rounded-t-none" : ""/);
+    expect(card()).toMatch(/Superset · this first/);
+  });
+  it("shows a remove failure on a closed card, not only the open one", () => {
+    // The card-level alert lower down renders inside the open entry, so a
+    // failed delete on a closed card looked like nothing happened.
+    expect(card()).toMatch(/\{error && editingSet === null && \(/);
+    expect(card()).toMatch(/setError\(actionMessage\(err, "Couldn't remove that set/);
+  });
+});
