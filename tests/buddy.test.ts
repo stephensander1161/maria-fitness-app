@@ -6,7 +6,7 @@ import {
 const her = (over: Partial<BuddyState> = {}): BuddyState => ({
   sessions14: 4, planned14: 6, daysSinceSession: 1, trainedToday: false,
   proteinG: 120, proteinTargetG: 120, proteinComplete: true, entriesToday: 3,
-  weighedToday: true, sessionOpen: false, restToday: false,
+  weighedToday: true, sessionOpen: false, restToday: false, setsToday: 0,
   hour: 18, direction: "lose", tone: "plain", ...over,
 });
 
@@ -155,5 +155,74 @@ suite("what he is doing", () => {
     // Unknown is not midnight. A NaN hour would otherwise read as "before
     // six" and put him to sleep on a training day.
     expect(modeFor({ hour: Number.NaN, sessionOpen: false, restToday: false })).toBe("about");
+  });
+});
+
+suite("he says something about what is happening now", () => {
+  it("talks about the session while she is in one", () => {
+    // He sat on "Log something. I'm starving down here." all afternoon while
+    // she was mid-session logging sets — wrong, and the same wrong thing
+    // forty times.
+    const b = bark(her({ sessionOpen: true, entriesToday: 0, proteinG: null, hour: 16, setsToday: 6 }));
+    expect(b.kind).toBe("session");
+    expect(b.text.toLowerCase()).not.toContain("log something");
+    expect(b.text.toLowerCase()).not.toMatch(/protein|scale|eat|starv/);
+  });
+
+  it("and a session beats every other thing he could say", () => {
+    for (const over of [
+      { proteinG: 10, proteinTargetG: 200 },
+      { entriesToday: 0, proteinG: null, hour: 20 },
+      { daysSinceSession: 9 },
+      { weighedToday: false, hour: 20 },
+    ]) {
+      expect(bark(her({ ...over, sessionOpen: true })).kind, JSON.stringify(over)).toBe("session");
+    }
+  });
+
+  it("has a range, not one line per situation", () => {
+    // One line per situation is a sign, not a companion.
+    const seen = new Set<string>();
+    for (let sets = 0; sets < 12; sets++) {
+      seen.add(bark(her({ sessionOpen: true, setsToday: sets })).text);
+    }
+    expect(seen.size).toBeGreaterThan(3);
+    const gaps = new Set<string>();
+    for (let d = STALE_DAYS; d < STALE_DAYS + 12; d++) gaps.add(bark(her({ daysSinceSession: d })).text);
+    expect(gaps.size).toBeGreaterThan(3);
+    // Fifty-odd lines across the banks, rather than seven.
+    const all = new Set<string>();
+    for (const tone of ["encouraging", "plain", "hype"] as const) {
+      for (let i = 0; i < 40; i++) {
+        all.add(bark(her({ tone, sessionOpen: true, setsToday: i })).text);
+        all.add(bark(her({ tone, proteinG: 200 - i, proteinTargetG: 200 })).text);
+        all.add(bark(her({ tone, daysSinceSession: STALE_DAYS + i })).text);
+        all.add(bark(her({ tone, trainedToday: true, setsToday: i })).text);
+        all.add(bark(her({ tone, entriesToday: i + 1, hour: 10 })).text);
+      }
+    }
+    expect(all.size).toBeGreaterThan(45);
+  });
+
+  it("but still says the same thing for the same day", () => {
+    const s = her({ sessionOpen: true, setsToday: 5 });
+    expect(new Set(Array.from({ length: 30 }, () => bark(s).text)).size).toBe(1);
+  });
+
+  it("and no voice turns into shame, across every bank", () => {
+    for (const tone of ["encouraging", "plain", "hype"] as const) {
+      for (let i = 0; i < 30; i++) {
+        for (const over of [
+          { sessionOpen: true, setsToday: i },
+          { proteinG: 200 - i, proteinTargetG: 200 },
+          { daysSinceSession: STALE_DAYS + i },
+          { weighedToday: false, hour: 20, entriesToday: 3, proteinG: 200, proteinTargetG: 200 },
+          { entriesToday: i + 1, hour: 10 },
+        ]) {
+          const line = bark(her({ ...over, tone })).text.toLowerCase();
+          expect(line, line).not.toMatch(/no excuses|lazy|pathetic|weak|fat|shame|disappoint|failure|useless/);
+        }
+      }
+    }
   });
 });

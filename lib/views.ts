@@ -1079,6 +1079,9 @@ export async function buddyState(profile: {
     proteinComplete: food.logged.length > 0 && food.logged.every((l) => l.proteinG !== null),
     entriesToday: food.logged.length,
     weighedToday: weighed[0]?.date === her,
+    // What makes his line move through a session rather than sitting on one
+    // sentence all afternoon.
+    setsToday: sessions.find((w) => w.date === her)?.sets ?? 0,
     sessionOpen: (openNow[0]?.n ?? 0) > 0,
     restToday: (todayPlanned[0]?.n ?? 0) === 0,
     hour,

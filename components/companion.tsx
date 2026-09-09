@@ -46,7 +46,7 @@ export function Companion({
   fullness?: number | null;
   /** The one line he has to say, chosen by what is true. */
   bark?: string | null;
-  barkKind?: "protein" | "training" | "weigh-in" | "praise" | "idle";
+  barkKind?: "session" | "protein" | "training" | "weigh-in" | "praise" | "idle";
 }) {
   const path = usePathname();
   const [busy, setBusy] = useState(false);
@@ -132,7 +132,8 @@ export function Companion({
       */}
       <div className="flex items-center gap-2 border-t border-line/50 px-3 py-2">
         <p className={`min-w-0 flex-1 truncate text-[12px] ${
-          barkKind === "praise" ? "text-beat" : barkKind === "idle" ? "text-faint" : "text-muted"
+          barkKind === "praise" || barkKind === "session" ? "text-beat"
+            : barkKind === "idle" ? "text-faint" : "text-muted"
         }`}>
           {bark}
         </p>

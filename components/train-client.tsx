@@ -520,10 +520,14 @@ export function TrainClient({
     <SessionBar
       startedAt={view.startedAt}
       finishedAt={view.finishedAt}
-      paused={view.pausedAt !== null}
+      pausedAt={view.pausedAt}
+      pausedMs={view.pausedMs}
       busy={finishing}
       onStart={startSession}
-      onFinish={() => finish()}
+      // The confirmation moved up here with the button. Ending a session with
+      // movements still on the plan is a thing she may well mean; doing it by
+      // accident in the middle of one is not.
+      onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
       onPause={togglePause}
     />
   ) : null;
@@ -541,21 +545,26 @@ export function TrainClient({
       {heading ? (
         <section className="card p-4">
           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div className="min-w-0 flex-1 basis-32">
-              {heading}
-              {isToday && view.startedAt && !view.finishedAt && (
-                <SessionClock
-                  startedAt={view.startedAt}
-                  finishedAt={view.finishedAt}
-                  pausedAt={view.pausedAt}
-                  pausedMs={view.pausedMs}
-                />
-              )}
-            </div>
+            <div className="min-w-0 flex-1 basis-32">{heading}</div>
             {sessionBar && <div className="ml-auto shrink-0">{sessionBar}</div>}
           </div>
         </section>
       ) : sessionBar}
+      {finishEarly && (
+        <div className="card flex flex-wrap items-center gap-2 p-3">
+          <p className="min-w-0 flex-1 text-[13px] text-muted">
+            Still to do: {outstanding.join(", ")}. Finish anyway?
+          </p>
+          <button onClick={() => void finish()} disabled={finishing}
+            className="shrink-0 rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
+            {finishing ? "Finishing…" : "Yes, I'm done"}
+          </button>
+          <button onClick={() => setFinishEarly(false)}
+            className="shrink-0 rounded-xl border border-line px-3 py-2 text-[13px] text-muted">
+            Keep going
+          </button>
+        </div>
+      )}
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -649,38 +658,18 @@ export function TrainClient({
         ) : (
           <div className="text-center">
             {/*
-              One button, always here, saying the same thing whether or not
-              there is work left. "Finish early" was a grey underlined link at
-              12px — the app hedging about whether she is allowed to stop, for
-              a decision that is entirely hers. What changes with work left is
-              the confirmation, not the prominence.
+              What is left, and nothing else.
+              There was a second Finish workout here — a full-width one under
+              the cards, while the header already carries the button that ends
+              the session. Two of the same control on one screen is one of
+              them being a mistake waiting to happen, and this was the big one
+              sitting under a half-done workout.
             */}
-            <p className="mb-3 text-[13px] text-muted">
+            <p className="text-[13px] text-muted">
               {outstanding.length > 0
                 ? `Still to do: ${outstanding.join(", ")}`
                 : `${totalLogged} set${totalLogged === 1 ? "" : "s"} logged. Everything on the plan is done.`}
             </p>
-
-            {finishEarly ? (
-              <div className="flex items-center justify-center gap-2">
-                <button onClick={() => void finish()} disabled={finishing}
-                  className="rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-on-accent disabled:opacity-50">
-                  {finishing ? "Finishing…" : "Yes, I'm done"}
-                </button>
-                <button onClick={() => setFinishEarly(false)}
-                  className="rounded-xl border border-line px-4 py-3 text-[13px] text-muted">
-                  Keep going
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
-                disabled={finishing}
-                className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-50"
-              >
-                {finishing ? "Finishing…" : "Finish workout"}
-              </button>
-            )}
           </div>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
@@ -816,20 +805,20 @@ function SessionClock({
   return (
     // Not a live region: it repaints every second, and announcing each tick
     // would talk over everything else the way the rest countdown once did.
-    <p className={`mt-1 text-[13px] font-medium tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
+    <span className={`shrink-0 text-[14px] font-semibold tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
       {clockDuration(elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs }))}
-      {pausedAt && <span className="ml-1.5 text-[11px] uppercase tracking-wide">paused</span>}
-    </p>
+    </span>
   );
 }
 
 function SessionBar({
-  startedAt, finishedAt, paused, busy, onStart, onFinish, onPause,
+  startedAt, finishedAt, pausedAt, pausedMs, busy, onStart, onFinish, onPause,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
   /** Stopped, but not over. */
-  paused: boolean;
+  pausedAt: string | null;
+  pausedMs: number;
   busy: boolean;
   onStart: () => void;
   onFinish: () => void;
@@ -842,7 +831,8 @@ function SessionBar({
     return () => window.clearInterval(id);
   }, [startedAt, finishedAt]);
 
-  const ms = elapsedMs(startedAt, now, finishedAt);
+  const paused = pausedAt !== null;
+  const ms = elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs });
 
   if (!startedAt) {
     return (
@@ -878,6 +868,16 @@ function SessionBar({
   */
   return (
     <div className="flex items-center gap-2">
+      {/* The clock, in the row with the controls rather than on a line of its
+          own under the day's name — but as text, not a chip. It is read
+          constantly and tapped never, and a tap target beside the one button
+          that ends a session is how a session gets ended by accident. */}
+      <SessionClock
+        startedAt={startedAt}
+        finishedAt={finishedAt}
+        pausedAt={pausedAt}
+        pausedMs={pausedMs}
+      />
       {/* A glyph, not a word: it sits beside a button that already has three,
           and pause is the one symbol everybody reads without being told. */}
       <button
@@ -1233,19 +1233,8 @@ export function ExerciseCard({
   const [rir, setRir] = useState<number | null>(null);
   const [lifted, setLifted] = useState(false);
   const open = asPage || lifted;
-  /**
-   * The library entry. Open from the start on the movement's own screen.
-   *
-   * Folded away, it was one more tap between arriving at a movement and
-   * reading how to do it — on a page whose entire subject is that one
-   * movement, with room for it. It still folds *away* on the card in the
-   * day's list, where six of them open at once is the whole day's library.
-   */
-  const [showCues, setShowCues] = useState(asPage);
-  /** Target, relabel and remove — the same fold, so only one is ever open. */
+  /** Target, relabel and remove: the one thing on this screen that folds. */
   const [showEdit, setShowEdit] = useState(false);
-  const hasDetail =
-    exercise.formCues.length > 1 || exercise.commonMistakes.length > 0 || exercise.safetyNote !== null;
   /**
    * The card's height while closed, held so the grid does not collapse
    * behind it when it lifts out — measured at the moment it opens, which is
@@ -1486,9 +1475,12 @@ export function ExerciseCard({
           className={`shrink-0 self-start text-accent/70 ${open ? "h-16 w-14" : "h-11 w-9"}`}
         />
         <TapIn
-          href={canLog && !asPage ? href : undefined}
+          href={canLog && !open ? href : undefined}
           onClick={openCard}
-          disabled={!canLog || asPage}
+          disabled={!canLog}
+          // Open, the header is text with a pencil in it rather than one big
+          // tap target: there is nowhere left for it to take her.
+          inert={open}
           label={canLog ? `Log a set for ${exercise.name}` : exercise.name}
           className="min-w-0 flex-1 text-left"
         >
@@ -1513,14 +1505,34 @@ export function ExerciseCard({
             training.
           */}
           <p className="mt-0.5 text-[13px] text-muted tabular">
-            {/* Tappable when the card is open: a target written a week ago by
-                a planner is a guess, and changing it meant rebuilding the day
-                or asking the coach. */}
             Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
             {(next ? next.target.weight : exercise.targetWeight) !== null &&
               ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
             {exercise.lastTime && (
               <span className="text-faint"> · last {summariseSets(exercise.lastTime.sets, unit)}</span>
+            )}
+            {/* A pencil, right where the number it changes is.
+                It was a full-width fold under the cues, which is a lot of
+                button for something she touches once a month — and it sat
+                nowhere near the target it edits. Inside the paragraph, so it
+                follows the text however that wraps.
+                A span rather than a button when this is a link's label:
+                a button inside a link is not valid, and the header is the way
+                into the movement on a closed card. */}
+            {open && editable && (
+              <button
+                onClick={() => setShowEdit(!showEdit)}
+                aria-expanded={showEdit}
+                aria-label={`Change the target for ${exercise.name}`}
+                className={`ml-1.5 inline-grid size-6 translate-y-1 place-items-center rounded-md border align-baseline ${
+                  showEdit ? "border-accent text-accent" : "border-line text-faint active:bg-raised"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
             )}
           </p>
           {next && next.change === "up" && (
@@ -1651,25 +1663,16 @@ export function ExerciseCard({
         showing half a button. What she opened it for is the squares, the two
         numbers and the button. The rest is one tap away.
       */}
-      {open && (
-        <div className="flex gap-2 px-4 pb-3">
-          {hasDetail && (
-            <FoldButton
-              label="How to do it"
-              open={showCues}
-              onClick={() => { setShowCues(!showCues); setShowEdit(false); }}
-            />
-          )}
-          {editable && (
-            <FoldButton
-              label="Edit"
-              open={showEdit}
-              onClick={() => { setShowEdit(!showEdit); setShowCues(false); }}
-            />
-          )}
-        </div>
-      )}
-      {open && showCues && <FullCues exercise={exercise} />}
+      {/*
+        How to do it, just there.
+        It was behind a fold, then open-by-default behind a fold, which is a
+        dropdown whose only state is open — a control that does nothing but
+        take up a row and invite a tap that hides what she came to read. The
+        movement is the subject of this screen; the instructions for it are
+        not a disclosure.
+      */}
+      {open && <FullCues exercise={exercise} />}
+
       {open && showEdit && editable && (
         <div className="space-y-2 pb-1">
           <TargetEditor
@@ -2079,15 +2082,24 @@ const Chevron = ({ dir }: { dir: "left" | "right" }) => (
  * no idea how wide the screen is.
  */
 function TapIn({
-  href, onClick, label, className, disabled = false, children,
+  href, onClick, label, className, disabled = false, inert = false, children,
 }: {
   href?: string;
   onClick: (e: React.MouseEvent) => void;
   label: string;
   className?: string;
   disabled?: boolean;
+  /**
+   * Not a control at all — plain markup.
+   *
+   * The open card's header is text, and it has a pencil inside it. A button
+   * nested in a button is invalid, and a disabled outer one makes everything
+   * inside it unclickable: the pencil rendered and did nothing.
+   */
+  inert?: boolean;
   children: React.ReactNode;
 }) {
+  if (inert) return <div className={className}>{children}</div>;
   if (disabled || !href) {
     return (
       <button onClick={onClick} disabled={disabled} aria-label={label} className={className}>
@@ -2099,26 +2111,6 @@ function TapIn({
     <Link href={href} onClick={onClick} aria-label={label} className={className}>
       {children}
     </Link>
-  );
-}
-
-/** One of the two folds under an open card. Half a row each, so both fit. */
-function FoldButton({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-expanded={open}
-      className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border py-2 text-[12px] ${
-        open ? "border-accent text-accent" : "border-line text-muted"
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-        className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}>
-        <path d="M6 9l6 6 6-6" />
-      </svg>
-    </button>
   );
 }
 

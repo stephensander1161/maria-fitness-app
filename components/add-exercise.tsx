@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
 import { MovementPicker } from "./movement-picker";
-import type { Pickable, PickableExercise } from "@/lib/views";
+import type { Pickable } from "@/lib/views";
 
 /**
  * Add one movement to today.

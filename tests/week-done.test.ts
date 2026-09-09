@@ -137,16 +137,14 @@ suite("a sheet is as tall as the screen actually is", () => {
 suite("the set sheet is the set, not the library entry", () => {
   it("opens the entry on the movement's own screen, and folds it on a card", () => {
     const card = read("components/train-client.tsx");
-    // On a page about one movement, a fold was one more tap between arriving
-    // and reading how to do it. In the day's list it still folds: six of them
-    // open at once is the whole library.
-    expect(card).toMatch(/const \[showCues, setShowCues\] = useState\(asPage\)/);
-    expect(card).toMatch(/\{open && showCues && <FullCues exercise=\{exercise\} \/>\}/);
+    // Open, the entry is simply there — no dropdown whose only state is open.
+    expect(card).not.toMatch(/showCues/);
+    expect(card).toMatch(/\{open && <FullCues exercise=\{exercise\} \/>\}/);
     // The cycling one-liner is for the closed cards only — above the full
     // entry it is the same words twice.
     expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
-    // Nothing to fold means no control offered.
-    expect(card).toMatch(/const hasDetail =/);
+    // The one thing that still folds is the target editor, behind a pencil.
+    expect(card).toMatch(/const \[showEdit, setShowEdit\] = useState\(false\)/);
   });
 });
 
@@ -279,5 +277,36 @@ suite("the day's name and its clock share a container", () => {
     const title = read("components/day-title.tsx");
     expect(title).toMatch(/className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"/);
     expect(title).toMatch(/compact \? "text-\[17px\]" : "text-2xl"/);
+  });
+});
+
+suite("one Finish workout, not two", () => {
+  const card = () => read("components/train-client.tsx");
+
+  it("the only one is in the header, beside the pause", () => {
+    // There was a full-width one under the cards as well, while the header
+    // already carried the button that ends the session. Two of the same
+    // control on one screen is one of them being a mistake waiting to happen.
+    const matches = card().match(/Finishing…" : "Finish workout"/g) ?? [];
+    expect(matches).toHaveLength(1);
+  });
+
+  it("and it still asks first when there is work left", () => {
+    // Ending a session with movements still on the plan is a thing she may
+    // well mean; doing it by accident mid-session is not.
+    expect(card()).toMatch(/onFinish=\{\(\) => \(outstanding\.length > 0 \? setFinishEarly\(true\) : void finish\(\)\)\}/);
+    expect(card()).toMatch(/Finish anyway\?/);
+  });
+
+  it("the target editor is a pencil in the target line, not a full-width fold", () => {
+    expect(card()).toMatch(/aria-label=\{`Change the target for \$\{exercise\.name\}`\}/);
+    expect(card()).not.toMatch(/FoldButton/);
+  });
+
+  it("and the open header is markup, so the pencil inside it works", () => {
+    // A button nested in a button is invalid, and a disabled outer one makes
+    // everything inside unclickable: the pencil rendered and did nothing.
+    expect(card()).toMatch(/if \(inert\) return <div className=\{className\}>\{children\}<\/div>;/);
+    expect(card()).toMatch(/inert=\{open\}/);
   });
 });

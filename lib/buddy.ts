@@ -36,6 +36,8 @@ export type BuddyState = {
   /** How many things she has logged today, of any kind. */
   entriesToday: number;
   weighedToday: boolean;
+  /** Sets logged today, of anything. What makes the line move as she works. */
+  setsToday: number;
   /** A workout is open right now: started today and not finished. */
   sessionOpen: boolean;
   /** Today asks for no training — a rest day, or nothing planned at all. */
@@ -134,7 +136,7 @@ export type Bark = {
   /** What he says. One short line — it is a speech bubble, not a paragraph. */
   text: string;
   /** Why he is saying it, so the UI can colour it and a test can name it. */
-  kind: "protein" | "training" | "weigh-in" | "praise" | "idle";
+  kind: "session" | "protein" | "training" | "weigh-in" | "praise" | "idle";
 };
 
 /** After this, a day with nothing logged is worth mentioning. */
@@ -142,114 +144,210 @@ export const LATE_HOUR = 14;
 /** Past this many days without a session, he notices. */
 export const STALE_DAYS = 4;
 
-const say = (tone: Tone, lines: Record<Tone, string>) => lines[tone];
+/**
+ * What he says, per situation and per voice.
+ *
+ * Several lines each, because one line per situation is a sign, not a
+ * companion: he sat on "Log something. I'm starving down here." all afternoon
+ * while she was mid-session logging sets, which is both wrong and the same
+ * wrong thing forty times.
+ *
+ * Chosen, never shuffled. The line moves with the state — a set lands, the
+ * number changes, so does the sentence — which means it varies all day
+ * without ever being arbitrary. Same state, same words.
+ *
+ * A voice changes how it is said and never what is true. The blunt one is
+ * short, not cruel: "no excuses" is not in here and must not be.
+ */
+const LINES: Record<Bark["kind"], Record<Tone, string[]>> = {
+  session: {
+    encouraging: [
+      "You're in it. Nice.",
+      "That's another one down.",
+      "Steady — one set at a time.",
+      "Good work. Keep the rest honest.",
+      "Still going. That's the whole thing.",
+      "Breathe, then the next one.",
+    ],
+    plain: [
+      "Session running.",
+      "Set logged.",
+      "Next one when you're ready.",
+      "Rest, then go again.",
+      "Still on the clock.",
+      "Keep it moving.",
+    ],
+    hype: [
+      "Let's go. Next set.",
+      "That's what I'm talking about.",
+      "Rack it. Go again.",
+      "More. Right now.",
+      "Don't you dare stop there.",
+      "Again. I'm watching.",
+    ],
+  },
+  protein: {
+    encouraging: [
+      "{n}g of protein to go — you've got this.",
+      "{n}g left. A yoghurt does most of that.",
+      "{n}g short. Plenty of day left.",
+      "{n}g of protein still to find.",
+      "Sitting {n}g under. Easy fix.",
+    ],
+    plain: [
+      "{n}g of protein left today.",
+      "{n}g short of target.",
+      "{n}g to go on protein.",
+      "Protein: {n}g under.",
+      "{n}g remaining.",
+    ],
+    hype: [
+      "{n}g of protein left. Feed me.",
+      "{n}g down. Go eat.",
+      "{n}g short. Chicken. Now.",
+      "Protein's {n}g light.",
+      "{n}g. Sort it.",
+    ],
+  },
+  training: {
+    encouraging: [
+      "{d} days since the last session — a short one still counts.",
+      "{d} days off. Twenty minutes would do it.",
+      "It's been {d} days. Start small.",
+      "{d} days. The next one is the only one that matters.",
+    ],
+    plain: [
+      "{d} days since your last session.",
+      "{d} days off.",
+      "Last session was {d} days ago.",
+      "{d} days without training.",
+    ],
+    hype: [
+      "{d} days. Let's go.",
+      "{d} days off. Enough.",
+      "{d} days. Pick something up.",
+      "{d} days. Today, then.",
+    ],
+  },
+  "weigh-in": {
+    encouraging: [
+      "No weigh-in today — tomorrow morning, then.",
+      "Scale missed you. No harm.",
+      "No weigh-in yet. Mornings are best anyway.",
+    ],
+    plain: ["No weigh-in today.", "Scale not logged.", "No weight logged today."],
+    hype: ["Scale missed you this morning.", "No weigh-in. Step on it tomorrow.", "Scale's lonely."],
+  },
+  praise: {
+    encouraging: [
+      "Session's in the book. Nice work.",
+      "That's today done. Well held.",
+      "Protein's in for the day. That's the hard one.",
+      "Good day's work.",
+      "Everything on the plan, done.",
+    ],
+    plain: [
+      "Trained today.",
+      "Session logged.",
+      "Protein target hit.",
+      "Today's done.",
+      "Plan complete.",
+    ],
+    hype: [
+      "Session done. Get it.",
+      "That's the work.",
+      "Protein: done. Beautiful.",
+      "Today belongs to you.",
+      "Plan smashed.",
+    ],
+  },
+  idle: {
+    encouraging: [
+      "Steady week.",
+      "Nothing needed right now.",
+      "All quiet. Rest counts too.",
+      "On track.",
+      "Good place to be.",
+    ],
+    plain: [
+      "Nothing outstanding.",
+      "All logged.",
+      "On track.",
+      "Quiet day.",
+      "Nothing to report.",
+    ],
+    hype: [
+      "All good. Stay ready.",
+      "Nothing owing. Rare.",
+      "On track. Keep it there.",
+      "Quiet. For now.",
+      "Locked in.",
+    ],
+  },
+};
 
 /**
- * One line, chosen by what is true — never at random.
+ * Which of the lines, from the state itself.
  *
- * Ordered, and the first thing that applies wins, so the same day always
- * produces the same line and the most useful thing is the thing he says. A
- * shuffle would make him decoration; this makes him worth reading.
- *
- * A voice changes how it is said and never what is true — the rule the coach's
- * three tones follow, and for the same reason. The blunt one is short, not
- * cruel: "no excuses" is not in here and must not be.
+ * Not a random pick and not a clock: the same situation always produces the
+ * same sentence, and it changes when something about the day changes. A set
+ * lands, the count moves, so does the line — variety that comes from her
+ * doing things rather than from a shuffle.
  */
+function pick(lines: string[], seed: number): string {
+  const i = Math.abs(Math.trunc(seed)) % lines.length;
+  return lines[i];
+}
+
 export function bark(s: BuddyState): Bark {
   const full = fullness(s);
   const shortOnProtein = full !== null && full < 0.7;
+  const say = (kind: Bark["kind"], seed: number, vars: Record<string, number> = {}): Bark => {
+    let text = pick(LINES[kind][s.tone], seed);
+    for (const [k, v] of Object.entries(vars)) text = text.replaceAll(`{${k}}`, String(v));
+    return { kind, text };
+  };
 
-  // 1. Protein, when it is genuinely short and there is still a day to fix it
+  // 1. She is training *right now*. Nothing else is the point until she stops
+  //    — he told her to go and eat something all afternoon while she was
+  //    mid-session logging sets, which is both wrong and irritating.
+  if (s.sessionOpen) return say("session", s.setsToday);
+
+  // 2. Protein, when it is genuinely short and there is still a day to fix it
   //    in. Only ever from counted entries — a floor, never a verdict.
   if (shortOnProtein && s.proteinTargetG !== null && s.proteinG !== null) {
     const left = Math.round(s.proteinTargetG - s.proteinG);
-    return {
-      kind: "protein",
-      text: say(s.tone, {
-        encouraging: `${left}g of protein to go — you've got this.`,
-        plain: `${left}g of protein left today.`,
-        hype: `${left}g of protein left. Feed me.`,
-      }),
-    };
+    return say("protein", left, { n: left });
   }
 
-  // 2. Nothing written down at all, once the day is well under way.
+  // 3. Nothing written down at all, once the day is well under way.
   if (s.entriesToday === 0 && s.hour >= LATE_HOUR) {
     return {
       kind: "protein",
-      text: say(s.tone, {
-        encouraging: "Nothing in the food log yet — even a rough note helps.",
-        plain: "Nothing logged today.",
-        hype: "Log something. I'm starving down here.",
-      }),
+      text: s.tone === "hype" ? "Nothing logged. Go eat."
+        : s.tone === "plain" ? "Nothing logged today."
+          : "Nothing in the food log yet — even a rough note helps.",
     };
   }
 
-  // 3. A gap in the training. Never on the first day off, and never at all
+  // 4. A gap in the training. Never on the first day off, and never at all
   //    for someone who has not started — there is no gap to be in.
   if (s.daysSinceSession !== null && s.daysSinceSession >= STALE_DAYS) {
-    const d = s.daysSinceSession;
-    return {
-      kind: "training",
-      text: say(s.tone, {
-        encouraging: `${d} days since the last session — a short one still counts.`,
-        plain: `${d} days since your last session.`,
-        hype: `${d} days. Let's go.`,
-      }),
-    };
+    return say("training", s.daysSinceSession, { d: s.daysSinceSession });
   }
 
-  // 4. Trained today. Said plainly and specifically, because the thing this
-  //    app exists to get her to do deserves better than a card turning green.
-  if (s.trainedToday) {
-    return {
-      kind: "praise",
-      text: say(s.tone, {
-        encouraging: "Session's in the book. Nice work.",
-        plain: "Trained today.",
-        hype: "Session done. Get it.",
-      }),
-    };
-  }
+  // 5. Trained today. Said plainly, because the thing this app exists to get
+  //    her to do deserves better than a card turning green.
+  if (s.trainedToday) return say("praise", s.setsToday);
 
-  // 5. The scale, but only as the last useful thing rather than the first.
-  if (!s.weighedToday && s.hour >= LATE_HOUR) {
-    return {
-      kind: "weigh-in",
-      text: say(s.tone, {
-        encouraging: "No weigh-in today — tomorrow morning, then.",
-        plain: "No weigh-in today.",
-        hype: "Scale missed you this morning.",
-      }),
-    };
-  }
+  // 6. The scale, but only as the last useful thing rather than the first.
+  if (!s.weighedToday && s.hour >= LATE_HOUR) return say("weigh-in", s.hour);
 
-  // 6. Protein is in. Worth saying: it is the one number that is hard to hit
+  // 7. Protein is in. Worth saying: it is the one number that is hard to hit
   //    and easy to not notice hitting.
-  if (full !== null && full >= 1) {
-    return {
-      kind: "praise",
-      text: say(s.tone, {
-        encouraging: "Protein's in for the day. That's the hard one.",
-        plain: "Protein target hit.",
-        hype: "Protein: done. Beautiful.",
-      }),
-    };
-  }
+  if (full !== null && full >= 1) return say("praise", s.entriesToday + 2);
 
-  // 7. Nothing to report. He says what he is here for rather than filling the
-  //    silence with a fact she did not ask for.
-  const goal: Record<GoalDirection, string> = {
-    lose: "Steady week.",
-    gain: "Eat, lift, repeat.",
-    hold: "Holding steady.",
-  };
-  return {
-    kind: "idle",
-    text: say(s.tone, {
-      encouraging: goal[s.direction],
-      plain: goal[s.direction],
-      hype: goal[s.direction],
-    }),
-  };
+  // 8. Nothing to report.
+  return say("idle", s.entriesToday + s.hour);
+
 }

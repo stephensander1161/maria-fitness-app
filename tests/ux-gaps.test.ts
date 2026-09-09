@@ -373,10 +373,11 @@ suite("the open card shows the whole movement", () => {
     expect(card).toMatch(/open \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
-    // Open, the whole entry is there from the start — on a screen whose only
-    // subject is this movement, a fold was one more tap to read how to do it.
-    expect(card).toMatch(/\{open && showCues && <FullCues exercise=\{exercise\} \/>\}/);
-    expect(card).toMatch(/const \[showCues, setShowCues\] = useState\(asPage\)/);
+    // Open, the entry is simply there. It was behind a fold, then open by
+    // default behind a fold, which is a dropdown whose only state is open —
+    // a control that does nothing but invite a tap that hides the thing.
+    expect(card).toMatch(/\{open && <FullCues exercise=\{exercise\} \/>\}/);
+    expect(card).not.toMatch(/showCues/);
     // And the cycling one-liner belongs to the closed cards only: above the
     // full entry it is the same words twice.
     expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
@@ -406,7 +407,7 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     // in the header row, and nothing that opens on top of the card.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/<FullCues exercise=\{exercise\} \/>/);
-    expect(card).toMatch(/setShowCues\(!showCues\)/);
+    expect(card).toMatch(/setShowEdit\(!showEdit\)/);
     // Inside the card's own flow, not a dialog of its own.
     expect(card.split("function FullCues")[0]).not.toMatch(/CardModal[^]{0,200}FullCues/);
     expect(card).not.toMatch(/aria-label=\{`(Show|Open) the (guide|help)/);
@@ -414,15 +415,13 @@ suite("asking for help opens the card, rather than stacking on it", () => {
 
   it("keeps the edits inside the open card, and out of the name's row", () => {
     // They were two round buttons in the header, beside a name that had
-    // already wrapped. Now they are behind the Edit fold with the target,
-    // so the header is the movement and one way out.
+    // already wrapped, then a full-width fold under the cues — a lot of
+    // button for something touched once a month, nowhere near the number it
+    // changes. Now it is a pencil inside the target line itself.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/line-clamp-2/);
+    expect(card).toMatch(/aria-label=\{`Change the target for \$\{exercise\.name\}`\}/);
     expect(card).toMatch(/\{open && showEdit && editable && \(/);
-    // Only one fold open at a time, or the sheet grows past the screen again.
-    expect(card).toMatch(/setShowCues\(!showCues\); setShowEdit\(false\);/);
-    expect(card).toMatch(/setShowEdit\(!showEdit\); setShowCues\(false\);/);
-    // And the target editor is inside it, not printed above the entry.
     const editFold = card.slice(card.indexOf("{open && showEdit && editable && ("));
     expect(editFold.slice(0, 900)).toMatch(/<TargetEditor/);
   });

@@ -2,7 +2,7 @@
 
 import { AddExercise } from "./add-exercise";
 import { PlannedExerciseRow } from "./planned-exercise-row";
-import type { Pickable, PickableExercise, TodayView } from "@/lib/views";
+import type { Pickable,  TodayView } from "@/lib/views";
 
 /**
  * A day that is not today: something to arrange, or something to look back at.

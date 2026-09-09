@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
-import type { Pickable, PickableExercise } from "@/lib/views";
+import type { Pickable } from "@/lib/views";
 import { matchesQuery } from "@/lib/search-terms";
 
 /** The gym name she typed, when it is not the name on the card. */
