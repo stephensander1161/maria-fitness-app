@@ -143,8 +143,9 @@ suite("the set sheet is the set, not the library entry", () => {
     // The cycling one-liner is for the closed cards only — above the full
     // entry it is the same words twice.
     expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
-    // The one thing that still folds is the target editor, behind a pencil.
-    expect(card).toMatch(/const \[showEdit, setShowEdit\] = useState\(false\)/);
+    // Nothing folds any more: the target's numbers are the inputs.
+    expect(card).not.toMatch(/showEdit/);
+    expect(card).toMatch(/field\("s", "Target sets"/);
   });
 });
 
@@ -253,8 +254,10 @@ suite("the day's name and its clock share a container", () => {
   it("and the running control is one button, not a pair", () => {
     const card = read("components/train-client.tsx");
     const bar = card.slice(card.indexOf("One control, in the slot Start was in"), card.indexOf("/** 0=Monday"));
-    expect(bar).toMatch(/\{busy \? "Finishing…" : "Finish workout"\}/);
-    expect(bar).not.toMatch(/clockDuration/);
+    // "Finish": the clock, the pause and this share one row with the day's
+    // name on a 361px phone, and "workout" is the word that wrapped it.
+    expect(bar).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
+    expect(bar).toMatch(/aria-label="Finish workout"/);
   });
 
   it("is one control in the running state too, where Start was", () => {
@@ -287,8 +290,9 @@ suite("one Finish workout, not two", () => {
     // There was a full-width one under the cards as well, while the header
     // already carried the button that ends the session. Two of the same
     // control on one screen is one of them being a mistake waiting to happen.
-    const matches = card().match(/Finishing…" : "Finish workout"/g) ?? [];
+    const matches = card().match(/Finishing…" : "Finish"/g) ?? [];
     expect(matches).toHaveLength(1);
+    expect(card()).not.toMatch(/Finishing…" : "Finish workout"/);
   });
 
   it("and it still asks first when there is work left", () => {
@@ -298,9 +302,31 @@ suite("one Finish workout, not two", () => {
     expect(card()).toMatch(/Finish anyway\?/);
   });
 
-  it("the target editor is a pencil in the target line, not a full-width fold", () => {
-    expect(card()).toMatch(/aria-label=\{`Change the target for \$\{exercise\.name\}`\}/);
-    expect(card()).not.toMatch(/FoldButton/);
+  it("the target's numbers are the inputs — no pencil, no fold, no Save", () => {
+    // A pencil that surfaced a panel with three steppers and a Save button:
+    // a button that surfaced another button, for changing two numbers.
+    const c = card();
+    expect(c).not.toMatch(/FoldButton|Change the target for|Save target/);
+    expect(c).toMatch(/field\("s", "Target sets"/);
+    expect(c).toMatch(/isHold \? "Target seconds" : "Target reps"/);
+    // Saves when she leaves the field, and only if something changed.
+    expect(c).toMatch(/onBlur=\{\(\) => \{/);
+    expect(c).toMatch(/if \(next\.s === base\.s && next\.r === base\.r && next\.w === base\.w\) return;/);
+  });
+
+  it("hides the new-set entry while a previous set is being edited", () => {
+    // Editing set 8 with the entry for set 9 open under it was two identical
+    // pairs of steppers on one screen and nothing to say which was which.
+    expect(card()).toMatch(/open && editingSet === null \? "shrink-0 border-t/);
+  });
+
+  it("opens a set's editor clear of the tab bar", () => {
+    // The browser's "in view" stops at the viewport edge and knows nothing
+    // about the nav fixed over it, so the editor's buttons opened under the
+    // tab bar and tapping Delete tapped the nav.
+    expect(card()).toMatch(/box\.current\?\.scrollIntoView\(\{ block: "nearest", behavior: "smooth" \}\)/);
+    const css = fs.readFileSync("app/globals.css", "utf8");
+    expect(css).toMatch(/scroll-padding-bottom: calc\(6rem \+ env\(safe-area-inset-bottom\) \+ var\(--covered-bottom, 0px\)\)/);
   });
 
   it("and the open header is markup, so the pencil inside it works", () => {

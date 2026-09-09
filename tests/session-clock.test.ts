@@ -72,7 +72,7 @@ suite("the session has edges", () => {
     expect(card).toMatch(/function SessionBar/);
     expect(card).toMatch(/action\("start_workout"/);
     expect(card).toMatch(/Start workout/);
-    expect(card).toMatch(/Finish workout/);
+    expect(card).toMatch(/aria-label="Finish workout"/);
     // The clock is read under the day's name, not tapped beside the button.
     expect(card).toMatch(/clockDuration\(elapsedMs\(startedAt, now, finishedAt,/);
   });
@@ -167,6 +167,6 @@ suite("only the Finish button says it is finishing", () => {
     const bar = card.slice(card.indexOf("One control, in the slot Start was in"));
     expect(bar.slice(0, 1400)).toMatch(/onClick=\{onPause\}\n\s*disabled=\{clockBusy\}/);
     // And "Finishing…" still belongs to finishing.
-    expect(bar.slice(0, 2600)).toMatch(/\{busy \? "Finishing…" : "Finish workout"\}/);
+    expect(bar.slice(0, 2600)).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
   });
 });

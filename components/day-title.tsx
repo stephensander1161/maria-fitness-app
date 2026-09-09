@@ -59,7 +59,7 @@ export function DayTitle({
           className="group flex min-w-0 max-w-full items-baseline gap-2 text-left"
           aria-label={`Rename ${title}`}
         >
-          <h1 className={`min-w-0 truncate font-bold tracking-tight ${
+          <h1 className={`min-w-0 font-bold tracking-tight ${compact ? "line-clamp-2 break-words" : "truncate"} ${
             // Sharing a row with the session clock, it is a heading rather
             // than the page's title, and 24px leaves a phone nothing to put
             // the clock in.

@@ -430,6 +430,18 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    `touch-action: manipulation` is the other half: it drops the double-tap
    zoom wait, so a single tap fires immediately rather than 300ms later.
 */
+/*
+   The browser's idea of "scrolled into view" stops at the viewport's edge; it
+   knows nothing about the tab bar fixed over the bottom of it. So focusing a
+   field or opening a set's editor put the buttons exactly where the tab bar
+   is, and a tap on Delete landed on the nav. A set could not be deleted from
+   a card low on the screen — the editor opened, the button did nothing.
+   Scroll padding is what tells the browser where the viewport really ends.
+*/
+html {
+  scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom) + var(--covered-bottom, 0px));
+}
+
 .tap-only {
   -webkit-touch-callout: none;
   -webkit-user-select: none;

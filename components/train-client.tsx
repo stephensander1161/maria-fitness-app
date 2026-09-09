@@ -713,8 +713,17 @@ export function TrainClient({
  * Only the fields she touches are sent (`set_exercise_target` leaves the rest
  * alone), so nudging the reps cannot quietly reset a weight.
  */
-function TargetEditor({
-  slug, sets, reps, weight, unit, isHold, holdSeconds, dayOfWeek, onSaved,
+/**
+ * The target, as the thing you edit.
+ *
+ * It was a line of text, a pencil beside it, and a panel with three steppers
+ * and a Save button — a button that surfaced another button, for changing two
+ * numbers. Now the numbers are the inputs: tap a figure, type, and it saves
+ * when you leave the field. Nothing appears, nothing to dismiss, and the
+ * line reads exactly as it did before you touched it.
+ */
+function TargetInline({
+  slug, sets, reps, weight, unit, isHold, holdSeconds, showWeight, dayOfWeek, onSaved,
 }: {
   slug: string;
   sets: number;
@@ -723,66 +732,75 @@ function TargetEditor({
   unit: string;
   isHold: boolean;
   holdSeconds: number | null;
+  /** A bodyweight movement with no load shows no weight field at all. */
+  showWeight: boolean;
   dayOfWeek?: number;
   onSaved: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [s, setS] = useState(sets);
-  const [r, setR] = useState(isHold ? holdSeconds ?? 30 : reps);
-  const [w, setW] = useState(weight ?? 0);
-  const [saving, setSaving] = useState(false);
+  const base = { s: sets, r: isHold ? holdSeconds ?? 30 : reps, w: weight ?? 0 };
+  // Keyed off what the server says, so a save that comes back re-seeds the
+  // fields without an effect writing state during render.
+  const key = `${base.s}:${base.r}:${base.w}`;
+  const [draft, setDraft] = useState({ for: key, ...base });
+  const cur = draft.for === key ? draft : { for: key, ...base };
   const [error, setError] = useState<string | null>(null);
 
-  async function save() {
-    setSaving(true);
+  async function commit(next: { s: number; r: number; w: number }) {
+    if (next.s === base.s && next.r === base.r && next.w === base.w) return;
     setError(null);
     try {
       await action("set_exercise_target", {
         slug,
-        sets: s,
-        ...(isHold ? { holdSeconds: r } : { reps: r }),
-        weight: w > 0 ? w : null,
+        sets: next.s,
+        ...(isHold ? { holdSeconds: next.r } : { reps: next.r }),
+        weight: next.w > 0 ? next.w : null,
         ...(dayOfWeek === undefined ? {} : { dayOfWeek }),
       });
-      setOpen(false);
       onSaved();
     } catch (err) {
       setError(actionMessage(err, "That didn't save."));
-    } finally {
-      setSaving(false);
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mx-4 mb-3 self-start rounded-lg border border-dashed border-edge px-3 py-1.5 text-[12px] text-muted active:bg-raised"
-      >
-        Change the target
-      </button>
-    );
-  }
+  const field = (
+    name: "s" | "r" | "w", label: string, opts: { min: number; max: number; decimals?: boolean; width: string },
+  ) => (
+    <input
+      type="text"
+      inputMode={opts.decimals ? "decimal" : "numeric"}
+      aria-label={label}
+      value={String(cur[name])}
+      onChange={(e) => {
+        const v = e.target.value.replace(/[^0-9.]/g, "");
+        const n = Number(v);
+        setDraft({ ...cur, for: key, [name]: v === "" ? 0 : Number.isFinite(n) ? n : cur[name] });
+      }}
+      onBlur={() => {
+        const clamped = Math.max(opts.min, Math.min(opts.max, cur[name]));
+        const next = { s: cur.s, r: cur.r, w: cur.w, [name]: clamped };
+        setDraft({ for: key, ...next });
+        void commit(next);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className={`${opts.width} rounded-md border border-transparent bg-transparent px-1 py-0 text-center tabular-nums text-text underline decoration-edge decoration-dotted underline-offset-4 focus:border-accent focus:no-underline focus:outline-none`}
+    />
+  );
 
   return (
-    <div className="mx-4 mb-3 space-y-2 rounded-xl border border-line bg-raised/60 p-3">
-      <div className="grid grid-cols-3 gap-2">
-        <NumberField label="Sets" value={s} onChange={setS} step={1} min={1} max={20} />
-        <NumberField label={isHold ? "Seconds" : "Reps"} value={r} onChange={setR} step={isHold ? 5 : 1} min={1} max={900} />
-        <NumberField label={`Weight (${unit})`} value={w} onChange={setW} step={w >= 100 ? 5 : w >= 20 ? 2.5 : 1} min={0} max={2000} decimals />
-      </div>
-      {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
-      <div className="flex gap-2">
-        <button onClick={save} disabled={saving}
-          className="flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
-          {saving ? "Saving…" : "Save target"}
-        </button>
-        <button onClick={() => setOpen(false)} disabled={saving}
-          className="rounded-lg border border-edge px-3 text-[13px] text-muted disabled:opacity-50">
-          Cancel
-        </button>
-      </div>
-    </div>
+    <span className="inline-flex flex-wrap items-baseline gap-x-1">
+      <span>Target</span>
+      {field("s", "Target sets", { min: 1, max: 20, width: "w-7" })}
+      <span aria-hidden>×</span>
+      {field("r", isHold ? "Target seconds" : "Target reps", { min: 1, max: 900, width: "w-9" })}
+      {showWeight && (
+        <>
+          <span aria-hidden>@</span>
+          {field("w", `Target weight (${unit})`, { min: 0, max: 2000, decimals: true, width: "w-12" })}
+          <span>{unit}</span>
+        </>
+      )}
+      {error && <span role="alert" className="text-miss"> {error}</span>}
+    </span>
   );
 }
 
@@ -814,7 +832,7 @@ function SessionClock({
   return (
     // Not a live region: it repaints every second, and announcing each tick
     // would talk over everything else the way the rest countdown once did.
-    <span className={`shrink-0 text-[14px] font-semibold tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
+    <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
       {clockDuration(elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs }))}
     </span>
   );
@@ -897,7 +915,7 @@ function SessionBar({
         disabled={clockBusy}
         aria-label={paused ? "Start the clock again" : "Pause the session"}
         title={paused ? "Start the clock again" : "Pause the session"}
-        className={`grid size-9 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
+        className={`grid size-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
           paused ? "border-beat text-beat" : "border-edge text-muted active:bg-raised"
         }`}
       >
@@ -908,10 +926,15 @@ function SessionBar({
       <button
         onClick={onFinish}
         disabled={busy}
-        className="flex items-center gap-1.5 rounded-full border border-edge px-3.5 py-2 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+        aria-label="Finish workout"
+        className="flex items-center gap-1.5 rounded-full border border-edge px-3 py-1.5 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
       >
         <span className={`size-1.5 rounded-full bg-beat ${paused ? "" : "animate-pulse"}`} aria-hidden />
-        {busy ? "Finishing…" : "Finish workout"}
+        {/* "Finish", because the clock, the pause and this share one row with
+            the day's name on a 361px phone. The word "workout" was what
+            pushed the whole set of controls onto a second line under it. The
+            full phrase is in the label a screen reader gets. */}
+        {busy ? "Finishing…" : "Finish"}
       </button>
     </div>
   );
@@ -1091,6 +1114,18 @@ function SetEditor({
   const [addWeight, setAddWeight] = useState(false);
   const loaded = !bodyweight || addWeight || set.weight !== null;
   const [busy, setBusy] = useState<"save" | "delete" | null>(null);
+  /**
+   * Into view on open, clear of the tab bar.
+   *
+   * The editor appears under the squares she tapped, and the squares sit low
+   * on a card — so its buttons opened under the fixed tab bar, and tapping
+   * Delete tapped the nav. "Nearest" plus the page's scroll padding brings
+   * the whole thing above the bar and moves nothing when it already is.
+   */
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
   const [error, setError] = useState<string | null>(null);
 
   async function run(kind: "save" | "delete") {
@@ -1116,7 +1151,7 @@ function SetEditor({
   const step = weight >= 100 ? 5 : weight >= 20 ? 2.5 : 1;
 
   return (
-    <div className="mx-4 mb-3 rounded-xl border border-line bg-raised p-3">
+    <div ref={box} className="mx-4 mb-3 rounded-xl border border-line bg-raised p-3">
       <p className="mb-2 text-[12px] text-muted">Set {setNumber}</p>
       <div className={`grid gap-2 ${loaded ? "grid-cols-2" : "grid-cols-1"}`}>
         {loaded && (
@@ -1260,8 +1295,6 @@ export function ExerciseCard({
   const [rir, setRir] = useState<number | null>(null);
   const [lifted, setLifted] = useState(false);
   const open = asPage || lifted;
-  /** Target, relabel and remove: the one thing on this screen that folds. */
-  const [showEdit, setShowEdit] = useState(false);
   /**
    * The card's height while closed, held so the grid does not collapse
    * behind it when it lifts out — measured at the moment it opens, which is
@@ -1532,34 +1565,28 @@ export function ExerciseCard({
             training.
           */}
           <p className="mt-0.5 text-[13px] text-muted tabular">
-            Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
-            {(next ? next.target.weight : exercise.targetWeight) !== null &&
-              ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
+            {open && editable ? (
+              <TargetInline
+                slug={exercise.slug}
+                sets={exercise.targetSets}
+                reps={exercise.targetReps}
+                weight={exercise.targetWeight}
+                unit={unit}
+                isHold={exercise.isHold}
+                holdSeconds={exercise.targetHoldSeconds}
+                showWeight={!exercise.bodyweight || exercise.targetWeight !== null}
+                dayOfWeek={dayOfWeekOf(date)}
+                onSaved={onRemoved}
+              />
+            ) : (
+              <>
+                Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
+                {(next ? next.target.weight : exercise.targetWeight) !== null &&
+                  ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
+              </>
+            )}
             {exercise.lastTime && (
               <span className="text-faint"> · last {summariseSets(exercise.lastTime.sets, unit)}</span>
-            )}
-            {/* A pencil, right where the number it changes is.
-                It was a full-width fold under the cues, which is a lot of
-                button for something she touches once a month — and it sat
-                nowhere near the target it edits. Inside the paragraph, so it
-                follows the text however that wraps.
-                A span rather than a button when this is a link's label:
-                a button inside a link is not valid, and the header is the way
-                into the movement on a closed card. */}
-            {open && editable && (
-              <button
-                onClick={() => setShowEdit(!showEdit)}
-                aria-expanded={showEdit}
-                aria-label={`Change the target for ${exercise.name}`}
-                className={`ml-1.5 inline-grid size-6 translate-y-1 place-items-center rounded-md border align-baseline ${
-                  showEdit ? "border-accent text-accent" : "border-line text-faint active:bg-raised"
-                }`}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                </svg>
-              </button>
             )}
           </p>
           {next && next.change === "up" && (
@@ -1733,22 +1760,6 @@ export function ExerciseCard({
       */}
       {open && <FullCues exercise={exercise} />}
 
-      {open && showEdit && editable && (
-        <div className="space-y-2 pb-1">
-          <TargetEditor
-            slug={exercise.slug}
-            sets={exercise.targetSets}
-            reps={exercise.targetReps}
-            weight={exercise.targetWeight}
-            unit={unit}
-            isHold={exercise.isHold}
-            holdSeconds={exercise.targetHoldSeconds}
-            dayOfWeek={dayOfWeekOf(date)}
-            onSaved={onRemoved}
-          />
-
-        </div>
-      )}
 
       {/* Set dots — a glance tells her how much is left. A dot for a queued set
           looks logged, because it is; the outline says it hasn't gone up yet.
@@ -1856,8 +1867,11 @@ export function ExerciseCard({
 
       </div>
 
-      <div className={open ? "shrink-0 border-t border-line bg-ink/40 p-3" : "hidden"}>
-        {!open ? null : (
+      {/* One set at a time. Editing set 8 with the entry for set 9 open under
+          it was two identical pairs of steppers on one screen, and nothing to
+          say which was which. */}
+      <div className={open && editingSet === null ? "shrink-0 border-t border-line bg-ink/40 p-3" : "hidden"}>
+        {!open || editingSet !== null ? null : (
           <div className="space-y-3">
             {/* Last time, set by set, right where this set is being typed.
                 The summary on the header line collapses "12, 12, 10" into

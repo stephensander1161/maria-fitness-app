@@ -370,7 +370,7 @@ suite("the open card shows the whole movement", () => {
     // Height from the visual viewport, not dvh — see tests/week-done.ts.
     expect(card).toMatch(/maxHeight: SHEET_MAX/);
     expect(card).toMatch(/open \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
-    expect(card).toMatch(/open \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
+    expect(card).toMatch(/open && editingSet === null \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
     // Open, the entry is simply there. It was behind a fold, then open by
@@ -407,7 +407,8 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     // in the header row, and nothing that opens on top of the card.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/<FullCues exercise=\{exercise\} \/>/);
-    expect(card).toMatch(/setShowEdit\(!showEdit\)/);
+    // Nothing else opens on top of the entry: the target is edited in place.
+    expect(card).toMatch(/function TargetInline\(/);
     // Inside the card's own flow, not a dialog of its own.
     expect(card.split("function FullCues")[0]).not.toMatch(/CardModal[^]{0,200}FullCues/);
     expect(card).not.toMatch(/aria-label=\{`(Show|Open) the (guide|help)/);
@@ -420,10 +421,10 @@ suite("asking for help opens the card, rather than stacking on it", () => {
     // changes. Now it is a pencil inside the target line itself.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/line-clamp-2/);
-    expect(card).toMatch(/aria-label=\{`Change the target for \$\{exercise\.name\}`\}/);
-    expect(card).toMatch(/\{open && showEdit && editable && \(/);
-    const editFold = card.slice(card.indexOf("{open && showEdit && editable && ("));
-    expect(editFold.slice(0, 900)).toMatch(/<TargetEditor/);
+    // The target itself is the input: tap a figure, type, leave the field.
+    expect(card).toMatch(/\{open && editable \? \(\n\s*<TargetInline/);
+    expect(card).not.toMatch(/Change the target for/);
+    expect(card).not.toMatch(/TargetEditor/);
   });
 
   it("and the card no longer opens a guide of its own", () => {
