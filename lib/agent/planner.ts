@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ageFrom, profileToday } from "@/lib/profile";
 import { z } from "zod";
+import { wholeGrams, wholeGramsOptional } from "@/lib/whole-grams";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { exercises, weighIns, type Profile } from "@/lib/db/schema";
@@ -50,7 +51,7 @@ export const weekDraft = z.object({
   rationale: z.string().default("")
     .describe("Two or three sentences addressed to her, explaining why the week looks like this"),
   days: z.array(z.object({
-    dayOfWeek: z.number().describe("0=Monday … 6=Sunday. Include all seven."),
+    dayOfWeek: wholeGrams.describe("0=Monday … 6=Sunday. Include all seven."),
     title: z.string().optional().describe('Name for the day, e.g. "Lower Body" or "Rest"'),
     focus: z.string().optional().describe("What this day is for, in a few words"),
     isRest: z.boolean().optional().describe("True for non-training days"),
@@ -60,23 +61,23 @@ export const weekDraft = z.object({
 });
 
 export const mealDraft = z.object({
-  calorieTarget: z.number(),
-  proteinTargetG: z.number(),
-  carbTargetG: z.number().optional(),
-  fatTargetG: z.number().optional(),
+  calorieTarget: wholeGrams,
+  proteinTargetG: wholeGrams,
+  carbTargetG: wholeGramsOptional,
+  fatTargetG: wholeGramsOptional,
   rationale: z.string().default("")
     .describe("Two or three sentences addressed to her about the targets and the week"),
   meals: z.array(z.object({
-    dayOfWeek: z.number().describe("0=Monday … 6=Sunday"),
+    dayOfWeek: wholeGrams.describe("0=Monday … 6=Sunday"),
     slot: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string(),
-    calories: z.number(),
-    proteinG: z.number(),
-    carbsG: z.number().optional(),
-    fatG: z.number().optional(),
+    calories: wholeGrams,
+    proteinG: wholeGrams,
+    carbsG: wholeGramsOptional,
+    fatG: wholeGramsOptional,
     ingredients: z.array(z.string()).optional(),
     steps: z.array(z.string()).optional(),
-    prepMinutes: z.number().optional(),
+    prepMinutes: wholeGramsOptional,
   })),
 });
 
@@ -305,12 +306,12 @@ export const recipePhotoDraft = z.object({
   readable: z.boolean().describe("False if the image is not a recipe, a dish or a food label at all"),
   title: z.string().describe("What the dish is called, from the page or from what you can see"),
   servings: z.number().int().min(1).max(24).describe("How many the whole recipe makes; 1 if this is a single plate"),
-  caloriesPerServing: z.number().int().describe("Best single estimate, per serving"),
-  caloriesLow: z.number().int().describe("Lower bound per serving — the honest range, not a flourish"),
-  caloriesHigh: z.number().int().describe("Upper bound per serving"),
-  proteinG: z.number().int().describe("Per serving"),
-  carbsG: z.number().int().describe("Per serving"),
-  fatG: z.number().int().describe("Per serving"),
+  caloriesPerServing: wholeGrams.describe("Best single estimate, per serving"),
+  caloriesLow: wholeGrams.describe("Lower bound per serving — the honest range, not a flourish"),
+  caloriesHigh: wholeGrams.describe("Upper bound per serving"),
+  proteinG: wholeGrams.describe("Per serving"),
+  carbsG: wholeGrams.describe("Per serving"),
+  fatG: wholeGrams.describe("Per serving"),
   /**
    * What the numbers rest on, so she can correct the one that is wrong.
    *
@@ -407,7 +408,7 @@ export const recipeDraft = z.object({
   ingredients: z.array(z.string())
     .describe('One ingredient per line with its amount, e.g. "150g chicken breast"'),
   steps: z.array(z.string()).describe("Short method steps in order"),
-  prepMinutes: z.number().optional().describe("Realistic hands-on time"),
+  prepMinutes: wholeGramsOptional.describe("Realistic hands-on time"),
 });
 
 /**

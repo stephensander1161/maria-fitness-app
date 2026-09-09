@@ -1140,8 +1140,15 @@ export function ExerciseCard({
   const [rir, setRir] = useState<number | null>(null);
   const [lifted, setLifted] = useState(false);
   const open = asPage || lifted;
-  /** The library entry, folded away until she asks for it. */
-  const [showCues, setShowCues] = useState(false);
+  /**
+   * The library entry. Open from the start on the movement's own screen.
+   *
+   * Folded away, it was one more tap between arriving at a movement and
+   * reading how to do it — on a page whose entire subject is that one
+   * movement, with room for it. It still folds *away* on the card in the
+   * day's list, where six of them open at once is the whole day's library.
+   */
+  const [showCues, setShowCues] = useState(asPage);
   /** Target, relabel and remove — the same fold, so only one is ever open. */
   const [showEdit, setShowEdit] = useState(false);
   const hasDetail =
@@ -1536,7 +1543,10 @@ export function ExerciseCard({
         the drawing are the glance; the full entry is one tap away on the day
         she wants it.
       */}
-      <CyclingCue cues={exercise.formCues} />
+      {/* One cue at a time, and only where there is room for one thing.
+          On the movement's own screen the whole entry is open below it, so a
+          single line cycling above that is the same words twice. */}
+      {!open && <CyclingCue cues={exercise.formCues} />}
 
       {/*
         Two folds, one row, and everything that is not the set behind them.

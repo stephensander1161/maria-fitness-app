@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
+import { wholeGrams, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, measurements, profiles, weighIns } from "@/lib/db/schema";
 import { energyFloorKcal, estimateBodyComposition } from "@/lib/body-composition";
@@ -191,8 +192,8 @@ export const setNutritionTargets = defineTool({
   description:
     "Sets the calorie and protein targets for a week without touching the meals she already has. Use it to accept what run_check_in proposed, or when she asks to eat more or less. Re-planning meals to change a number wipes every recipe already written for the week, so this is the tool for a target change and create_meal_plan is not. It will not go below what she burns at rest, whatever the number asked for.",
   input: z.object({
-    calorieTarget: z.number(),
-    proteinTargetG: z.number().optional(),
+    calorieTarget: wholeGrams,
+    proteinTargetG: wholeGramsOptional,
     weekStart: z.string().optional(),
   }),
   handler: async (input, ctx) => {

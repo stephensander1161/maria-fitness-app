@@ -225,7 +225,7 @@ suite("the setup cues are on the card", () => {
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/function CyclingCue/);
     expect(card).toMatch(/\(n \+ 1\) % cues\.length/);
-    expect(card).toMatch(/<CyclingCue cues=\{exercise\.formCues\} \/>/);
+    expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
     // A movement with one cue does not need a timer running for ever.
     expect(card).toMatch(/if \(cues\.length < 2\) return;/);
     // And never a live region: it repaints on a timer, and announcing each
@@ -373,9 +373,13 @@ suite("the open card shows the whole movement", () => {
     expect(card).toMatch(/open \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
-    // The cue line and the drawing are always there; the full entry folds.
+    // Open, the whole entry is there from the start — on a screen whose only
+    // subject is this movement, a fold was one more tap to read how to do it.
     expect(card).toMatch(/\{open && showCues && <FullCues exercise=\{exercise\} \/>\}/);
-    expect(card).toMatch(/<CyclingCue cues=\{exercise\.formCues\} \/>/);
+    expect(card).toMatch(/const \[showCues, setShowCues\] = useState\(asPage\)/);
+    // And the cycling one-liner belongs to the closed cards only: above the
+    // full entry it is the same words twice.
+    expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
   });
 
   it("without a second fetch — it is three columns of a row already read", () => {

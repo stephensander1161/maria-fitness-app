@@ -135,13 +135,16 @@ suite("a sheet is as tall as the screen actually is", () => {
 });
 
 suite("the set sheet is the set, not the library entry", () => {
-  it("folds the cues away behind a tap", () => {
+  it("opens the entry on the movement's own screen, and folds it on a card", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/const \[showCues, setShowCues\] = useState\(false\)/);
+    // On a page about one movement, a fold was one more tap between arriving
+    // and reading how to do it. In the day's list it still folds: six of them
+    // open at once is the whole library.
+    expect(card).toMatch(/const \[showCues, setShowCues\] = useState\(asPage\)/);
     expect(card).toMatch(/\{open && showCues && <FullCues exercise=\{exercise\} \/>\}/);
-    // The one-line cue and the drawing stay, at all times — the merge she asked
-    // for. Only the wall of text folds.
-    expect(card).toMatch(/<CyclingCue cues=\{exercise\.formCues\} \/>/);
+    // The cycling one-liner is for the closed cards only — above the full
+    // entry it is the same words twice.
+    expect(card).toMatch(/\{!open && <CyclingCue cues=\{exercise\.formCues\} \/>\}/);
     // Nothing to fold means no control offered.
     expect(card).toMatch(/const hasDetail =/);
   });

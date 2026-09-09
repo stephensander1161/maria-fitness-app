@@ -1,5 +1,6 @@
 import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { wholeGrams, wholeGramsNullable, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
 } from "@/lib/db/schema";
@@ -49,8 +50,8 @@ export const createMealPlan = defineTool({
   description:
     "Build the week's meal plan. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Re-running for the same week replaces it.",
   input: z.object({
-    calorieTarget: z.number(),
-    proteinTargetG: z.number(),
+    calorieTarget: wholeGrams,
+    proteinTargetG: wholeGrams,
     notes: z.string().optional()
       .describe("Anything the planner should know — a busy week, batch cooking, something she fancies"),
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
@@ -158,10 +159,10 @@ export const swapMeal = defineTool({
   input: z.object({
     mealId: z.string(),
     title: z.string(),
-    calories: z.number(),
-    proteinG: z.number(),
-    carbsG: z.number().optional(),
-    fatG: z.number().optional(),
+    calories: wholeGrams,
+    proteinG: wholeGrams,
+    carbsG: wholeGramsOptional,
+    fatG: wholeGramsOptional,
     ingredients: z.array(z.string()).optional(),
     steps: z.array(z.string()).optional(),
     prepMinutes: z.number().optional(),
@@ -244,15 +245,15 @@ export const logMeal = defineTool({
   input: z.object({
     slot: slotEnum,
     description: z.string(),
-    calories: z.number().optional(),
-    proteinG: z.number().optional(),
-    carbsG: z.number().optional(),
-    fatG: z.number().optional(),
-    fibreG: z.number().optional()
+    calories: wholeGramsOptional,
+    proteinG: wholeGramsOptional,
+    carbsG: wholeGramsOptional,
+    fatG: wholeGramsOptional,
+    fibreG: wholeGramsOptional
       .describe("Only when you actually know it — from lookup_food, not a guess. Omitting it is correct and expected; a wrong figure here is worse than none."),
-    caloriesLow: z.number().optional()
+    caloriesLow: wholeGramsOptional
       .describe("Lower bound for a meal you cannot pin down — a restaurant plate, a friend's cooking. Pass the upper bound too."),
-    caloriesHigh: z.number().optional(),
+    caloriesHigh: wholeGramsOptional,
     mealId: z.string().optional().describe("If she ate the planned meal, pass its id"),
     date: z.string().optional(),
     clientKey: z.string().optional().describe(
@@ -501,11 +502,11 @@ export const updateMealLog = defineTool({
   input: z.object({
     logId: z.string().describe("From get_day_nutrition or log_meal"),
     description: z.string().optional(),
-    calories: z.number().nullable().optional(),
-    proteinG: z.number().nullable().optional(),
-    carbsG: z.number().nullable().optional(),
-    fatG: z.number().nullable().optional(),
-    fibreG: z.number().nullable().optional()
+    calories: wholeGramsNullable,
+    proteinG: wholeGramsNullable,
+    carbsG: wholeGramsNullable,
+    fatG: wholeGramsNullable,
+    fibreG: wholeGramsNullable
       .describe("Only when actually known. Pass null to say we do not know, which is not zero."),
   }),
   handler: async (input, ctx) => {
@@ -695,9 +696,9 @@ export const saveMeal = defineTool({
   input: z.object({
     slot: slotEnum.describe("Where it usually goes; she can still log it anywhere"),
     description: z.string().min(1),
-    calories: z.number().nullable().optional(),
-    proteinG: z.number().nullable().optional(),
-    fibreG: z.number().nullable().optional()
+    calories: wholeGramsNullable,
+    proteinG: wholeGramsNullable,
+    fibreG: wholeGramsNullable
       .describe("Only when actually known — from lookup_food, not a guess."),
   }),
   handler: async (input, ctx) => {

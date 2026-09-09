@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { wholeGrams, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import {
   complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements,
@@ -281,16 +282,16 @@ export const addPlannedMeal = defineTool({
   description:
     "Adds a meal to a day of her plan — a second snack on training days, a breakfast she wants back. It works whether or not she has a meal plan yet: with no week, this starts one, so never send her to create_meal_plan just to add a meal. Write ingredients and steps in metric; the app shows them in her kitchen's units. Keep the day's total near her calorie target.",
   input: z.object({
-    dayOfWeek: z.number().describe("0=Monday … 6=Sunday"),
+    dayOfWeek: wholeGrams.describe("0=Monday … 6=Sunday"),
     slot: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string(),
-    calories: z.number(),
-    proteinG: z.number(),
-    carbsG: z.number().optional(),
-    fatG: z.number().optional(),
+    calories: wholeGrams,
+    proteinG: wholeGrams,
+    carbsG: wholeGramsOptional,
+    fatG: wholeGramsOptional,
     ingredients: z.array(z.string()).optional(),
     steps: z.array(z.string()).optional(),
-    prepMinutes: z.number().optional(),
+    prepMinutes: wholeGramsOptional,
     weekStart: z.string().optional(),
   }),
   handler: async (input, ctx) => {
