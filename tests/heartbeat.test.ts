@@ -1,4 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import fs from "node:fs";
 import { BEAT_CALM_S, BEAT_FAST_S, beatSeconds } from "@/lib/heartbeat";
 
@@ -74,5 +75,15 @@ suite("the sound that goes with it", () => {
     const fn = src.slice(src.indexOf("export function heartbeat"));
     expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/if \(ctx\.state !== "running"\) return;/);
     expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/catch \{/);
+  });
+});
+
+suite("the rest-timer runner turns at the burning edge", () => {
+  it("scales its lap to how much rest is left, not the container", () => {
+    // The right-hand bounce should come in as the meter drains, so he is
+    // always running on the part of the bar that is still there.
+    const src = readFileSync("components/rest-timer.tsx", "utf8");
+    expect(src).toMatch(/left: `\$\{\(lapPosition\(elapsed\) \/ 100\) \* pct\}%`/);
+    expect(src).not.toMatch(/left: `\$\{lapPosition\(elapsed\)\}%`/);
   });
 });

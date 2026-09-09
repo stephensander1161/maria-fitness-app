@@ -528,7 +528,11 @@ export function RestTimerBar({
               aria-hidden
               className="absolute bottom-full"
               style={{
-                left: `${lapPosition(elapsed)}%`,
+                // He turns around at the burning edge of the meter, not at
+                // the far wall of the container: `pct` is how much rest is
+                // left, so his right-hand bounce comes in as the bar drains
+                // and he is always running on the part that is still there.
+                left: `${(lapPosition(elapsed) / 100) * pct}%`,
                 // Bouncing as well as running: the vertical hop is its own
                 // rhythm, faster than the length of the bar, so the two do not
                 // fall into step and turn back into a single slide.
