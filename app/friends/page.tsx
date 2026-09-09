@@ -2,7 +2,7 @@ import { requireOnboarded } from "@/lib/session";
 import { runTool } from "@/lib/tools";
 import { AskCoach } from "@/components/ask-coach";
 import { FriendsClient } from "@/components/friends-client";
-import { unseenHighFives, type FriendTraining } from "@/lib/friends";
+import { highFiveTally, type FriendTraining } from "@/lib/friends";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default async function FriendsPage() {
       friends: Edge[]; waitingOnYou: Edge[]; waitingOnThem: Edge[];
     }>,
     runTool("get_friend_stats", {}, ctx) as Promise<{ friends?: FriendCard[] }>,
-    unseenHighFives(profile.id),
+    highFiveTally(profile.id),
   ]);
 
   return (

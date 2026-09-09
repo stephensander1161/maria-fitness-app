@@ -177,6 +177,7 @@ const all: Tool[] = [
   friends.getFriendStats,
   friends.sendHighFive,
   friends.acknowledgeHighFives,
+  friends.getHighFives,
   appearance.listThemes,
   appearance.setTheme,
   postpartum.setPostpartumStatus,

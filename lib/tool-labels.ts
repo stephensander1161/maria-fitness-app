@@ -32,6 +32,7 @@ export const TOOL_LABELS: Record<string, string> = {
   forget_conversation: "forgetting that",
   pause_workout: "pausing your session", resume_workout: "starting the clock again",
   send_high_five: "sending a high five", acknowledge_high_fives: "checking your high fives",
+  get_high_fives: "reading your high fives",
   superset_exercises: "chaining a superset", remove_superset: "unchaining a superset",
   set_goal: "setting a milestone", list_goals: "reviewing your goals",
   set_weight_milestones: "laying out your weight milestones",

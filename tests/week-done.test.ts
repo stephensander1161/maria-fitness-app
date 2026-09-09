@@ -244,11 +244,24 @@ suite("the day's name and its clock share a container", () => {
     expect(plan).toMatch(/function DayHeader\(\{/);
   });
 
-  it("floats the control right, on one row in both states", () => {
+  it("floats the control right stopped, and drops it to its own row running", () => {
+    // Stopped it is one small button and shares the name's row, hard right.
+    // Started, it is a clock, a pause and Finish, which left about a third of
+    // that row for the session's name — so it takes the line underneath, and
+    // animates down onto it so the card reads as rearranging itself rather
+    // than as being a different shape the next time she looks.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32 md:flex-none">/);
-    expect(card).toMatch(/<div className="ml-auto shrink-0 md:absolute md:right-0 md:top-0">\{sessionBar\}<\/div>/);
-    expect(card).toMatch(/flex flex-wrap items-start justify-between gap-x-3 gap-y-2/);
+    expect(card).toMatch(/running \? `basis-full \$\{justStarted \? "session-drop" : ""\}` : "ml-auto"/);
+    expect(card).toMatch(/const running = Boolean\(view\.startedAt\) && !view\.finishedAt;/);
+    // The animation is the transition, not the state: a reload mid-session
+    // must not replay it.
+    expect(card).toMatch(/setJustStarted\(true\);/);
+    expect(card).toMatch(/flex flex-wrap items-center justify-between gap-x-3 gap-y-2/);
+    const css = fs.readFileSync("app/globals.css", "utf8");
+    expect(css).toMatch(/@keyframes session-drop/);
+    const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
+    expect(reduced.some((b) => /\.session-drop \{ animation: none;/.test(b))).toBe(true);
   });
 
   it("and the running control is one button, not a pair", () => {

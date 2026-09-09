@@ -10,6 +10,18 @@ suite("the day's eyebrow never repeats its name", () => {
     expect(dayEyebrow("wednesday", "Wednesday")).toBe("");
   });
 
+  it("drops it when the title only adds a word to it", () => {
+    // The placeholder a day gets when something is added to an empty one is
+    // "Wednesday session", so matching the whole string was not enough.
+    expect(dayEyebrow("Wednesday", "Wednesday session")).toBe("");
+    expect(dayEyebrow("Today \u00b7 Wednesday", "Wednesday session")).toBe("Today");
+  });
+
+  it("does not swallow a different word that starts the same way", () => {
+    expect(dayEyebrow("Mon", "Monday session")).toBe("Mon");
+    expect(dayEyebrow("Sun", "Sunday")).toBe("Sun");
+  });
+
   it("keeps the parts that say something new", () => {
     expect(dayEyebrow("Tuesday", "Shoulders")).toBe("Tuesday");
     expect(dayEyebrow("Today · Wednesday", "Wednesday")).toBe("Today");

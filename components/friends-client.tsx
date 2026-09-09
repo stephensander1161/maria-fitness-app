@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { prettyDate } from "@/lib/date";
+import type { HighFiveTally } from "@/lib/friends";
 import type { FriendCard } from "@/app/friends/page";
 
 type Edge = { friendshipId: string; name: string; state: string };
@@ -19,6 +20,12 @@ type Edge = { friendshipId: string; name: string; state: string };
  *   rule as the rest of the app: absence is not a measurement.
  * - **Every failure is announced.** Every write goes through action() and every
  *   one of them can say it did not work, out loud, with role="alert".
+ *
+ * The order is the third thing, and it was wrong on the first pass: her own
+ * code and the add-a-friend form sat above the people she actually has, so
+ * the screen opened on setup she had already done. Setup is a thing you need
+ * once and the friends are the thing you came for, so the friends are first
+ * and the code is at the bottom.
  */
 export function FriendsClient({
   myCode, friends, waitingOnYou, waitingOnThem, highFives,
@@ -27,22 +34,25 @@ export function FriendsClient({
   friends: FriendCard[];
   waitingOnYou: Edge[];
   waitingOnThem: Edge[];
-  highFives: { count: number; from: string[] };
+  highFives: HighFiveTally;
 }) {
   const router = useRouter();
-  // Seen the moment she opens the screen — the badge is "since you last
-  // looked", so looking is what clears it.
+  // Read from the count the screen was *rendered* with and held in state, so a
+  // refresh cannot start it a second time. Arriving to a cheer should happen
+  // once; one that replays on every revalidation is a notification that will
+  // not go away.
+  const [cheering, setCheering] = useState(() => highFives.unseen.count > 0);
+  // Seen the moment she opens the screen — the unseen count is "since you last
+  // looked", so looking is what clears it. The per-friend totals underneath are
+  // a different number and never clear.
   useEffect(() => {
-    if (highFives.count > 0) void action("acknowledge_high_fives", {}).catch(() => {});
-  }, [highFives.count]);
+    if (highFives.unseen.count > 0) void action("acknowledge_high_fives", {}).catch(() => {});
+  }, [highFives.unseen.count]);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const cheer = highFives.count > 0
-    ? `🙌 ${highFives.count} high five${highFives.count === 1 ? "" : "s"} from ${highFives.from.slice(0, 3).join(", ")}${highFives.from.length > 3 ? " and more" : ""}`
-    : null;
 
   /**
    * A tool that *refuses* comes back as `{ ok: false, error }` — it does not
@@ -51,15 +61,13 @@ export function FriendsClient({
    * with nothing changed, which is precisely the silent-failure this project
    * has a rule against. Both shapes are handled here, in one place.
    */
-  async function run(key: string, fn: () => Promise<unknown>, fallback: string, success?: string) {
+  async function run(key: string, fn: () => Promise<unknown>, fallback: string) {
     setBusy(key);
     setError(null);
     setNote(null);
     try {
       const res = (await fn()) as { ok?: boolean; error?: string } | null;
       if (res && res.ok === false) { setError(res.error ?? fallback); return; }
-      // A high five needs no reload — just say it went.
-      if (success) { setNote(success); return; }
       router.refresh();
     } catch (err) {
       setError(actionMessage(err, fallback));
@@ -102,65 +110,12 @@ export function FriendsClient({
 
   return (
     <div className="space-y-3">
-      {cheer && (
-        <div className="card border-beat/40 bg-beat-soft p-4 text-center text-[14px] font-medium text-beat">
-          {cheer}
-        </div>
+      {cheering && (
+        <HighFiveCheer unseen={highFives.unseen} onDone={() => setCheering(false)} />
       )}
-      {/* Her code, first: nothing else on this screen works until someone has it. */}
-      <section className="card p-5">
-        <h2 className="text-[15px] font-semibold">Your friend code</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          Give this to someone and they can ask to see your training. It is not your email
-          address, and nobody can reach you without it.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <code className="rounded-xl border border-edge bg-base px-4 py-2.5 font-mono text-[17px] tracking-widest">
-            {myCode}
-          </code>
-          <button
-            onClick={copy}
-            className="rounded-xl border border-line px-3.5 py-2.5 text-[13px] text-muted transition-colors hover:bg-raised"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-          <button
-            onClick={() => run("reset", () => action("reset_share_code"), "Couldn't change your code.")}
-            disabled={busy === "reset"}
-            className="rounded-xl px-3 py-2.5 text-[13px] text-faint transition-colors hover:text-muted disabled:opacity-50"
-          >
-            {busy === "reset" ? "Changing…" : "New code"}
-          </button>
-        </div>
-      </section>
 
-      <section className="card p-5">
-        <h2 className="text-[15px] font-semibold">Add a friend</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-muted">
-          Type the code they gave you. They see your training once you have both agreed.
-        </p>
-        <form onSubmit={add} className="mt-3 flex gap-2">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="4RJ2-K8QW"
-            aria-label="Their friend code"
-            autoComplete="off"
-            spellCheck={false}
-            className="min-w-0 flex-1 rounded-xl border border-edge bg-base px-4 py-2.5 font-mono text-[15px] tracking-widest placeholder:text-faint placeholder:tracking-normal focus:border-accent focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={busy === "add" || !code.trim()}
-            className="rounded-xl bg-accent px-4 py-2.5 text-[14px] font-semibold text-on-accent disabled:opacity-40"
-          >
-            {busy === "add" ? "Asking…" : "Ask"}
-          </button>
-        </form>
-        {note && <p className="mt-2 text-[13px] text-beat">{note}</p>}
-        {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
-      </section>
-
+      {/* Above the friends, and only when somebody is actually waiting: it is
+          one line that wants an answer and disappears once it has one. */}
       {waitingOnYou.length > 0 && (
         <section className="card border-accent/40 p-5">
           <h2 className="text-[15px] font-semibold">Waiting on you</h2>
@@ -200,7 +155,7 @@ export function FriendsClient({
         <section className="card p-5">
           <h2 className="text-[15px] font-semibold">This week</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-muted">
-            Nobody yet. Send someone your code, or add theirs above, and you will both see
+            Nobody yet. Send someone your code, or add theirs below, and you will both see
             sessions, streaks and best lifts here.
           </p>
         </section>
@@ -210,11 +165,8 @@ export function FriendsClient({
             <FriendWeek
               key={f.friendshipId}
               friend={f}
+              tally={highFives.byFriendship[f.friendshipId] ?? { got: 0, sent: 0 }}
               busy={busy === f.friendshipId}
-              onHighFive={() => run(`hi:${f.friendshipId}`, () =>
-                action("send_high_five", { friendshipId: f.friendshipId }),
-                "Couldn't send that.", `Sent ${f.name} a high five 🙌`)}
-              hiBusy={busy === `hi:${f.friendshipId}`}
               onRemove={() => run(f.friendshipId, () =>
                 action("remove_friend", { friendshipId: f.friendshipId }),
                 "Couldn't remove them.")}
@@ -244,6 +196,59 @@ export function FriendsClient({
         </section>
       )}
 
+      <section className="card p-5">
+        <h2 className="text-[15px] font-semibold">Add a friend</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">
+          Type the code they gave you. They see your training once you have both agreed.
+        </p>
+        <form onSubmit={add} className="mt-3 flex gap-2">
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="4RJ2-K8QW"
+            aria-label="Their friend code"
+            autoComplete="off"
+            spellCheck={false}
+            className="min-w-0 flex-1 rounded-xl border border-edge bg-base px-4 py-2.5 font-mono text-[15px] tracking-widest placeholder:text-faint placeholder:tracking-normal focus:border-accent focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={busy === "add" || !code.trim()}
+            className="rounded-xl bg-accent px-4 py-2.5 text-[14px] font-semibold text-on-accent disabled:opacity-40"
+          >
+            {busy === "add" ? "Asking…" : "Ask"}
+          </button>
+        </form>
+        {note && <p className="mt-2 text-[13px] text-beat">{note}</p>}
+        {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
+      </section>
+
+      <section className="card p-5">
+        <h2 className="text-[15px] font-semibold">Your friend code</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">
+          Give this to someone and they can ask to see your training. It is not your email
+          address, and nobody can reach you without it.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <code className="rounded-xl border border-edge bg-base px-4 py-2.5 font-mono text-[17px] tracking-widest">
+            {myCode}
+          </code>
+          <button
+            onClick={copy}
+            className="rounded-xl border border-line px-3.5 py-2.5 text-[13px] text-muted transition-colors hover:bg-raised"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+          <button
+            onClick={() => run("reset", () => action("reset_share_code"), "Couldn't change your code.")}
+            disabled={busy === "reset"}
+            className="rounded-xl px-3 py-2.5 text-[13px] text-faint transition-colors hover:text-muted disabled:opacity-50"
+          >
+            {busy === "reset" ? "Changing…" : "New code"}
+          </button>
+        </div>
+      </section>
+
       <p className="px-1 pt-1 text-[12px] leading-relaxed text-faint">
         Friends see training only: sessions, streak, sets and best lifts. Never your weight,
         measurements, photos, food or anything you tell your coach.
@@ -252,15 +257,133 @@ export function FriendsClient({
   );
 }
 
-function FriendWeek({
-  friend, busy, onRemove, onHighFive, hiBusy,
+/**
+ * The one-time celebration for high fives that arrived while she was away.
+ *
+ * Full screen and deliberately brief: it is a moment, not a message. The
+ * message is the stamp on the friend's card, which is still there tomorrow —
+ * so this can be over in three seconds without anything being lost, and it
+ * dismisses on a tap or Escape for anyone who does not want to wait.
+ *
+ * `role="status"` rather than a dialog, because there is nothing to answer:
+ * announcing it as modal would tell a screen reader the page behind is inert
+ * when it is about to be, again, on its own.
+ */
+function HighFiveCheer({
+  unseen, onDone,
 }: {
-  friend: FriendCard; busy: boolean; onRemove: () => void;
-  onHighFive: () => void; hiBusy: boolean;
+  unseen: { count: number; from: string[] };
+  onDone: () => void;
 }) {
+  const [leaving, setLeaving] = useState(false);
+  // The timers below are set once and must not restart when the parent
+  // re-renders, so the callback is read through a ref the effects keep
+  // current rather than through the dependency list.
+  const done = useRef(onDone);
+  useEffect(() => { done.current = onDone; }, [onDone]);
+
+  useEffect(() => {
+    const out = window.setTimeout(() => setLeaving(true), 2600);
+    const gone = window.setTimeout(() => done.current(), 3100);
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") done.current(); };
+    window.addEventListener("keydown", key);
+    return () => {
+      window.clearTimeout(out);
+      window.clearTimeout(gone);
+      window.removeEventListener("keydown", key);
+    };
+  }, []);
+
+  const who = unseen.from.slice(0, 3).join(", ");
+  const more = unseen.from.length > 3 ? " and more" : "";
+  const line = unseen.count === 1
+    ? `${who} sent you a high five`
+    : `${unseen.count} high fives from ${who}${more}`;
+
   return (
-    <section className="card p-5">
-      <div className="flex items-baseline justify-between gap-3">
+    <div
+      role="status"
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink/92 backdrop-blur-sm ${
+        leaving ? "hi5-leave" : "hi5-enter"
+      }`}
+    >
+      {/* The whole surface dismisses it, so nobody has to find a close button
+          for something that is leaving on its own anyway. */}
+      <button className="absolute inset-0" aria-label="Dismiss" onClick={() => done.current()} />
+      <div className="pointer-events-none relative flex flex-col items-center">
+        <span className="hi5-ring absolute h-32 w-32 rounded-full border-2 border-beat" aria-hidden />
+        <span className="hi5-ring-late absolute h-32 w-32 rounded-full border-2 border-beat" aria-hidden />
+        {/* Eight of them thrown outward from behind the big one. Rotated by
+            index rather than at random: a fixed fan reads as a burst, where
+            random angles read as a bug the second time you see it. */}
+        {Array.from({ length: 8 }, (_, i) => (
+          <span
+            key={i}
+            className="hi5-spark absolute text-[26px]"
+            style={{ ["--a" as string]: `${i * 45}deg`, animationDelay: `${0.1 + i * 0.03}s` }}
+            aria-hidden
+          >
+            🙌
+          </span>
+        ))}
+        <span className="hi5-hand text-[96px] leading-none" aria-hidden>🙌</span>
+        <p className="hi5-line mt-6 max-w-xs px-6 text-center text-[19px] font-semibold text-text">
+          {line}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FriendWeek({
+  friend, tally, busy, onRemove,
+}: {
+  friend: FriendCard;
+  tally: { got: number; sent: number };
+  busy: boolean;
+  onRemove: () => void;
+}) {
+  // Sending lives in the card, so what it has to say is said where the button
+  // is. It used to set a note in the parent, which rendered it in the
+  // add-a-friend panel — she had to scroll to the top of the screen to find
+  // out whether the button under her thumb had worked.
+  const [sending, setSending] = useState(false);
+  const [sentNow, setSentNow] = useState(0);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  async function highFive() {
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await action<{ ok: boolean; error?: string }>(
+        "send_high_five", { friendshipId: friend.friendshipId },
+      );
+      if (!res.ok) { setSendError(res.error ?? "Couldn't send that."); return; }
+      setSentNow((n) => n + 1);
+    } catch (err) {
+      setSendError(actionMessage(err, "Couldn't send that."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const sent = tally.sent + sentNow;
+
+  return (
+    <section className="relative card p-5">
+      {/* The stamp. It counts what this friend has sent her, ever, and it does
+          not clear when she looks at it — a high five she has already seen is
+          still one she was sent. */}
+      {tally.got > 0 && (
+        <span
+          className="absolute right-3 top-3 -rotate-[9deg] rounded-lg border border-beat/50 bg-beat-soft px-2 py-1 text-[13px] font-semibold tabular-nums text-beat"
+          title={`${tally.got} high five${tally.got === 1 ? "" : "s"} from ${friend.name}`}
+        >
+          🙌 {tally.got}
+        </span>
+      )}
+
+      <div className="flex items-baseline justify-between gap-3 pr-16">
         <h2 className="min-w-0 truncate text-[15px] font-semibold">{friend.name}</h2>
         <span className="shrink-0 text-[11px] uppercase tracking-widest text-accent">{friend.title}</span>
       </div>
@@ -334,20 +457,33 @@ function FriendWeek({
         </div>
       )}
 
-      <button
-        onClick={onHighFive}
-        disabled={hiBusy}
-        className="mt-3 mr-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat active:opacity-80 disabled:opacity-50"
-      >
-        {hiBusy ? "…" : "High five 🙌"}
-      </button>
-      <button
-        onClick={onRemove}
-        disabled={busy}
-        className="mt-3 text-[12px] text-faint transition-colors hover:text-muted disabled:opacity-50"
-      >
-        {busy ? "Removing…" : "Stop sharing"}
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          onClick={highFive}
+          disabled={sending}
+          className="rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat active:opacity-80 disabled:opacity-50"
+        >
+          {sending ? "…" : "High five 🙌"}
+        </button>
+        {sentNow > 0 && (
+          <span className="text-[13px] text-beat">
+            Sent {friend.name} {sentNow === 1 ? "a high five" : `${sentNow} high fives`} 🙌
+          </span>
+        )}
+        {sentNow === 0 && sent > 0 && (
+          <span className="text-[12px] text-faint">
+            You have sent {sent === 1 ? "one" : sent}
+          </span>
+        )}
+        <button
+          onClick={onRemove}
+          disabled={busy}
+          className="ml-auto text-[12px] text-faint transition-colors hover:text-muted disabled:opacity-50"
+        >
+          {busy ? "Removing…" : "Stop sharing"}
+        </button>
+      </div>
+      {sendError && <p role="alert" className="mt-2 text-[13px] text-miss">{sendError}</p>}
     </section>
   );
 }

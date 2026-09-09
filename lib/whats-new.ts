@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-last-time-under",
+    date: "2026-09-09",
+    title: "Last time, directly under today's sets",
+    blurb: "Set three sits above set three, column for column. Green is the bigger of the two and red the smaller, so whether you are up or down on last week is a glance rather than arithmetic — and a set that cannot be compared with the one before it stays grey rather than guessing.",
+    href: "/train",
+  },
+  {
     id: "2026-09-09-high-fives",
     date: "2026-09-09",
     title: "Send a friend a high five",

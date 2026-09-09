@@ -1,8 +1,8 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  canSeeTraining, edgeState, formatCode, generateShareCode, isWellFormedCode,
-  normaliseCode, otherSide, type FriendshipRow,
+  canSeeTraining, dedupeByExercise, edgeState, formatCode, generateShareCode,
+  isWellFormedCode, normaliseCode, otherSide, type FriendshipRow,
 } from "@/lib/friends";
 import { registry } from "@/lib/tools";
 
@@ -126,13 +126,44 @@ suite("training crosses, a body never does", () => {
 
   it("reports a friend's lifts in the viewer's units", () => {
     // The viewer is the one reading them; someone else's units is a number
-    // she misreads without noticing.
-    expect(source).toMatch(/weightOut\(b\.weightKg, viewerUnits\)/);
+    // she misreads without noticing. Both lists go through the one converter,
+    // and both hand it the *viewer's* units.
+    expect(source).toMatch(/weightOut\(r\.weightKg, units\)/);
+    expect(source).toMatch(/dedupeByExercise\(best, viewerUnits\)/);
+    expect(source).toMatch(/dedupeByExercise\(bestEver, viewerUnits\)/);
+    // And the conversion is real, not just called: 20kg is 44.1lb.
+    const [lift] = dedupeByExercise([{ name: "Goblet Squat", weightKg: 20, reps: 8 }], "imperial");
+    expect(lift.weight).toBeCloseTo(44.1, 1);
+    expect(lift.unit).toBe("lb");
   });
 
   it("distinguishes a quiet week from never having started", () => {
     expect(source).toMatch(/hasEverLogged/);
     expect(read("components/friends-client.tsx")).toMatch(/Hasn&apos;t logged a session yet|Hasn't logged a session yet/);
+  });
+});
+
+suite("one line per movement, either list", () => {
+  const rows = [
+    { name: "Dumbbell Lateral Raise", weightKg: 11.34, reps: 10 },
+    { name: "Dumbbell Lateral Raise", weightKg: 11.34, reps: 10 },
+    { name: "Dumbbell Lateral Raise", weightKg: 9, reps: 12 },
+    { name: "Goblet Squat", weightKg: 20, reps: 8 },
+  ];
+
+  it("keeps the heaviest of each and drops the repeats", () => {
+    // Four sets of one movement filled all three rows of "heaviest this week"
+    // with the same line, three times — one fact printed three times.
+    const out = dedupeByExercise(rows, "metric");
+    expect(out.map((r) => r.exercise)).toEqual(["Dumbbell Lateral Raise", "Goblet Squat"]);
+    // The list arrives heaviest-first, so the first of each name is the one.
+    expect(out[0].reps).toBe(10);
+  });
+
+  it("is applied to the week's lifts, not only the lifetime ones", () => {
+    const src = read("lib/friends.ts");
+    expect(src).toMatch(/bestLifts: dedupeByExercise\(best, viewerUnits\)\.slice\(0, 3\)/);
+    expect(src).toMatch(/bestEver: dedupeByExercise\(bestEver, viewerUnits\)\.slice\(0, 3\)/);
   });
 });
 

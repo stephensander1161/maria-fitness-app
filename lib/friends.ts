@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { and, desc, eq, gte, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { exercises, friendships, highFives, profiles, setLogs, workouts } from "@/lib/db/schema";
@@ -22,7 +22,7 @@ import { kgToLb, weightOut, weightLabel, type Units } from "@/lib/units";
 
 /** Exactly what leaves one profile for another. Nothing else is ever selected. */
 /** Heaviest per movement, in the viewer's units. Three of one lift is one fact. */
-function dedupeByExercise(
+export function dedupeByExercise(
   rows: { name: string; weightKg: number | null; reps: number }[], units: Units,
 ): { exercise: string; weight: number | null; reps: number; unit: string }[] {
   const seen = new Set<string>();
@@ -283,7 +283,9 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
         isNotNull(setLogs.weightKg),
       ))
       .orderBy(desc(setLogs.weightKg))
-      .limit(3),
+      // Widened from three and deduped below: four sets of one movement filled
+      // all three rows with the same line, three times.
+      .limit(12),
     // Tonnage this week: load times reps, which is the one number that says
     // how much work a week actually was rather than how many times she turned
     // up. A hold has no load, so it contributes none — same rule as everywhere.
@@ -321,12 +323,8 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
     setsThisWeek: setsWeek?.n ?? 0,
     streakWeeks: streakWeeks(sessionDates.map((r) => r.date as ISODate), (d) => weekStart(d), week),
     sessionsAllTime,
-    bestLifts: best.map((b) => ({
-      exercise: b.name,
-      weight: weightOut(b.weightKg, viewerUnits),
-      reps: b.reps,
-      unit: weightLabel(viewerUnits),
-    })),
+    // Same rule as bestEver below: three of one lift is one fact.
+    bestLifts: dedupeByExercise(best, viewerUnits).slice(0, 3),
     setsAllTime: setsEver?.n ?? 0,
     volumeThisWeek: Math.round(viewerUnits === "imperial" ? kgToLb(volumeWeek?.kg ?? 0) : (volumeWeek?.kg ?? 0)),
     movementsThisWeek: movesWeek?.n ?? 0,
@@ -346,10 +344,67 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
  * the little celebratory line. Names come from the sender's profile — the
  * only thing that crosses is that they cheered her on.
  */
-export async function unseenHighFives(profileId: string): Promise<{ count: number; from: string[] }> {
-  const rows = await db.select({ name: profiles.name })
-    .from(highFives).innerJoin(profiles, eq(highFives.fromId, profiles.id))
-    .where(and(eq(highFives.toId, profileId), isNull(highFives.seenAt)))
-    .orderBy(desc(highFives.createdAt));
-  return { count: rows.length, from: [...new Set(rows.map((r) => r.name ?? "A friend"))] };
+export type HighFiveTally = {
+  /**
+   * Arrived since she last looked. This is what the celebration is for, and
+   * it is the only part that clears — `acknowledge_high_fives` empties it.
+   */
+  unseen: { count: number; from: string[] };
+  /**
+   * The running total with each friend, keyed by **friendship** id rather
+   * than profile id: the screen already addresses a friend that way, and a
+   * profile id is an identifier the browser has no other use for.
+   *
+   * This half never clears. A high five she has already seen is still one she
+   * was sent, and a card that forgets it the moment she looks away turns the
+   * whole feature into a notification.
+   */
+  byFriendship: Record<string, { got: number; sent: number }>;
+};
+
+/**
+ * Every high five either end of her friendships has sent, counted.
+ *
+ * Both directions, because "you have sent Maria four and she has sent you one"
+ * is the fact the card is trying to render, and one number cannot say it.
+ */
+export async function highFiveTally(profileId: string): Promise<HighFiveTally> {
+  const [rows, edges] = await Promise.all([
+    db.select({
+      fromId: highFives.fromId,
+      toId: highFives.toId,
+      seenAt: highFives.seenAt,
+      fromName: profiles.name,
+    })
+      .from(highFives)
+      .innerJoin(profiles, eq(profiles.id, highFives.fromId))
+      .where(or(eq(highFives.toId, profileId), eq(highFives.fromId, profileId)))
+      .orderBy(desc(highFives.createdAt)),
+    edgesFor(profileId),
+  ]);
+
+  // A high five from someone she has since stopped sharing with has no card to
+  // land on. It still counts as unseen — she was sent it — but it is dropped
+  // from the per-friend totals rather than filed under an id nothing renders.
+  const friendshipFor = new Map(edges.map((e) => [e.friendProfileId, e.friendshipId]));
+
+  const from: string[] = [];
+  const byFriendship: Record<string, { got: number; sent: number }> = {};
+  let count = 0;
+
+  for (const r of rows) {
+    const mine = r.toId === profileId;
+    if (mine && r.seenAt === null) {
+      count += 1;
+      const name = r.fromName ?? "A friend";
+      if (!from.includes(name)) from.push(name);
+    }
+    const id = friendshipFor.get(mine ? r.fromId : r.toId);
+    if (!id) continue;
+    const tally = (byFriendship[id] ??= { got: 0, sent: 0 });
+    if (mine) tally.got += 1;
+    else tally.sent += 1;
+  }
+
+  return { unseen: { count, from }, byFriendship };
 }

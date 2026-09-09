@@ -90,16 +90,27 @@ suite("the training card during a session", () => {
   it("an empty set square logs a set, like the + does", () => {
     // It looked like a slot to fill from the first day and did nothing.
     expect(card).toMatch(/label=\{`Log set \$\{i \+ 1\} of \$\{exercise\.name\}`\}/);
-    expect(card).toMatch(/if \(!s && canLog\)/);
+    expect(card).toMatch(/!s && canLog \?/);
     // A day she cannot log to must not offer it.
-    expect(card.indexOf("if (!s && canLog)")).toBeLessThan(card.indexOf("if (!s || isQueued)"));
+    expect(card.indexOf("!s && canLog ?")).toBeLessThan(card.indexOf("!s || isQueued ?"));
   });
 
   it("shows last time set by set where this set is being entered", () => {
-    // The header line summarises "12, 12, 10" as "3×12", which loses exactly
+    // The header line summarised "12, 12, 10" as "3×12", which loses exactly
     // the comparison she is making.
     expect(card).toMatch(/Last time \(\{exercise\.lastTime\.date\.slice\(5\)\}\)/);
     expect(card).toMatch(/\.join\(" · "\)/);
+  });
+
+  it("puts last time under today's sets, one column per set", () => {
+    // Two separate rows do not line up — a square reading "12@35" is wider
+    // than one reading "—" — so each set and the set it is being compared
+    // against are one stacked column that wraps as a pair.
+    expect(card).toMatch(/<div key=\{i\} className="flex min-w-11 flex-col items-stretch">/);
+    expect(card).toMatch(/const cmp = compareSet\(s, prev\);/);
+    // Green is the bigger of the two on both rows, red the smaller.
+    expect(card).toMatch(/cmp === "up"\n\s*\? "bg-beat text-on-accent"/);
+    expect(card).toMatch(/cmp === "up" \? "text-miss" : cmp === "down" \? "text-beat" : "text-faint"/);
   });
 
   it("rests into the next movement when one is finished, and marks it", () => {
@@ -270,8 +281,11 @@ suite("which movement am I on", () => {
     expect(css).toMatch(/@keyframes now-glow/);
     expect(css).toMatch(/var\(--color-beat\)/);
     // Still unmistakable for someone who asked for less motion — still, not gone.
-    const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
-    expect(reduced).toMatch(/\.now-glow \{\s*animation: none;/);
+    // Every reduced-motion block, not the last one: this read `lastIndexOf`
+    // and quietly started checking a different animation's block the next
+    // time one was appended to the file.
+    const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
+    expect(reduced.some((b) => /\.now-glow \{\s*animation: none;/.test(b))).toBe(true);
   });
 });
 

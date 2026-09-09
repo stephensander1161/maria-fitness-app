@@ -5,8 +5,8 @@ import { friendships, highFives, profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { audit } from "@/lib/audit";
 import {
-  canSeeTraining, edgeById, edgesFor, formatCode, isWellFormedCode, mintShareCode,
-  normaliseCode, otherSide, shareCodeFor, trainingFor,
+  canSeeTraining, edgeById, edgesFor, formatCode, highFiveTally, isWellFormedCode,
+  mintShareCode, normaliseCode, otherSide, shareCodeFor, trainingFor,
 } from "@/lib/friends";
 
 /**
@@ -209,6 +209,28 @@ export const acknowledgeHighFives = defineTool({
     await db.update(highFives).set({ seenAt: new Date() })
       .where(and(eq(highFives.toId, ctx.profileId), isNull(highFives.seenAt)));
     return { ok: true };
+  },
+});
+
+export const getHighFives = defineTool({
+  name: "get_high_fives",
+  description:
+    "Reads the high fives between her and her friends — how many are new since she last looked, who they came from, and the running total each way with every friend. Use it when she asks who has cheered her on, or who she has cheered.",
+  input: z.object({}),
+  handler: async (_input, ctx) => {
+    const tally = await highFiveTally(ctx.profileId);
+    const edges = (await edgesFor(ctx.profileId)).filter((e) => e.state === "friend");
+    return {
+      ok: true,
+      new: tally.unseen.count,
+      newFrom: tally.unseen.from,
+      withEachFriend: edges.map((e) => ({
+        friendshipId: e.friendshipId,
+        name: e.name,
+        received: tally.byFriendship[e.friendshipId]?.got ?? 0,
+        sent: tally.byFriendship[e.friendshipId]?.sent ?? 0,
+      })),
+    };
   },
 });
 

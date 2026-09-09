@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
+import { compareSet } from "@/lib/set-compare";
 import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
@@ -120,6 +121,9 @@ export function TrainClient({
    * the one thing she had not asked for.
    */
   const [pausing, setPausing] = useState(false);
+  // True only between her tap on Start and leaving the page: the drop is a
+  // transition, so it must not replay on a reload mid-session.
+  const [justStarted, setJustStarted] = useState(false);
   const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
   /** How long the session ran, taken once when she finishes it. */
@@ -407,6 +411,10 @@ export function TrainClient({
       // round trip is a second or two and the promise is that he joins in
       // when she starts, not shortly afterwards.
       window.dispatchEvent(new CustomEvent("workout:started"));
+      // So the controls animate down onto their own row on the tap that
+      // started the session, and not again on every later page load while it
+      // is still running.
+      setJustStarted(true);
       router.refresh();
     } catch {
       setError("Couldn't start the session — check your signal and try again.");
@@ -542,6 +550,13 @@ export function TrainClient({
     );
   }
 
+  // A running session takes a row of its own on a phone: the clock, the pause
+  // and Finish beside a session name left about a third of the row for the
+  // name, and the header changed shape under her the moment she pressed Start.
+  // Now it changes shape *visibly* — the controls drop onto the line below,
+  // left-aligned under the name — which is a card rearranging itself rather
+  // than a card that was suddenly different.
+  const running = Boolean(view.startedAt) && !view.finishedAt;
   const sessionBar = isToday ? (
     <SessionBar
       startedAt={view.startedAt}
@@ -577,9 +592,15 @@ export function TrainClient({
               clock and Finish pinned to the top-right corner. `md:block` drops
               the flex row so the centred text is genuinely centred on the
               card, not on the space left over beside the controls. */}
-          <div className="relative flex flex-wrap items-start justify-between gap-x-3 gap-y-2 md:block md:text-center">
+          <div className="relative flex flex-wrap items-center justify-between gap-x-3 gap-y-2 md:block md:text-center">
             <div className="min-w-0 flex-1 basis-32 md:flex-none">{heading}</div>
-            {sessionBar && <div className="ml-auto shrink-0 md:absolute md:right-0 md:top-0">{sessionBar}</div>}
+            {sessionBar && (
+              <div className={`shrink-0 md:absolute md:right-0 md:top-0 md:ml-0 md:mt-0 md:basis-auto ${
+                running ? `basis-full ${justStarted ? "session-drop" : ""}` : "ml-auto"
+              }`}>
+                {sessionBar}
+              </div>
+            )}
           </div>
         </section>
       ) : sessionBar}
@@ -906,7 +927,13 @@ function SessionBar({
       <button
         onClick={onStart}
         disabled={clockBusy}
-        className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-[14px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
+        // The visible word is "Start" on a phone; the full phrase stays here,
+        // the same way Finish keeps "Finish workout" for a screen reader.
+        aria-label="Start workout"
+        // The same metrics as Finish, which is what replaces it the moment she
+        // taps: at px-3.5/py-2 it stood 7px taller than the day's name beside
+        // it and set the height of the whole header card on its own.
+        className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-on-accent active:opacity-80 disabled:opacity-50"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
           <path d="M8 5v14l11-7z" />
@@ -926,7 +953,7 @@ function SessionBar({
 
   if (finishedAt) {
     return (
-      <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-4 py-2.5 text-[13px] font-medium text-beat">
+      <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat">
         Finished — {readableDuration(ms)}
       </div>
     );
@@ -1234,20 +1261,6 @@ function SetEditor({
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
     </div>
   );
-}
-
-/**
- * Three identical sets read better as "3×8 @ 65lb" than as "8@65 8@65 8@65" —
- * and it matches how the target directly above it is written.
- */
-function summariseSets(sets: { reps: number; weight: number | null }[], unit: string): string {
-  if (sets.length === 0) return "—";
-  const [first] = sets;
-  const uniform = sets.every((s) => s.reps === first.reps && s.weight === first.weight);
-  if (uniform) {
-    return `${sets.length}×${first.reps}${first.weight !== null ? ` @ ${first.weight}${unit}` : ""}`;
-  }
-  return sets.map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`).join("  ");
 }
 
 export function ExerciseCard({
@@ -1683,15 +1696,17 @@ export function ExerciseCard({
                   ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
               </>
             )}
-            {exercise.lastTime && (
-              <span className="text-faint"> · last {summariseSets(exercise.lastTime.sets, unit)}</span>
-            )}
           </p>
           {next && next.change === "up" && (
             <p className="mt-1 text-[12px] text-beat">Target up from last time</p>
           )}
         </TapIn>
-        <div className="flex basis-full items-center justify-end gap-1.5 md:basis-auto md:shrink-0">
+        {/* Above the name on a phone, hard left. They were a right-aligned row
+            *under* the name, which put a strip of empty card between the
+            target and the buttons and read as a gap rather than a row. A
+            desktop has the width to keep them where they belong: on the same
+            line as the name, at the far right. */}
+        <div className="order-first flex basis-full items-center justify-start gap-1.5 md:order-none md:basis-auto md:shrink-0 md:justify-end">
           {/* The grip. `touch-action: none` is what stops the browser reading
               the drag as a page scroll and swallowing it — without it this
               works with a mouse and does nothing at all on a phone, which is
@@ -1874,48 +1889,74 @@ export function ExerciseCard({
       {open && <FullCues exercise={exercise} />}
 
 
-      {/* Set dots — a glance tells her how much is left. A dot for a queued set
-          looks logged, because it is; the outline says it hasn't gone up yet.
-          A logged one is a button: a mistyped set was permanent until now. */}
-      <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-        {Array.from({ length: Math.max(exercise.targetSets, setCount) }).map((_, i) => {
+      {/*
+        Set dots, with last time directly underneath — one column per set, so
+        set three is above set three and the comparison is a glance rather
+        than arithmetic. Two independent rows do not line up: a square reading
+        "12@35" is wider than one reading "—", and the columns drifted apart
+        by the second set. Each pair is therefore one stacked column and the
+        pair wraps together.
+
+        Last time used to be a summary on the header line — "last 4×12 @ 30lb"
+        — which is the thing she is comparing *against*, collapsed into one
+        figure and put on a different row from the four she is comparing.
+
+        Green is the bigger of the two and red the smaller, on both rows, so
+        the colour reads the same whichever row she looks at first. A column
+        with nothing to compare stays as it was: see compareSet, which refuses
+        rather than calling a loaded set and a bodyweight one a draw.
+
+        A dot for a queued set looks logged, because it is; the outline says
+        it hasn't gone up yet. A logged one is a button: a mistyped set was
+        permanent until now.
+      */}
+      <div className="flex flex-wrap items-end gap-1.5 px-4 pb-3">
+        {Array.from({
+          length: Math.max(exercise.targetSets, setCount, exercise.lastTime?.sets.length ?? 0),
+        }).map((_, i) => {
           const s = done[i] ?? queued[i - done.length];
+          const prev = exercise.lastTime?.sets[i];
           const isQueued = i >= done.length && i < setCount;
           const label = s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—";
-          const shape = `flex h-9 min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
+          const cmp = compareSet(s, prev);
+          const shape = `flex h-9 w-full min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
             isQueued
               ? "border border-dashed border-accent bg-accent-soft text-accent"
               : s
-                ? "bg-accent text-on-accent"
+                ? cmp === "up"
+                  ? "bg-beat text-on-accent"
+                  : cmp === "down"
+                    ? "bg-miss text-on-accent"
+                    : "bg-accent text-on-accent"
                 : "border border-dashed border-edge text-faint"
           }`;
 
-          // A square with nothing in it is the next set: tapping it opens the
-          // entry, the same as the + does. It looked like a slot to fill from
-          // the first day and did nothing at all.
-          if (!s && canLog) {
-            return (
-              <TapIn
-                key={i}
-                href={asPage ? undefined : href}
-                // Close whatever set she was editing: the new-set entry is
-                // hidden while one is open, so without this a tap on an empty
-                // square did nothing and she had to cancel the editor by hand.
-                onClick={(e) => { setEditingSet(null); openCard(e); }}
-                disabled={asPage}
-                label={`Log set ${i + 1} of ${exercise.name}`}
-                className={`${shape} transition-opacity hover:opacity-80`}
-              >
-                {label}
-              </TapIn>
-            );
-          }
-          // Only a set that has actually landed can be corrected — one still
-          // in the outbox has no row to correct yet.
-          if (!s || isQueued) return <div key={i} className={shape}>{label}</div>;
-          return (
+          // Past the planned sets and past what she has logged: this column
+          // exists only because last time had a set here. Nothing to tap.
+          const square = i >= Math.max(exercise.targetSets, setCount) ? (
+            <span className="block h-9" aria-hidden />
+          ) : !s && canLog ? (
+            // A square with nothing in it is the next set: tapping it opens
+            // the entry, the same as the + does. It looked like a slot to fill
+            // from the first day and did nothing at all.
+            <TapIn
+              href={asPage ? undefined : href}
+              // Close whatever set she was editing: the new-set entry is
+              // hidden while one is open, so without this a tap on an empty
+              // square did nothing and she had to cancel the editor by hand.
+              onClick={(e) => { setEditingSet(null); openCard(e); }}
+              disabled={asPage}
+              label={`Log set ${i + 1} of ${exercise.name}`}
+              className={`${shape} transition-opacity hover:opacity-80`}
+            >
+              {label}
+            </TapIn>
+          ) : !s || isQueued ? (
+            // Only a set that has actually landed can be corrected — one still
+            // in the outbox has no row to correct yet.
+            <div className={shape}>{label}</div>
+          ) : (
             <SetSquare
-              key={i}
               label={label}
               className={`${shape} ${editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""}`}
               setNumber={i + 1}
@@ -1925,7 +1966,27 @@ export function ExerciseCard({
               onRemove={() => removeSet(i + 1)}
             />
           );
+
+          return (
+            <div key={i} className="flex min-w-11 flex-col items-stretch">
+              {square}
+              {exercise.lastTime && (
+                <span
+                  className={`mt-1 block h-4 text-center text-[11px] font-medium tabular ${
+                    cmp === "up" ? "text-miss" : cmp === "down" ? "text-beat" : "text-faint"
+                  }`}
+                >
+                  {prev ? `${prev.reps}${prev.weight !== null ? `@${prev.weight}` : ""}` : ""}
+                </span>
+              )}
+            </div>
+          );
         })}
+        {exercise.lastTime && (
+          <span className="ml-1 pb-0.5 text-[10px] uppercase tracking-wide text-faint">
+            last · {exercise.lastTime.date.slice(5)}
+          </span>
+        )}
       </div>
 
       {/* A remove/edit failure has to be visible where she is looking — the
