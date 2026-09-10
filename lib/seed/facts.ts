@@ -64,6 +64,33 @@ export const FACTS: FactSeed[] = [
     text: "Strength training reduces injury risk by roughly a third, and overuse injuries by close to half. Stretching, in the same analysis, barely moved the needle — being strong is the protection, not being bendy.",
     source: "Lauersen et al., British Journal of Sports Medicine, 2014" },
 
+  // ── Exercise as medicine ──────────────────────────────────────────────────
+  // The register of the depression one: a big, well-evidenced outcome that
+  // most people do not know training touches at all. Each still has to land on
+  // a decision — "so do the session" — or it is only a fact worth impressing
+  // somebody with, which is not what this pool is for.
+  { slug: "exercise-cancer-risk", category: "sedentary_risk",
+    text: "Across 1.44 million adults, higher leisure-time physical activity was associated with lower risk of 13 different cancers — including some with no obvious link to movement at all, like liver and stomach. Most of the associations held regardless of body weight or smoking history.",
+    source: "Moore et al., JAMA Internal Medicine, 2016" },
+  { slug: "diabetes-prevention", category: "sedentary_risk",
+    text: "In people at high risk of type 2 diabetes, a lifestyle programme of modest weight loss and 150 minutes of activity a week cut new cases by 58%. The drug arm of the same trial — metformin — managed 31%. Exercise beat the medication, in the same study, at the same time.",
+    source: "Diabetes Prevention Program, New England Journal of Medicine, 2002" },
+  { slug: "exercise-dementia", category: "sedentary_risk",
+    text: "Physical inactivity is one of the modifiable risk factors the Lancet Commission counts toward dementia — around 45% of cases worldwide are associated with factors that can, in principle, be changed. It is not a guarantee of anything; it is one of the few levers there is.",
+    source: "Livingston et al., Lancet Commission on dementia, 2024" },
+  { slug: "mortality-dose-curve", category: "sedentary_risk",
+    text: "The steepest part of the curve is the beginning. Going from nothing to about half the recommended weekly activity already carries most of the mortality benefit; going from there to three or four times the guideline adds comparatively little. The hardest session you will ever do is the first one of the week.",
+    source: "Arem et al., JAMA Internal Medicine, 2015" },
+  { slug: "weekend-warrior", category: "sedentary_risk",
+    text: "Getting the week's activity into one or two sessions is associated with much the same drop in mortality risk as spreading it across five. If the week has gone and it is Saturday, the week is not gone.",
+    source: "O'Donovan et al., JAMA Internal Medicine, 2017" },
+  { slug: "exercise-chronic-pain", category: "sedentary_risk",
+    text: "For most chronic pain conditions, exercise improves function and quality of life, and almost never makes things worse — the trials keep finding small-to-moderate benefit and very few adverse events. Hurting is not, on its own, a reason not to move.",
+    source: "Cochrane overview of reviews, 2017" },
+  { slug: "falls-prevention", category: "sedentary_risk",
+    text: "Exercise programmes that challenge balance reduce falls in older adults by roughly a quarter. Falls are the thing that ends independence, and this is the only intervention that reliably moves the number.",
+    source: "Sherrington et al., Cochrane Review, 2019" },
+
   // ── Strength ──────────────────────────────────────────────────────────────
   { slug: "muscle-decline-30", category: "strength",
     text: "From your thirties onward, adults lose roughly 3–8% of muscle mass per decade without resistance training — and the rate accelerates after 60. Lifting is the only intervention that reliably reverses it.",
@@ -135,6 +162,13 @@ export const FACTS: FactSeed[] = [
   { slug: "quad-strength-knee", category: "strength",
     text: "Quadriceps strength is one of the strongest modifiable predictors of knee pain and function. A knee that dislikes load usually needs a stronger leg, built in the range it tolerates, more than it needs rest.",
     source: "Knee osteoarthritis and patellofemoral pain research" },
+
+  { slug: "muscle-is-an-organ", category: "strength",
+    text: "Contracting muscle releases signalling molecules — myokines — into the bloodstream that act on the brain, fat tissue, liver and immune system. This is the mechanism behind most of the surprising findings: muscle is not just what moves you, it is an endocrine organ you can choose to switch on.",
+    source: "Pedersen & Febbraio, Nature Reviews Endocrinology, 2012" },
+  { slug: "muscle-protein-reserve", category: "strength",
+    text: "Muscle is the body's protein reserve, drawn down during illness, injury and surgery to keep the immune system and organs supplied. How much you have built beforehand is part of what you have to spend when something goes wrong.",
+    source: "Wolfe, American Journal of Clinical Nutrition, 2006" },
 
   // ── Nutrition ─────────────────────────────────────────────────────────────
   { slug: "protein-threshold", category: "nutrition",
@@ -260,6 +294,13 @@ export const FACTS: FactSeed[] = [
     text: "Regular cold-water immersion straight after lifting appears to blunt part of the muscle-building signal. Use it to feel better before something that matters, not as a habit after strength work.",
     source: "Post-exercise cold water immersion research" },
 
+  { slug: "exercise-inflammation", category: "recovery",
+    text: "One twenty-minute session of moderate exercise measurably reduces the immune cells' production of TNF, an inflammatory signal. It is not only the long-term training that does something — a single walk shifts the chemistry.",
+    source: "Dimitrov et al., Brain, Behavior and Immunity, 2017" },
+  { slug: "exercise-immunity", category: "recovery",
+    text: "Regular moderate exercise is associated with fewer and shorter upper respiratory infections. The old worry about training suppressing immunity applies to extreme endurance loads, not to anything you are doing this week.",
+    source: "Nieman & Wentz, Journal of Sport and Health Science, 2019" },
+
   // ── Women's health ────────────────────────────────────────────────────────
   { slug: "women-bulking-myth", category: "womens_health",
     text: "Women produce roughly a fifteenth of the testosterone men do, which is why lifting heavy builds strength and shape rather than bulk. The look people actually want almost always requires more muscle, not less.",
@@ -342,6 +383,16 @@ export const FACTS: FactSeed[] = [
   { slug: "log-your-sets", category: "motivation",
     text: "Written logs beat memory by a wide margin, and seeing last week's numbers is what makes progressive overload actually happen. The log isn't admin — it's the mechanism.",
     source: "Self-monitoring research in behaviour change" },
+  { slug: "exercise-bdnf", category: "motivation",
+    text: "Exercise raises BDNF, a protein that supports the growth and survival of neurons — which is the most likely reason training shows up in memory, mood and learning trials rather than only in fitness ones. You are not just training the body it happens to be in.",
+    source: "Szuhany et al., Journal of Psychiatric Research, 2015" },
+  { slug: "post-exercise-focus", category: "motivation",
+    text: "Attention and executive function improve for a couple of hours after a single session, and the effect is largest for the tasks that need concentration rather than speed. If there is something hard to think about today, train before it, not after.",
+    source: "Chang et al., Brain Research, 2012" },
+  { slug: "cancer-fatigue", category: "motivation",
+    text: "For cancer-related fatigue, exercise and psychological support outperformed the drugs trialled against them. The intervention for being too tired to move turned out to be moving — carefully, and less than you would otherwise, but moving.",
+    source: "Mustian et al., JAMA Oncology, 2017" },
+
   // ── What her body actually did ────────────────────────────────────────────
   // Written to be true first and kind second, because a compliment she can
   // tell is hollow is worth nothing. Every one of these is a real, measurable
