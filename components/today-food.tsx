@@ -120,12 +120,18 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
               {/* Tapping the entry edits it. "Delete it and log it again" is
                   not a correction — it loses the time it was eaten and makes
                   fixing a number feel like a mistake being punished. */}
+              {/* The name gets the row on a phone and the four figures the one
+                  under it. Side by side, the numbers were `shrink-0` and the
+                  name was the half that could give — so a plate logged as
+                  "pulled pork, cheese cubes, pickles, bbq sauce" came out as
+                  "p…". Four macros is more width than a name can spare at
+                  360px, and the name is what she is scanning for. */}
               <button
                 onClick={() => setEditing(editing === l.id ? null : l.id)}
                 aria-expanded={editing === l.id}
-                className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
+                className="flex min-w-0 flex-1 flex-col gap-0.5 text-left sm:flex-row sm:items-baseline sm:gap-2"
               >
-                <span className="min-w-0 flex-1 truncate text-[14px]">{l.description}</span>
+                <span className="min-w-0 text-[14px] sm:flex-1 sm:truncate">{l.description}</span>
                 <span className="shrink-0 text-[12px] tabular text-muted">
                   {l.calories ?? "—"}
                   {l.proteinG !== null && ` · ${l.proteinG}p`}

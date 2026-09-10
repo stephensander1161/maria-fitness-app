@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-food-facts",
+    date: "2026-09-10",
+    title: "Sixteen more food facts, and the card reads the room",
+    blurb: "On Eat and Kitchen the thing worth knowing is about food, so that is what the card shows there — cooking loss, what a drizzle of oil actually costs, why a salty dinner moves the scale a kilo overnight. Every other screen still gets the whole library, because the point of the card is the thing you did not go looking for.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-10-chat-controls",
     date: "2026-09-10",
     title: "Ask your coach from the food card, and take a message back",

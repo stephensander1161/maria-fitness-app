@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { preferredCategory } from "@/lib/fact-screen";
 import type { PickedFact } from "@/lib/facts";
 
 /**
@@ -19,13 +21,41 @@ export function FactCard({ first }: { first: PickedFact }) {
   const [fact, setFact] = useState(first);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+    On the food screens, a food fact.
+
+    The day's fact is drawn on the server without knowing which page asked —
+    a server component cannot see the path, and threading one through the
+    proxy to tell it is a lot of moving parts for a footer. The card knows
+    where it is, so it swaps its own: once, only where the screen has a
+    subject, and only when the one it was handed is about something else.
+  */
+  const path = usePathname();
+  const prefer = preferredCategory(path);
+  const swapped = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prefer || fact.category === prefer || swapped.current === path) return;
+    swapped.current = path;
+    let live = true;
+    void (async () => {
+      try {
+        const got = await action<{ category: PickedFact["category"]; fact: string; source: string | null }>(
+          "get_fact", { category: prefer },
+        );
+        if (live) setFact({ category: got.category, text: got.fact, source: got.source });
+      } catch {
+        // The one she was given is a perfectly good fact. Say nothing.
+      }
+    })();
+    return () => { live = false; };
+  }, [prefer, path, fact.category]);
 
   async function another() {
     setBusy(true);
     setError(null);
     try {
       const got = await action<{ category: PickedFact["category"]; fact: string; source: string | null }>(
-        "get_fact",
+        "get_fact", prefer ? { category: prefer } : undefined,
       );
       setFact({ category: got.category, text: got.fact, source: got.source });
     } catch (err) {

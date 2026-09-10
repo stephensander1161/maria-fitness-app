@@ -383,9 +383,14 @@ function FriendWeek({
         </span>
       )}
 
-      <div className="flex items-baseline justify-between gap-3 pr-16">
+      {/* The name gets its own line on a phone. Side by side, the rank was
+          `shrink-0` and the name was the thing that could give — so "Maria"
+          next to "KNOWS WHERE THE DUMBBELLS ARE" came out as "M". Ranks are
+          long by design and names are short; the one that has to fit is the
+          one that says who this is. */}
+      <div className="flex flex-col gap-0.5 pr-16 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
         <h2 className="min-w-0 truncate text-[15px] font-semibold">{friend.name}</h2>
-        <span className="shrink-0 text-[11px] uppercase tracking-widest text-accent">{friend.title}</span>
+        <span className="min-w-0 truncate text-[11px] uppercase tracking-widest text-accent">{friend.title}</span>
       </div>
 
       {friend.sessionsThisWeek === 0 ? (
