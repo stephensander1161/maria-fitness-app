@@ -402,20 +402,27 @@ input, textarea, select, button { font-size: 16px; font-family: inherit; }
    that glance is the whole job: "which one am I doing". So the current card
    breathes — a green ring that swells and settles, slowly enough not to nag
    for the length of a session. */
-/* Two knocks and a pause — lub-dub — rather than a sine swell, which reads as
-   breathing rather than as a pulse. The duration is set per card in
-   components/train-client.tsx: quick just after a set, settling as the rest
-   runs down, the way a heart rate actually recovers. */
+/* One slow rhythm, the whole time.
+   It used to run at a rate read off the rest — 0.55s just after a set,
+   settling toward 1.9s as the clock ran down — which was a nice idea and
+   looked like a neon sign shorting out: two hard knocks 300ms apart, then a
+   different tempo two seconds later, on a card the size of a hand. A pulse
+   only reads as a pulse if it is *steady*, so the tempo is fixed here and
+   nothing sets it per card any more.
+
+   Still lub-dub rather than a sine swell — a swell reads as breathing — but
+   slower, and the knocks are softer: the second one no longer overshoots the
+   first, which is what made it flicker. */
 @keyframes now-glow {
-  0%   { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 40%, transparent); }
-  12%  { box-shadow: 0 0 0 4px var(--color-beat), 0 0 26px 7px color-mix(in srgb, var(--color-beat) 75%, transparent); }
-  24%  { box-shadow: 0 0 0 2px var(--color-beat), 0 0 14px 2px color-mix(in srgb, var(--color-beat) 45%, transparent); }
-  36%  { box-shadow: 0 0 0 3px var(--color-beat), 0 0 22px 5px color-mix(in srgb, var(--color-beat) 65%, transparent); }
-  50%, 100% { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 40%, transparent); }
+  0%   { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 38%, transparent); }
+  10%  { box-shadow: 0 0 0 3px var(--color-beat), 0 0 20px 4px color-mix(in srgb, var(--color-beat) 62%, transparent); }
+  22%  { box-shadow: 0 0 0 2px var(--color-beat), 0 0 14px 2px color-mix(in srgb, var(--color-beat) 44%, transparent); }
+  32%  { box-shadow: 0 0 0 3px var(--color-beat), 0 0 18px 3px color-mix(in srgb, var(--color-beat) 55%, transparent); }
+  48%, 100% { box-shadow: 0 0 0 2px var(--color-beat), 0 0 12px 1px color-mix(in srgb, var(--color-beat) 38%, transparent); }
 }
 /* The border itself goes full-strength too — a 50%-mixed edge under a bright
    ring reads as a shadow around a grey card rather than as a green one. */
-.now-glow { animation: now-glow 2.4s ease-in-out infinite; border-color: var(--color-beat); }
+.now-glow { animation: now-glow 3.6s ease-in-out infinite; border-color: var(--color-beat); }
 
 /* A movement whose sets are all in.
    Not just a tick in the corner: a dark green edge and a pale green wash, so

@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-steady-beat",
+    date: "2026-09-09",
+    title: "The green marker beats at one steady tempo",
+    blurb: "It used to run fast just after a set and settle as the rest counted down, which on a card the size of your hand looked less like a pulse and more like a sign shorting out. One slow rhythm the whole way through now.",
+    href: "/train",
+  },
+  {
     id: "2026-09-09-coach-in-his-box",
     date: "2026-09-09",
     title: "The coach's two buttons live with him now",

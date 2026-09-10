@@ -513,14 +513,15 @@ suite("the marker beats only while the session is running", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
   it("is still until she has started", () => {
-    // The beat is a rest counting down. Before the clock is running there is
-    // no rest and nothing is happening, so a card pulsing at her while she
-    // reads the day is urgency about a workout that has not begun.
+    // Before the clock is running nothing is happening, so a card pulsing at
+    // her while she reads the day is urgency about a workout that has not
+    // begun.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/live=\{view\.startedAt !== null\}/);
     expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
-    // And no animation timing on a thing that is not animating.
-    expect(card).toMatch(/\.\.\.\(upNext && live \? \{ animationDuration: `\$\{beat\}s` \} : \{\}\)/);
+    // And nothing sets the tempo per card: it used to be read off the rest,
+    // which on a card the size of a hand read as a sign shorting out.
+    expect(card).not.toMatch(/animationDuration/);
   });
 
   it("but still says which movement she is on", () => {

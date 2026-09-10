@@ -1,53 +1,42 @@
 import { describe as suite, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import fs from "node:fs";
-import { BEAT_CALM_S, BEAT_FAST_S, beatSeconds } from "@/lib/heartbeat";
 
-/**
- * The marker on the current movement beats like a heart rate: quick the
- * moment a set is finished, settling as the rest runs down. That is the right
- * way round — it is recovery, not a countdown getting urgent.
- */
-suite("how fast the marker beats", () => {
-  it("is quickest at the start of the rest and calmest at the end", () => {
-    expect(beatSeconds(90_000, 90_000)).toBe(BEAT_FAST_S);
-    expect(beatSeconds(0, 90_000)).toBe(BEAT_CALM_S);
-    // Faster means a shorter duration.
-    expect(BEAT_FAST_S).toBeLessThan(BEAT_CALM_S);
-  });
+suite("the marker on the movement she is on", () => {
+  const css = fs.readFileSync("app/globals.css", "utf8");
+  const frames = css.slice(css.indexOf("@keyframes now-glow"), css.indexOf("\n}", css.indexOf("@keyframes now-glow")));
 
-  it("settles smoothly through the rest", () => {
-    const half = beatSeconds(45_000, 90_000);
-    expect(half).toBeGreaterThan(BEAT_FAST_S);
-    expect(half).toBeLessThan(BEAT_CALM_S);
-    // Monotonic: every step of the rest is calmer than the one before.
-    const steps = [1, 0.75, 0.5, 0.25, 0].map((f) => beatSeconds(f * 90_000, 90_000));
-    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeGreaterThan(steps[i - 1]);
-  });
-
-  it("sits calm with no rest running, and cannot be broken by a bad clock", () => {
-    // Between movements, or the app just opened.
-    expect(beatSeconds(null, null)).toBe(BEAT_CALM_S);
-    expect(beatSeconds(NaN, 90_000)).toBe(BEAT_CALM_S);
-    expect(beatSeconds(90_000, 0)).toBe(BEAT_CALM_S);
-    // A rest run past its end does not beat backwards.
-    expect(beatSeconds(-5_000, 90_000)).toBe(BEAT_CALM_S);
-    // Nor does a clock that says more is left than the rest was long.
-    expect(beatSeconds(200_000, 90_000)).toBe(BEAT_FAST_S);
-  });
-
-  it("is a pulse, not a swell, and is re-read rarely enough to complete a beat", () => {
-    const css = fs.readFileSync("app/globals.css", "utf8");
-    const start = css.indexOf("@keyframes now-glow");
-    const frames = css.slice(start, css.indexOf("\n}", start));
-    // Two knocks then a pause — lub-dub — rather than one sine swell.
-    expect(frames).toMatch(/12%/);
-    expect(frames).toMatch(/36%/);
+  it("beats at one steady tempo, set in one place", () => {
+    // It used to run at a rate read off the rest — fast just after a set,
+    // settling as the clock ran down. On a card the size of a hand that was
+    // two hard knocks and then a different tempo two seconds later, which
+    // reads as a neon sign shorting out rather than as a pulse. Nothing sets
+    // the duration per card any more.
+    expect(css).toMatch(/\.now-glow \{ animation: now-glow 3\.6s/);
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    // Changing an animation's duration restarts it; at 60fps that is a
-    // flicker rather than a heartbeat.
-    expect(card).toMatch(/window\.setInterval\(tick, 2000\)/);
-    expect(card).toMatch(/animationDuration: `\$\{beat\}s`/);
+    expect(card).not.toMatch(/animationDuration/);
+    expect(card).not.toMatch(/beatSeconds/);
+    expect(fs.existsSync("lib/heartbeat.ts")).toBe(false);
+  });
+
+  it("is a pulse, not a swell", () => {
+    // Two knocks then a pause — lub-dub. A single sine swell reads as
+    // breathing, which is a different thing to say.
+    expect(frames).toMatch(/10%/);
+    expect(frames).toMatch(/32%/);
+    // And the second knock does not overshoot the first: that was the part
+    // that flickered. Measured on the glow's blur, which is the visible half.
+    const glow = (pct: string) =>
+      Number(frames.match(new RegExp(`${pct}\\s*\\{[^}]*?, 0 0 (\\d+)px`))?.[1] ?? 0);
+    expect(glow("10%")).toBeGreaterThan(0);
+    expect(glow("32%")).toBeLessThan(glow("10%"));
+  });
+
+  it("holds still before she starts", () => {
+    // A card pulsing while she reads the day is urgency about a workout that
+    // has not begun.
+    expect(css).toMatch(/\.now-still \{/);
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/live \? "border-beat now-glow" : "border-beat now-still"/);
   });
 });
 
@@ -82,7 +71,7 @@ suite("the rest-timer runner turns at the burning edge", () => {
   it("scales its lap to how much rest is left, not the container", () => {
     // The right-hand bounce should come in as the meter drains, so he is
     // always running on the part of the bar that is still there.
-    const src = readFileSync("components/rest-timer.tsx", "utf8");
+    const src = fs.readFileSync("components/rest-timer.tsx", "utf8");
     expect(src).toMatch(/left: `\$\{\(lapPosition\(elapsed\) \/ 100\) \* pct\}%`/);
     expect(src).not.toMatch(/left: `\$\{lapPosition\(elapsed\)\}%`/);
   });

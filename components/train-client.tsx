@@ -5,7 +5,6 @@ import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { compareSet } from "@/lib/set-compare";
-import { BEAT_CALM_S, beatSeconds } from "@/lib/heartbeat";
 import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -315,24 +314,6 @@ export function TrainClient({
     window.addEventListener("pointercancel", end);
   }
 
-  /**
-   * The marker's pulse, re-read every couple of seconds.
-   *
-   * Not every frame: the duration is a CSS animation property, and changing
-   * it restarts the animation — at 60fps that is not a heartbeat, it is a
-   * flicker. Every two seconds is often enough to feel it settle across a
-   * ninety-second rest and rare enough that each beat completes.
-   */
-  const [beat, setBeat] = useState(BEAT_CALM_S);
-  useEffect(() => {
-    const tick = () => setBeat(runningRest
-      ? beatSeconds(runningRest.endsAt - Date.now(), runningRest.seconds * 1000)
-      : BEAT_CALM_S);
-    tick();
-    const id = window.setInterval(tick, 2000);
-    return () => window.clearInterval(id);
-  }, [runningRest]);
-
   const stillToDo = (slug: string | undefined) => {
     const e = view.exercises.find((x) => x.slug === slug);
     return Boolean(e && e.targetSets > 0 && e.loggedToday.length < e.targetSets);
@@ -550,7 +531,6 @@ export function TrainClient({
             onRemoved={() => router.refresh()}
             upNext={currentSlug === ex.slug}
             live={view.startedAt !== null}
-            beatSeconds={beat}
           />
         )}
       </MovementScreen>
@@ -717,10 +697,10 @@ export function TrainClient({
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
           upNext={isUpNext(ex)}
-          // Still until she starts. The beat is a rest counting down; before
-          // the clock is running there is no rest and nothing to hurry for.
+          // Still until she starts. Before the clock is running there is
+          // nothing happening, so a card pulsing at her while she reads the
+          // day is urgency about a workout that has not begun.
           live={view.startedAt !== null}
-          beatSeconds={beat}
         />
         );
       })}
@@ -1295,7 +1275,7 @@ function SetEditor({
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
-  beatSeconds: beat = BEAT_CALM_S, offsetY = 0, offsetX = 0, dropTarget = false,
+  offsetY = 0, offsetX = 0, dropTarget = false,
   asPage = false, href,
   chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
 }: {
@@ -1333,7 +1313,6 @@ export function ExerciseCard({
   /** Absent on a day she cannot edit — no handle is drawn. */
   onDragStart?: (startY: number, startX: number) => void;
   /** How fast the marker beats — a heart rate settling through the rest. */
-  beatSeconds?: number;
   /** Where the drag has put this card, in pixels from where it sits. */
   offsetY?: number;
   /** The same sideways, which only a grid needs. */
@@ -1632,7 +1611,6 @@ export function ExerciseCard({
         // sheet came out taller than the visible strip and opened with its
         // own title clipped away above the address bar.
         ...(open ? { maxHeight: SHEET_MAX } : {}),
-        ...(upNext && live ? { animationDuration: `${beat}s` } : {}),
         ...(offsetY !== 0 || offsetX !== 0 || dragging
           ? {
             transform: `translate(${offsetX}px, ${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
