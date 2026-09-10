@@ -22,6 +22,10 @@ import { Measurements } from "@/components/measurements";
 import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
 import { photoLibrary } from "@/lib/photos";
+import { dayFoodView } from "@/lib/views";
+import { MacroBars } from "@/components/macro-bars";
+import { type MacroRow } from "@/lib/macro-progress";
+import { Headline, ProgressSection } from "@/components/progress-section";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +36,7 @@ export default async function ProgressPage() {
 
   const her = profileToday(profile);
 
-  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals, food] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -44,6 +48,7 @@ export default async function ProgressPage() {
     nutritionTrend(profile.id, 14, her),
     burnThisWeek(profile.id, weekStart(her), profile.startWeightKg ?? 70),
     trainingTotals(profile.id, her),
+    dayFoodView(profile.id, her),
   ]);
 
   // The trend, not this morning's reading: a day's weight moves on water,
@@ -92,6 +97,17 @@ export default async function ProgressPage() {
   // everything — reachable without scrolling.
   const weighedInToday = history[0]?.date === her;
 
+  const monthName = new Date(`${her}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+  const lb = (kg: number) => (u === "imperial" ? Math.round(kgToLb(kg)) : Math.round(kg)).toLocaleString();
+
+  /** Today's four food numbers, judged in the one place — see MacroBars. */
+  const macroRows: MacroRow[] = [
+    { key: "calories", label: "Calories", value: food.calories, target: food.calorieTarget, complete: food.caloriesComplete, suffix: "" },
+    { key: "protein", label: "Protein", value: food.proteinG, target: food.proteinTargetG, complete: food.caloriesComplete, suffix: "g" },
+    { key: "carbs", label: "Carbs", value: food.carbsG, target: food.carbTargetG, complete: food.carbsComplete, suffix: "g" },
+    { key: "fat", label: "Fat", value: food.fatG, target: food.fatTargetG, complete: food.fatComplete, suffix: "g" },
+  ];
+
   return (
     <>
       <header className="mb-5">
@@ -116,110 +132,109 @@ export default async function ProgressPage() {
       </header>
 
       {/*
-        The trend first, because it is the answer to the question she opened
-        this screen with. It used to sit fifth, under a card explaining why
-        weighing in matters — above the number that explains it.
+        Four horizons, ascending: today, this week, this month, this year.
+
+        This was one column of cards in the order they were built, so this
+        morning's weigh-in, last week's missed sessions and a lifetime volume
+        total sat against each other with nothing to say which was which. They
+        are different sizes of true and the question is asked at four
+        different sizes — "how am I doing right now" and "how am I doing
+        overall" want different answers.
+
+        Ascending, not descending. What she can still act on today is at the
+        top where it needs no scroll; the long view rewards a scroll rather
+        than demanding one.
       */}
-      <section className="card mb-3 p-5">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-faint">
-              {trend.confidence === "none" ? "Current" : "Trend"}
-            </p>
-            <p className="text-4xl font-bold tabular">
-              {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
-            </p>
-            {rawLatest !== null && trend.confidence !== "none" && (
-              <p className="mt-0.5 text-[12px] text-faint tabular">
-                last weigh-in {rawLatest} {unit}
+      <ProgressSection title="Today" hint={prettyDate(her)}>
+        {/*
+          The trend first, because it is the question she opened the screen
+          with. It used to sit fifth, under a card explaining why weighing in
+          matters — above the number that explains it.
+        */}
+        <section className="card mb-3 p-5">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-faint">
+                {trend.confidence === "none" ? "Current" : "Trend"}
               </p>
-            )}
+              <p className="text-4xl font-bold tabular">
+                {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
+              </p>
+              {rawLatest !== null && trend.confidence !== "none" && (
+                <p className="mt-0.5 text-[12px] text-faint tabular">
+                  last weigh-in {rawLatest} {unit}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              {lost !== null && lost !== 0 && (
+                <p className={`text-lg font-semibold tabular ${lost > 0 ? "text-beat" : "text-muted"}`}>
+                  {lost > 0 ? "−" : "+"}{Math.abs(lost)} {unit}
+                </p>
+              )}
+              {/* Deliberately silent when the data cannot support a direction:
+                  a fortnightly weigher would otherwise be told she gained half
+                  a kilo because she happened to weigh in bloated. */}
+              {weekly !== null && (
+                <p className="text-[12px] text-muted tabular">
+                  {weekly === 0 ? "level" : `${weekly < 0 ? "−" : "+"}${Math.abs(weekly)} ${unit}`} this week
+                </p>
+              )}
+              <p className="text-[12px] text-faint">
+                {toGo !== null ? `${Math.max(0, toGo)} ${unit} to goal` : "no goal set"}
+              </p>
+            </div>
           </div>
-          <div className="text-right">
-            {lost !== null && lost !== 0 && (
-              <p className={`text-lg font-semibold tabular ${lost > 0 ? "text-beat" : "text-muted"}`}>
-                {lost > 0 ? "−" : "+"}{Math.abs(lost)} {unit}
-              </p>
-            )}
-            {/* Deliberately silent when the data cannot support a direction:
-                a fortnightly weigher would otherwise be told she gained half a
-                kilo because she happened to weigh in bloated. */}
-            {weekly !== null && (
-              <p className="text-[12px] text-muted tabular">
-                {weekly === 0 ? "level" : `${weekly < 0 ? "−" : "+"}${Math.abs(weekly)} ${unit}`} this week
-              </p>
-            )}
-            <p className="text-[12px] text-faint">
-              {toGo !== null ? `${Math.max(0, toGo)} ${unit} to goal` : "no goal set"}
+
+          {trend.confidence === "low" && trend.weighInsLast14Days > 0 && (
+            <p className="mt-3 text-[12px] leading-relaxed text-faint">
+              {trend.weighInsLast14Days} weigh-in{trend.weighInsLast14Days === 1 ? "" : "s"} in the last
+              fortnight — a few more and the trend can say which way it&rsquo;s going.
             </p>
+          )}
+
+          {pct !== null && (
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-raised">
+              <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+            </div>
+          )}
+
+          <div className="mt-4">
+            <Sparkline
+              points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
+              trend={trend.series.map((p) => weightOut(p.trend, u)!)}
+              goal={goal}
+            />
           </div>
-        </div>
-
-        {trend.confidence === "low" && trend.weighInsLast14Days > 0 && (
-          <p className="mt-3 text-[12px] leading-relaxed text-faint">
-            {trend.weighInsLast14Days} weigh-in{trend.weighInsLast14Days === 1 ? "" : "s"} in the last
-            fortnight — a few more and the trend can say which way it&rsquo;s going.
-          </p>
-        )}
-
-        {pct !== null && (
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-raised">
-            <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
-          </div>
-        )}
-
-        <div className="mt-4">
-          <Sparkline
-            points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
-            trend={trend.series.map((p) => weightOut(p.trend, u)!)}
-            goal={goal}
-          />
-        </div>
-      </section>
-      <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
-
-      {/*
-        The week's detail and the milestones, beside the numbers rather than
-        under them. Both were cards of their own and both were mostly one line
-        — "still to do this week" and "no milestones yet" do not each need a
-        heading, a border, and a screenful of scroll between them.
-      */}
-      <GoalCard
-        goal={goal}
-        current={current}
-        start={start}
-        unit={unit}
-        goalDate={profile.goalDate}
-        direction={direction}
-        rungs={ladder}
-      />
-
-      {/* Everything she has ever lifted, added up. The one number that only
-          ever goes up — the session-done screen shows it for one workout;
-          this is all of them, and it is pure confidence. */}
-      {totals.sessions > 0 && (
-        <section className="card mb-3 overflow-hidden p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-beat">Lifted, all time</p>
-          <p className="mt-1 text-4xl font-bold tabular tracking-tight">
-            {(u === "imperial" ? Math.round(kgToLb(totals.volumeKg)) : Math.round(totals.volumeKg)).toLocaleString()}
-            <span className="ml-1.5 text-lg font-semibold text-muted">{unit}</span>
-          </p>
-          <p className="mt-1 text-[13px] text-muted">
-            across {totals.sessions.toLocaleString()} session{totals.sessions === 1 ? "" : "s"} and{" "}
-            {totals.sets.toLocaleString()} set{totals.sets === 1 ? "" : "s"}
-            {totals.thisWeekVolumeKg > 0 && (
-              <> · <span className="text-beat">{(u === "imperial" ? Math.round(kgToLb(totals.thisWeekVolumeKg)) : Math.round(totals.thisWeekVolumeKg)).toLocaleString()} {unit}</span> this week</>
-            )}
-          </p>
         </section>
-      )}
 
-      <section className="card mb-3 p-5">
-        <div>
-          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">This week</h2>
-          {/* What is left, first: after finishing Tuesday's session this
-              said "still to do: Monday" and nothing at all about the two
-              sessions ahead of her. */}
+        <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
+
+        {/* What she has eaten so far, on the same terms as the Eat screen: a
+            total built from entries that carry no figures is a floor, and gets
+            a bar with no verdict rather than a colour it has not earned. */}
+        {(food.logged.length > 0 || food.calorieTarget !== null) && (
+          <section className="card mb-3 p-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-faint">Food today</p>
+            <MacroBars rows={macroRows} />
+          </section>
+        )}
+
+        {/* And what she has lifted since this morning — the one training
+            number still hers to change today. */}
+        {totals.todaySets > 0 && (
+          <section className="card mb-3 flex items-end justify-between gap-4 p-5">
+            <Headline value={lb(totals.todayVolumeKg)} unit={unit} label="lifted today" tone="good" />
+            <Headline value={String(totals.todaySets)} label={`set${totals.todaySets === 1 ? "" : "s"} logged`} />
+          </section>
+        )}
+      </ProgressSection>
+
+      <ProgressSection title="This week" hint={`week of ${prettyDate(weekStart(her))}`}>
+        <section className="card mb-3 p-5">
+          {/* What is left, first: after finishing Tuesday's session this said
+              "still to do: Monday" and nothing at all about the two sessions
+              ahead of her. */}
           {review.remainingDays.length > 0 && (
             <p className="mb-2 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] text-accent">
               Left this week: {review.remainingDays.join(", ")}
@@ -235,53 +250,100 @@ export default async function ProgressPage() {
               Every session this week, done.
             </p>
           )}
+          {totals.thisWeekVolumeKg > 0 && (
+            <div className="mb-1 flex items-end justify-between gap-4 border-b border-line/60 pb-3">
+              <Headline value={lb(totals.thisWeekVolumeKg)} unit={unit} label="lifted this week" tone="good" />
+              <Headline
+                value={String(totals.thisWeekSessions)}
+                label={`session${totals.thisWeekSessions === 1 ? "" : "s"}`}
+              />
+            </div>
+          )}
           {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
           {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
           {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
             <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
           )}
+        </section>
+
+        <div className="mb-3">
+          <BurnCard
+            title="Training cost this week"
+            kcal={burn.total}
+            sub="this week"
+            sessions={burn.sessions}
+          />
         </div>
 
-      </section>
-
+        <NutritionTrendCard trend={eating} />
+      </ProgressSection>
 
       {/*
-        Two explicit columns on a desktop, not a flowed one.
-        A multi-column *flow* reshuffles everything below the cursor when a
-        card expands — and half of these expand. Two independent columns only
-        ever move their own contents, so opening the measurement form pushes
-        the photos down and leaves the left-hand side alone.
-
-        Left is what she came to look at; right is what she came to do.
+        A month is where a body composition change is finally louder than the
+        noise — a fortnight of weight is mostly water, and a tape measure moves
+        on a scale of weeks rather than days. So the measurements live here
+        rather than beside this morning's weigh-in.
       */}
-      <div className="lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-4">
-      <div>
-      <div className="mb-3">
-        <BurnCard
-          title="Training cost this week"
-          kcal={burn.total}
-          sub="this week"
-          sessions={burn.sessions}
+      <ProgressSection title="This month" hint={monthName}>
+        {totals.thisMonthSessions > 0 && (
+          <section className="card mb-3 flex flex-wrap items-end justify-between gap-4 p-5">
+            <Headline value={lb(totals.thisMonthVolumeKg)} unit={unit} label="lifted this month" tone="good" />
+            <Headline
+              value={String(totals.thisMonthSessions)}
+              label={`session${totals.thisMonthSessions === 1 ? "" : "s"} this month`}
+            />
+          </section>
+        )}
+        <Measurements sites={sites} unit={lengthLabel(u)} />
+        <Progression items={progression} unit={weightLabel(u)} />
+      </ProgressSection>
+
+      {/*
+        The long view. Everything here only ever goes up, which is the point:
+        a bad fortnight cannot take a session off the lifetime count, and this
+        is the section to scroll to on the day the week has gone badly.
+      */}
+      <ProgressSection title="This year and all time" hint={her.slice(0, 4)}>
+        {totals.sessions > 0 && (
+          <section className="card mb-3 overflow-hidden p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-beat">Lifted, all time</p>
+            <p className="mt-1 text-4xl font-bold tabular tracking-tight">
+              {lb(totals.volumeKg)}
+              <span className="ml-1.5 text-lg font-semibold text-muted">{unit}</span>
+            </p>
+            <p className="mt-1 text-[13px] text-muted">
+              across {totals.sessions.toLocaleString()} session{totals.sessions === 1 ? "" : "s"} and{" "}
+              {totals.sets.toLocaleString()} set{totals.sets === 1 ? "" : "s"}
+            </p>
+            {totals.thisYearSessions > 0 && (
+              <p className="mt-2 border-t border-line/60 pt-2 text-[13px] text-muted">
+                <span className="text-beat">{lb(totals.thisYearVolumeKg)} {unit}</span> and{" "}
+                {totals.thisYearSessions.toLocaleString()} session
+                {totals.thisYearSessions === 1 ? "" : "s"} this year
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* The milestones: the one thing on this screen that is explicitly
+            about where she is going rather than where she has been. */}
+        <GoalCard
+          goal={goal}
+          current={current}
+          start={start}
+          unit={unit}
+          goalDate={profile.goalDate}
+          direction={direction}
+          rungs={ladder}
         />
-      </div>
 
-      <NutritionTrendCard trend={eating} />
-      <Progression items={progression} unit={weightLabel(u)} />
+        <ProgressPhotos photos={library.photos} total={library.total} />
 
-
-
-      </div>
-
-      <div>
-      <Measurements sites={sites} unit={lengthLabel(u)} />
-      <ProgressPhotos photos={library.photos} total={library.total} />
-      {/* Last, because it is the one thing here that cannot say anything
-          useful until several weeks of logs exist — and until it can, it is a
-          card explaining why it has nothing to say. */}
-      <CheckIn />
-
-      </div>
-      </div>
+        {/* Last, because it is the one thing here that cannot say anything
+            useful until several weeks of logs exist — and until it can, it is
+            a card explaining why it has nothing to say. */}
+        <CheckIn />
+      </ProgressSection>
     </>
   );
 }

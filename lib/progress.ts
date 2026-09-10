@@ -1213,24 +1213,51 @@ export async function trainingTotals(
   profileId: string,
   /** Her today, so "this week" is her week — never the server's. */
   asOf: ISODate = today(),
-): Promise<{
-  volumeKg: number; sets: number; sessions: number; thisWeekVolumeKg: number;
-}> {
+): Promise<TrainingTotals> {
+  /*
+    One pass, four windows.
+
+    Progress reads today, this week, this month and this year down the page,
+    and asking the same table four times for four date ranges is four round
+    trips to say one thing. Conditional sums do it in a single scan, and every
+    boundary is computed from *her* today — a month that starts on the
+    server's date is a month that starts a day early for anyone west of it.
+  */
   const week = weekStart(asOf);
-  const [[all], [wk]] = await Promise.all([
-    db.select({
-      volume: sql<number>`coalesce(sum(coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}), 0)::real`,
-      sets: sql<number>`count(*)::int`,
-      sessions: sql<number>`count(distinct ${setLogs.workoutId})::int`,
-    }).from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
-      .where(eq(workouts.profileId, profileId)),
-    db.select({
-      volume: sql<number>`coalesce(sum(coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}), 0)::real`,
-    }).from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
-      .where(and(eq(workouts.profileId, profileId), gte(workouts.date, week))),
-  ]);
+  const month = `${asOf.slice(0, 7)}-01`;
+  const year = `${asOf.slice(0, 4)}-01-01`;
+  const load = sql<number>`coalesce(${setLogs.weightKg}, 0) * ${setLogs.reps}`;
+  const within = (from: string) => sql<number>`coalesce(sum(case when ${workouts.date} >= ${from} then ${load} else 0 end), 0)::real`;
+  const sessionsWithin = (from: string) => sql<number>`count(distinct case when ${workouts.date} >= ${from} then ${workouts.id} end)::int`;
+
+  const [row] = await db.select({
+    volume: sql<number>`coalesce(sum(${load}), 0)::real`,
+    sets: sql<number>`count(*)::int`,
+    sessions: sql<number>`count(distinct ${setLogs.workoutId})::int`,
+    today: within(asOf),
+    week: within(week),
+    month: within(month),
+    year: within(year),
+    todaySets: sql<number>`count(*) filter (where ${workouts.date} >= ${asOf})::int`,
+    weekSessions: sessionsWithin(week),
+    monthSessions: sessionsWithin(month),
+    yearSessions: sessionsWithin(year),
+  }).from(setLogs).innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+    .where(eq(workouts.profileId, profileId));
+
   return {
-    volumeKg: all?.volume ?? 0, sets: all?.sets ?? 0, sessions: all?.sessions ?? 0,
-    thisWeekVolumeKg: wk?.volume ?? 0,
+    volumeKg: row?.volume ?? 0, sets: row?.sets ?? 0, sessions: row?.sessions ?? 0,
+    todayVolumeKg: row?.today ?? 0, todaySets: row?.todaySets ?? 0,
+    thisWeekVolumeKg: row?.week ?? 0, thisWeekSessions: row?.weekSessions ?? 0,
+    thisMonthVolumeKg: row?.month ?? 0, thisMonthSessions: row?.monthSessions ?? 0,
+    thisYearVolumeKg: row?.year ?? 0, thisYearSessions: row?.yearSessions ?? 0,
   };
 }
+
+export type TrainingTotals = {
+  volumeKg: number; sets: number; sessions: number;
+  todayVolumeKg: number; todaySets: number;
+  thisWeekVolumeKg: number; thisWeekSessions: number;
+  thisMonthVolumeKg: number; thisMonthSessions: number;
+  thisYearVolumeKg: number; thisYearSessions: number;
+};

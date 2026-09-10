@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-progress-horizons",
+    date: "2026-09-10",
+    title: "Progress reads at four sizes",
+    blurb:
+      "Today, this week, this month, then the year and all time \u2014 smallest first, so this morning's weigh-in is the thing you land on and the long view is a scroll away.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-10-session-clock",
     date: "2026-09-10",
     title: "The session clock restarts itself, and can be corrected",
