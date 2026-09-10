@@ -13,7 +13,7 @@ import { dayEyebrow } from "@/lib/day-label";
  * to ask the coach to rename a heading did not feel like the app was hers.
  */
 export function DayTitle({
-  title, dayOfWeek, focus, compact = false, prefix,
+  title, dayOfWeek, focus, compact = false, prefix, prefixOn = "all", align = "start",
 }: {
   title: string; dayOfWeek: number; focus: string | null;
   /** Sharing its row with something else, so it is a heading, not a title. */
@@ -21,6 +21,20 @@ export function DayTitle({
   /** The day, set inline before the name — "Tuesday · Shoulders" reads as one
    *  thing, where an uppercase eyebrow above it was two. */
   prefix?: string;
+  /**
+   * Where that eyebrow is worth having.
+   *
+   * "all" on Plan, where seven of these are stacked and the eyebrow is the
+   * only thing naming each one. "phone" on Train, where the date strip sits
+   * directly above the card and says the day itself — on a wide screen that
+   * is the same word twice, six inches apart, in two different type styles.
+   */
+  prefixOn?: "all" | "phone";
+  /**
+   * "centre" when something sits either side of it — the day arrows on Train.
+   * A left-aligned heading between two arrows reads as having slipped.
+   */
+  align?: "start" | "centre";
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -62,11 +76,15 @@ export function DayTitle({
             straight out of its column and under the button beside it. */}
         <button
           onClick={() => setEditing(true)}
-          className="group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center"
+          className={`group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center ${
+            align === "centre" ? "mx-auto w-fit justify-center" : ""
+          }`}
           aria-label={`Rename ${title}`}
         >
           {eyebrow && (
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-accent">
+            <span className={`shrink-0 text-[11px] font-semibold uppercase tracking-wide text-accent ${
+              prefixOn === "phone" ? "md:hidden" : ""
+            }`}>
               {eyebrow} ·
             </span>
           )}

@@ -7,7 +7,6 @@ import { ThemePicker } from "@/components/theme-picker";
 import { themeOf } from "@/lib/theme";
 import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
-import { AiOpinion } from "@/components/ai-opinion";
 import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
 import { DeleteAccount } from "@/components/delete-account";
@@ -38,7 +37,6 @@ export default async function SettingsPage() {
           <h1 className="truncate text-2xl font-bold tracking-tight">{user?.name ?? profile.name}</h1>
           <p className="mt-0.5 text-[13px] text-muted">Your coach, your units, your account.</p>
         </div>
-        <AiOpinion page="progress" label="your setup" />
       </header>
 
       {/*

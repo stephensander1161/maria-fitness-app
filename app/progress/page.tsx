@@ -18,7 +18,6 @@ import { weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
 import { CheckIn } from "@/components/check-in";
 import { Progression } from "@/components/progression";
-import { AiOpinion } from "@/components/ai-opinion";
 import { Measurements } from "@/components/measurements";
 import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
@@ -96,12 +95,7 @@ export default async function ProgressPage() {
   return (
     <>
       <header className="mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
-          <div className="flex shrink-0 items-center gap-2">
-            <AiOpinion page="progress" label="progress" />
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
 
         {/*
           The week's three numbers under the title rather than beside it. On a

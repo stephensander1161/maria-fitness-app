@@ -401,7 +401,7 @@ const RULES: [RegExp, PatternKey][] = [
   [/incline.*(press|bench)/, "inclinePress"],
   [/russian-twist|seated.*twist/, "seatedTwist"],
   [/calf-raise|calf-stretch/, "calfRaise"],
-  [/pushdown|kickback|tricep.*extension|terminal-knee/, "armExtension"],
+  [/pushdown|kickback|tricep.*extension|bow-extension|terminal-knee/, "armExtension"],
   [/leg-extension/, "legExtension"],
   [/muscle-up/, "verticalPull"],
   // Before the plank rule, which otherwise catches these through `category`.

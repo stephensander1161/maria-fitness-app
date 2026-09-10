@@ -1,5 +1,4 @@
 import { TrainClient } from "@/components/train-client";
-import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { profileToday } from "@/lib/profile";
 import { pickableExercises, todayView } from "@/lib/views";
@@ -10,7 +9,7 @@ import { DayTitle } from "@/components/day-title";
 import { dayEyebrow } from "@/lib/day-label";
 import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
 import { rollForward } from "@/lib/plan-rollover";
-import { DayNav } from "@/components/day-nav";
+import { DayLabel, DayStep } from "@/components/day-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -76,18 +75,6 @@ export default async function TrainPage({
           }}
         />
       )}
-      <DayNav
-        base="/train"
-        param="d"
-        date={on}
-        prev={addDays(on, -1)}
-        next={addDays(on, 1)}
-        today={her}
-        label={prettyDate(on)}
-        isToday={isToday}
-        actions={<AiOpinion page="train" label="session" />}
-      />
-
       {/* The same cards on every day. A movement is a movement; having one UI
           for today and a list of names for every other day was two things to
           build and one of them permanently behind. What the day changes is
@@ -98,6 +85,14 @@ export default async function TrainPage({
         targets={targets}
         date={on}
         isToday={isToday}
+        // The arrows either side of the day's own name, in the card that
+        // already carries it. They were a strip of their own above it, which
+        // made the top of the screen two containers saying one thing.
+        stepBack={<DayStep href={`/train?d=${addDays(on, -1)}`} dir="left" label="The day before" />}
+        stepOn={<DayStep href={`/train?d=${addDays(on, 1)}`} dir="right" label="The day after" />}
+        dayLine={
+          <DayLabel base="/train" param="d" date={on} today={her} label={prettyDate(on)} isToday={isToday} />
+        }
         // The day's name and the session clock in one row, rather than a
         // heading centred under the date arrows and then a Start button on a
         // line of its own beneath it — three stacked blocks saying two things,
@@ -105,11 +100,24 @@ export default async function TrainPage({
         heading={
           <>
             {view.hasPlan ? (
-              <DayTitle title={view.title} dayOfWeek={dayIndex(on)} focus={view.focus} compact prefix={view.dayName} />
+              // The line under the name says "Today" on today and "Tue, Sep 8"
+              // on any other day — so the weekday is only worth repeating here
+              // on the day that line does not name, and only on a phone, where
+              // the two are inches apart rather than a heading and a caption at
+              // opposite ends of a wide screen.
+              <DayTitle
+                title={view.title}
+                dayOfWeek={dayIndex(on)}
+                focus={view.focus}
+                compact
+                prefix={isToday ? view.dayName : undefined}
+                prefixOn="phone"
+                align="centre"
+              />
             ) : (
               <p className="text-[17px] font-semibold md:text-2xl">
-                {dayEyebrow(view.dayName, view.title) && (
-                  <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                {isToday && dayEyebrow(view.dayName, view.title) && (
+                  <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent md:hidden">
                     {dayEyebrow(view.dayName, view.title)} ·
                   </span>
                 )}

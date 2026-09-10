@@ -1,5 +1,4 @@
 import { EatClient } from "@/components/eat-client";
-import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
 import { APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
@@ -43,7 +42,6 @@ export default async function EatPage() {
       */}
       <header className="mb-5 flex items-baseline justify-between gap-3">
         <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
-        <AiOpinion page="plan" label="food" />
       </header>
 
       <EatClient

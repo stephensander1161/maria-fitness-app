@@ -72,6 +72,9 @@ export function TrainClient({
   focus,
   dayLabel,
   heading,
+  stepBack,
+  stepOn,
+  dayLine,
 }: {
   view: TodayView;
   pickable: Pickable;
@@ -109,6 +112,10 @@ export function TrainClient({
    * the same card with the control floated to the right of it.
    */
   heading?: React.ReactNode;
+  /** A day back, a day on, and which day this is — placed inside the card. */
+  stepBack?: React.ReactNode;
+  stepOn?: React.ReactNode;
+  dayLine?: React.ReactNode;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -592,13 +599,24 @@ export function TrainClient({
               clock and Finish pinned to the top-right corner. `md:block` drops
               the flex row so the centred text is genuinely centred on the
               card, not on the space left over beside the controls. */}
-          <div className="relative flex flex-wrap items-center justify-between gap-x-3 gap-y-2 md:block md:text-center">
-            <div className="min-w-0 flex-1 basis-32 md:flex-none">{heading}</div>
+          <div className="relative flex flex-wrap items-center gap-x-2 gap-y-2">
+            {/* The name gets the row. Flanking it with the arrows put
+                "Wednesday session" in about 140px on a phone and broke it over
+                two lines, so the arrows sit under it with the date they
+                actually change — which is also the shorter word to aim at. */}
+            <div className="min-w-0 flex-1 basis-24 text-center">{heading}</div>
             {sessionBar && (
-              <div className={`shrink-0 md:absolute md:right-0 md:top-0 md:ml-0 md:mt-0 md:basis-auto ${
-                running ? `basis-full ${justStarted ? "session-drop" : ""}` : "ml-auto"
+              <div className={`shrink-0 md:ml-0 md:mt-0 md:basis-auto ${
+                running ? `basis-full ${justStarted ? "session-drop" : ""}` : ""
               }`}>
                 {sessionBar}
+              </div>
+            )}
+            {(stepBack || stepOn) && (
+              <div className="flex basis-full items-center justify-center gap-1">
+                {stepBack}
+                {dayLine}
+                {stepOn}
               </div>
             )}
           </div>
@@ -1909,6 +1927,11 @@ export function ExerciseCard({
         A dot for a queued set looks logged, because it is; the outline says
         it hasn't gone up yet. A logged one is a button: a mistyped set was
         permanent until now.
+
+        No "LAST · 09-07" caption on the end of the row: it sat off the last
+        column, at a size nothing else on the card uses, to date numbers that
+        are obviously the previous session. Opening the card to log a set
+        still says the date in full, which is where it is actually asked.
       */}
       <div className="flex flex-wrap items-end gap-1.5 px-4 pb-3">
         {Array.from({
@@ -1982,11 +2005,6 @@ export function ExerciseCard({
             </div>
           );
         })}
-        {exercise.lastTime && (
-          <span className="ml-1 pb-0.5 text-[10px] uppercase tracking-wide text-faint">
-            last · {exercise.lastTime.date.slice(5)}
-          </span>
-        )}
       </div>
 
       {/* A remove/edit failure has to be visible where she is looking — the

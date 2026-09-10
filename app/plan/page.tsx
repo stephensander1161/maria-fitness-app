@@ -1,5 +1,4 @@
 import { PlanClient } from "@/components/plan-client";
-import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
 import { addDays, dayIndex, daysBetween, prettyDate, weekStart } from "@/lib/date";
@@ -90,7 +89,6 @@ export default async function PlanPage({
               : `${Math.abs(weeksApart)} weeks back`}
           </p>
         </div>
-        <AiOpinion page="plan" label="plan" />
       </header>
       <PlanClient
         week={week}

@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { coachSurfaceFor } from "@/lib/coach-surface";
 
 /**
  * "Chat about this" happens where "this" is.
@@ -75,7 +76,15 @@ suite("asking the coach never means leaving the screen", () => {
       .filter((f) => fs.existsSync(f));
 
     expect(pages.length).toBeGreaterThan(4);
-    const mute = pages.filter((f) => !/\bAiOpinion\b|\bAskCoach\b/.test(read(f)));
+    // The pair of buttons moved out of the seven page headers and into the
+    // companion's box, which is on every screen — so a screen reaches the
+    // coach either through an AskCoach in its own flow or through
+    // coachSurfaceFor naming it. A screen in neither list is one where asking
+    // about it means leaving it, which is the thing this test exists for.
+    const mute = pages.filter((f) => {
+      if (/\bAiOpinion\b|\bAskCoach\b/.test(read(f))) return false;
+      return coachSurfaceFor(`/${path.basename(path.dirname(f))}`) === null;
+    });
     expect(
       mute,
       `these screens have no way to reach the coach from them: ${mute.join(", ")}`,

@@ -5,7 +5,6 @@ import { exercises, facts } from "@/lib/db/schema";
 import { Library } from "@/components/library";
 import type { MealIdea, MoveIdea } from "@/components/ideas";
 import { MovementDetail } from "@/components/movement-detail";
-import { AiOpinion } from "@/components/ai-opinion";
 import { movementView } from "@/lib/views";
 import { requireOnboarded } from "@/lib/session";
 import { runTool } from "@/lib/tools";
@@ -72,7 +71,6 @@ export default async function LearnPage({
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight md:text-xl">Learn</h1>
-          <AiOpinion page="train" label="the library" />
         </div>
         <Library
           active={active}

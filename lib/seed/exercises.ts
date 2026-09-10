@@ -1014,7 +1014,7 @@ export const EXERCISES: Seed[] = [
     primaryMuscles: ["triceps"], equipment: ["dumbbell", "resistance band"],
     // What people actually call it in a gym. Searching for the name you use
     // should find the movement you mean.
-    tags: ["bow extension", "skull crusher", "french press", "overhead extension", "triceps extension"],
+    tags: ["skull crusher", "french press", "overhead extension", "triceps extension"],
     formCues: [
       "One dumbbell held in both hands, pressed overhead, elbows pointing forward.",
       "Lower behind your head by bending only at the elbow.",
@@ -1026,6 +1026,27 @@ export const EXERCISES: Seed[] = [
       "Ribs flaring and the lower back arching as the weight travels back.",
     ],
     easier: ["tricep-pushdown"],
+  },
+  {
+    // Its own movement, not a search term on the one above. It was a tag on
+    // overhead-tricep-extension, which meant looking for it found something
+    // else and the library quietly said "you mean this instead".
+    slug: "bow-extension", name: "Bow Extension", category: "isolation",
+    primaryMuscles: ["triceps"], equipment: ["dumbbell", "resistance band"],
+    tags: ["bow", "bow extension", "triceps extension", "double dumbbell overhead extension"],
+    formCues: [
+      "A dumbbell in each hand, pressed overhead, palms facing each other.",
+      "Elbows point forward and stay there — they are the hinge, nothing else moves.",
+      "Lower both weights behind your head until you feel the stretch, arms drawing back like a bow.",
+      "Extend to straight without letting the elbows drift apart.",
+    ],
+    commonMistakes: [
+      "Elbows flaring out to the sides, which hands the work to the shoulders.",
+      "Ribs flaring and the lower back arching as the weights travel back.",
+      "Going heavier than the shoulders can hold overhead — this is an elbow movement.",
+    ],
+    safetyNote: "Two independent weights overhead need more shoulder control than one. Start lighter than the single-dumbbell version and stop the range where your elbows still point forward.",
+    easier: ["tricep-pushdown", "overhead-tricep-extension"], harder: ["bench-dip"],
   },
   {
     slug: "bench-dip", name: "Bench Dip", category: "compound",

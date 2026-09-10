@@ -229,7 +229,7 @@ suite("the day's name and its clock share a container", () => {
     // first movement.
     const page = read("app/train/page.tsx");
     expect(page).toMatch(/heading=\{/);
-    expect(page).toMatch(/<DayTitle title=\{view\.title\} dayOfWeek=\{dayIndex\(on\)\} focus=\{view\.focus\} compact prefix=\{view\.dayName\} \/>/);
+    expect(page).toMatch(/<DayTitle\n\s*title=\{view\.title\}\n\s*dayOfWeek=\{dayIndex\(on\)\}\n\s*focus=\{view\.focus\}\n\s*compact\n/);
     // And DayNav no longer carries the title as well.
     expect(page).not.toMatch(/<\/DayNav>/);
   });
@@ -244,20 +244,26 @@ suite("the day's name and its clock share a container", () => {
     expect(plan).toMatch(/function DayHeader\(\{/);
   });
 
-  it("floats the control right stopped, and drops it to its own row running", () => {
-    // Stopped it is one small button and shares the name's row, hard right.
-    // Started, it is a clock, a pause and Finish, which left about a third of
-    // that row for the session's name — so it takes the line underneath, and
-    // animates down onto it so the card reads as rearranging itself rather
-    // than as being a different shape the next time she looks.
+  it("puts the day's arrows in the card, and drops the clock to its own row", () => {
+    // The arrows were a strip of their own above this card, which already
+    // carried the day's name and the Start button: two containers saying one
+    // thing. Stopped, the control shares the name's row. Started, it is a
+    // clock, a pause and Finish, which left about a third of that row for the
+    // session's name — so it takes the line underneath, and animates down onto
+    // it so the card reads as rearranging itself rather than as being a
+    // different shape the next time she looks.
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-32 md:flex-none">/);
-    expect(card).toMatch(/running \? `basis-full \$\{justStarted \? "session-drop" : ""\}` : "ml-auto"/);
+    expect(card).toMatch(/\{stepBack\}/);
+    expect(card).toMatch(/\{stepOn\}/);
+    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-24 text-center">/);
+    expect(card).toMatch(/running \? `basis-full \$\{justStarted \? "session-drop" : ""\}` : ""/);
+    // And there is no strip left above it.
+    expect(read("app/train/page.tsx")).not.toMatch(/<DayNav/);
     expect(card).toMatch(/const running = Boolean\(view\.startedAt\) && !view\.finishedAt;/);
     // The animation is the transition, not the state: a reload mid-session
     // must not replay it.
     expect(card).toMatch(/setJustStarted\(true\);/);
-    expect(card).toMatch(/flex flex-wrap items-center justify-between gap-x-3 gap-y-2/);
+    expect(card).toMatch(/relative flex flex-wrap items-center gap-x-2 gap-y-2/);
     const css = fs.readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/@keyframes session-drop/);
     const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);
@@ -286,13 +292,32 @@ suite("the day's name and its clock share a container", () => {
     expect(card).toMatch(/<SessionClock\n/);
   });
 
+  it("does not say the weekday twice on one screen", () => {
+    // The date strip directly above the card says "Today" on today and
+    // "Tue, Sep 8" on any other day. Repeating it in the heading gave a
+    // desktop "Tue, Sep 8" and "TUESDAY · Shoulders" a few inches apart.
+    const page = read("app/train/page.tsx");
+    expect(page).toMatch(/prefix=\{isToday \? view\.dayName : undefined\}/);
+    expect(page).toMatch(/prefixOn="phone"/);
+    // Same rule on the day with no plan, which writes its own eyebrow.
+    expect(page).toMatch(/\{isToday && dayEyebrow\(view\.dayName, view\.title\) && \(/);
+    expect(page).toMatch(/tracking-wide text-accent md:hidden/);
+    // Plan keeps its eyebrow everywhere: seven of them are stacked there and
+    // it is the only thing naming each day.
+    const plan = read("components/plan-client.tsx");
+    expect(plan).not.toMatch(/prefixOn=/);
+  });
+
   it("and the title can actually shrink, which is why it overlapped", () => {
     // A flex item will not shrink below its content by default, so `truncate`
     // on the heading inside did nothing and a long session name ran out of
     // its column and under the button beside it.
     const title = read("components/day-title.tsx");
-    expect(title).toMatch(/className="group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center"/);
+    expect(title).toMatch(/group flex min-w-0 max-w-full items-baseline gap-2 text-left/);
     expect(title).toMatch(/compact \? "text-\[17px\] md:text-2xl" : "text-2xl"/);
+    // Centred where something sits either side of it: a left-aligned heading
+    // between two arrows reads as having slipped.
+    expect(title).toMatch(/align === "centre" \? "mx-auto w-fit justify-center" : ""/);
   });
 });
 
@@ -351,12 +376,12 @@ suite("one Finish workout, not two", () => {
 });
 
 suite("the session heading grows up on a desktop", () => {
-  it("centres the day name and pins the controls to the corner", () => {
+  it("centres the day name between its arrows and sizes it up", () => {
+    // One row, four cells: a day back, the name with its date under it, a day
+    // on, and the control. The heading is centred on the space the arrows
+    // leave, which on a wide screen is the middle of the card.
     const card = read("components/train-client.tsx");
-    // Block + centred on md, controls absolute top-right; the phone keeps the
-    // left-aligned row it shares with the controls.
-    expect(card).toMatch(/md:block md:text-center/);
-    expect(card).toMatch(/md:absolute md:right-0 md:top-0/);
+    expect(card).toMatch(/\{stepBack\}\n\s*\{dayLine\}\n\s*\{stepOn\}/);
     const title = read("components/day-title.tsx");
     expect(title).toMatch(/compact \? "text-\[17px\] md:text-2xl" : "text-2xl"/);
     expect(title).toMatch(/md:mx-auto md:w-fit md:justify-center/);

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
+import { coachSurfaceFor } from "@/lib/coach-surface";
+import { AiOpinion } from "./ai-opinion";
 import {
   activityState, celebratePose, idlePose, nextActivity, phaseFor, reactionFor, setPose,
   sleepPose, stridePose, thinkPose, travel, unimpressedPose, wavePose,
@@ -84,9 +86,24 @@ export function Companion({
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
   const hungry = fullness !== null && fullness < 0.7;
+  const surface = coachSurfaceFor(path);
 
   return (
     <div className="tap-only relative mt-6 overflow-hidden rounded-2xl border border-line/60 bg-surface/40">
+      {/*
+        The two ways of talking to him, in his own box.
+        They used to be a pair in each page's own header — seven copies of the
+        same two buttons, and on Train they were a strip of chrome above the
+        session with the day's arrows. This is where the coach already is.
+      */}
+      {surface && (
+        // In the flow above him rather than floating over him: he walks the
+        // whole width of the strip, so anything pinned to a corner is
+        // something he eventually stands behind.
+        <div className="flex justify-end px-2 pt-2">
+          <AiOpinion page={surface.page} label={surface.label} />
+        </div>
+      )}
       {/*
         One of him.
         He was briefly a crowd with buttons to add and remove, which was funny

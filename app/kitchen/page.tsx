@@ -1,6 +1,5 @@
 import { ShoppingList, type ShoppingAisle } from "@/components/shopping-list";
 import { KitchenGrid } from "@/components/kitchen-grid";
-import { AiOpinion } from "@/components/ai-opinion";
 import { requireOnboarded } from "@/lib/session";
 import { kitchenView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
@@ -46,7 +45,6 @@ export default async function KitchenPage() {
               : `Week of ${prettyDate(weekStart(her))}`}
           </p>
         </div>
-        <AiOpinion page="plan" label="the kitchen" />
       </header>
 
       <KitchenGrid items={kitchen.items} hasMealPlan={kitchen.hasMealPlan} />

@@ -25,6 +25,20 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-coach-in-his-box",
+    date: "2026-09-09",
+    title: "The coach's two buttons live with him now",
+    blurb: "\"Coach's read\" and the speech bubble were a pair in every page's header. They sit in the corner of the figure's strip instead, on every screen — and on Train that means the row of arrows above the session is gone: the day's name, its date and the way to another day are all in the one card now.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-09-bow-extension",
+    date: "2026-09-09",
+    title: "Bow Extension is its own movement",
+    blurb: "It was a search term pointing at the overhead triceps extension, so looking for it found something else. It is a movement in the library now, with its own cues — a dumbbell in each hand rather than one in both.",
+    href: "/learn",
+  },
+  {
     id: "2026-09-09-last-time-under",
     date: "2026-09-09",
     title: "Last time, directly under today's sets",
