@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-whole-library",
+    date: "2026-09-10",
+    title: "Every movement is addable, whatever you said you own",
+    blurb: "Answering \"dumbbells\" once during setup meant the barbell bench press did not exist in the app — which is wrong if you buy a rack, or train somewhere on Thursdays that has everything. The picker shows the whole library now and says \"needs barbell\" instead of hiding it. Your kit still steers what your coach programs; it no longer decides what you are allowed to log.",
+    href: "/train",
+  },
+  {
     id: "2026-09-09-neutral-icon",
     date: "2026-09-09",
     title: "The tab icon is neutral now",

@@ -145,34 +145,28 @@ export function PlanClient({
         (
           <div className="space-y-3">
             {/*
-              The day's name, and — on today — the session clock beside it.
-              Start workout used to be a button on a line of its own directly
-              under this card, which is two containers saying one thing and a
-              whole row of a phone between the name of the session and the
-              session. Today hands the heading to TrainClient so the two
-              share a container; every other day keeps its own, because there
-              is no clock to put in it.
+              One shape for every day of the week.
+              Another day is a plan she can edit; today is a session she is in
+              the middle of — so both get the Train screen's own cards rather
+              than a list of names linking to the library, which is what
+              "click into the movement I just did" used to get her. The only
+              differences are the clock, which today has and Friday does not,
+              and which day the sets are filed against.
+
+              The heading goes *into* TrainClient in both cases. A future day
+              used to wrap the heading and every movement card in one more
+              `card p-4`, so the day's cards were cards inside a card and the
+              up-next glow sat hard against the outer border — which is what
+              made Friday look squashed and today did not.
             */}
-            {isToday ? (
-              <TrainClient
-                view={today}
-                pickable={pickable}
-                targets={targets}
-                heading={<DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday />}
-              />
-            ) : (
-              <section className="card p-4">
-                <DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday={false} />
-                {/*
-                  Another day of the week is a plan she can edit. Today is a
-                  session she is in the middle of — so today gets the Train
-                  screen's own cards rather than a list of names that links to
-                  the library, which is what "click into the movement I just
-                  did" used to get her.
-                */}
-                <TrainClient view={otherDay} pickable={pickable} date={otherDate} isToday={false} />
-              </section>
-            )}
+            <TrainClient
+              view={isToday ? today : otherDay}
+              pickable={pickable}
+              targets={isToday ? targets : undefined}
+              date={isToday ? undefined : otherDate}
+              isToday={isToday}
+              heading={<DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday={isToday} />}
+            />
 
             {week.rationale && (
               <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>

@@ -37,7 +37,7 @@ export function MovementPicker({
   const [group, setGroup] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  const { groups, unavailable } = pickable;
+  const { groups } = pickable;
   const all = useMemo(
     () => groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.group }))),
     [groups],
@@ -58,19 +58,6 @@ export function MovementPicker({
     }
     return group ? all.filter((i) => i.group === group) : [];
   }, [all, group, q]);
-
-  /**
-   * Matches she cannot do yet, and the one thing in the way.
-   *
-   * Silently hiding these is what made searching "pull up" baffling: someone
-   * with dumbbells and no bar saw the two weighted variants and nothing else,
-   * because those list a dumbbell among their equipment. Saying what is
-   * missing is both an explanation and a to-do.
-   */
-  const blocked = useMemo(() => {
-    if (!q) return [];
-    return unavailable.filter((i) => matchesQuery(q, i));
-  }, [unavailable, q]);
 
   return (
     <div className="space-y-4">
@@ -102,15 +89,6 @@ export function MovementPicker({
         </div>
       )}
 
-      {blocked.length > 0 && (
-        <p className="rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[12px] leading-relaxed text-muted">
-          {blocked.length} more {blocked.length === 1 ? "match needs" : "matches need"}{" "}
-          <span className="text-text">{[...new Set(blocked.map((b) => b.missing))].join(" or ")}</span>,
-          which isn&apos;t on your equipment list — {blocked.slice(0, 4).map((b) => b.name).join(", ")}
-          {blocked.length > 4 ? " and more" : ""}. Add it in plan setup and they appear here.
-        </p>
-      )}
-
       {shown.length > 0 && (
         <div className="grid max-h-80 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
           {shown.map((i) => (
@@ -118,6 +96,7 @@ export function MovementPicker({
               key={i.slug}
               onClick={() => onPick(i.slug)}
               aria-pressed={value === i.slug}
+              title={i.missing ? `Wants ${i.missing}, which isn't on your equipment list` : undefined}
               className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-colors ${
                 value === i.slug ? "border-accent bg-accent-soft" : "border-line bg-base hover:bg-raised"
               }`}
@@ -140,6 +119,13 @@ export function MovementPicker({
                 <span className="text-[10px] leading-tight text-accent">
                   also &ldquo;{aliasFor(i.tags, q)}&rdquo;
                 </span>
+              ) : i.missing ? (
+                /*
+                  What her kit does not cover — said, not enforced. She can
+                  still pick it: the equipment answer was given once about one
+                  room, and she trains somewhere else on Thursdays.
+                */
+                <span className="text-[10px] leading-tight text-faint">needs {i.missing}</span>
               ) : (
                 <span className="text-[10px] leading-tight text-faint">{i.muscles.slice(0, 2).join(" · ")}</span>
               )}

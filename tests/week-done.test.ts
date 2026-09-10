@@ -234,14 +234,19 @@ suite("the day's name and its clock share a container", () => {
     expect(page).not.toMatch(/<\/DayNav>/);
   });
 
-  it("hands the heading to the session, on today", () => {
+  it("hands the heading to the session, on every day of the week", () => {
     // Start workout was a button on a line of its own directly under a card
     // saying "Today · Tuesday / Shoulders" — two containers saying one thing,
     // and a whole row of a phone between the session's name and the session.
     const plan = read("components/plan-client.tsx");
-    expect(plan).toMatch(/heading=\{<DayHeader day=\{day\} trainingDay=\{trainingDay\} exists=\{week\.exists\} isToday \/>\}/);
-    // One heading, used by both branches, rather than two that drift.
+    expect(plan).toMatch(/heading=\{<DayHeader day=\{day\} trainingDay=\{trainingDay\} exists=\{week\.exists\} isToday=\{isToday\} \/>\}/);
+    // One heading and one branch, rather than two shapes that drift. A future
+    // day used to wrap the heading *and* every movement card in another
+    // `card p-4`, so its cards were cards inside a card and the up-next glow
+    // sat hard against the outer border.
     expect(plan).toMatch(/function DayHeader\(\{/);
+    expect(plan).not.toMatch(/<section className="card p-4">\s*<DayHeader/);
+    expect((plan.match(/<TrainClient/g) ?? []).length).toBe(1);
   });
 
   it("puts the day's arrows in the card, on one row with the name and clock", () => {
@@ -254,8 +259,16 @@ suite("the day's name and its clock share a container", () => {
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/\{stepBack\}/);
     expect(card).toMatch(/\{stepOn\}/);
-    expect(card).toMatch(/md:grid md:grid-cols-\[1fr_auto_1fr\]/);
-    expect(card).toMatch(/order-last min-w-0 basis-full text-center md:order-none md:basis-auto/);
+    expect(card).toMatch(/hasDayNav \? "md:grid md:grid-cols-\[1fr_auto_1fr\]" : ""/);
+    expect(card).toMatch(/crowdedRow\n\s*\? "order-last basis-full text-center md:order-none md:basis-auto"/);
+    // Only when three things want the row. A day with no clock was getting a
+    // row holding nothing but the arrows and its name marooned underneath.
+    expect(card).toMatch(/const crowdedRow = hasDayNav && Boolean\(sessionBar\);/);
+    // Plan borrows this header for today and passes no arrows: without them
+    // the first cell was empty, so the button sat on a row of its own with the
+    // day's name underneath — two rows for one line of content.
+    expect(card).toMatch(/const hasDayNav = Boolean\(stepBack \|\| stepOn\);/);
+    expect(card).toMatch(/: "flex-1 basis-32"/);
     expect(card).toMatch(/justStarted && running \? "session-drop" : ""/);
     // And there is no strip left above it.
     expect(read("app/train/page.tsx")).not.toMatch(/<DayNav/);
@@ -263,7 +276,7 @@ suite("the day's name and its clock share a container", () => {
     // The animation is the transition, not the state: a reload mid-session
     // must not replay it.
     expect(card).toMatch(/setJustStarted\(true\);/);
-    expect(card).toMatch(/flex flex-wrap items-center gap-x-2 gap-y-2 md:grid/);
+    expect(card).toMatch(/flex flex-wrap items-center gap-x-2 gap-y-2 \$\{/);
     const css = fs.readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/@keyframes session-drop/);
     const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);

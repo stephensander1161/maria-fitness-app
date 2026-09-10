@@ -449,6 +449,10 @@ export type PickableExercise = {
    *  never done from a name and a wireframe is a guess. */
   formCues: string[];
   safetyNote: string | null;
+  /** Her kit covers it. Marked, never enforced — see below. */
+  have: boolean;
+  /** The one thing it wants that she did not list. Null when `have`. */
+  missing: string | null;
 };
 
 /**
@@ -461,8 +465,6 @@ export type PickableExercise = {
  */
 export type Pickable = {
   groups: { group: string; items: PickableExercise[] }[];
-  /** Matches she cannot do yet, with the one thing standing in the way. */
-  unavailable: { slug: string; name: string; tags: string[]; missing: string }[];
 };
 
 export async function pickableExercises(equipment: string[]): Promise<Pickable> {
@@ -498,33 +500,50 @@ export async function pickableExercises(equipment: string[]): Promise<Pickable> 
     return needs.some(owns);
   };
 
-  const usable = rows.filter(can);
   /**
-   * What she cannot currently do, and the one thing standing in the way.
+   * The one thing it wants that she has not got, for the ones she has not.
    *
-   * Carried rather than dropped: searching "pull up" and getting two odd
-   * results is more baffling than getting none, and a filter she cannot see
-   * working is one she assumes is broken. The picker says what is missing and
-   * she can go and add it.
+   * `equipment` reads as "any of these will do", so the first entry that is
+   * neither a whole gym nor nothing is the honest short answer: a barbell
+   * bench press wants a barbell, not "a barbell or a bench or a full gym".
    */
-  const unavailable = rows
-    .filter((r) => !can(r) && r.requires)
-    .map((r) => ({ slug: r.slug, name: r.name, tags: r.tags ?? [], missing: r.requires! }));
+  const missingFor = (r: { equipment: string[]; requires: string | null }): string | null => {
+    if (r.requires && !hasGym && !owns(r.requires)) return r.requires;
+    const needs = r.equipment.filter((e) => !/full gym|none/i.test(e));
+    return needs[0] ?? null;
+  };
 
-  // Grouped by what it works, not by whether a textbook calls it compound.
-  // "Compound" had sixty-three movements in it, which is not a group — it is
-  // the whole library with a label on. Nobody looks for an isolation
-  // exercise; they look for something for their shoulders.
+  /**
+   * **What she answered about equipment marks this list; it does not cut it.**
+   *
+   * It used to filter: say "dumbbells" once during setup and the barbell bench
+   * press did not exist in the app any more — not hidden with a reason, gone,
+   * because it has no hard `requires` and so was not in the blocked list
+   * either. That answer is a fact about one room on one day. People buy a
+   * rack, and they train at a gym on Thursdays that has everything, and being
+   * asked to go and edit a setup screen before you can log the bench press you
+   * have just done is the app arguing with you about your own week.
+   *
+   * So the kit is a *default for the planner* — which still reads it, and
+   * still will not program a back squat for someone who owns two dumbbells —
+   * and a *label* here. Hers sort first and the rest say what they want.
+   */
   const groups = LIBRARY_GROUP_ORDER.flatMap((group) => {
-    const items = usable
+    const items = rows
       .filter((r) => groupForExercise(r) === group)
-      .map(({ slug, name, category, primaryMuscles, tags, formCues, safetyNote }) => ({
+      .map(({ slug, name, category, primaryMuscles, tags, formCues, safetyNote, ...r }) => ({
         slug, name, category, muscles: primaryMuscles, tags,
         formCues: formCues ?? [], safetyNote: safetyNote ?? null,
-      }));
+        have: can({ equipment: r.equipment, requires: r.requires }),
+        missing: can({ equipment: r.equipment, requires: r.requires })
+          ? null
+          : missingFor({ equipment: r.equipment, requires: r.requires }),
+      }))
+      // What she can do today first, then the rest — each still in name order.
+      .sort((a, b) => (a.have === b.have ? 0 : a.have ? -1 : 1));
     return items.length ? [{ group, items }] : [];
   });
-  return { groups, unavailable };
+  return { groups };
 }
 
 export type DayFoodView = {

@@ -5,6 +5,7 @@ import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { compareSet } from "@/lib/set-compare";
+import { DayStep } from "./day-nav";
 import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -544,6 +545,9 @@ export function TrainClient({
   // left-aligned under the name — which is a card rearranging itself rather
   // than a card that was suddenly different.
   const running = Boolean(view.startedAt) && !view.finishedAt;
+  // Train gives this header the day's arrows; Plan borrows it for today's card
+  // and gives it none. The whole shape of the row turns on that.
+  const hasDayNav = Boolean(stepBack || stepOn);
   const sessionBar = isToday ? (
     <SessionBar
       startedAt={view.startedAt}
@@ -560,6 +564,13 @@ export function TrainClient({
       onPause={togglePause}
     />
   ) : null;
+
+  // Three things wanting one row is what forces the name onto its own line.
+  // Two of them fit side by side at any width worth supporting, and a day with
+  // no clock — Friday, next week — was getting the crowded layout anyway: a
+  // row holding nothing but the arrows, and the session's name marooned in the
+  // middle of the row under it.
+  const crowdedRow = hasDayNav && Boolean(sessionBar);
 
   return (
     <div className="space-y-4">
@@ -591,16 +602,31 @@ export function TrainClient({
             two lines. So below `md` the two controls share the top line and
             the name takes the whole one under it, `order-last` putting it
             there without changing the order the grid reads above.
+
+            All of which is only true when there *are* arrows. Plan borrows
+            this header for today's card and passes none, so the first cell was
+            empty: the button sat alone on a row of its own with the day's name
+            underneath it, which is two rows for one line of content. Without
+            them it is the plain arrangement it always was — name left, control
+            right, one row.
           */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 md:grid md:grid-cols-[1fr_auto_1fr]">
-            {(stepBack || stepOn) && (
+          <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
+            hasDayNav ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
+          }`}>
+            {hasDayNav && (
               <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
                 {stepBack}
                 {dayLine}
                 {stepOn}
               </div>
             )}
-            <div className="order-last min-w-0 basis-full text-center md:order-none md:basis-auto">
+            <div className={`min-w-0 ${
+              crowdedRow
+                ? "order-last basis-full text-center md:order-none md:basis-auto"
+                : hasDayNav
+                  ? "flex-1 basis-24 text-center"
+                  : "flex-1 basis-32"
+            }`}>
               {heading}
             </div>
             {sessionBar && (
@@ -2328,46 +2354,41 @@ function MovementScreen({
 
   return (
     <div className="space-y-4">
+      {/*
+        Out of the day, and along it — one row, at the top.
+        The movement either side used to be two bordered boxes at the *bottom*
+        of the page, each with an eyebrow and a truncated name: a lot of
+        furniture for "the next one", below the thing she came to do, and
+        nothing else in the app looks like that. The same chevrons the week and
+        the day use, either side of "2 of 5", say the same thing in a strip.
+
+        The names are not lost — they are the label and the tooltip, so a
+        screen reader still hears "Next: Dumbbell Bench Press" rather than
+        "next", which was the reason they were spelled out in the first place.
+      */}
       <div className="flex items-center justify-between gap-3">
         <Link href={backTo}
           className="inline-flex min-w-0 items-center gap-1.5 text-[13px] text-muted active:text-text">
           <Chevron dir="left" /> <span className="truncate">{dayLabel ?? "Back to the day"}</span>
         </Link>
-        {position && (
-          <span className="shrink-0 text-[12px] text-faint tabular">
-            {position.n} of {position.of}
-          </span>
+        {(before || after || position) && (
+          <nav className="flex shrink-0 items-center gap-0.5" aria-label="The rest of the day">
+            {before
+              ? <DayStep href={pageFor(before.slug)} dir="left" label={`Previous: ${before.name}`} />
+              : <span className="size-9" aria-hidden />}
+            {position && (
+              <span className="px-0.5 text-[12px] text-faint tabular">
+                {position.n} of {position.of}
+              </span>
+            )}
+            {after
+              ? <DayStep href={pageFor(after.slug)} dir="right" label={`Next: ${after.name}`} />
+              : <span className="size-9" aria-hidden />}
+          </nav>
         )}
       </div>
 
       {children}
-
-      {/* The movement either side. Named, not just arrowed: "next" on its own
-          makes her tap it to find out what it is. */}
-      {(before || after) && (
-        <nav className="flex items-stretch gap-2" aria-label="The rest of the day">
-          {before ? (
-            <Link href={pageFor(before.slug)}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line px-3 py-2.5 active:bg-raised">
-              <Chevron dir="left" />
-              <span className="min-w-0">
-                <span className="block text-[10px] uppercase tracking-wide text-faint">Before</span>
-                <span className="block truncate text-[13px]">{before.name}</span>
-              </span>
-            </Link>
-          ) : <div className="flex-1" />}
-          {after ? (
-            <Link href={pageFor(after.slug)}
-              className="flex min-w-0 flex-1 items-center justify-end gap-2 rounded-xl border border-line px-3 py-2.5 text-right active:bg-raised">
-              <span className="min-w-0">
-                <span className="block text-[10px] uppercase tracking-wide text-faint">Next</span>
-                <span className="block truncate text-[13px]">{after.name}</span>
-              </span>
-              <Chevron dir="right" />
-            </Link>
-          ) : <div className="flex-1" />}
-        </nav>
-      )}
     </div>
   );
 }
