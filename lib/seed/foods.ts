@@ -77,6 +77,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "chorizo", name: "Chorizo", category: "meat", kcal: 455, proteinG: 24, carbsG: 2, fatG: 38, fibreG: null, unitGrams: 30, unitLabel: "portion", aliases: ["spanish sausage"] },
   { slug: "salami", name: "Salami", category: "meat", kcal: 407, proteinG: 22, carbsG: 2, fatG: 33, fibreG: null, unitGrams: 10, unitLabel: "slice", aliases: ["milano salami"] },
   { slug: "pepperoni", name: "Pepperoni", category: "meat", kcal: 494, proteinG: 23, carbsG: 1, fatG: 44, fibreG: null, unitGrams: 5, unitLabel: "slice", aliases: [] },
+  { slug: "pulled-pork", name: "Pulled pork, cooked", category: "meat", kcal: 232, proteinG: 26, carbsG: 3, fatG: 12, fibreG: null, unitGrams: 120, unitLabel: "portion", aliases: ["pulled pork shoulder", "smoked pork", "carnitas"] },
   { slug: "hot-dog", name: "Hot dog sausage", category: "meat", kcal: 290, proteinG: 10, carbsG: 4, fatG: 26, fibreG: null, unitGrams: 45, unitLabel: "sausage", aliases: ["frankfurter", "wiener"] },
   { slug: "lamb-chop-cooked", name: "Lamb chop, grilled, lean", category: "meat", kcal: 235, proteinG: 30, carbsG: 0, fatG: 13, fibreG: null, unitGrams: 90, unitLabel: "chop", aliases: ["lamb cutlet", "lamb loin chop"] },
   { slug: "lamb-mince-cooked", name: "Lamb mince, cooked", category: "meat", kcal: 283, proteinG: 25, carbsG: 0, fatG: 20, fibreG: null, unitGrams: null, unitLabel: null, aliases: ["ground lamb", "minced lamb"] },
@@ -139,6 +140,11 @@ export const FOODS: FoodSeed[] = [
   { slug: "cottage-cheese", name: "Cottage cheese", category: "dairy", kcal: 98, proteinG: 12, carbsG: 3.5, fatG: 4.3, fibreG: null, unitGrams: 150, unitLabel: "portion", aliases: ["curd cheese"] },
   { slug: "cottage-cheese-low-fat", name: "Cottage cheese, low fat", category: "dairy", kcal: 72, proteinG: 12.6, carbsG: 3.3, fatG: 1.5, fibreG: null, unitGrams: 150, unitLabel: "portion", aliases: ["reduced fat cottage cheese"] },
   { slug: "cheddar", name: "Cheddar", category: "dairy", kcal: 416, proteinG: 25, carbsG: 0.1, fatG: 35, fibreG: null, unitGrams: 30, unitLabel: "matchbox portion", aliases: ["cheese", "mature cheddar", "grated cheese"] },
+  // Its own row rather than an alias on cheddar: the numbers are the same but
+  // the *portion* is not, and a cube is about a third of a matchbox. Aliased
+  // onto cheddar, "4 cheese cubes" came out as four matchbox portions — 499
+  // calories of cheese on a plate that had about 145.
+  { slug: "cheese-cubes", name: "Cheese cubes", category: "dairy", kcal: 416, proteinG: 25, carbsG: 0.1, fatG: 35, fibreG: null, unitGrams: 9, unitLabel: "cube", aliases: ["cheese cube", "cubed cheese", "cheese cubes"] },
   { slug: "cheddar-reduced-fat", name: "Cheddar, reduced fat", category: "dairy", kcal: 273, proteinG: 32, carbsG: 0.1, fatG: 16, fibreG: null, unitGrams: 30, unitLabel: "matchbox portion", aliases: ["light cheddar", "half fat cheddar"] },
   { slug: "mozzarella", name: "Mozzarella", category: "dairy", kcal: 300, proteinG: 22, carbsG: 2.2, fatG: 22, fibreG: null, unitGrams: 125, unitLabel: "ball", aliases: ["buffalo mozzarella"] },
   { slug: "mozzarella-light", name: "Mozzarella, light", category: "dairy", kcal: 224, proteinG: 27, carbsG: 1.5, fatG: 12.5, fibreG: null, unitGrams: 125, unitLabel: "ball", aliases: ["reduced fat mozzarella", "light mozzarella"] },
@@ -250,6 +256,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "spinach", name: "Spinach", category: "vegetable", kcal: 23, proteinG: 2.9, carbsG: 1.4, fatG: 0.4, fibreG: 2.2, unitGrams: 30, unitLabel: "handful", aliases: ["baby spinach", "fresh spinach", "frozen spinach"] },
   { slug: "kale", name: "Kale", category: "vegetable", kcal: 35, proteinG: 3, carbsG: 4, fatG: 1, fibreG: 3, unitGrams: 50, unitLabel: "handful", aliases: ["curly kale", "cavolo nero"] },
   { slug: "cabbage", name: "Cabbage", category: "vegetable", kcal: 25, proteinG: 1.3, carbsG: 4.7, fatG: 0.1, fibreG: 2.5, unitGrams: 80, unitLabel: "portion", aliases: ["white cabbage", "savoy cabbage", "red cabbage"] },
+  { slug: "pickles", name: "Pickled cucumbers", category: "vegetable", kcal: 12, proteinG: 0.5, carbsG: 1.6, fatG: 0.2, fibreG: 1.2, unitGrams: 30, unitLabel: "spear", aliases: ["pickle", "gherkin", "gherkins", "dill pickle", "dill pickles"] },
   { slug: "coleslaw-mix", name: "Coleslaw mix, undressed", category: "vegetable", kcal: 30, proteinG: 1.3, carbsG: 5.3, fatG: 0.2, fibreG: 2, unitGrams: 100, unitLabel: "portion", aliases: ["shredded cabbage and carrot", "slaw mix"] },
   { slug: "brussels-sprouts", name: "Brussels sprouts, boiled", category: "vegetable", kcal: 35, proteinG: 2.9, carbsG: 3.5, fatG: 1.3, fibreG: 3.1, unitGrams: 80, unitLabel: "portion", aliases: ["sprouts"] },
   { slug: "courgette", name: "Courgette", category: "vegetable", kcal: 17, proteinG: 1.2, carbsG: 2, fatG: 0.3, fibreG: 1, unitGrams: 196, unitLabel: "medium courgette", aliases: ["zucchini"] },

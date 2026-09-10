@@ -13,7 +13,9 @@ import { pantryStock, recentMeals } from "@/lib/views";
 import { type ShoppingItem } from "@/lib/shopping";
 import { instacartConfigured } from "@/lib/instacart";
 import { foodUnitsFor, getProfileById, todayForProfile, ageFrom } from "@/lib/profile";
-import { foodLines, quantityLabel } from "@/lib/food-units";
+import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
+import { parsePortion, toGrams } from "@/lib/portion";
+import { searchFoods } from "./foods";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
@@ -23,7 +25,7 @@ import { compareStock, normaliseItem } from "@/lib/pantry";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { audit } from "@/lib/audit";
 import { consumeForMeal } from "./pantry";
-import { defineTool } from "./define";
+import { defineTool, type ToolContext } from "./define";
 
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 
@@ -237,14 +239,78 @@ export const getMealRecipe = defineTool({
   },
 });
 
+/**
+ * A plate, priced from the library in one go.
+ *
+ * Each line goes through the same portion parser and the same search the
+ * coach's `lookup_food` uses, so "4 cheese cubes" and "pickles" resolve
+ * exactly as they would one call at a time — just without four model round
+ * trips between them.
+ *
+ * Only the library. Estimating a miss would need the model, which is the
+ * round trip this exists to avoid, so a miss is reported rather than guessed:
+ * `unpriced` is what the caller has to tell her about.
+ */
+async function priceItems(items: string[], ctx: ToolContext): Promise<{
+  kcal: number | null; proteinG: number | null; carbsG: number | null;
+  fatG: number | null; fibreG: number | null;
+  priced: { item: string; food: string; portion: string; kcal: number }[];
+  unpriced: string[];
+}> {
+  const found: { item: string; food: string; portion: string; kcal: number }[] = [];
+  const unpriced: string[] = [];
+  let kcal = 0, proteinG = 0, carbsG = 0, fatG = 0;
+  // Fibre is known only for some rows, and summing a null as zero is the bug
+  // this app has caught more times than any other. It stays null unless every
+  // priced line carried one.
+  let fibreG = 0;
+  let fibreKnownForAll = true;
+
+  const units = await foodUnitsFor(ctx.profileId);
+  for (const raw of items) {
+    const portion = parsePortion(raw);
+    if (!portion) { unpriced.push(raw); continue; }
+    const [best] = await searchFoods(portion.query, 1);
+    if (!best) { unpriced.push(raw); continue; }
+    const grams = portion.assumed && best.unitGrams !== null
+      ? best.unitGrams
+      : toGrams(portion, best.unitGrams, best.unitLabel);
+    if (grams === null) { unpriced.push(raw); continue; }
+
+    const at = (per100: number) => (per100 * grams) / 100;
+    kcal += at(best.kcal);
+    proteinG += at(best.proteinG);
+    carbsG += at(best.carbsG);
+    fatG += at(best.fatG);
+    if (best.fibreG === null) fibreKnownForAll = false;
+    else fibreG += at(best.fibreG);
+    found.push({
+      item: raw, food: best.name, portion: gramsLabel(grams, units), kcal: Math.round(at(best.kcal)),
+    });
+  }
+
+  if (found.length === 0) {
+    return { kcal: null, proteinG: null, carbsG: null, fatG: null, fibreG: null, priced: [], unpriced };
+  }
+  const round = (n: number) => Math.round(n);
+  return {
+    kcal: round(kcal), proteinG: round(proteinG), carbsG: round(carbsG), fatG: round(fatG),
+    fibreG: fibreKnownForAll ? round(fibreG) : null,
+    priced: found, unpriced,
+  };
+}
+
 export const logMeal = defineTool({
   name: "log_meal",
   repeatable: "two of the same thing in a day is a real meal log — two coffees, the same snack twice",
   description:
-    "Record what she actually ate, planned or not. Estimate calories and protein when she describes food in words. For a restaurant meal, a takeaway or anything you genuinely cannot pin down, pass caloriesLow and caloriesHigh instead of pretending to a single number — the midpoint is logged, the range travels with it, and she is told it is an estimate. That is what keeps her logging on the days tracking usually breaks. Returns the day's running totals against target — no judgement, just the numbers.",
+    "Record what she actually ate, planned or not. **Pass `items` — the foods as she said them — and this prices the plate itself against the library, with no lookup_food calls at all.** That is one call instead of five and is the fastest path by a long way; only fall back to sending calories and protein yourself for something the library comes back empty on. For a restaurant meal, a takeaway or anything you genuinely cannot pin down, pass caloriesLow and caloriesHigh instead of pretending to a single number — the midpoint is logged, the range travels with it, and she is told it is an estimate. That is what keeps her logging on the days tracking usually breaks. Returns the day's running totals against target — no judgement, just the numbers.",
   input: z.object({
     slot: slotEnum,
     description: z.string(),
+    items: z.array(z.string()).optional().describe(
+      "Each food as she said it, with the amount if she gave one: ['pulled pork', '4 cheese cubes', 'pickles', 'bbq sauce']. Priced here against the library — no amount means one of the thing. Anything it cannot find comes back in `unpriced` and is not counted, so the total is a floor and you must say so.",
+    ),
     calories: wholeGramsOptional,
     proteinG: wholeGramsOptional,
     carbsG: wholeGramsOptional,
@@ -263,6 +329,42 @@ export const logMeal = defineTool({
   handler: async (input, ctx) => {
     const date = input.date ?? (await todayForProfile(ctx.profileId));
     if (isFuture(date, await todayForProfile(ctx.profileId))) return { ok: false, error: FUTURE_DATE_ERROR };
+    /*
+      Price the plate here, from the library, in one round trip.
+
+      A four-item lunch was four `lookup_food` calls plus the model round trip
+      to read them back plus this one — and the turn ran past its deadline
+      before the write it existed to make, so the lunch was refused and the
+      row was never written. The lookups are indexed queries against a local
+      table; there is no reason for the model to be the thing that fans them
+      out.
+
+      Unknown is not zero: an item the library has no row for is *not* counted
+      and comes back in `unpriced`, so the total is a floor and the coach says
+      which part it could not price rather than quietly logging a small lunch.
+    */
+    const priced = input.items?.length ? await priceItems(input.items, ctx) : null;
+    /*
+      A partial sum is not a total, and writing one is the worst outcome here.
+
+      Three of a four-item plate missing from the library would have logged the
+      barbecue sauce and called the lunch 29 calories — a number that looks
+      exact, sits on the Eat screen as her intake, and is wrong by six hundred.
+      Recoverable rather than fatal, the same shape as an unknown exercise
+      slug: nothing is written, the caller is told exactly which lines could
+      not be priced, and it comes back with figures for those.
+    */
+    if (priced && priced.unpriced.length > 0 && input.calories === undefined
+      && input.caloriesLow === undefined) {
+      return {
+        ok: false,
+        unpriced: priced.unpriced,
+        priced: priced.priced,
+        error: `Nothing was logged. The library has no figures for: ${priced.unpriced.join(", ")}. `
+          + `Look those up or estimate them, then call log_meal again with the same items plus `
+          + `calories and proteinG for the whole plate.`,
+      };
+    }
     const planned = input.mealId ? await herMeal(ctx.profileId, input.mealId) : null;
     if (input.mealId && !planned) {
       return { ok: false, error: "That meal is not in the plan — log it without a mealId, or call get_meal_plan for the right one" };
@@ -277,12 +379,14 @@ export const logMeal = defineTool({
       // "somewhere between" — and keeps the bounds so nothing downstream
       // presents it as precise.
       calories: input.calories
+        ?? priced?.kcal
         ?? (input.caloriesLow !== undefined && input.caloriesHigh !== undefined
           ? Math.round((input.caloriesLow + input.caloriesHigh) / 2)
           : null),
-      proteinG: input.proteinG ?? null,
-      carbsG: input.carbsG ?? null, fatG: input.fatG ?? null,
-      fibreG: input.fibreG ?? null,
+      proteinG: input.proteinG ?? priced?.proteinG ?? null,
+      carbsG: input.carbsG ?? priced?.carbsG ?? null,
+      fatG: input.fatG ?? priced?.fatG ?? null,
+      fibreG: input.fibreG ?? priced?.fibreG ?? null,
       confidence: input.caloriesLow !== undefined && input.caloriesHigh !== undefined
         ? "range"
         : input.calories !== undefined ? "estimated" : null,
@@ -333,6 +437,14 @@ export const logMeal = defineTool({
     return {
       ok: true, date,
       logId: row.id,
+      // What the plate was priced at, line by line, so the reply can read it
+      // back to her — and what could not be priced, which she has to be told
+      // about because the meal's figure is a floor without it.
+      ...(priced ? {
+        pricedFrom: priced.priced,
+        unpriced: priced.unpriced,
+        mealIsAFloor: priced.unpriced.length > 0,
+      } : {}),
       todayCalories: totals.calories, todayProteinG: totals.protein,
       // Never state todayCalories as her intake when this is false — it is a
       // floor. Say "at least X, and N entries have no figures".

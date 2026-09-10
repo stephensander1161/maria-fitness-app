@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-plate-pricing",
+    date: "2026-09-10",
+    title: "A whole plate logged in one go, and portions that mean one",
+    blurb: "Telling your coach what you ate used to be a separate lookup per food and a round trip to read them back, which is what pushed one lunch past its deadline. It prices the plate from the library in a single call now. And a food with no amount means one of it — one hot dog is 131 calories, not the 290 that 100g of sausage would be.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-10-refused-writes",
     date: "2026-09-10",
     title: "If something did not save, your coach says so",

@@ -7,6 +7,7 @@ import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
 import { matchScore, parsePortion, toGrams } from "@/lib/portion";
+import { queryVariants } from "@/lib/search-terms";
 import { foodUnitsFor } from "@/lib/profile";
 import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
 import { normaliseItem } from "@/lib/pantry";
@@ -30,7 +31,7 @@ const scale = (per100g: number, grams: number) => Math.round((per100g * grams) /
 export const lookupFood = defineTool({
   name: "lookup_food",
   description:
-    "Calories and macros for a food and portion — '100g boiled egg', '2 eggs', '4oz salmon'. Checks the local library first and only estimates when it finds nothing, so prefer it over working the numbers out yourself. If she gives no amount it assumes 100g and says so. Read the portion back from `portion`, which is already in her food units.",
+    "Calories and macros for a food and portion — '100g boiled egg', '2 eggs', '4oz salmon'. Checks the local library first and only estimates when it finds nothing, so prefer it over working the numbers out yourself. If she gives no amount it assumes ONE of the thing — one sausage, one egg — falling back to 100g only for foods sold by weight, and `assumed` says which was filled in. Read the portion back from `portion`, which is already in her food units.",
   input: z.object({
     query: z.string().describe("Food and portion as she said it, e.g. '150g cooked rice'"),
     allowEstimate: z.boolean().optional()
@@ -44,7 +45,20 @@ export const lookupFood = defineTool({
     const best = matches[0];
 
     if (best) {
-      const grams = toGrams(portion, best.unitGrams, best.unitLabel);
+      /*
+        No amount given means *one of it*, not 100g.
+
+        "A hot dog" is one sausage, not three and a half ounces of sausage
+        meat; an egg is an egg. 100g was a safe-looking default that is wrong
+        for almost everything with a natural portion — 377 of the 390 rows
+        have one — and wrong in the direction that inflates her day: it read
+        one hot dog as 290 kcal. Where the row has no per-item weight (rice,
+        mince, anything sold by weight) 100g is still the honest fallback.
+      */
+      const assumedOne = portion.assumed && best.unitGrams !== null;
+      const grams = assumedOne
+        ? best.unitGrams!
+        : toGrams(portion, best.unitGrams, best.unitLabel);
       if (grams === null) {
         return {
           found: true, food: best.name,
@@ -63,8 +77,12 @@ export const lookupFood = defineTool({
         grams: Math.round(grams),
         // The portion as she'd say it — "3.5 oz" or "100 g". `grams` is what
         // the numbers were worked out on; this is the one to read back.
-        portion: gramsLabel(grams, await foodUnitsFor(ctx.profileId)),
-        assumed100g: portion.assumed,
+        portion: assumedOne
+          ? `1 ${best.unitLabel ?? "portion"} (${gramsLabel(grams, await foodUnitsFor(ctx.profileId))})`
+          : gramsLabel(grams, await foodUnitsFor(ctx.profileId)),
+        // What was filled in for her, so the reply can say so. Null when she
+        // gave an amount and nothing was assumed at all.
+        assumed: portion.assumed ? (assumedOne ? `one ${best.unitLabel ?? "portion"}` : "100 g") : null,
         kcal: Math.round(scale(best.kcal, grams)),
         proteinG: scale(best.proteinG, grams),
         carbsG: scale(best.carbsG, grams),
@@ -178,10 +196,32 @@ export async function searchFoods(query: string, limit = 5) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
 
+  // Every spelling worth trying — "hotdog", "hot dog", "hot-dog" — the same
+  // way the movement picker and the coach's exercise search do it. A single
+  // ILIKE on what she typed missed "Hot dog sausage" for "hotdog", so the
+  // library said it had nothing and the model estimated instead: 290 kcal for
+  // one sausage, against the 130 the table would have given.
+  const terms = queryVariants(q);
+  // …and the spelling with the spaces taken out, on both sides. "hotdog" is
+  // one word to everybody who types it and two in the table, and no list of
+  // variants guesses where to put the space back — squashing both and
+  // comparing is the version that does not need to.
+  const squashed = q.replace(/[\s-]/g, "");
+  const bare = sql`lower(replace(replace(${foods.name}, ' ', ''), '-', ''))`;
+  const bareAliases = sql`lower(replace(replace(${foods.aliases}::text, ' ', ''), '-', ''))`;
   const rows = await db
     .select()
     .from(foods)
-    .where(or(ilike(foods.name, `%${q}%`), sql`${foods.aliases}::text ilike ${`%${q}%`}`))
+    .where(or(
+      ...terms.flatMap((t) => [
+        ilike(foods.name, `%${t}%`),
+        sql`${foods.aliases}::text ilike ${`%${t}%`}`,
+      ]),
+      ...(squashed.length >= 4 ? [
+        sql`${bare} like ${`%${squashed}%`}`,
+        sql`${bareAliases} like ${`%${squashed}%`}`,
+      ] : []),
+    ))
     .limit(limit * 4);
 
   // Rank in JS: SQL ordering can't express "closest to what she typed" without
