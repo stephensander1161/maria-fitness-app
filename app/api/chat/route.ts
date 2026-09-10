@@ -1,4 +1,7 @@
-import { runCoach, type CoachEvent } from "@/lib/agent/loop";
+import { after } from "next/server";
+
+import { runCoach } from "@/lib/agent/loop";
+import { relay } from "@/lib/agent/relay";
 import { getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
@@ -116,22 +119,36 @@ export async function POST(req: Request) {
   }
 
   const encoder = new TextEncoder();
+  // Read out here: a hoisted declaration does not keep the null-check above.
+  const speakingTo = user.name;
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (event: CoachEvent) =>
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-      try {
-        for await (const event of runCoach(profile, text, { silent, save, speakingTo: user.name })) send(event);
-      } catch (err) {
-        send({ type: "error", message: err instanceof Error ? err.message : "Coach failed" });
-      } finally {
-        controller.close();
-      }
-    },
+  /*
+    The turn outlives the connection, on purpose — `lib/agent/relay.ts` has
+    the why. In short: a backgrounded tab drops the socket, that part is not
+    avoidable, and it used to take the whole turn down with it. Now it only
+    stops the writing; the loop finishes and saves its answer, and the browser
+    picks it back up from the transcript.
+
+    `after` is what buys the time. Once a response ends the platform is free
+    to freeze the function, and handing it the promise is how it is told there
+    is still something to finish.
+  */
+  let sink: ReadableStreamDefaultController<Uint8Array> | null = null;
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) { sink = controller; },
   });
 
-  return new Response(stream, {
+  const turn = relay(runCoach(profile, text, { silent, save, speakingTo }), {
+    write: (event) => sink!.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)),
+    close: () => sink!.close(),
+  });
+
+  // relay never rejects, but an unhandled rejection here would take down the
+  // request, so it is not left to chance.
+  after(turn.catch(() => { /* already reported to her, or she is gone */ }));
+
+  return new Response(body, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",

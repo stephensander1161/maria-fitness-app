@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-turn-survives-backgrounding",
+    date: "2026-09-10",
+    title: "Switching apps mid-answer no longer loses it",
+    blurb:
+      "Ask the coach something, go and do something else on your phone, come back \u2014 the turn kept running while you were away and the answer is waiting, instead of a broken thread.",
+  },
+  {
     id: "2026-09-10-progress-horizons",
     date: "2026-09-10",
     title: "Progress reads at four sizes",

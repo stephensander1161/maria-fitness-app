@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { action, CoachError, streamCoach, type CoachEvent } from "@/lib/client";
+import { answerAfter } from "@/lib/agent/relay";
 import { TOOL_LABELS } from "@/lib/tool-labels";
 
 export type Msg = { id: string; role: "user" | "assistant"; text: string };
+
+/** How long a dropped turn is worth chasing — the chat function's own limit. */
+const RECOVER_WINDOW_MS = 60_000;
+const RECOVER_EVERY_MS = 2_500;
 
 /** What the chat route accepts. The browser never authors a silent turn. */
 type Body = Parameters<typeof streamCoach>[0];
@@ -30,6 +35,15 @@ export function useCoachThread(
   const [input, setInput] = useState("");
   /** Percent of today's allowance left, once a turn has told us. Null until then. */
   const [allowance, setAllowance] = useState<number | null>(null);
+  /**
+   * A turn whose connection died, being picked up rather than mourned.
+   *
+   * Switching apps on a phone suspends the tab and the socket goes with it —
+   * nothing here can stop that. But the server drains the turn whether or not
+   * anyone is listening and saves the answer, so the honest thing to show is
+   * "finding it", not "Connection lost".
+   */
+  const [recovering, setRecovering] = useState(false);
   // Held in a ref so a caller can pass an inline arrow without re-creating
   // `stream` on every render — an effect that streams would run twice. Written
   // in an effect, not during render, because a render can be thrown away.
@@ -48,6 +62,52 @@ export function useCoachThread(
    * says a turn is running.
    */
   const inFlight = useRef<AbortController | null>(null);
+
+  /**
+   * Go and read the answer to a turn whose connection dropped.
+   *
+   * Matched on her own words rather than a message id: an id in this thread
+   * was minted in the browser and the transcript has never seen it, and an
+   * inline thread holds only part of the conversation. Her last message is a
+   * fixed point in both.
+   *
+   * It polls because the drop can come long before the turn ends — a tool
+   * still running, the answer not written yet. Bounded by the function's own
+   * ceiling: past that there is nothing still working to wait for, and a
+   * browser quietly polling forever is worse than a sentence saying it broke.
+   */
+  const recover = useCallback(async (said: string, signal: AbortSignal): Promise<boolean> => {
+    if (!said.trim()) return false;
+    const deadline = Date.now() + RECOVER_WINDOW_MS;
+    for (let attempt = 0; ; attempt++) {
+      if (signal.aborted) return false;
+      if (attempt > 0) {
+        if (Date.now() >= deadline) return false;
+        await new Promise((r) => setTimeout(r, RECOVER_EVERY_MS));
+        if (signal.aborted) return false;
+      }
+      let found: Msg[];
+      try {
+        const res = await fetch("/api/messages", { signal });
+        if (!res.ok) return false;
+        const data = (await res.json()) as { messages: Msg[] };
+        found = answerAfter(data.messages, said);
+        // Her message is not even in the transcript: this was not a turn the
+        // server took, so there is nothing coming and nothing to wait for.
+        if (found.length === 0 && !data.messages.some((m) => m.role === "user" && m.text.trim() === said.trim())) {
+          return false;
+        }
+      } catch {
+        return false;
+      }
+      // Still working. The socket can die long before the turn ends — a tool
+      // running, the answer not written yet — so an empty look is a reason to
+      // wait, not to give up.
+      if (found.length === 0) continue;
+      setMessages((m) => [...m, ...found.map((x) => ({ id: x.id, role: x.role, text: x.text }))]);
+      return true;
+    }
+  }, []);
 
   const stream = useCallback(async (body: Body, opts: { signal?: AbortSignal } = {}) => {
     setBusy(true);
@@ -68,6 +128,8 @@ export function useCoachThread(
     let failed = false;
     let usedTools = false;
     let accepted = false;
+    /** The socket died with the turn still running server-side. */
+    let dropped = false;
     try {
       for await (const event of streamCoach(body, opts)) {
         const e: CoachEvent = event;
@@ -81,11 +143,40 @@ export function useCoachThread(
       }
     } catch (err) {
       if (opts.signal?.aborted) return false;
-      setError(err instanceof Error ? err.message : "Connection lost");
       // The spend cap answers with JSON before the stream opens, so the code
       // arrives on the thrown error rather than as an event.
-      setErrorCode(err instanceof CoachError ? err.code ?? null : null);
+      const code = err instanceof CoachError ? err.code ?? null : null;
+      // A refusal that arrived cleanly is an answer, and there is nothing to
+      // go and find. A socket that vanished after the server took her message
+      // is the backgrounded-tab case, and the turn is still out there.
+      dropped = accepted && code === null;
+      if (!dropped) {
+        setError(err instanceof Error ? err.message : "Connection lost");
+        setErrorCode(code);
+      }
       failed = true;
+    }
+
+    if (dropped) {
+      setStreaming("");
+      // Reuses the activity line every surface already renders, so this needs
+      // no new spinner in three different sheets.
+      setActivity("finding that answer");
+      setRecovering(true);
+      // A kickoff or a "read this screen" turn is silent, so it is not in the
+      // transcript to be found again — recover says so and she gets the error.
+      const found = await recover("message" in body ? body.message : "", mine.signal);
+      setRecovering(false);
+      if (found) {
+        // The server's copy is the whole answer; what streamed before the
+        // socket died is the first half of the same sentences.
+        acc = "";
+        failed = false;
+      } else if (!mine.signal.aborted) {
+        // Not when she pressed Stop: she ended it, and telling her it broke
+        // would be the app blaming itself for doing what it was told.
+        setError("That answer was cut off before it finished. Ask again.");
+      }
     }
 
     if (acc.trim()) {
@@ -103,7 +194,7 @@ export function useCoachThread(
     // showing — the caller decides whether that means reloading it.
     onTurnEnd.current?.({ usedTools, delivered });
     return delivered;
-  }, []);
+  }, [recover]);
 
   const send = useCallback(
     async (text: string, page?: string) => {
@@ -163,11 +254,12 @@ export function useCoachThread(
     inFlight.current = null;
     setBusy(false);
     setActivity(null);
+    setRecovering(false);
     window.dispatchEvent(new CustomEvent("coach:idle"));
   }, []);
 
   return {
     messages, setMessages, streaming, activity, busy, error, setError, errorCode,
-    input, setInput, stream, send, replay, stop, allowance,
+    input, setInput, stream, send, replay, stop, allowance, recovering,
   };
 }
