@@ -239,7 +239,9 @@ suite("the day's name and its clock share a container", () => {
     // saying "Today · Tuesday / Shoulders" — two containers saying one thing,
     // and a whole row of a phone between the session's name and the session.
     const plan = read("components/plan-client.tsx");
-    expect(plan).toMatch(/heading=\{<DayHeader day=\{day\} trainingDay=\{trainingDay\} exists=\{week\.exists\} isToday=\{isToday\} \/>\}/);
+    expect(plan).toMatch(/heading=\{<DayHeader day=\{day\} trainingDay=\{trainingDay\} exists=\{week\.exists\} \/>\}/);
+    // Which day it is lives in the row above the name now, not inside it.
+    expect(plan).toMatch(/lead=\{/);
     // One heading and one branch, rather than two shapes that drift. A future
     // day used to wrap the heading *and* every movement card in another
     // `card p-4`, so its cards were cards inside a card and the up-next glow
@@ -259,11 +261,14 @@ suite("the day's name and its clock share a container", () => {
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/\{stepBack\}/);
     expect(card).toMatch(/\{stepOn\}/);
-    expect(card).toMatch(/hasDayNav \? "md:grid md:grid-cols-\[1fr_auto_1fr\]" : ""/);
+    expect(card).toMatch(/hasLead \? "md:grid md:grid-cols-\[1fr_auto_1fr\]" : ""/);
+    // Plan has no arrows but does have a day to name, so it fills the same
+    // left-hand cell with that instead — and gets the same shape.
+    expect(card).toMatch(/const hasLead = hasDayNav \|\| Boolean\(lead\);/);
     expect(card).toMatch(/crowdedRow\n\s*\? "order-last basis-full text-center md:order-none md:basis-auto"/);
     // Only when three things want the row. A day with no clock was getting a
     // row holding nothing but the arrows and its name marooned underneath.
-    expect(card).toMatch(/const crowdedRow = hasDayNav && Boolean\(sessionBar\);/);
+    expect(card).toMatch(/const crowdedRow = hasLead && Boolean\(sessionBar\);/);
     // Plan borrows this header for today and passes no arrows: without them
     // the first cell was empty, so the button sat on a row of its own with the
     // day's name underneath — two rows for one line of content.

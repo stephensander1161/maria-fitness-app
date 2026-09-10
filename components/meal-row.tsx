@@ -85,7 +85,15 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
   return (
     <div className="border-b border-line/60 py-2.5 last:border-0">
       <div className="flex items-baseline gap-2">
-        <button onClick={reveal} className="flex min-w-0 flex-1 items-baseline justify-between gap-3 text-left">
+        {/*
+          The name gets the row on a phone, the numbers the one under it.
+          Both were flex items on one line with the macros marked `shrink-0`,
+          so a title of any length wrapped *around* them: "BREAKFAST Smoked530
+          · 34p · 50c · 20f" and then "Salmon Bagel" underneath. There is not
+          room for a meal's name and four figures across 360px, and the name is
+          the half she is reading.
+        */}
+        <button onClick={reveal} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
           <span className="min-w-0">
             <span className="mr-2 text-[11px] uppercase tracking-wide text-accent">{meal.slot}</span>
             <span className="text-[15px]">{meal.title}</span>

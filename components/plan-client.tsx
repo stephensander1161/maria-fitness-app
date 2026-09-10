@@ -165,29 +165,53 @@ export function PlanClient({
               targets={isToday ? targets : undefined}
               date={isToday ? undefined : otherDate}
               isToday={isToday}
-              heading={<DayHeader day={day} trainingDay={trainingDay} exists={week.exists} isToday={isToday} />}
+              // Which day, at the left of the top row, with the session's
+              // clock at the right of it — so the name of the workout gets a
+              // line to itself rather than the ~90px between them. "Chest"
+              // came out as "Ch / est".
+              lead={
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+                  {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
+                </span>
+              }
+              heading={<DayHeader day={day} trainingDay={trainingDay} exists={week.exists} />}
             />
 
             {week.rationale && (
               <p className="card p-4 text-[13px] leading-relaxed text-muted">{week.rationale}</p>
             )}
 
-            {/* An option, not the only way in. This used to *replace* the
-                whole week when there was no plan — no day switcher, no add
-                button, nothing but a button that spends money — which is
-                exactly the screen that gets called broken. */}
-            {!week.exists && (
-              <AskCoach
-                title="Or ask your coach"
-                hint="It builds the whole week here"
-                placeholder="Tell your coach what you want…"
-                suggestions={[
+            {/*
+              An option, not the only way in — and it does not go away.
+
+              It used to *replace* the whole week when there was no plan — no
+              day switcher, no add button, nothing but a button that spends
+              money — which is exactly the screen that gets called broken. Then
+              it was hidden once a plan existed, which is worse in a quieter
+              way: the turn that builds the week refreshes this route, `exists`
+              flips, and the panel she was mid-conversation with unmounts,
+              taking the thread with it. She asked for a plan, got one, and the
+              thing she asked was gone.
+
+              So it stays mounted and changes what it offers. Before, it builds
+              the week; after, it is the fastest way to change one day of it.
+            */}
+            <AskCoach
+              title={week.exists ? "Ask about this week" : "Or ask your coach"}
+              hint={week.exists ? "It can change any day of it" : "It builds the whole week here"}
+              placeholder="Tell your coach what you want…"
+              suggestions={week.exists
+                ? [
+                  "Make Friday shorter",
+                  "Swap the squats for something easier on my knees",
+                  "Add a fourth day",
+                ]
+                : [
                   "Build my week",
                   "I've only got three days this week",
                   "Give me something short I can do at home",
                 ]}
-              />
-            )}
+            />
           </div>
         )
       ) : (
@@ -213,18 +237,26 @@ export function PlanClient({
                 being able to change what is planned. */}
             <AddMeal dayOfWeek={day} />
 
-            {!mealWeek.exists && (
-              <AskCoach
-                title="Or ask your coach"
-                hint="It writes the week's meals here"
-                placeholder="Tell your coach what you want…"
-                suggestions={[
+            {/* Mounted whether or not there are meals yet — see the training
+                tab above. The turn that writes the plan refreshes this route,
+                and a panel that unmounts on the refresh takes the
+                conversation that asked for it. */}
+            <AskCoach
+              title={mealWeek.exists ? "Ask about these meals" : "Or ask your coach"}
+              hint={mealWeek.exists ? "It can swap any meal here" : "It writes the week's meals here"}
+              placeholder="Tell your coach what you want…"
+              suggestions={mealWeek.exists
+                ? [
+                  "Swap Thursday's dinner",
+                  "Something quicker for weeknights",
+                  "More protein at breakfast",
+                ]
+                : [
                   "Plan my meals for the week",
                   "Something quick for weeknights",
                   "High protein, no fish",
                 ]}
-              />
-            )}
+            />
 
             {day === mealWeek.todayIndex && (
               <Link href="/eat"
@@ -265,15 +297,17 @@ export function PlanClient({
  * change it — which used to work only on the Train screen, and only for today.
  */
 function DayHeader({
-  day, trainingDay, exists, isToday,
+  day, trainingDay, exists,
 }: {
   day: number;
   trainingDay: WeekView["days"][number] | null;
   exists: boolean;
-  isToday: boolean;
 }) {
   return (
     <>
+      {/* No `prefix` here: which day it is has moved out to the row above, as
+          the header's `lead`, so the name of the session has the width of the
+          card rather than what an eyebrow and a clock leave of it. */}
       <div>
         {exists && trainingDay && !trainingDay.isRest ? (
           <DayTitle
@@ -281,13 +315,10 @@ function DayHeader({
             dayOfWeek={day}
             focus={trainingDay.focus}
             compact
-            prefix={isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""}
+            align="centre"
           />
         ) : (
-          <p className="text-[17px] font-semibold md:text-2xl">
-            <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
-              {isToday ? `Today · ${trainingDay?.dayName ?? ""}` : trainingDay?.dayName ?? ""} ·
-            </span>
+          <p className="text-center text-[17px] font-semibold md:text-2xl">
             {trainingDay?.isRest ? "Rest day" : trainingDay?.title ?? "Nothing planned"}
           </p>
         )}

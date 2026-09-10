@@ -225,9 +225,12 @@ suite("a friend's screen shows what they have actually done", () => {
     // it — the week review had exactly this bug and reported real sessions as
     // missed. Here it meant a friend who trains four times a week showed as
     // zero, which is most of the reason the screen looked empty.
+    // It used to keep its own copy of that predicate; it shares the one every
+    // count in the app uses now — see lib/sessions.ts, and the Progress screen
+    // that said "3 of 6 sessions" and "2 day streak" about the same three days.
     const src = read("lib/friends.ts");
-    expect(src).toMatch(/const worked = sql`exists \(select 1 from \$\{setLogs\}/);
-    expect(src).toMatch(/\$\{workouts\.completedAt\} is not null or \$\{worked\}/);
+    expect(src).toMatch(/const done = and\(mine, workoutHappened\)/);
+    expect(read("lib/sessions.ts")).toMatch(/or exists \(select 1 from \$\{setLogs\}/);
   });
 
   it("carries the long view, which a quiet week does not erase", () => {

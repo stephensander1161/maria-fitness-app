@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-streak-counts-work",
+    date: "2026-09-10",
+    title: "Your streak counts the work, not the button",
+    blurb: "One Progress screen said \"3 of 6 sessions\" and \"2 day streak\" about the same three days of training — because Monday had twenty sets logged and no Finish pressed, so it counted for one number and not the other. Every count in the app now uses the same rule: a session with work in it happened.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-10-whole-library",
     date: "2026-09-10",
     title: "Every movement is addable, whatever you said you own",

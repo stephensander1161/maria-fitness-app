@@ -19,6 +19,7 @@ import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
 import { streakWeeks, titleFor } from "@/lib/titles";
+import { workoutHappened } from "@/lib/sessions";
 import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 
 /**
@@ -812,9 +813,10 @@ export async function titleStats(profileId: string, asOf: ISODate) {
       .from(setLogs)
       .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
       .where(eq(workouts.profileId, profileId)),
+    // Every count on this screen uses the one rule — see lib/sessions.ts.
     db.select({ n: sql<number>`count(*)::int` })
       .from(workouts)
-      .where(and(eq(workouts.profileId, profileId), isNotNull(workouts.completedAt))),
+      .where(and(eq(workouts.profileId, profileId), workoutHappened)),
     db.select({ n: sql<number>`count(distinct ${mealLogs.date})::int` })
       .from(mealLogs)
       .where(eq(mealLogs.profileId, profileId)),
@@ -823,7 +825,7 @@ export async function titleStats(profileId: string, asOf: ISODate) {
       .where(and(eq(goals.profileId, profileId), isNotNull(goals.achievedAt))),
     db.select({ date: workouts.date })
       .from(workouts)
-      .where(and(eq(workouts.profileId, profileId), isNotNull(workouts.completedAt)))
+      .where(and(eq(workouts.profileId, profileId), workoutHappened))
       .orderBy(desc(workouts.date))
       .limit(400),
   ]);

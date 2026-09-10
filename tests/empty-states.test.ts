@@ -101,9 +101,17 @@ suite("a screen's controls do not wait for content to exist", () => {
     expect(plan).toMatch(/<WeekStrip/);
     expect(plan).not.toMatch(/week\.exists \? \(/);
     expect(plan).not.toMatch(/mealWeek\.exists \? \(/);
-    // Asking the coach is offered, not substituted for the screen.
-    expect(plan).toMatch(/!week\.exists && \(/);
+    // Asking the coach is offered, not substituted for the screen — and not
+    // taken away once there is one either. The turn that builds the week
+    // refreshes this route, so a panel gated on `exists` unmounts the moment
+    // it succeeds, taking the conversation that asked for it.
+    expect(plan).not.toMatch(/!week\.exists && \(\s*<AskCoach/);
+    expect(plan).not.toMatch(/!mealWeek\.exists && \(\s*<AskCoach/);
+    expect((plan.match(/<AskCoach/g) ?? []).length).toBe(2);
     expect(plan).toMatch(/Or ask your coach/);
+    // …and it says something useful afterwards rather than the same thing.
+    expect(plan).toMatch(/Ask about this week/);
+    expect(plan).toMatch(/Ask about these meals/);
   });
 
   it("neither Plan nor Train hides an add control behind having a plan", () => {

@@ -10,6 +10,7 @@ import { burnForSession, weeklyBurn, type DailyBurn, type LoggedSet } from "@/li
 import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
 import { splitWeek } from "@/lib/week-done";
+import { workoutHappened } from "@/lib/sessions";
 
 /** Epley estimated one-rep max — the fairest single number for comparing
  *  3×10@40 against 4×6@50. Bodyweight sets fall back to total reps. */
@@ -479,7 +480,10 @@ export async function currentStreak(profileId: string, asOf: ISODate = today()):
   const rows = await db
     .select({ date: workouts.date })
     .from(workouts)
-    .where(and(eq(workouts.profileId, profileId), sql`${workouts.completedAt} is not null`))
+    // Finished, *or* worked in. See lib/sessions.ts: this counted only the
+    // days she pressed Finish on, so a Monday with twenty sets in it broke the
+    // streak the app was congratulating her for.
+    .where(and(eq(workouts.profileId, profileId), workoutHappened))
     .orderBy(desc(workouts.date));
   const days = [...new Set(rows.map((r) => r.date))];
   if (days.length === 0) return 0;

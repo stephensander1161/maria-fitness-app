@@ -6,6 +6,7 @@ import { exercises, friendships, highFives, profiles, setLogs, workouts } from "
 import { addDays, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { streakWeeks, titleFor } from "@/lib/titles";
+import { workoutHappened } from "@/lib/sessions";
 import { kgToLb, weightOut, weightLabel, type Units } from "@/lib/units";
 
 /**
@@ -261,8 +262,8 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
    * zero, which is most of the reason this screen looked empty.
    */
   const mine = eq(workouts.profileId, friendProfileId);
-  const worked = sql`exists (select 1 from ${setLogs} where ${setLogs.workoutId} = ${workouts.id})`;
-  const done = and(mine, sql`(${workouts.completedAt} is not null or ${worked})`);
+  // The same predicate every count in the app uses — see lib/sessions.ts.
+  const done = and(mine, workoutHappened);
 
   const [[sessionsWeek], [setsWeek], [allTime], sessionDates, best,
     [volumeWeek], [movesWeek], [setsEver], bestEver] = await Promise.all([

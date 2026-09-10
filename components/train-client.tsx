@@ -75,6 +75,7 @@ export function TrainClient({
   stepBack,
   stepOn,
   dayLine,
+  lead,
 }: {
   view: TodayView;
   pickable: Pickable;
@@ -116,6 +117,12 @@ export function TrainClient({
   stepBack?: React.ReactNode;
   stepOn?: React.ReactNode;
   dayLine?: React.ReactNode;
+  /**
+   * What sits at the left of the top row where there are no day arrows — the
+   * "TODAY · THURSDAY" eyebrow on Plan. Given one, the session's name takes
+   * the row underneath and is centred on it, the same as it does on Train.
+   */
+  lead?: React.ReactNode;
 }) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
@@ -548,6 +555,9 @@ export function TrainClient({
   // Train gives this header the day's arrows; Plan borrows it for today's card
   // and gives it none. The whole shape of the row turns on that.
   const hasDayNav = Boolean(stepBack || stepOn);
+  // Whatever holds the left of the top row: the day's arrows on Train, the
+  // day's name on Plan.
+  const hasLead = hasDayNav || Boolean(lead);
   const sessionBar = isToday ? (
     <SessionBar
       startedAt={view.startedAt}
@@ -570,7 +580,7 @@ export function TrainClient({
   // no clock — Friday, next week — was getting the crowded layout anyway: a
   // row holding nothing but the arrows, and the session's name marooned in the
   // middle of the row under it.
-  const crowdedRow = hasDayNav && Boolean(sessionBar);
+  const crowdedRow = hasLead && Boolean(sessionBar);
 
   return (
     <div className="space-y-4">
@@ -611,19 +621,21 @@ export function TrainClient({
             right, one row.
           */}
           <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
-            hasDayNav ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
+            hasLead ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
           }`}>
-            {hasDayNav && (
+            {hasDayNav ? (
               <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
                 {stepBack}
                 {dayLine}
                 {stepOn}
               </div>
-            )}
+            ) : lead ? (
+              <div className="min-w-0 shrink md:order-none md:justify-self-start">{lead}</div>
+            ) : null}
             <div className={`min-w-0 ${
               crowdedRow
                 ? "order-last basis-full text-center md:order-none md:basis-auto"
-                : hasDayNav
+                : hasLead
                   ? "flex-1 basis-24 text-center"
                   : "flex-1 basis-32"
             }`}>
