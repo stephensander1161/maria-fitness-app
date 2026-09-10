@@ -92,7 +92,7 @@ suite("the training card during a session", () => {
     expect(card).toMatch(/label=\{`Log set \$\{i \+ 1\} of \$\{exercise\.name\}`\}/);
     expect(card).toMatch(/!s && canLog \?/);
     // A day she cannot log to must not offer it.
-    expect(card.indexOf("!s && canLog ?")).toBeLessThan(card.indexOf("!s || isQueued ?"));
+    expect(card.indexOf("!s && canLog ?")).toBeLessThan(card.indexOf("!s || isQueued || isUnconfirmed ?"));
   });
 
   it("shows last time set by set where this set is being entered", () => {
@@ -613,6 +613,17 @@ suite("relabel and remove are on the card", () => {
 });
 
 suite("a dialog is set up once, for its whole life", () => {
+  it("lands in the panel, not in whatever field is highest in it", () => {
+    // The open set card's first control is the target's own number field, so
+    // opening a card to log a set put the caret in "Target sets", raised the
+    // keyboard, and made the next thing typed a change to the target.
+    const hook = fs.readFileSync("lib/use-dialog.ts", "utf8");
+    expect(hook).toMatch(/node\.focus\(\{ preventScroll: true \}\)/);
+    expect(hook).not.toMatch(/first\?\.focus/);
+    // Still a real trap: Tab starts inside and cannot leave.
+    expect(hook).toMatch(/if \(!node\.contains\(active\)\) \{ e\.preventDefault\(\); firstEl\.focus\(\); return; \}/);
+  });
+
   it("does not tear down and re-arm on every render", () => {
     // Every caller passes an inline arrow for onClose, so an effect keyed on
     // it re-ran on every render: cleanup handed focus back to the opener,

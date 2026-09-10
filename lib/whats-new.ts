@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-instant-set",
+    date: "2026-09-09",
+    title: "A set appears the moment you log it",
+    blurb: "The square used to wait for the save and then for the screen to fetch itself again — so nothing happened for a beat and then everything changed at once, which felt like the page reloading. It goes in on the tap now, and comes back out with the error if the save actually fails.",
+    href: "/train",
+  },
+  {
     id: "2026-09-09-steady-beat",
     date: "2026-09-09",
     title: "The green marker beats at one steady tempo",

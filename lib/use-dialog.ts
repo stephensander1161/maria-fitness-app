@@ -47,9 +47,21 @@ export function useDialog(onClose: () => void) {
       )].filter((el) => el.offsetParent !== null);
     };
 
-    // Into the panel, but never stealing the caret from a field it autofocused.
-    const first = focusable()[0];
-    if (node && !node.contains(document.activeElement)) first?.focus({ preventScroll: true });
+    // Into the panel *itself*, not into the first control in it.
+    //
+    // The first control is whatever happens to be highest in the markup, and
+    // on the open set card that is now the target's own number field: opening
+    // a card to log a set put the caret in "Target sets", raised the keyboard,
+    // and made the next thing she typed a change to the target. Focusing the
+    // panel satisfies what the trap is for — Tab starts inside, Escape closes,
+    // the screen reader lands in the dialog — without choosing a field on her
+    // behalf. A dialog that genuinely wants a field focused marks it
+    // `autoFocus`, which runs before this and is left alone by the check
+    // below.
+    if (node && !node.contains(document.activeElement)) {
+      if (!node.hasAttribute("tabindex")) node.setAttribute("tabindex", "-1");
+      node.focus({ preventScroll: true });
+    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { close.current(); return; }

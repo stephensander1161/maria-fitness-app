@@ -1336,7 +1336,27 @@ export function ExerciseCard({
   /** The movement's own page. Where a tap goes on a phone. */
   href?: string;
 }) {
-  const done = exercise.loggedToday;
+  const landed = exercise.loggedToday;
+  /**
+   * A set that has saved but has not come back down the wire yet.
+   *
+   * `router.refresh()` is a server round trip and this page is
+   * force-dynamic, so between the tap and the square appearing there was
+   * half a second of nothing followed by the whole card changing at once —
+   * which reads as the page reloading rather than as a set being logged.
+   * The square goes in on the tap and the refresh reconciles behind it.
+   *
+   * Keyed off the count the server last gave us rather than cleared in an
+   * effect: when the refresh lands, `landed.length` moves and these are
+   * dropped on the next render with nothing writing state during one.
+   */
+  const [unconfirmed, setUnconfirmed] = useState<{ at: number; sets: { reps: number; weight: number | null }[] }>(
+    { at: landed.length, sets: [] },
+  );
+  const justLogged = unconfirmed.at === landed.length ? unconfirmed.sets : [];
+  const done = justLogged.length === 0
+    ? landed
+    : [...landed, ...justLogged.map((s, i) => ({ setNumber: landed.length + i + 1, ...s }))];
   const [removingSet, setRemovingSet] = useState<number | null>(null);
   /**
    * Remove one logged set outright — the answer to "just let me delete it".
@@ -1503,6 +1523,18 @@ export function ExerciseCard({
     // and the only moment a browser will entertain a notification prompt.
     unlockAudio();
     askToNotify();
+    // The square goes in on the tap, not when the round trip comes back.
+    // Waiting for the save and then for `router.refresh()` — this page is
+    // force-dynamic, so that is a second server render — meant nothing at all
+    // happened for a moment and then the whole card changed at once, which
+    // reads as the page reloading rather than as a set being logged. If the
+    // save fails it is taken straight back out again, beside the error.
+    const mine = { reps, weight: loaded && weight > 0 ? weight : null };
+    setUnconfirmed((u) => ({
+      at: landed.length,
+      sets: [...(u.at === landed.length ? u.sets : []), mine],
+    }));
+    const drop = () => setUnconfirmed((u) => ({ at: u.at, sets: u.sets.filter((x) => x !== mine) }));
     try {
       const outcome = await logSetOrQueue<LogResult>(
         // Zero is not a weight. An untouched field on a movement she did with
@@ -1532,6 +1564,9 @@ export function ExerciseCard({
           detail: { vs: outcome.result.vsLastTime, rir: rir ?? null },
         }));
       }
+      // Offline it goes to the outbox, which draws its own dashed square —
+      // so this one comes back out rather than being counted twice.
+      if (outcome.queued) drop();
       onLogged(
         outcome.result,
         exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets,
@@ -1540,6 +1575,8 @@ export function ExerciseCard({
       // A good call is also the moment to drain anything stuck from earlier.
       if (!outcome.queued) onRetryPending();
     } catch (e) {
+      // Nothing was written, so the square she was shown has to go.
+      drop();
       // What the server actually said, not a shrug. A set refused for a real
       // reason — a date in the future, a hold given reps — used to come back
       // as "that didn't save", which reads as a network blip and gets tapped
@@ -1929,6 +1966,12 @@ export function ExerciseCard({
           const s = done[i] ?? queued[i - done.length];
           const prev = exercise.lastTime?.sets[i];
           const isQueued = i >= done.length && i < setCount;
+          // Saved, but the refresh carrying it back has not landed yet. It
+          // looks logged because it is; it is not yet a button, because the
+          // card addresses a set by its position and that position is only
+          // true once the server's own list says so. It becomes editable a
+          // moment later, when the refresh lands.
+          const isUnconfirmed = i >= landed.length && i < done.length;
           const label = s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—";
           // Against the same set last time, where there is one to compare
           // against. **The higher of the two is the one that gets marked**, in
@@ -1970,9 +2013,10 @@ export function ExerciseCard({
             >
               {label}
             </TapIn>
-          ) : !s || isQueued ? (
+          ) : !s || isQueued || isUnconfirmed ? (
             // Only a set that has actually landed can be corrected — one still
-            // in the outbox has no row to correct yet.
+            // in the outbox has no row to correct yet, and one still in flight
+            // has no confirmed position.
             <div className={shape}>{label}</div>
           ) : (
             <SetSquare

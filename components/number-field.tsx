@@ -9,6 +9,13 @@ import { useState } from "react";
  * entering 172 from scratch. The centre is a real input, so both work — and
  * inputMode="decimal" rather than type="number", which on iOS avoids the
  * spinner and the scroll-wheel-changes-your-value trap.
+ *
+ * The steppers are out of the tab order on purpose. Tabbing from a weight to
+ * the reps beside it went weight → minus → plus → reps: four presses to cross
+ * two fields, and the two in the middle change the number she just typed if
+ * she hits space or enter by reflex. They are a pointer affordance; from the
+ * keyboard the same job is the arrow keys inside the field, which is why the
+ * field handles them.
  */
 export function NumberField({
   value,
@@ -68,6 +75,7 @@ export function NumberField({
         <button
           type="button"
           onClick={() => nudge(-step)}
+          tabIndex={-1}
           aria-label={`Decrease${label ? ` ${label}` : ""}`}
           className="grid size-12 shrink-0 place-items-center text-2xl text-muted active:text-accent"
         >
@@ -84,7 +92,13 @@ export function NumberField({
           }}
           onFocus={(e) => { setEditing(true); e.currentTarget.select(); }}
           onBlur={(e) => commit(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.currentTarget.blur(); return; }
+            // What the steppers do, for the keyboard: they are skipped by Tab,
+            // so the nudge has to live somewhere she can reach.
+            if (e.key === "ArrowUp") { e.preventDefault(); nudge(step); }
+            if (e.key === "ArrowDown") { e.preventDefault(); nudge(-step); }
+          }}
           inputMode={decimals ? "decimal" : "numeric"}
           enterKeyHint="done"
           aria-label={label ?? "Value"}
@@ -96,6 +110,7 @@ export function NumberField({
         <button
           type="button"
           onClick={() => nudge(step)}
+          tabIndex={-1}
           aria-label={`Increase${label ? ` ${label}` : ""}`}
           className="grid size-12 shrink-0 place-items-center text-2xl text-muted active:text-accent"
         >
