@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-session-clock",
+    date: "2026-09-10",
+    title: "The session clock restarts itself, and can be corrected",
+    blurb: "Pause it at the door and log a set twenty minutes later and it starts again on its own — another set is the app being told the session is under way by the only evidence that counts. And if it ran overnight, tap the time and type what it actually was.",
+    href: "/train",
+  },
+  {
     id: "2026-09-10-add-movements",
     date: "2026-09-10",
     title: "Asking for four movements adds four movements",

@@ -572,6 +572,7 @@ export function TrainClient({
       // accident in the middle of one is not.
       onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
       onPause={togglePause}
+      onCorrected={() => router.refresh()}
     />
   ) : null;
 
@@ -925,8 +926,12 @@ function TargetInline({
  * next to the one button that ends the session.
  */
 function SessionClock({
-  startedAt, finishedAt, pausedAt, pausedMs,
-}: { startedAt: string; finishedAt: string | null; pausedAt: string | null; pausedMs: number }) {
+  startedAt, finishedAt, pausedAt, pausedMs, onCorrected,
+}: {
+  startedAt: string; finishedAt: string | null; pausedAt: string | null; pausedMs: number;
+  /** Absent on a finished session — there is nothing left to correct. */
+  onCorrected?: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     // Nothing to tick while it is stopped: the reading cannot change.
@@ -934,17 +939,85 @@ function SessionClock({
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [finishedAt, pausedAt]);
+
+  const ms = elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs }) ?? 0;
+
+  /*
+    A clock she can correct.
+
+    It is left running overnight, or paused at the door and never restarted,
+    and either way the number it ends on is not what she did. The comment
+    below used to say this was deliberately not a tap target — that reasoning
+    was about *ending* a session by accident, which is what sits beside it and
+    is still not a thing a stray tap can do. Correcting the length is harmless
+    and was otherwise impossible.
+  */
+  const [editing, setEditing] = useState(false);
+  const [minutes, setMinutes] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await action("set_session_time", { minutes });
+      setEditing(false);
+      onCorrected?.();
+    } catch {
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={String(minutes)}
+          onChange={(e) => setMinutes(Math.min(600, Math.max(0, Number(e.target.value.replace(/\D/g, "")) || 0)))}
+          autoFocus
+          aria-label="Minutes the session has been going"
+          className="w-12 rounded-lg border border-accent bg-base px-1.5 py-1 text-center text-[13px] font-semibold tabular-nums outline-none"
+        />
+        <span className="text-[11px] text-faint">min</span>
+        <button onClick={() => void save()} disabled={saving}
+          className="rounded-lg px-1.5 py-1 text-[12px] font-medium text-accent disabled:opacity-50">
+          {saving ? "…" : "Set"}
+        </button>
+        <button onClick={() => setEditing(false)} className="px-1 py-1 text-[12px] text-faint">
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
+  // Not a live region: it repaints every second, and announcing each tick
+  // would talk over everything else the way the rest countdown once did.
+  if (!onCorrected) {
+    return (
+      <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
+        {clockDuration(ms)}
+      </span>
+    );
+  }
   return (
-    // Not a live region: it repaints every second, and announcing each tick
-    // would talk over everything else the way the rest countdown once did.
-    <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${pausedAt ? "text-faint" : "text-beat"}`}>
-      {clockDuration(elapsedMs(startedAt, now, finishedAt, { since: pausedAt, alreadyMs: pausedMs }))}
-    </span>
+    <button
+      onClick={() => { setMinutes(Math.round(ms / 60_000)); setEditing(true); }}
+      aria-label={`Session time ${clockDuration(ms)}. Tap to correct it.`}
+      title="Tap to correct the session time"
+      className={`shrink-0 rounded-lg px-1 text-[13px] font-semibold tabular-nums transition-colors hover:bg-raised ${
+        pausedAt ? "text-faint" : "text-beat"
+      }`}
+    >
+      {clockDuration(ms)}
+    </button>
   );
 }
 
 function SessionBar({
-  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause,
+  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause, onCorrected,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
@@ -958,6 +1031,8 @@ function SessionBar({
   onStart: () => void;
   onFinish: () => void;
   onPause: () => void;
+  /** The clock was corrected — reload so every reading agrees again. */
+  onCorrected: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -1026,6 +1101,7 @@ function SessionBar({
         finishedAt={finishedAt}
         pausedAt={pausedAt}
         pausedMs={pausedMs}
+        onCorrected={onCorrected}
       />
       {/* A glyph, not a word: it sits beside a button that already has three,
           and pause is the one symbol everybody reads without being told. */}

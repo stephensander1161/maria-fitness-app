@@ -73,8 +73,12 @@ suite("the session has edges", () => {
     expect(card).toMatch(/action\("start_workout"/);
     expect(card).toMatch(/Start workout/);
     expect(card).toMatch(/aria-label="Finish workout"/);
-    // The clock is read under the day's name, not tapped beside the button.
-    expect(card).toMatch(/clockDuration\(elapsedMs\(startedAt, now, finishedAt,/);
+    expect(card).toMatch(/elapsedMs\(startedAt, now, finishedAt, \{ since: pausedAt, alreadyMs: pausedMs \}\)/);
+    // The clock can be corrected — it gets left running overnight, or paused
+    // at the door and never restarted. What must not be a stray tap away is
+    // *ending* the session, which is the button beside it.
+    expect(card).toMatch(/title="Tap to correct the session time"/);
+    expect(card).toMatch(/action\("set_session_time", \{ minutes \}\)/);
   });
 
   it("does not announce every tick of it", () => {

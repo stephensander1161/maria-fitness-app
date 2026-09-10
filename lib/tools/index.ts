@@ -160,6 +160,7 @@ const all: Tool[] = [
   budget.setCoachBudget,
   training.pauseWorkout,
   training.resumeWorkout,
+  training.setSessionTime,
   profile.setGoal,
   profile.setWeightMilestones,
   training.startWorkout,

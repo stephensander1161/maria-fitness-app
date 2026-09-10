@@ -363,7 +363,7 @@ export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${ctx.profileId}:${date}`}))`);
 
-    const [open] = await tx.select().from(workouts)
+    let [open] = await tx.select().from(workouts)
       .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
       .orderBy(desc(workouts.startedAt)).limit(1);
 
@@ -377,6 +377,26 @@ export async function ensureWorkout(ctx: ToolContext, date: ISODate) {
     }
 
     if (open) {
+      /*
+        Logging a set restarts a clock she forgot to.
+
+        Pausing is a real thing to do — she goes to answer the door — but the
+        way it ends is almost never the pause button a second time. It ends
+        with her doing another set, which is the app being told the session is
+        under way by the only evidence that matters. Leaving it paused meant a
+        forty minute session reported as eight.
+
+        Here rather than in log_set, because every path that records work goes
+        through this: the card, the offline outbox draining, and the coach.
+      */
+      if (open.pausedAt && !open.completedAt) {
+        const held = Math.max(0, Date.now() - open.pausedAt.getTime());
+        const [resumed] = await tx.update(workouts)
+          .set({ pausedAt: null, pausedMs: open.pausedMs + held })
+          .where(eq(workouts.id, open.id)).returning();
+        open = resumed ?? open;
+      }
+
       // Adopt the plan day if one has appeared since. This binding was made
       // once, at creation, and a session started before the programme rolled
       // forward into the new week was bound to nothing — hers read "Freestyle
@@ -459,6 +479,38 @@ export const resumeWorkout = defineTool({
       .set({ pausedAt: null, pausedMs: w.pausedMs + held })
       .where(eq(workouts.id, w.id));
     return { ok: true, resumed: true, pausedForMs: held };
+  },
+});
+
+export const setSessionTime = defineTool({
+  name: "set_session_time",
+  description:
+    "Correct how long today's session has been running — 'I left it going overnight', 'I forgot to unpause it, it was about 50 minutes'. Give the elapsed time she means in minutes and the clock is set to exactly that, running from now. Any pause is cleared, because a corrected time is the whole answer and a stopped clock underneath it would only drift again.",
+  input: z.object({
+    minutes: z.number().int().min(0).max(600)
+      .describe("How long the session has actually been going, in minutes"),
+    date: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const date = input.date ?? (await todayFor(ctx));
+    const [w] = await db.select().from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
+      .orderBy(desc(workouts.startedAt)).limit(1);
+    if (!w) return { ok: false, error: "No session for that date. Call start_workout first." };
+
+    /*
+      Set rather than adjusted, and the banked pauses go with it.
+
+      Elapsed is `now - startedAt - pausedMs`, so the simplest honest way to
+      make it read exactly what she says is to move the start and clear the
+      rest. Trying to preserve the old pause ledger against a start time she
+      has just overruled produces a number neither of us can explain.
+    */
+    const startedAt = new Date(Date.now() - input.minutes * 60_000);
+    await db.update(workouts)
+      .set({ startedAt, pausedAt: null, pausedMs: 0 })
+      .where(eq(workouts.id, w.id));
+    return { ok: true, minutes: input.minutes, running: true };
   },
 });
 
