@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-refused-writes",
+    date: "2026-09-10",
+    title: "If something did not save, your coach says so",
+    blurb: "A lunch was refused because the turn ran out of time, and the coach reported it as logged — the row was never there. Saving now gets almost the whole turn rather than being the first thing dropped, and a refusal can no longer be read as \"tell her it is done\".",
+    href: "/eat",
+  },
+  {
     id: "2026-09-10-streak-counts-work",
     date: "2026-09-10",
     title: "Your streak counts the work, not the button",

@@ -17,8 +17,26 @@
 export type ToolCall = { id: string; name: string; input: unknown };
 export type Admission = { call: ToolCall; refusal: string | null };
 
-/** The route is allowed 60s. Nothing new starts after this much of it. */
+/**
+ * The route is allowed 60s. Nothing new *reads* after this much of it.
+ *
+ * The cutoff has to leave room for the model to say something afterwards, and
+ * a read exists to inform that sentence — so once there is no time to use what
+ * comes back, there is no point fetching it.
+ */
 export const TOOL_START_CUTOFF_MS = 40_000;
+/**
+ * A write gets almost the whole route, because a write is the thing she asked
+ * for and it takes about fifty milliseconds.
+ *
+ * This is the bug that earned the distinction: four food lookups and their
+ * round trips took a turn past forty seconds, `log_meal` arrived at forty-one,
+ * the guard refused it, and the coach told him his lunch was logged. The
+ * refusal cost the one call the whole turn existed to make — and then the
+ * transcript said "Logged: pulled pork…" for ever afterwards, so the next turn
+ * repeated the claim without acting either.
+ */
+export const WRITE_START_CUTOFF_MS = 55_000;
 /** A planner has a 45s deadline of its own and needs a few seconds after it
  *  to save and answer, so it can only start this early in the turn. */
 export const PLANNER_START_CUTOFF_MS = 10_000;
@@ -36,6 +54,8 @@ export class TurnGuard {
     private readonly isSlow: (name: string) => boolean,
     /** Tools whose identical repeats are her intent, not a loop. */
     private readonly isRepeatable: (name: string) => boolean = () => false,
+    /** Tools that change her data. They get the longer deadline. */
+    private readonly isWrite: (name: string) => boolean = () => false,
   ) {}
 
   /** Decide every call in one iteration, in the order the model made them. */
@@ -46,12 +66,19 @@ export class TurnGuard {
     return calls.map((call) => {
       const key = `${call.name}:${stableJson(call.input)}`;
       const slow = this.isSlow(call.name);
+      const write = this.isWrite(call.name);
+      const deadline = write ? WRITE_START_CUTOFF_MS : TOOL_START_CUTOFF_MS;
 
       let refusal: string | null = null;
       if (this.seen.has(key) && !this.isRepeatable(call.name)) {
         refusal = `${call.name} was already called with exactly this input in this turn. Use the result you already have; do not call it again.`;
-      } else if (elapsed > TOOL_START_CUTOFF_MS) {
-        refusal = "This turn has run out of time for more tool calls. Tell her what was done and what to ask next; do not retry.";
+      } else if (elapsed > deadline) {
+        // Never phrased as "tell her what was done". It was read as licence to
+        // report the refused call as done, which is the single worst thing a
+        // refusal can cause.
+        refusal = write
+          ? `NOT SAVED. ${call.name} did not run — this turn ran out of time. Nothing was written. Tell her plainly that it did not save and to send the same message again; never say it was done.`
+          : `This turn has run out of time for more tool calls. Answer with what you already have, and say plainly if something was not done. Do not retry.`;
       } else if (slow && this.planners >= MAX_PLANNERS_PER_TURN) {
         refusal = `${call.name} builds a plan with its own model call, and one plan per message is the limit. Tell her the first is built and to ask for this one as its own message.`;
       } else if (slow && elapsed > PLANNER_START_CUTOFF_MS) {

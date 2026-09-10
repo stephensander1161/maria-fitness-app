@@ -4,6 +4,7 @@ import { anthropicTools, registry, runTool, type ToolContext } from "@/lib/tools
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
 import { loadHistory, saveMessage } from "./history";
 import { TurnGuard } from "./guard";
+import { isWriteTool } from "./tool-kind";
 import { recordError } from "@/lib/errors";
 import { buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
@@ -144,6 +145,7 @@ export async function* runCoach(
       Date.now(),
       (name) => registry.get(name)?.slow === "planner",
       (name) => registry.get(name)?.repeatable !== undefined,
+      isWriteTool,
     );
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {

@@ -4,6 +4,7 @@ import {
   MAX_CALLS_PER_ITERATION, MAX_CALLS_PER_TURN, PLANNER_START_CUTOFF_MS, TOOL_START_CUTOFF_MS, TurnGuard,
 } from "@/lib/agent/guard";
 import { registry } from "@/lib/tools";
+import { isWriteTool } from "@/lib/agent/tool-kind";
 
 const slow = (name: string) => name === "create_meal_plan" || name === "create_weekly_plan";
 const call = (name: string, input: unknown = {}, id = `${name}-${Math.random()}`) => ({ id, name, input });
@@ -141,5 +142,52 @@ suite("a repeat she meant is not a loop", () => {
   it("the loop tells the guard which tools those are", () => {
     expect(fs.readFileSync("lib/agent/loop.ts", "utf8"))
       .toMatch(/registry\.get\(name\)\?\.repeatable !== undefined/);
+  });
+});
+
+suite("a write is the last thing a late turn should drop", () => {
+  it("refuses a read after forty seconds and a write only after fifty-five", () => {
+    // Four food lookups and their round trips took a turn past forty seconds,
+    // log_meal arrived at forty-one, the guard refused it — and the coach said
+    // "Logged: pulled pork, cheese, pickles and BBQ sauce". The refusal cost
+    // the one call the whole turn existed to make.
+    const guard = new TurnGuard(0, () => false, () => false, isWriteTool);
+    const at = (ms: number, name: string) =>
+      guard.admit([{ id: name + ms, name, input: { n: ms } }], ms)[0].refusal;
+
+    expect(at(41_000, "get_week_review")).not.toBeNull();
+    expect(at(41_000, "log_meal")).toBeNull();
+    expect(at(54_000, "log_set")).toBeNull();
+    expect(at(56_000, "log_meal")).not.toBeNull();
+  });
+
+  it("and when it does refuse a write, it cannot be read as success", () => {
+    // The old wording was "Tell her what was done and what to ask next",
+    // which the model read as licence to report the refused call as done.
+    const guard = new TurnGuard(0, () => false, () => false, isWriteTool);
+    const refusal = guard.admit([{ id: "1", name: "log_meal", input: {} }], 56_000)[0].refusal!;
+    expect(refusal).toMatch(/NOT SAVED/);
+    expect(refusal).toMatch(/did not save/);
+    expect(refusal).toMatch(/never say it was done/);
+    expect(refusal).not.toMatch(/what was done/);
+  });
+
+  it("classifies every tool in the registry, and errs toward write", () => {
+    // An unmarked mutation treated as a read would be refused early, so a name
+    // that does not announce itself as a read is guarded as a write.
+    for (const name of ["log_meal", "log_set", "add_exercise_to_day", "swap_meal",
+      "adjust_plan_day", "send_high_five", "remove_planned_meal"]) {
+      expect(isWriteTool(name), `${name} should be a write`).toBe(true);
+    }
+    for (const name of ["get_week_review", "lookup_food", "search_exercises",
+      "list_friends", "get_exercise_guide", "get_share_code"]) {
+      expect(isWriteTool(name), `${name} should be a read`).toBe(false);
+    }
+    // And the prefixes actually describe the registry rather than a guess:
+    // every tool whose name starts with one of them exists.
+    const names = [...registry.keys()];
+    const reads = names.filter((n) => !isWriteTool(n));
+    expect(reads.length).toBeGreaterThan(5);
+    expect(names.length - reads.length).toBeGreaterThan(reads.length / 2);
   });
 });
