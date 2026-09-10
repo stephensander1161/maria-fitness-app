@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-five-themes",
+    date: "2026-09-09",
+    title: "Five more looks, and only one of them is orange",
+    blurb: "Four of the first seven had an orange accent, which is one theme with four backgrounds. Turquoise, Rose and Cobalt join the dark ones; Ink and Plum are light without the warm orange. All of them are held to the same contrast floors as the rest.",
+    href: "/settings",
+  },
+  {
     id: "2026-09-09-instant-set",
     date: "2026-09-09",
     title: "A set appears the moment you log it",

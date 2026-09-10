@@ -13,7 +13,8 @@
  */
 
 export type ThemeId =
-  | "midnight" | "daylight" | "paper" | "ember" | "tide" | "dusk" | "contrast";
+  | "midnight" | "daylight" | "paper" | "ember" | "tide" | "dusk" | "contrast"
+  | "rose" | "turquoise" | "cobalt" | "ink" | "plum";
 
 export type Theme = {
   id: ThemeId;
@@ -57,6 +58,31 @@ export const THEMES: Theme[] = [
     id: "dusk", name: "Dusk", scheme: "dark",
     blurb: "Violet, and the furthest an accent gets from the green that means done.",
     swatch: ["#0e0a18", "#171226", "#c084fc"], themeColor: "#0e0a18",
+  },
+  {
+    id: "rose", name: "Rose", scheme: "dark",
+    blurb: "Dark and pink. The one accent in the list that is neither orange nor blue.",
+    swatch: ["#130a11", "#1e1019", "#ff5c8a"], themeColor: "#130a11",
+  },
+  {
+    id: "turquoise", name: "Turquoise", scheme: "dark",
+    blurb: "Dark green-blue. The one theme where done goes lime, so it never reads as the accent.",
+    swatch: ["#06171a", "#0c2226", "#2ee6c8"], themeColor: "#06171a",
+  },
+  {
+    id: "cobalt", name: "Cobalt", scheme: "dark",
+    blurb: "Deep navy with an indigo accent — blue that reads as ink, where Tide reads as water.",
+    swatch: ["#0a1020", "#121a2e", "#7c9bff"], themeColor: "#0a1020",
+  },
+  {
+    id: "ink", name: "Ink", scheme: "light",
+    blurb: "Light and cool, with a proper blue. Light mode without the warm orange.",
+    swatch: ["#f2f5f9", "#ffffff", "#1d4ed8"], themeColor: "#f2f5f9",
+  },
+  {
+    id: "plum", name: "Plum", scheme: "light",
+    blurb: "Light with a deep violet — the quietest of the light ones.",
+    swatch: ["#f6f2f8", "#fffdff", "#7e22ce"], themeColor: "#f6f2f8",
   },
   {
     id: "contrast", name: "High contrast", scheme: "dark",

@@ -218,6 +218,138 @@ html[data-theme="contrast"] {
   --app-wash: var(--color-base);
 }
 
+/* ── rose — dark, and the one accent in the set that is neither warm-orange
+   nor blue. Four of the first seven themes had an orange accent, which is a
+   list of one theme with four backgrounds. */
+html[data-theme="rose"] {
+  --color-ink: #0a0509;
+  --color-scrim: #0a0509;
+  --color-base: #130a11;
+  --color-surface: #1e1019;
+  --color-raised: #2a1724;
+  --color-line: #452a3c;
+  --color-edge: #94718a;
+  --color-text: #f9ecf3;
+  --color-muted: #c9a5ba;
+  --color-faint: #c09cb2;
+  --color-accent: #ff5c8a;
+  --color-accent-soft: #3d1424;
+  --color-on-accent: #0a0509;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #f87171;
+  --color-miss-soft: #3a1a1a;
+  --app-wash: radial-gradient(130% 80% at 80% 0%, #33132a 0%, var(--color-base) 55%);
+}
+
+/* ── turquoise — the one theme where the accent had to move the *other*
+   colours. Turquoise sits close enough to the green that means "done" that a
+   finished card and the thing she taps would read as the same colour, so here
+   `beat` is a lime green and `hold` a warm orange: four statuses, four hues,
+   still spread apart. A token is a role, and this is what that is for. */
+html[data-theme="turquoise"] {
+  --color-ink: #03100f;
+  --color-scrim: #03100f;
+  --color-base: #06171a;
+  --color-surface: #0c2226;
+  --color-raised: #133034;
+  --color-line: #2a4b50;
+  --color-edge: #6f979d;
+  --color-text: #e8f7f6;
+  --color-muted: #a3c5c8;
+  --color-faint: #9cbec2;
+  --color-accent: #2ee6c8;
+  --color-accent-soft: #0a3a35;
+  --color-on-accent: #03100f;
+  --color-beat: #a3e635;
+  --color-beat-soft: #2b3306;
+  --color-hold: #fb923c;
+  --color-hold-soft: #3a1f0b;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: radial-gradient(130% 80% at 50% 0%, #0a2b2c 0%, var(--color-base) 60%);
+}
+
+/* ── cobalt — deep navy with an indigo accent. Tide is cyan and cool; this is
+   blue that reads as ink rather than as water. */
+html[data-theme="cobalt"] {
+  --color-ink: #04070f;
+  --color-scrim: #04070f;
+  --color-base: #0a1020;
+  --color-surface: #121a2e;
+  --color-raised: #1a2440;
+  --color-line: #33405f;
+  --color-edge: #7688aa;
+  --color-text: #e9eefa;
+  --color-muted: #a5b3cf;
+  --color-faint: #9eacc8;
+  --color-accent: #7c9bff;
+  --color-accent-soft: #182449;
+  --color-on-accent: #04070f;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: linear-gradient(170deg, #10193a 0%, var(--color-base) 50%);
+}
+
+/* ── ink — light, and blue rather than orange. Both light themes were warm,
+   because a light theme needs an accent dark enough to read on white and
+   burnt orange is the easy one to reach for. */
+html[data-theme="ink"] {
+  color-scheme: light;
+  --color-ink: #ffffff;
+  --color-scrim: #0b0e13;
+  --color-base: #f2f5f9;
+  --color-surface: #ffffff;
+  --color-raised: #e4eaf2;
+  --color-line: #d0d8e4;
+  --color-edge: #75808f;
+  --color-text: #0f141c;
+  --color-muted: #47525f;
+  --color-faint: #55606d;
+  --color-accent: #1d4ed8;
+  --color-accent-soft: #e9effc;
+  --color-on-accent: #ffffff;
+  --color-beat: #15803d;
+  --color-beat-soft: #eafaf0;
+  --color-hold: #a16207;
+  --color-hold-soft: #fdf6e6;
+  --color-miss: #b91c1c;
+  --color-miss-soft: #fdeceb;
+  --app-wash: var(--color-base);
+}
+
+/* ── plum — light and cool-violet. The light half of the list, with a purple
+   that is still dark enough to read on white. */
+html[data-theme="plum"] {
+  color-scheme: light;
+  --color-ink: #fffdff;
+  --color-scrim: #150d1a;
+  --color-base: #f6f2f8;
+  --color-surface: #fffdff;
+  --color-raised: #eae3ee;
+  --color-line: #ddd3e2;
+  --color-edge: #786e82;
+  --color-text: #1c161f;
+  --color-muted: #4d4555;
+  --color-faint: #5a5162;
+  --color-accent: #7e22ce;
+  --color-accent-soft: #f4e9fb;
+  --color-on-accent: #fffdff;
+  --color-beat: #15803d;
+  --color-beat-soft: #e9f7ee;
+  --color-hold: #92610a;
+  --color-hold-soft: #fbf1dc;
+  --color-miss: #b02222;
+  --color-miss-soft: #fbe8e6;
+  --app-wash: linear-gradient(180deg, #faf6fb 0%, var(--color-base) 55%);
+}
+
 html {
   background: var(--color-base);
 }
