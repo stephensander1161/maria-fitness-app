@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { BARBELL, BRAND_ACCENT, BRAND_ACCENT_FADED, BRAND_INK } from "@/lib/brand";
+import { BARBELL, BRAND_MARK, BRAND_TILE } from "@/lib/brand";
 
 // Node, like everything else. The two icon routes were the only edge
 // functions in the app — a second runtime for two PNGs, with its own cold
@@ -20,12 +20,12 @@ export function GET() {
         style={{
           width: "100%", height: "100%", display: "flex",
           alignItems: "center", justifyContent: "center",
-          background: `linear-gradient(135deg, ${BRAND_ACCENT} 0%, ${BRAND_ACCENT_FADED} 100%)`,
+          background: BRAND_TILE,
           borderRadius: 56,
         }}
       >
         <svg width="138" height="138" viewBox="0 0 48 48" fill="none">
-          <g stroke={BRAND_INK} strokeLinecap="round">
+          <g stroke={BRAND_MARK} strokeLinecap="round">
             <path d={BARBELL.bar.d} strokeWidth={BARBELL.bar.width} />
             <path d={BARBELL.plates.d} strokeWidth={BARBELL.plates.width} />
           </g>

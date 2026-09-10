@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-09-neutral-icon",
+    date: "2026-09-09",
+    title: "The tab icon is neutral now",
+    blurb: "It was the app's orange, so picking Turquoise left an orange square in the browser tab. It cannot follow your theme — a favicon is one image for the whole site, cached by the browser — so it is the mark in black on white, which reads on light chrome and dark. The address bar colour does still follow your theme.",
+    href: "/settings",
+  },
+  {
     id: "2026-09-09-five-themes",
     date: "2026-09-09",
     title: "Eight more looks, and only one of them is orange",

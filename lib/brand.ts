@@ -12,9 +12,24 @@
  * This is why the icon is not simply the big one scaled down.
  */
 
-export const BRAND_ACCENT = "#ff6a45";
-export const BRAND_ACCENT_FADED = "#d94f2f";
-export const BRAND_INK = "#0b0e13";
+/**
+ * The icon's tile and its mark, and neither of them follows the theme.
+ *
+ * It used to be the app's orange on a gradient, which looked like Midnight and
+ * like nothing else: pick Turquoise and the tab still said orange. It cannot
+ * follow the theme either — a favicon is one URL for the whole origin, fetched
+ * without a session and cached by the browser for far longer than a person
+ * spends choosing a colour, so "the icon in her theme" is a promise this shape
+ * of thing cannot keep for even one visitor, let alone two on one machine.
+ *
+ * Neutral instead, and deliberately: a white tile with the mark in near-black
+ * reads on light browser chrome and on dark, which is the actual job. The one
+ * piece of chrome that *does* follow the theme is the address bar colour —
+ * `themeColor` in app/layout.tsx, which is rendered per request and is allowed
+ * to, because it is a meta tag on a page and not a cached image.
+ */
+export const BRAND_TILE = "#ffffff";
+export const BRAND_MARK = "#0b0e13";
 
 /** Below this, use the chunky drawing. */
 export const SMALL_AT = 22;
