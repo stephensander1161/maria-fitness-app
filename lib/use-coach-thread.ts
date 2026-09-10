@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CoachError, streamCoach, type CoachEvent } from "@/lib/client";
+import { action, CoachError, streamCoach, type CoachEvent } from "@/lib/client";
 import { TOOL_LABELS } from "@/lib/tool-labels";
 
 export type Msg = { id: string; role: "user" | "assistant"; text: string };
@@ -40,8 +40,24 @@ export function useCoachThread(
    * Consume one turn. Returns whether anything was actually delivered — a
    * failure with no text at all is the case where her message never landed.
    */
+  /**
+   * The turn in flight, so she can stop it.
+   *
+   * Held in a ref rather than state: aborting must not wait for a render, and
+   * nothing renders differently because a controller exists — `busy` already
+   * says a turn is running.
+   */
+  const inFlight = useRef<AbortController | null>(null);
+
   const stream = useCallback(async (body: Body, opts: { signal?: AbortSignal } = {}) => {
     setBusy(true);
+    // A caller's own signal still wins; this one is hers.
+    const mine = new AbortController();
+    inFlight.current = mine;
+    const signal = opts.signal
+      ? AbortSignal.any([opts.signal, mine.signal])
+      : mine.signal;
+    opts = { ...opts, signal };
     // The companion at the bottom of the page stops and thinks while this
     // runs. Broadcast rather than shared state: he is in the layout and this
     // hook is in three different sheets.
@@ -109,8 +125,49 @@ export function useCoachThread(
     [stream],
   );
 
+  /**
+   * Say one of her earlier messages again, from that point in the thread.
+   *
+   * Appending it left the same question in the transcript twice with two
+   * answers under it, and every replay after that made the thread longer and
+   * harder to read. So the conversation is rewound to just before it — on the
+   * screen and in the database, because what the model is sent next turn has
+   * to match what she is looking at.
+   *
+   * The rewind is best-effort by design. A message from this session has a
+   * client id the transcript has never seen, so the tool finds nothing and
+   * says so; the thread on screen is still truncated, which is the half she
+   * asked for. It resolves fully the moment the sheet reloads its history.
+   */
+  const replay = useCallback(
+    async (m: Msg, page?: string) => {
+      const at = messages.findIndex((x) => x.id === m.id);
+      if (at >= 0) setMessages((all) => all.slice(0, at));
+      await action("rewind_conversation", { messageId: m.id }).catch(() => { /* see above */ });
+      await send(m.text, page);
+    },
+    [messages, send],
+  );
+
+  /**
+   * Stop the turn she is waiting on.
+   *
+   * What has already streamed is kept — she has read it, and throwing away a
+   * half-answer she stopped *because* it was enough is the wrong way round.
+   * The server may still finish and save its own copy; the next time the sheet
+   * loads its history that is what she sees, which is the honest record of
+   * what was actually said.
+   */
+  const stop = useCallback(() => {
+    inFlight.current?.abort();
+    inFlight.current = null;
+    setBusy(false);
+    setActivity(null);
+    window.dispatchEvent(new CustomEvent("coach:idle"));
+  }, []);
+
   return {
     messages, setMessages, streaming, activity, busy, error, setError, errorCode,
-    input, setInput, stream, send, allowance,
+    input, setInput, stream, send, replay, stop, allowance,
   };
 }

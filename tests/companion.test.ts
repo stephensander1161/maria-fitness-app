@@ -495,11 +495,15 @@ suite("what he says and how big he is", () => {
     expect(fn).toMatch(/proteinG: food\.logged\.length === 0 \? null : food\.proteinG/);
   });
 
-  it("offers Feed only when there is something to fix", () => {
+  it("says what is short without offering a button that goes nowhere", () => {
+    // There was a "Feed" button on the end of the bark, linking to /eat. It
+    // read as broken for the best possible reason: the line offering it is
+    // usually being read *on* the Eat screen, so the link went nowhere she
+    // was not already. The bark still says she is short.
     const c = read("components/companion.tsx");
-    expect(c).toMatch(/const hungry = fullness !== null && fullness < 0\.7/);
-    expect(c).toMatch(/\{hungry && \(/);
-    expect(c).toMatch(/href="\/eat"/);
+    expect(c).not.toMatch(/href="\/eat"/);
+    expect(c).not.toMatch(/>\s*Feed\s*</);
+    expect(c).toMatch(/\{bark\}/);
   });
 });
 

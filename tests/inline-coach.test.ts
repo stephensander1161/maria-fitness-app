@@ -107,9 +107,34 @@ suite("she can send an earlier message again", () => {
   it("every thread that can send offers a replay on her messages", () => {
     const thread = fs.readFileSync("components/coach-thread.tsx", "utf8");
     expect(thread).toMatch(/aria-label="Send this again"/);
-    expect(thread).toMatch(/onClick=\{\(\) => onReplay\(m\.text\)\}/);
+    // The whole message, not its text: replaying rewinds the thread to that
+    // point, and that needs the id.
+    expect(thread).toMatch(/onClick=\{\(\) => onReplay\(m\)\}/);
     for (const f of ["components/coach-bubble.tsx", "components/ask-coach.tsx", "components/ai-opinion.tsx"]) {
       expect(fs.readFileSync(f, "utf8"), `${f} renders the thread without onReplay`).toMatch(/onReplay=\{/);
     }
+  });
+
+  it("and replaying rewinds rather than asking the same thing twice", () => {
+    // Appending left the question in the transcript twice with two answers
+    // under it, and every replay after that made the thread longer to read.
+    const hook = fs.readFileSync("lib/use-coach-thread.ts", "utf8");
+    expect(hook).toMatch(/const at = messages\.findIndex\(\(x\) => x\.id === m\.id\)/);
+    expect(hook).toMatch(/if \(at >= 0\) setMessages\(\(all\) => all\.slice\(0, at\)\)/);
+    // On the screen *and* in the database: what the model is sent next turn
+    // has to match what she is looking at.
+    expect(hook).toMatch(/action\("rewind_conversation", \{ messageId: m\.id \}\)/);
+    const tool = fs.readFileSync("lib/tools/corrections.ts", "utf8");
+    expect(tool).toMatch(/name: "rewind_conversation"/);
+    // Scoped to her in the lookup itself, so an id from someone else's
+    // conversation finds nothing rather than deleting from it.
+    expect(tool).toMatch(/eq\(messages\.id, input\.messageId\), eq\(messages\.profileId, ctx\.profileId\)/);
+  });
+
+  it("offers a copy and a way to stop a turn", () => {
+    const thread = fs.readFileSync("components/coach-thread.tsx", "utf8");
+    expect(thread).toMatch(/function CopyMessage/);
+    expect(thread).toMatch(/navigator\.clipboard\.writeText\(text\)/);
+    expect(thread).toMatch(/\{busy && onStop && \(/);
   });
 });

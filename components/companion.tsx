@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
 import { coachSurfaceFor } from "@/lib/coach-surface";
@@ -85,7 +84,6 @@ export function Companion({
   if (isChromeless(path)) return null;
 
   const label = busy ? "Your coach is thinking" : "Ask your coach";
-  const hungry = fullness !== null && fullness < 0.7;
   const surface = coachSurfaceFor(path);
 
   return (
@@ -142,28 +140,23 @@ export function Companion({
       </button>
 
       {/*
-        What he has to say, and how fed he is.
-        Outside the button, because "Feed" goes somewhere else and a link
-        inside a button is not a thing. The line is never random — it is
-        whichever true thing most needed saying, see lib/buddy.ts.
+        What he has to say. Never random — it is whichever true thing most
+        needed saying, see lib/buddy.ts.
+
+        There used to be a "Feed" button on the end of this line, linking to
+        /eat. It read as broken for the best possible reason: the line that
+        offers it is usually being read *on* the Eat screen, where the link
+        goes nowhere she is not already. The bark says she is short on protein;
+        the tab bar is six pixels below it; a button between them was one more
+        thing to draw and a promise it could not keep.
       */}
       <div className="flex items-center gap-2 border-t border-line/50 px-3 py-2">
-        <p className={`min-w-0 flex-1 truncate text-[12px] ${
+        <p className={`min-w-0 flex-1 text-[12px] ${
           barkKind === "praise" || barkKind === "session" ? "text-beat"
             : barkKind === "idle" ? "text-faint" : "text-muted"
         }`}>
           {bark}
         </p>
-        {/* Only offered when there is something to fix. A Feed button on a day
-            she has already hit her protein is a button that does nothing. */}
-        {hungry && (
-          <Link
-            href="/eat"
-            className="shrink-0 rounded-full border border-edge px-2.5 py-1 text-[11px] font-medium text-muted active:bg-raised"
-          >
-            Feed
-          </Link>
-        )}
       </div>
 
       {/*

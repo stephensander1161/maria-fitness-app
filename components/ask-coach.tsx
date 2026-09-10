@@ -35,7 +35,7 @@ export function AskCoach({
   const thread = useCoachThread({
     onTurnEnd: ({ usedTools }) => { if (usedTools && refreshOnChange) router.refresh(); },
   });
-  const { messages, streaming, activity, busy, error, errorCode, input, setInput, send, allowance } = thread;
+  const { messages, streaming, activity, busy, error, errorCode, input, setInput, send, replay, stop, allowance } = thread;
   const panel = useRef<HTMLElement>(null);
 
   // Follow the answer as it comes in, but only once there is a conversation —
@@ -71,7 +71,8 @@ export function AskCoach({
             error={error}
             errorCode={errorCode}
             compact
-            onReplay={send}
+            onReplay={(m) => void replay(m)}
+            onStop={stop}
           />
           <div ref={end} />
         </div>

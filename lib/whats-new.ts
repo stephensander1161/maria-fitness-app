@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-chat-controls",
+    date: "2026-09-10",
+    title: "Ask your coach from the food card, and take a message back",
+    blurb: "A chat button sits beside Add food, so a plate with four things on it does not mean scrolling to the bottom of the screen. In the conversation, replaying a message now rewinds to it rather than asking the same thing twice, there is a copy button beside it, and a turn that is taking too long can be stopped.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-10-plate-pricing",
     date: "2026-09-10",
     title: "A whole plate logged in one go, and portions that mean one",

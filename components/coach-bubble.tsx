@@ -90,7 +90,7 @@ function CoachSheet({
   name, path, onClose,
 }: { name: string | null; path: string; onClose: () => void }) {
   const router = useRouter();
-  const { messages, setMessages, streaming, activity, busy, error, setError, errorCode, input, setInput, stream, send, allowance } = useCoachThread({
+  const { messages, setMessages, streaming, activity, busy, error, setError, errorCode, input, setInput, stream, send, replay, stop, allowance } = useCoachThread({
     // A turn that ran tools changed something the screen behind this is
     // showing — "log that set" should tick the set off underneath.
     onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); },
@@ -317,7 +317,8 @@ function CoachSheet({
             busy={busy}
             error={error}
             errorCode={errorCode}
-            onReplay={say}
+            onReplay={(m) => void replay(m, path)}
+            onStop={stop}
           />
 
           {loadFailed && (

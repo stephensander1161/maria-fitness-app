@@ -65,6 +65,7 @@ const all: Tool[] = [
   corrections.deleteProgressPhotos,
   corrections.clearRange,
   corrections.forgetConversation,
+  corrections.rewindConversation,
   deload.checkProgressionStatus,
   deload.scheduleDeload,
   composition.estimateBodyComp,

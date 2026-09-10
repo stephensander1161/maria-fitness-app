@@ -52,8 +52,48 @@ function AskForMore() {
   );
 }
 
+/**
+ * Copy what she said, for pasting somewhere else or editing and sending again.
+ *
+ * Sits beside replay because they answer the two halves of "I want to say that
+ * again": exactly, or with one word changed.
+ */
+function CopyMessage({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+          // Clipboard access can be refused; the text is on screen to select.
+        }
+      }}
+      aria-label={copied ? "Copied" : "Copy this message"}
+      title={copied ? "Copied" : "Copy this message"}
+      className="shrink-0 rounded-full p-1.5 text-faint transition-colors hover:text-text active:bg-raised md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+    >
+      {copied ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect x="9" y="9" width="11" height="11" rx="2" />
+          <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export function ThreadMessages({
-  messages, streaming, activity, busy, error, errorCode, compact, onReplay,
+  messages, streaming, activity, busy, error, errorCode, compact, onReplay, onStop,
 }: {
   messages: Msg[];
   streaming: string;
@@ -63,9 +103,17 @@ export function ThreadMessages({
   /** "spent" turns the dead end into an ask — see AskForMore above. */
   errorCode?: "spent" | "rate" | "messages" | null;
   compact?: boolean;
-  /** Send one of her earlier messages again — after an error, or because the
-   *  answer was worth a second try. Given by every surface that can send. */
-  onReplay?: (text: string) => void;
+  /**
+   * Send one of her earlier messages again — after an error, or because the
+   * answer was worth a second try. Given by every surface that can send.
+   *
+   * It takes the whole message, not the text: replaying rewinds the thread to
+   * that point rather than appending, so the same question does not end up in
+   * the transcript twice with two answers under it, and that needs its id.
+   */
+  onReplay?: (m: Msg) => void;
+  /** Stop the turn that is running. Only given where one can be. */
+  onStop?: () => void;
 }) {
   const size = compact ? "text-[14px]" : "text-[15px]";
   return (
@@ -73,13 +121,14 @@ export function ThreadMessages({
       {messages.map((m) =>
         m.role === "user" ? (
           <div key={m.id} className="group flex items-end justify-end gap-1.5">
+            <CopyMessage text={m.text} />
             {onReplay && (
               <button
                 type="button"
-                onClick={() => onReplay(m.text)}
+                onClick={() => onReplay(m)}
                 disabled={busy}
                 aria-label="Send this again"
-                title="Send this again"
+                title="Send this again, and forget what came after it"
                 className="shrink-0 rounded-full p-1.5 text-faint transition-colors hover:text-text active:bg-raised disabled:opacity-40 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -103,6 +152,21 @@ export function ThreadMessages({
         <div className={`max-w-[92%] ${size}`}>
           <RichText>{streaming}</RichText>
         </div>
+      )}
+
+      {/* A way out of a turn that is taking too long, or that she has changed
+          her mind about. Only while one is running. */}
+      {busy && onStop && (
+        <button
+          type="button"
+          onClick={onStop}
+          className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:bg-raised active:bg-raised"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <rect x="5" y="5" width="14" height="14" rx="2.5" />
+          </svg>
+          Stop
+        </button>
       )}
 
       {activity && (

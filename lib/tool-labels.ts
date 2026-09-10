@@ -29,6 +29,7 @@ export const TOOL_LABELS: Record<string, string> = {
   clear_plan: "clearing your week", copy_week: "copying that week across",
   add_planned_meal: "adding that meal", remove_planned_meal: "taking that meal off",
   delete_progress_photos: "deleting your photos", clear_range: "clearing those days",
+  rewind_conversation: "rewinding the conversation",
   forget_conversation: "forgetting that",
   pause_workout: "pausing your session", resume_workout: "starting the clock again",
   send_high_five: "sending a high five", acknowledge_high_fives: "checking your high fives",

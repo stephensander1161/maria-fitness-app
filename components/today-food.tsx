@@ -506,12 +506,30 @@ function QuickAdd({
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-4 w-full rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
-      >
-        + Add food
-      </button>
+      // Two ways to put food on the day, side by side, where the day is.
+      // Typing it is the fast one for "protein shake, 147"; the coach is the
+      // one for a plate with four things on it — and it used to live at the
+      // bottom of the screen, past everything, which is a scroll away from
+      // the moment she is actually in.
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex-1 rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
+        >
+          + Add food
+        </button>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
+          aria-label="Tell your coach what you ate"
+          title="Tell your coach what you ate"
+          className="grid w-12 shrink-0 place-items-center rounded-xl border border-dashed border-line text-muted transition-colors active:bg-raised hover:text-accent"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" />
+          </svg>
+        </button>
+      </div>
     );
   }
 

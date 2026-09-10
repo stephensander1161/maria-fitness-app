@@ -415,6 +415,33 @@ export const clearRange = defineTool({
   },
 });
 
+export const rewindConversation = defineTool({
+  name: "rewind_conversation",
+  description:
+    "Takes the conversation back to just before one of her own messages and forgets everything from there on, including that message. The app calls this when she taps replay on something she said, so the thread does not end up holding the same question twice with two answers under it. Her logged data is untouched — this is the conversation only.",
+  input: z.object({
+    messageId: z.string().describe("The message to rewind to, from the transcript"),
+  }),
+  handler: async (input, ctx) => {
+    // Scoped to her in the lookup itself, so an id from someone else's
+    // conversation finds nothing rather than deleting from it.
+    const [mark] = await db.select({ at: messages.createdAt })
+      .from(messages)
+      .where(and(eq(messages.id, input.messageId), eq(messages.profileId, ctx.profileId)))
+      .limit(1);
+    if (!mark) {
+      return { ok: false, error: "No message of hers with that id — nothing was changed." };
+    }
+    const removed = await db.delete(messages)
+      .where(and(eq(messages.profileId, ctx.profileId), gte(messages.createdAt, mark.at)))
+      .returning({ id: messages.id });
+    await audit("data.deleted", {
+      detail: { profileId: ctx.profileId, scope: "messages", count: removed.length, rewindTo: input.messageId },
+    });
+    return { ok: true, removed: removed.length };
+  },
+});
+
 export const forgetConversation = defineTool({
   name: "forget_conversation",
   description:
