@@ -244,6 +244,92 @@ html[data-theme="rose"] {
   --app-wash: radial-gradient(130% 80% at 80% 0%, #33132a 0%, var(--color-base) 55%);
 }
 
+/* ── The dusk family ────────────────────────────────────────────────────────
+   Dusk's recipe, three more times: a near-black base tinted toward the accent
+   rather than neutral grey, a *soft bright* accent — a 300/400-level colour,
+   not a saturated one — text and muted tinted to the same hue so the whole
+   screen belongs to one family, and a corner glow off the top-left so the
+   page has a light source instead of being flat.
+
+   The tint is what does most of the work. A violet accent on neutral charcoal
+   looks like an accent bolted onto midnight; on a base that is already a
+   little violet it looks like the room the app is in. */
+
+/* ── orchid — the warm end of the family: fuchsia, and pinker than dusk. */
+html[data-theme="orchid"] {
+  --color-ink: #0b0510;
+  --color-scrim: #0b0510;
+  --color-base: #150a17;
+  --color-surface: #211029;
+  --color-raised: #2d1737;
+  --color-line: #4a2c57;
+  --color-edge: #9673a4;
+  --color-text: #f7ebfa;
+  --color-muted: #c9a4d1;
+  --color-faint: #c29dca;
+  --color-accent: #ef7bd8;
+  --color-accent-soft: #3a1435;
+  --color-on-accent: #0b0510;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: radial-gradient(130% 80% at 15% 0%, #3a1240 0%, var(--color-base) 55%);
+}
+
+/* ── moss — the same recipe in green, which means the *statuses* move: a
+   chartreuse accent beside the green that means "done" would be one colour
+   doing two jobs, so `beat` is teal here and `hold` a warm orange. */
+html[data-theme="moss"] {
+  --color-ink: #070c05;
+  --color-scrim: #070c05;
+  --color-base: #0c1208;
+  --color-surface: #141d0f;
+  --color-raised: #1d2916;
+  --color-line: #364528;
+  --color-edge: #83976c;
+  --color-text: #eef6e6;
+  --color-muted: #b7c8a6;
+  --color-faint: #b1c2a0;
+  --color-accent: #bef264;
+  --color-accent-soft: #29350f;
+  --color-on-accent: #070c05;
+  --color-beat: #2dd4bf;
+  --color-beat-soft: #062f2b;
+  --color-hold: #fb923c;
+  --color-hold-soft: #3a1f0b;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: radial-gradient(130% 80% at 15% 0%, #1a2a10 0%, var(--color-base) 55%);
+}
+
+/* ── slate — the cold end: periwinkle on blue-grey, the quietest of the
+   family and the closest any of them gets to neutral. */
+html[data-theme="slate"] {
+  --color-ink: #06070d;
+  --color-scrim: #06070d;
+  --color-base: #0b0d14;
+  --color-surface: #141722;
+  --color-raised: #1d2130;
+  --color-line: #363c50;
+  --color-edge: #80879d;
+  --color-text: #eceef6;
+  --color-muted: #acb1c6;
+  --color-faint: #a5abc1;
+  --color-accent: #a5b4fc;
+  --color-accent-soft: #23274a;
+  --color-on-accent: #06070d;
+  --color-beat: #34d399;
+  --color-beat-soft: #0f2f26;
+  --color-hold: #fbbf24;
+  --color-hold-soft: #33280c;
+  --color-miss: #fb7185;
+  --color-miss-soft: #38151f;
+  --app-wash: radial-gradient(130% 80% at 15% 0%, #1e2340 0%, var(--color-base) 55%);
+}
+
 /* ── turquoise — the one theme where the accent had to move the *other*
    colours. Turquoise sits close enough to the green that means "done" that a
    finished card and the thing she taps would read as the same colour, so here

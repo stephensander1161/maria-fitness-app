@@ -27,8 +27,8 @@ export const WHATS_NEW: WhatsNew[] = [
   {
     id: "2026-09-09-five-themes",
     date: "2026-09-09",
-    title: "Five more looks, and only one of them is orange",
-    blurb: "Four of the first seven had an orange accent, which is one theme with four backgrounds. Turquoise, Rose and Cobalt join the dark ones; Ink and Plum are light without the warm orange. All of them are held to the same contrast floors as the rest.",
+    title: "Eight more looks, and only one of them is orange",
+    blurb: "Four of the first seven had an orange accent, which is one theme with four backgrounds. Orchid, Moss and Slate follow Dusk's recipe — a base tinted toward its own accent and a glow in the corner; Turquoise, Rose and Cobalt are dark, Ink and Plum light. All of them clear the same contrast floors as the rest.",
     href: "/settings",
   },
   {

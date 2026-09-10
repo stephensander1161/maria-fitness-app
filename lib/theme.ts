@@ -14,7 +14,8 @@
 
 export type ThemeId =
   | "midnight" | "daylight" | "paper" | "ember" | "tide" | "dusk" | "contrast"
-  | "rose" | "turquoise" | "cobalt" | "ink" | "plum";
+  | "rose" | "turquoise" | "cobalt" | "ink" | "plum"
+  | "orchid" | "moss" | "slate";
 
 export type Theme = {
   id: ThemeId;
@@ -58,6 +59,21 @@ export const THEMES: Theme[] = [
     id: "dusk", name: "Dusk", scheme: "dark",
     blurb: "Violet, and the furthest an accent gets from the green that means done.",
     swatch: ["#0e0a18", "#171226", "#c084fc"], themeColor: "#0e0a18",
+  },
+  {
+    id: "orchid", name: "Orchid", scheme: "dark",
+    blurb: "Dusk's warmer sister. Fuchsia on a base tinted the same way.",
+    swatch: ["#150a17", "#211029", "#ef7bd8"], themeColor: "#150a17",
+  },
+  {
+    id: "moss", name: "Moss", scheme: "dark",
+    blurb: "Dusk in green. Done goes teal here, so the accent never doubles for it.",
+    swatch: ["#0c1208", "#141d0f", "#bef264"], themeColor: "#0c1208",
+  },
+  {
+    id: "slate", name: "Slate", scheme: "dark",
+    blurb: "The cold end of the family — periwinkle on blue-grey, and the quietest of them.",
+    swatch: ["#0b0d14", "#141722", "#a5b4fc"], themeColor: "#0b0d14",
   },
   {
     id: "rose", name: "Rose", scheme: "dark",
