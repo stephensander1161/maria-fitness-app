@@ -59,21 +59,54 @@ export const resetFired = (): void => { fired = null; };
 export type Movement = { slug: string; targetSets: number; done: number };
 
 /**
- * The movement to rest into after logging a set of `slug`.
+ * What happens after she logs a set of `slug`.
  *
- * Null when that movement still has sets left in it — the rest is then for
- * the same movement, which is the ordinary between-sets case. Otherwise the
- * next one with sets outstanding, wrapping, because she may have worked down
- * the list and come back. Null again when nothing is left at all: the session
- * is over and there is nothing to count down to.
+ * Three outcomes, and they have to be three because two of them used to be
+ * `null` and the caller could not tell them apart:
+ *
+ * - **same** — that movement still has sets in it. The ordinary between-sets
+ *   rest, counting down to the same thing.
+ * - **next** — that set finished the movement, and something else is still
+ *   owed. Wrapping, because she may have worked down the list and come back.
+ *   Resting into the *next* movement rather than back into the finished one is
+ *   the difference between a useful countdown and the GO screen offering her a
+ *   fifth set of something she has done four of.
+ * - **done** — that set finished the movement and nothing else is outstanding.
+ *   The planned work is over, and there is nothing to count down to.
+ *
+ * `advance` collapsed "done" into "same" by returning null for both, so
+ * finishing the last set of the last movement started another rest — the app
+ * counting her down to a set that does not exist.
  */
-export function advance<T extends Movement>(session: T[], slug: string): T | null {
+export type WhatNext<T> =
+  | { kind: "same" }
+  | { kind: "next"; movement: T }
+  | { kind: "done" };
+
+export function whatNext<T extends Movement>(session: T[], slug: string): WhatNext<T> {
   const at = session.findIndex((m) => m.slug === slug);
-  if (at === -1) return null;
+  // A movement that is not on the plan at all — an extra she added, or a day
+  // that has moved under her. There is no "rest of the session" to reason
+  // about, so this behaves like any ordinary set.
+  if (at === -1) return { kind: "same" };
+
   const current = session[at];
   // `done` is the count before this set, so this set is the one that finishes it.
   const finished = current.targetSets > 0 && current.done + 1 >= current.targetSets;
-  if (!finished) return null;
+  if (!finished) return { kind: "same" };
+
   const order = [...session.slice(at + 1), ...session.slice(0, at)];
-  return order.find((m) => m.targetSets > 0 && m.done < m.targetSets) ?? null;
+  const owed = order.find((m) => m.targetSets > 0 && m.done < m.targetSets);
+  return owed ? { kind: "next", movement: owed } : { kind: "done" };
+}
+
+/**
+ * The movement to rest into, or null. Kept because it reads well at the one
+ * call site that only cares whether there is a *different* movement next —
+ * but anything deciding whether to rest at all wants `whatNext`, which can
+ * tell "nothing left" from "more of this one".
+ */
+export function advance<T extends Movement>(session: T[], slug: string): T | null {
+  const next = whatNext(session, slug);
+  return next.kind === "next" ? next.movement : null;
 }

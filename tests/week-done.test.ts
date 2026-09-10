@@ -176,7 +176,8 @@ suite("a movement is a page on a phone, a sheet on a desktop", () => {
     const route = read("app/train/[slug]/page.tsx");
     expect(route).toMatch(/params: Promise<\{ slug: string \}>/);
     // The day travels with it, or the page writes to the wrong one.
-    expect(route).toMatch(/searchParams: Promise<\{ d\?: string \}>/);
+    // `?d=` is the day; `?log=1` arrives from the "log your set" reminder.
+    expect(route).toMatch(/searchParams: Promise<\{ d\?: string; log\?: string \}>/);
     expect(route).toMatch(/focus=\{slug\}/);
     // One line at the top, not three: a page title, a day title and a back
     // link is what put the Log button under the tab bar.

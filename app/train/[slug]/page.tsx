@@ -30,12 +30,12 @@ export default async function MovementPage({
   params, searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ d?: string }>;
+  searchParams: Promise<{ d?: string; log?: string }>;
 }) {
   const profile = await requireOnboarded();
   const her = profileToday(profile);
   const { slug } = await params;
-  const { d } = await searchParams;
+  const { d, log } = await searchParams;
   // The day this writes to, stated in the header for the same reason the
   // Train screen states it: a screen showing Thursday whose buttons write to
   // Wednesday is the most confusing thing this app could do.
@@ -61,6 +61,10 @@ export default async function MovementPage({
       date={isToday ? undefined : on}
       isToday={isToday}
       focus={slug}
+      // Arrived from "Log your bench set", so put the caret in the weight.
+      // The reminder used to point at /train, which on the Train screen is
+      // where she already was.
+      focusEntry={log === "1"}
       dayLabel={isToday ? view.title : `${prettyDate(on)} · ${view.title}`}
     />
   );

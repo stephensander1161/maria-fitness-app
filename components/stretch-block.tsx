@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { movementHref } from "@/lib/back-to";
 import { useState } from "react";
 
 /**
@@ -22,11 +23,13 @@ import { useState } from "react";
  * output. After it, they are holds.
  */
 export function StretchBlock({
-  title, hint, items, tone = "quiet",
+  title, hint, items, from, tone = "quiet",
 }: {
   title: string;
   hint: string;
   items: { slug: string; name: string }[];
+  /** Where back should go — she came from the day, not from the library. */
+  from: string;
   tone?: "quiet" | "rest";
 }) {
   const [open, setOpen] = useState(tone === "rest");
@@ -56,9 +59,10 @@ export function StretchBlock({
             <li key={item.slug}>
               {/* Straight to the movement's own page: the cues, the mistakes
                   and the stick figure are already written for every one of
-                  these, and none of it needed repeating here. */}
+                  these, and none of it needed repeating here. It carries where
+                  she was, so back comes here and not to the library. */}
               <Link
-                href={`/learn/${item.slug}`}
+                href={movementHref(item.slug, from)}
                 className="flex items-center justify-between rounded-lg px-2 py-2 text-[14px] text-muted active:bg-raised"
               >
                 <span className="min-w-0 truncate">{item.name}</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * A number you can either tap or type.
@@ -27,6 +27,7 @@ export function NumberField({
   label,
   decimals = false,
   className = "",
+  focusOnMount = false,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -37,6 +38,16 @@ export function NumberField({
   label?: string;
   decimals?: boolean;
   className?: string;
+  /**
+   * Take the caret on mount and select what is in it, so the seeded number is
+   * replaced by typing rather than appended to.
+   *
+   * Only ever for a field she has explicitly asked to fill in — arriving from
+   * "Log your bench set" is a request to type a weight. Never on the target
+   * inputs at the top of a card: focusing those the moment a card opens is a
+   * keyboard over the thing she came to read, and was a bug once already.
+   */
+  focusOnMount?: boolean;
 }) {
   // Kept as text while she types, so "" and a trailing "." survive mid-entry
   // instead of being snapped back to a number on every keystroke.
@@ -52,6 +63,20 @@ export function NumberField({
   }
 
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
+
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!focusOnMount) return;
+    const el = box.current;
+    if (!el) return;
+    el.focus();
+    // Selected, not just focused: she is replacing last set's weight, and a
+    // caret after "95" means typing 100 gives 95100.
+    el.select();
+    // Run-once by design — refocusing whenever this re-renders would fight her
+    // every time the value changes, which is every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const commit = (raw: string) => {
     const parsed = decimals ? parseFloat(raw) : parseInt(raw, 10);
@@ -83,6 +108,7 @@ export function NumberField({
         </button>
 
         <input
+          ref={box}
           value={draft}
           onChange={(e) => {
             setEditing(true);

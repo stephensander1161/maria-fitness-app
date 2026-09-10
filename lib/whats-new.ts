@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-back-and-rest",
+    date: "2026-09-10",
+    title: "Back goes back, and the last set ends the session",
+    blurb:
+      "Opening a stretch or a movement now returns you to the screen you came from instead of the library, \u201cLog your set\u201d opens that movement with the weight ready to type, and finishing the last planned set no longer starts another rest.",
+  },
+  {
     id: "2026-09-10-stretches",
     date: "2026-09-10",
     title: "Warm up and cool down, picked for the day",

@@ -74,6 +74,7 @@ export function TrainClient({
   date,
   isToday = true,
   focus,
+  focusEntry = false,
   dayLabel,
   heading,
   stepBack,
@@ -105,6 +106,13 @@ export function TrainClient({
    * than growing a second copy that drifts.
    */
   focus?: string;
+  /**
+   * Put the caret straight in the weight, because she arrived by tapping
+   * "Log your bench set" — that is a request to type a number, not to read
+   * the card. Never set from anywhere else: focusing an input the moment a
+   * card opens is a keyboard over the thing she came to look at.
+   */
+  focusEntry?: boolean;
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
   /**
@@ -469,6 +477,8 @@ export function TrainClient({
   }
 
 
+  /** This screen, for anything that needs to come back to it. */
+  const backHere = date ? `/train?d=${date}` : "/train";
   /** What this day trains, which is what its stretches are chosen from. */
   const dayMuscles = view.exercises.flatMap((e) => e.muscles);
   /**
@@ -495,6 +505,7 @@ export function TrainClient({
           title="Loosen off"
           hint="about 30 seconds each"
           items={stretchNames(REST_DAY_FLOW)}
+          from={backHere}
         />
         {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
@@ -546,6 +557,7 @@ export function TrainClient({
         {ex && (
           <ExerciseCard
             asPage
+            focusEntry={focusEntry}
             exercise={ex}
             unit={view.unit}
             pickable={pickable}
@@ -714,6 +726,7 @@ export function TrainClient({
         title="Warm up"
         hint="a few reps each, nothing held"
         items={stretchNames(warmUpFor(dayMuscles))}
+        from={backHere}
       />
 
       <div
@@ -793,6 +806,7 @@ export function TrainClient({
         title="Cool down"
         hint="about 30 seconds each"
         items={stretchNames(coolDownFor(dayMuscles))}
+        from={backHere}
       />
 
       {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
@@ -1445,10 +1459,12 @@ export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
   offsetY = 0, offsetX = 0, dropTarget = false,
-  asPage = false, href,
+  asPage = false, focusEntry = false, href,
   chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
+  /** Caret straight into the weight — she came here to type one. */
+  focusEntry?: boolean;
   pickable: Pickable;
   /** The day this card writes to. Undefined means her today. */
   date?: string;
@@ -2335,6 +2351,7 @@ export function ExerciseCard({
                     max={2000}
                     decimals
                     onChange={setWeight}
+                    focusOnMount={focusEntry}
                   />
                 )}
                 {/* Seconds for a hold, reps otherwise. The card used to ask
@@ -2349,6 +2366,9 @@ export function ExerciseCard({
                   max={count.max}
                   onChange={setReps}
                   className={loaded ? "" : "col-span-2"}
+                  // A press-up has no weight field to land in, so the caret
+                  // goes to the count instead of nowhere.
+                  focusOnMount={focusEntry && !loaded}
                 />
             </div>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { movementHref } from "@/lib/back-to";
 import { requireOnboarded } from "@/lib/session";
 import { runTool } from "@/lib/tools";
 import { AskCoach } from "@/components/ask-coach";
@@ -125,7 +126,7 @@ export default async function RecoveryPage() {
                   {movements.map((slug) => (
                     <li key={slug}>
                       <Link
-                        href={`/learn/${slug}`}
+                        href={movementHref(slug, "/recovery")}
                         className="flex items-baseline justify-between gap-3 text-[14px] hover:text-accent"
                       >
                         <span>{byslug.get(slug) ?? slug}</span>

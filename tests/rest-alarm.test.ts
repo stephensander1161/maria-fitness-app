@@ -1,6 +1,6 @@
 import { describe as suite, expect, it, beforeEach } from "vitest";
 import fs from "node:fs";
-import { advance, isOver, lastFired, markFired, nextRest, resetFired, shouldFire } from "@/lib/rest-alarm";
+import { advance, isOver, lastFired, markFired, nextRest, resetFired, shouldFire, whatNext } from "@/lib/rest-alarm";
 
 /**
  * Two bugs in one session, from the same place: the GO screen fired twice
@@ -127,8 +127,10 @@ suite("what the rest counts down to", () => {
     // fixing the card left the GO screen offering a fifth set of a movement
     // she had done four of, which is exactly what was reported.
     const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
-    expect(provider).toMatch(/const after = advance\(session\.current, go\.slug\)/);
-    expect(provider).toMatch(/slug: after\.slug, name: after\.name/);
+    // `whatNext` now, because `advance` could not say whether "no next
+    // movement" meant more sets of this one or the end of the session.
+    expect(provider).toMatch(/const after = whatNext\(session\.current, go\.slug\)/);
+    expect(provider).toMatch(/slug: after\.movement\.slug, name: after\.movement\.name/);
     // And the Train screen tells it what today holds.
     expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/setSession\(view\.exercises\.map/);
   });
@@ -140,5 +142,53 @@ suite("what the rest counts down to", () => {
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
     expect(card).toMatch(/stillToDo\(runningRest\?\.slug\)/);
     expect(card).toMatch(/upNext=\{currentSlug === ex\.slug\}/);
+  });
+});
+
+suite("the session ending is not another rest", () => {
+  const m = (slug: string, targetSets: number, done: number) => ({ slug, targetSets, done });
+
+  it("tells 'more of this one' apart from 'nothing left'", () => {
+    // Both used to be null, and the GO screen rested on either — so finishing
+    // the last set of the last movement counted her down to a set that does
+    // not exist.
+    expect(whatNext([m("curl", 3, 1), m("row", 3, 3)], "curl")).toEqual({ kind: "same" });
+    expect(whatNext([m("curl", 3, 2), m("row", 3, 3)], "curl")).toEqual({ kind: "done" });
+  });
+
+  it("rests into the next movement when one is owed", () => {
+    const next = whatNext([m("curl", 3, 2), m("row", 3, 0)], "curl");
+    expect(next).toEqual({ kind: "next", movement: m("row", 3, 0) });
+  });
+
+  it("wraps, because she may have worked down the list and come back", () => {
+    expect(whatNext([m("a", 3, 0), m("b", 3, 2)], "b")).toEqual({ kind: "next", movement: m("a", 3, 0) });
+  });
+
+  it("is 'done' only when the set in hand finishes the movement", () => {
+    // One short of the target is still the ordinary between-sets rest, even
+    // when every other movement is complete.
+    expect(whatNext([m("a", 3, 3), m("b", 3, 1)], "b")).toEqual({ kind: "same" });
+    expect(whatNext([m("a", 3, 3), m("b", 3, 2)], "b")).toEqual({ kind: "done" });
+  });
+
+  it("treats a movement that is not on the plan as an ordinary set", () => {
+    // An extra she added, or a day that moved under her. There is no rest of
+    // the session to reason about.
+    expect(whatNext([m("a", 3, 0)], "curl")).toEqual({ kind: "same" });
+    expect(whatNext([], "curl")).toEqual({ kind: "same" });
+  });
+
+  it("ignores movements with no target when deciding what is owed", () => {
+    // targetSets 0 is "she added it, there is no plan for it" — it cannot keep
+    // the session open forever.
+    expect(whatNext([m("a", 3, 2), m("extra", 0, 1)], "a")).toEqual({ kind: "done" });
+  });
+
+  it("is what the GO screen actually asks", () => {
+    const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
+    expect(provider).toMatch(/whatNext\(session\.current, go\.slug\)/);
+    // And "done" writes no rest at all.
+    expect(provider).toMatch(/after\.kind === "done" \? null : nextRest\(/);
   });
 });

@@ -10,7 +10,7 @@ import { logSetOrQueue, setInput } from "@/lib/offline";
 import type { ISODate } from "@/lib/date";
 import { heartbeat, RestTimerBar, type Rest } from "@/components/rest-timer";
 import { GoScreen } from "@/components/go-screen";
-import { advance, isOver, lastFired, markFired, nextRest, shouldFire } from "@/lib/rest-alarm";
+import { isOver, lastFired, markFired, nextRest, shouldFire, whatNext } from "@/lib/rest-alarm";
 
 /**
  * The rest timer, hoisted out of the Train screen and into the app.
@@ -265,20 +265,32 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
             // That set may have finished the movement. If it did, the rest
             // counts down to the *next* one — the GO screen was otherwise
             // offering a fifth set of something she had done four of.
-            const after = advance(session.current, go.slug);
-            // Seed the next rest with whatever she just did, in its own unit.
-            // nextRest refuses to build one from a length that is not a
-            // positive number of seconds: `endsAt` would be NaN, and a NaN
-            // rest never comes due, so the countdown sits there and the alarm
-            // never fires again for the rest of the session.
-            write(nextRest(after
+            const after = whatNext(session.current, go.slug);
+            /*
+              Nothing owed means nothing to count down to.
+
+              This used to ask `advance`, which answered null both for "more
+              sets of this one" and for "the session is over" — so finishing
+              the last set of the last movement started another rest, counting
+              her down to a set that does not exist. She has finished; the app
+              should get out of the way and let her press Finish.
+
+              Otherwise the rest is seeded with whatever comes next, in its own
+              unit. nextRest refuses to build one from a length that is not a
+              positive number of seconds: `endsAt` would be NaN, a NaN rest
+              never comes due, and the alarm would never fire again for the
+              rest of the session.
+            */
+            write(after.kind === "done" ? null : nextRest(after.kind === "next"
               ? {
                 ...go,
-                slug: after.slug, name: after.name, category: after.category,
-                isHold: after.isHold, loadable: after.loadable,
-                reps: after.isHold ? after.targetHoldSeconds ?? 30 : after.targetReps,
-                weight: after.targetWeight,
-                seconds: after.restSeconds,
+                slug: after.movement.slug, name: after.movement.name, category: after.movement.category,
+                isHold: after.movement.isHold, loadable: after.movement.loadable,
+                reps: after.movement.isHold
+                  ? after.movement.targetHoldSeconds ?? 30
+                  : after.movement.targetReps,
+                weight: after.movement.targetWeight,
+                seconds: after.movement.restSeconds,
               }
               : {
                 ...go,
@@ -317,8 +329,16 @@ function LogReminder({ rest, onDismiss }: { rest: Rest; onDismiss: () => void })
         <p className="min-w-0 flex-1 truncate text-[12px] text-muted">
           Log your {rest.name} set
         </p>
+        {/*
+          Straight to the movement, with the weight ready to type into.
+
+          It used to point at /train, which on the Train screen is where she
+          already is — so the button did nothing and read as a second way to
+          dismiss, exactly like the ✕ beside it. The set it is nagging about
+          belongs to one movement and the rest knows which.
+        */}
         <Link
-          href="/train"
+          href={`/train/${rest.slug}?log=1${rest.date ? `&d=${rest.date}` : ""}`}
           onClick={onDismiss}
           className="shrink-0 rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-on-accent"
         >

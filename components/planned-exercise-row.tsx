@@ -4,6 +4,8 @@ import { startTransition, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { movementHref } from "@/lib/back-to";
+import { useBackHere } from "@/lib/use-back-here";
 
 /**
  * One movement on a day of the plan that is not today.
@@ -23,6 +25,8 @@ export function PlannedExerciseRow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const backHere = useBackHere();
+
   async function remove() {
     setBusy(true);
     setError(null);
@@ -38,7 +42,8 @@ export function PlannedExerciseRow({
   return (
     <div className="border-b border-line/60 py-2.5 last:border-0">
       <div className="flex items-baseline gap-3">
-        <Link href={`/learn/${slug}`} className="min-w-0 flex-1 truncate text-[15px] hover:text-accent">
+        {/* Carries this screen, so back comes here rather than to the library. */}
+        <Link href={movementHref(slug, backHere)} className="min-w-0 flex-1 truncate text-[15px] hover:text-accent">
           {name}
         </Link>
         <span className={`shrink-0 text-[13px] tabular ${done ? "text-beat" : "text-muted"}`}>{target}</span>
