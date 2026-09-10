@@ -79,6 +79,10 @@ export function DayTitle({
           className={`group flex min-w-0 max-w-full items-baseline gap-2 text-left md:mx-auto md:w-fit md:justify-center ${
             align === "centre" ? "mx-auto w-fit justify-center" : ""
           }`}
+          // No pencil beside it. The whole heading is the button and always
+          // was; the icon was a second affordance for the same tap, sitting
+          // off-centre next to a centred title. The label is what says it is
+          // editable to anyone who cannot see that it looks tappable.
           aria-label={`Rename ${title}`}
         >
           {eyebrow && (
@@ -94,12 +98,6 @@ export function DayTitle({
             // clock in the corner and has the room to make the name big again.
             compact ? "text-[17px] md:text-2xl" : "text-2xl"
           }`}>{title}</h1>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
-            className="hidden shrink-0 text-faint transition-opacity md:block md:opacity-40 md:group-hover:opacity-100 md:group-focus-visible:opacity-100"
-            aria-hidden>
-            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-          </svg>
         </button>
         {focus && <p className="mt-1 text-sm text-muted">{focus}</p>}
         {error && <p role="alert" className="mt-1 text-[12px] text-miss">{error}</p>}

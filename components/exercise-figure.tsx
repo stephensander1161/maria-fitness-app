@@ -42,7 +42,11 @@ export function ExerciseFigure({
  * for free, since stroke width is in user units.
  */
 function frame(pattern: Pattern): string {
-  const points = [...Object.values(pattern.start), ...Object.values(pattern.end)];
+  // `.filter(Boolean)` because the far arm and leg are optional: a pattern
+  // without them would otherwise put `undefined` through Math.min and frame
+  // every figure at NaN.
+  const points = [...Object.values(pattern.start), ...Object.values(pattern.end)]
+    .filter(Boolean) as [number, number][];
   const xs = points.map(([x]) => x);
   const ys = points.map(([, y]) => y);
 
@@ -64,6 +68,7 @@ function Figure({
   joints, className, opacity = 1,
 }: { joints: Joints; className?: string; opacity?: number }) {
   const { head, shoulder, elbow, hand, hip, knee, foot } = joints;
+  const { elbowFar, handFar, kneeFar, footFar } = joints;
   const line = (a: [number, number], b: [number, number], key: string) => (
     <line key={key} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
   );
@@ -77,6 +82,14 @@ function Figure({
       strokeLinecap="round"
       fill="none"
     >
+      {/* The far side first and a shade lighter, so a face-on figure reads as
+          two arms and two legs rather than one thick pair. */}
+      <g opacity="0.55">
+        {elbowFar && line(shoulder, elbowFar, "upperarmFar")}
+        {elbowFar && handFar && line(elbowFar, handFar, "forearmFar")}
+        {kneeFar && line(hip, kneeFar, "thighFar")}
+        {kneeFar && footFar && line(kneeFar, footFar, "shinFar")}
+      </g>
       <circle cx={head[0]} cy={head[1]} r="6" strokeWidth="2.6" />
       {line(shoulder, hip, "spine")}
       {line(shoulder, elbow, "upperarm")}

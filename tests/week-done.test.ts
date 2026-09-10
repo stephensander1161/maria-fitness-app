@@ -244,26 +244,26 @@ suite("the day's name and its clock share a container", () => {
     expect(plan).toMatch(/function DayHeader\(\{/);
   });
 
-  it("puts the day's arrows in the card, and drops the clock to its own row", () => {
+  it("puts the day's arrows in the card, on one row with the name and clock", () => {
     // The arrows were a strip of their own above this card, which already
     // carried the day's name and the Start button: two containers saying one
-    // thing. Stopped, the control shares the name's row. Started, it is a
-    // clock, a pause and Finish, which left about a third of that row for the
-    // session's name — so it takes the line underneath, and animates down onto
-    // it so the card reads as rearranging itself rather than as being a
-    // different shape the next time she looks.
+    // thing. Three cells now — which day, the name, the control — a grid on a
+    // wide screen so the name is centred on the card rather than on the space
+    // the other two left, and on a phone the name takes the row under them
+    // rather than the ~130px between them.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/\{stepBack\}/);
     expect(card).toMatch(/\{stepOn\}/);
-    expect(card).toMatch(/<div className="min-w-0 flex-1 basis-24 text-center">/);
-    expect(card).toMatch(/running \? `basis-full \$\{justStarted \? "session-drop" : ""\}` : ""/);
+    expect(card).toMatch(/md:grid md:grid-cols-\[1fr_auto_1fr\]/);
+    expect(card).toMatch(/order-last min-w-0 basis-full text-center md:order-none md:basis-auto/);
+    expect(card).toMatch(/justStarted && running \? "session-drop" : ""/);
     // And there is no strip left above it.
     expect(read("app/train/page.tsx")).not.toMatch(/<DayNav/);
     expect(card).toMatch(/const running = Boolean\(view\.startedAt\) && !view\.finishedAt;/);
     // The animation is the transition, not the state: a reload mid-session
     // must not replay it.
     expect(card).toMatch(/setJustStarted\(true\);/);
-    expect(card).toMatch(/relative flex flex-wrap items-center gap-x-2 gap-y-2/);
+    expect(card).toMatch(/flex flex-wrap items-center gap-x-2 gap-y-2 md:grid/);
     const css = fs.readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/@keyframes session-drop/);
     const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);

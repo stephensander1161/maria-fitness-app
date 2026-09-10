@@ -551,7 +551,12 @@ export async function todaySnapshot(
     .join("; ");
   const total = rows.length;
 
-  return `Today she has ALREADY LOGGED ${total} set${total === 1 ? "" : "s"} in total: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Those counts are exact — use them rather than counting the sets yourself. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
+  // "As of this message" is load-bearing, not padding. She logs sets between
+  // messages, so an answer given three turns ago is still sitting in the
+  // transcript saying "1 set" — and the model would repeat it, because its own
+  // prose reads as more recent than a block it has now seen five times. The
+  // count was right in the block every time and wrong in the reply.
+  return `Today, AS OF THIS MESSAGE, she has ALREADY LOGGED ${total} set${total === 1 ? "" : "s"} in total: ${summary}${workout.completedAt ? " (session finished)" : " (session still open)"}. Those counts are exact and current — use them rather than counting the sets yourself, and rather than any number said earlier in this conversation, which is out of date the moment she logs another set. Report the sets as written here; do not collapse ones that differ into an N\u00d7R shorthand. Do not ask her to retype any of this — read it with get_week_review or get_exercise_history.`;
 }
 
 /* ── Body measurements ─────────────────────────────────────────────────── */

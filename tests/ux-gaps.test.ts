@@ -108,9 +108,17 @@ suite("the training card during a session", () => {
     // against are one stacked column that wraps as a pair.
     expect(card).toMatch(/<div key=\{i\} className="flex min-w-11 flex-col items-stretch">/);
     expect(card).toMatch(/const cmp = compareSet\(s, prev\);/);
-    // Green is the bigger of the two on both rows, red the smaller.
-    expect(card).toMatch(/cmp === "up"\n\s*\? "bg-beat text-on-accent"/);
-    expect(card).toMatch(/cmp === "up" \? "text-miss" : cmp === "down" \? "text-beat" : "text-faint"/);
+    // The higher of the two is the one that gets marked, and it is marked in
+    // green: a set under last week's used to take a full red fill, which reads
+    // as the app telling her off for an ordinary day.
+    expect(card).toMatch(/cmp === "up"\n\s*\? "bg-beat text-on-accent"\n\s*: "bg-accent text-on-accent"/);
+    // And the one that was beaten is not marked on the square at all: a red
+    // ring on the accent fill was invisible, and the rule under last time's
+    // number already says which of the two won.
+    expect(card).not.toMatch(/bg-miss text-on-accent/);
+    // Last time is the small print, so its half is an underline, not a fill.
+    expect(card).toMatch(/cmp === "down"\n\s*\? "border-beat text-beat"/);
+    expect(card).toMatch(/\? "border-miss\/50 text-faint"/);
   });
 
   it("rests into the next movement when one is finished, and marks it", () => {

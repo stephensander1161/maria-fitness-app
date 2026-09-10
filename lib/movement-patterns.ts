@@ -18,6 +18,17 @@ export type Joints = {
   hip: [number, number];
   knee: [number, number];
   foot: [number, number];
+  /**
+   * The other arm and the other leg, for the handful of movements that only
+   * read face-on — a side bend, a knee driven up to the opposite elbow. From
+   * the side those limbs are behind the ones already drawn and the figure is
+   * honest without them, which is why they are optional rather than always
+   * there: two overlapping legs in a squat is a thicker leg, not a squat.
+   */
+  elbowFar?: [number, number];
+  handFar?: [number, number];
+  kneeFar?: [number, number];
+  footFar?: [number, number];
 };
 
 export type Pattern = {
@@ -356,6 +367,29 @@ export const PATTERNS: Record<string, Pattern> = {
       hip: [52, 92], knee: [66, 72], foot: [76, 54],
     },
   },
+  /**
+   * Face-on, because the whole movement is one side at a time and from the
+   * side the working knee is hidden behind the standing one.
+   */
+  kneeToElbow: {
+    label: "Reach tall, then drive one knee up to meet the elbow",
+    start: {
+      head: [50, 22], shoulder: [50, 36],
+      elbow: [57, 26], hand: [60, 14],
+      elbowFar: [43, 26], handFar: [40, 14],
+      hip: [50, 60],
+      knee: [57, 77], foot: [58, 94],
+      kneeFar: [43, 77], footFar: [42, 94],
+    },
+    end: {
+      head: [48, 24], shoulder: [49, 38],
+      elbow: [60, 44], hand: [58, 55],
+      elbowFar: [42, 28], handFar: [39, 16],
+      hip: [50, 60],
+      knee: [59, 56], foot: [67, 70],
+      kneeFar: [43, 77], footFar: [42, 94],
+    },
+  },
   cardio: {
     label: "Steady, upright, keep moving",
     start: {
@@ -401,7 +435,9 @@ const RULES: [RegExp, PatternKey][] = [
   [/incline.*(press|bench)/, "inclinePress"],
   [/russian-twist|seated.*twist/, "seatedTwist"],
   [/calf-raise|calf-stretch/, "calfRaise"],
-  [/pushdown|kickback|tricep.*extension|bow-extension|terminal-knee/, "armExtension"],
+  [/pushdown|kickback|tricep.*extension|terminal-knee/, "armExtension"],
+  // Before every "extension" rule below it, and before the core catch-all.
+  [/bow-extension|knee-to-elbow|high-knee-crunch/, "kneeToElbow"],
   [/leg-extension/, "legExtension"],
   [/muscle-up/, "verticalPull"],
   // Before the plank rule, which otherwise catches these through `category`.

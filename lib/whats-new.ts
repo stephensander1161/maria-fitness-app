@@ -35,8 +35,15 @@ export const WHATS_NEW: WhatsNew[] = [
     id: "2026-09-09-bow-extension",
     date: "2026-09-09",
     title: "Bow Extension is its own movement",
-    blurb: "It was a search term pointing at the overhead triceps extension, so looking for it found something else. It is a movement in the library now, with its own cues — a dumbbell in each hand rather than one in both.",
+    blurb: "It was a search term pointing at the overhead triceps extension, so looking for it found something else entirely. It is a movement in the library now — standing, arms overhead, knee driven up to the elbow — with a figure drawn face-on so you can see both legs.",
     href: "/learn",
+  },
+  {
+    id: "2026-09-09-higher-is-green",
+    date: "2026-09-09",
+    title: "The better of the two sets is the one that lights up",
+    blurb: "A set under last week's used to take a full red fill, which turned an ordinary day into a row of red. Now only the higher number is marked, in green — and where last time was the better one, it says so with a quiet green rule under it rather than shouting.",
+    href: "/train",
   },
   {
     id: "2026-09-09-last-time-under",

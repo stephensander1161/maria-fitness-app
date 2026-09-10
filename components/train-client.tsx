@@ -599,24 +599,35 @@ export function TrainClient({
               clock and Finish pinned to the top-right corner. `md:block` drops
               the flex row so the centred text is genuinely centred on the
               card, not on the space left over beside the controls. */}
-          <div className="relative flex flex-wrap items-center gap-x-2 gap-y-2">
-            {/* The name gets the row. Flanking it with the arrows put
-                "Wednesday session" in about 140px on a phone and broke it over
-                two lines, so the arrows sit under it with the date they
-                actually change — which is also the shorter word to aim at. */}
-            <div className="min-w-0 flex-1 basis-24 text-center">{heading}</div>
-            {sessionBar && (
-              <div className={`shrink-0 md:ml-0 md:mt-0 md:basis-auto ${
-                running ? `basis-full ${justStarted ? "session-drop" : ""}` : ""
-              }`}>
-                {sessionBar}
-              </div>
-            )}
+          {/*
+            Three cells: which day, the day's name, the session's control.
+            A wide screen has room for all three on one line, so it is a grid
+            with the name in the middle column and a 1fr either side — which is
+            what makes it centred on the *card* rather than on whatever space
+            the other two happened to leave.
+
+            A phone does not, and the name is the part that must not be
+            squeezed: "Wednesday session" in the 130px left over broke it over
+            two lines. So below `md` the two controls share the top line and
+            the name takes the whole one under it, `order-last` putting it
+            there without changing the order the grid reads above.
+          */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 md:grid md:grid-cols-[1fr_auto_1fr]">
             {(stepBack || stepOn) && (
-              <div className="flex basis-full items-center justify-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
                 {stepBack}
                 {dayLine}
                 {stepOn}
+              </div>
+            )}
+            <div className="order-last min-w-0 basis-full text-center md:order-none md:basis-auto">
+              {heading}
+            </div>
+            {sessionBar && (
+              <div className={`ml-auto shrink-0 md:order-none md:ml-0 md:justify-self-end ${
+                justStarted && running ? "session-drop" : ""
+              }`}>
+                {sessionBar}
               </div>
             )}
           </div>
@@ -1941,6 +1952,15 @@ export function ExerciseCard({
           const prev = exercise.lastTime?.sets[i];
           const isQueued = i >= done.length && i < setCount;
           const label = s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—";
+          // Against the same set last time, where there is one to compare
+          // against. **The higher of the two is the one that gets marked**, in
+          // green, and it is a celebration rather than a verdict: a set that
+          // came in under last week used to take a full red fill, which turns
+          // an ordinary day into a red row and reads as the app telling her
+          // off. The lower one is not marked at all — a red ring on the accent
+          // fill was invisible anyway, and the green rule under last time's
+          // number already says which of the two won. Nothing is marked when
+          // the two cannot honestly be compared.
           const cmp = compareSet(s, prev);
           const shape = `flex h-9 w-full min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
             isQueued
@@ -1948,9 +1968,7 @@ export function ExerciseCard({
               : s
                 ? cmp === "up"
                   ? "bg-beat text-on-accent"
-                  : cmp === "down"
-                    ? "bg-miss text-on-accent"
-                    : "bg-accent text-on-accent"
+                  : "bg-accent text-on-accent"
                 : "border border-dashed border-edge text-faint"
           }`;
 
@@ -1994,9 +2012,17 @@ export function ExerciseCard({
             <div key={i} className="flex min-w-11 flex-col items-stretch">
               {square}
               {exercise.lastTime && (
+                // Last time is the small print and stays that way, so its half
+                // of the signal is an underline rather than a fill: green and a
+                // shade brighter when it is the higher of the two, a quiet red
+                // rule when it is the one that has been beaten.
                 <span
-                  className={`mt-1 block h-4 text-center text-[11px] font-medium tabular ${
-                    cmp === "up" ? "text-miss" : cmp === "down" ? "text-beat" : "text-faint"
+                  className={`mx-auto mt-1 block h-5 border-b-2 px-1 text-center text-[11px] font-medium tabular ${
+                    cmp === "down"
+                      ? "border-beat text-beat"
+                      : cmp === "up"
+                        ? "border-miss/50 text-faint"
+                        : "border-transparent text-faint"
                   }`}
                 >
                   {prev ? `${prev.reps}${prev.weight !== null ? `@${prev.weight}` : ""}` : ""}

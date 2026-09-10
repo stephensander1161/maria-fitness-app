@@ -1028,25 +1028,28 @@ export const EXERCISES: Seed[] = [
     easier: ["tricep-pushdown"],
   },
   {
-    // Its own movement, not a search term on the one above. It was a tag on
-    // overhead-tricep-extension, which meant looking for it found something
-    // else and the library quietly said "you mean this instead".
-    slug: "bow-extension", name: "Bow Extension", category: "isolation",
-    primaryMuscles: ["triceps"], equipment: ["dumbbell", "resistance band"],
-    tags: ["bow", "bow extension", "triceps extension", "double dumbbell overhead extension"],
+    // Its own movement, not a search term on something else. It was a tag on
+    // overhead-tricep-extension, so looking for it found a triceps isolation
+    // and the library quietly said "you mean this instead" — which is wrong
+    // twice over, because this is a standing core movement.
+    slug: "bow-extension", name: "Bow Extension", category: "core",
+    // Not marked bodyweight: it is commonly done holding a plate or a dumbbell
+    // overhead, and marking it bodyweight hides the weight field — which would
+    // have thrown away load already logged against it.
+    primaryMuscles: ["core", "obliques", "hip flexors"], equipment: ["bodyweight", "dumbbell"],
+    tags: ["bow", "bow extension", "knee to elbow", "standing crunch", "high knee crunch"],
     formCues: [
-      "A dumbbell in each hand, pressed overhead, palms facing each other.",
-      "Elbows point forward and stay there — they are the hinge, nothing else moves.",
-      "Lower both weights behind your head until you feel the stretch, arms drawing back like a bow.",
-      "Extend to straight without letting the elbows drift apart.",
+      "Stand tall, feet under your hips, both arms straight overhead — that is the bow. Hold a plate or a dumbbell up there if you want it harder.",
+      "Drive one knee up and bring the elbow down to meet it, crunching through the middle.",
+      "Reach both arms back overhead as the foot returns to the floor.",
+      "Alternate sides, and take the reach as seriously as the crunch.",
     ],
     commonMistakes: [
-      "Elbows flaring out to the sides, which hands the work to the shoulders.",
-      "Ribs flaring and the lower back arching as the weights travel back.",
-      "Going heavier than the shoulders can hold overhead — this is an elbow movement.",
+      "Rushing, so the knee comes up but the arms never straighten — the reach is half the movement.",
+      "Rounding forward from the shoulders instead of crunching through the middle.",
+      "Losing the standing leg: keep that knee soft and the hip still rather than hopping to meet the elbow.",
     ],
-    safetyNote: "Two independent weights overhead need more shoulder control than one. Start lighter than the single-dumbbell version and stop the range where your elbows still point forward.",
-    easier: ["tricep-pushdown", "overhead-tricep-extension"], harder: ["bench-dip"],
+    easier: ["dead-bug"], harder: ["v-up", "hanging-knee-raise"],
   },
   {
     slug: "bench-dip", name: "Bench Dip", category: "compound",
