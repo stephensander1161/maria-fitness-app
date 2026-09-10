@@ -371,6 +371,23 @@ export const PATTERNS: Record<string, Pattern> = {
    * Face-on, because the whole movement is one side at a time and from the
    * side the working knee is hidden behind the standing one.
    */
+  /**
+   * Flat on the bench, the weight travelling in an arc from over the chest to
+   * behind the head. Only the arms move — the body is the bench press's, and
+   * it fell through to *squat*: a stick figure sitting down for a movement
+   * done lying on your back.
+   */
+  pullover: {
+    label: "Flat on the bench, take the weight back over your head",
+    start: {
+      head: [20, 62], shoulder: [34, 68], elbow: [32, 54], hand: [30, 41],
+      hip: [62, 70], knee: [78, 74], foot: [90, 92],
+    },
+    end: {
+      head: [20, 62], shoulder: [34, 68], elbow: [22, 57], hand: [7, 53],
+      hip: [62, 70], knee: [78, 74], foot: [90, 92],
+    },
+  },
   kneeToElbow: {
     label: "Reach tall, then drive one knee up to meet the elbow",
     start: {
@@ -438,6 +455,9 @@ const RULES: [RegExp, PatternKey][] = [
   [/pushdown|kickback|tricep.*extension|terminal-knee/, "armExtension"],
   // Before every "extension" rule below it, and before the core catch-all.
   [/bow-extension|knee-to-elbow|high-knee-crunch/, "kneeToElbow"],
+  // Before every "press" and "pull" rule below, and before the squat
+  // catch-all it used to land on.
+  [/pull-?over/, "pullover"],
   [/leg-extension/, "legExtension"],
   [/muscle-up/, "verticalPull"],
   // Before the plank rule, which otherwise catches these through `category`.

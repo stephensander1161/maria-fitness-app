@@ -596,9 +596,15 @@ suite("relabel and remove are on the card", () => {
   it("not only inside the one she is about to perform", () => {
     // They were in the header, then behind an Edit fold inside the open card
     // only — so the two things she does to a movement she is *not* doing were
-    // reachable only by opening the one she is.
-    expect(card()).toMatch(/\{editable && !asPage && \(\n\s*<button\n\s*onClick=\{\(\) => \{ setChanging\(!changing\)/);
+    // reachable only by opening the one she is. Both are still on the closed
+    // card; they share one control now rather than taking two of the five
+    // above a name that has to fit.
     expect(card()).toMatch(/\{editable && !asPage && \(!exercise\.extra \|\| setCount > 0\) && \(/);
+    expect(card()).toMatch(/aria-label=\{`Change or remove \$\{exercise\.name\}`\}/);
+    // "This one is wrong for today" has two answers, and they are offered
+    // together: keep it, swap it, or take it off.
+    expect(card()).toMatch(/onClick=\{\(\) => \{ setConfirmRemove\(false\); setChanging\(true\); \}\}/);
+    expect(card()).toMatch(/Swap it, or take it off today\?/);
   });
 
   it("and a swap keeps the sets she already logged", () => {

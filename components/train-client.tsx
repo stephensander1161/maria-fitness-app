@@ -1808,27 +1808,12 @@ export function ExerciseCard({
             </button>
           )}
           {/*
-            Relabel and remove, on the card itself.
-            They were in the header, then behind an Edit fold inside the open
-            card only — which meant the two things she does to a movement she
-            is *not* about to perform were reachable only by opening the one
-            she is. Small and outlined, so the name still has the row.
+            Swapping a movement lives one level down, in the panel the minus
+            opens — see below. It had its own icon in this row, which made
+            five controls above a name that still had to fit, for two actions
+            that are the same decision: this one is wrong for today. The minus
+            asks which kind of wrong.
           */}
-          {editable && !asPage && (
-            <button
-              onClick={() => { setChanging(!changing); setConfirmRemove(false); }}
-              aria-expanded={changing}
-              aria-label={`Change what ${exercise.name} is`}
-              className={`grid size-7 shrink-0 place-items-center rounded-full border ${
-                changing ? "border-accent text-accent" : "border-line text-faint active:bg-raised"
-              }`}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M4 8h13l-3-3M20 16H7l3 3" />
-              </svg>
-            </button>
-          )}
           {(onChainBelow || onUnchain) && !asPage && (
             <button
               onClick={() => (onUnchain ? onUnchain() : onChainBelow?.())}
@@ -1847,7 +1832,8 @@ export function ExerciseCard({
           {editable && !asPage && (!exercise.extra || setCount > 0) && (
             <button
               onClick={() => { setConfirmRemove(!confirmRemove); setChanging(false); }}
-              aria-label={`Remove ${exercise.name} from today`}
+              aria-expanded={confirmRemove}
+              aria-label={`Change or remove ${exercise.name}`}
               className="grid size-7 shrink-0 place-items-center rounded-full border border-line text-faint active:bg-raised"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
@@ -1916,15 +1902,23 @@ export function ExerciseCard({
       )}
 
       {confirmRemove && (
-        <div className="mx-4 mb-3 flex items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2">
-          <p className="flex-1 text-[12px] text-muted">
+        // The question wraps to its own line on a phone rather than being
+        // squeezed into a third of the row by three buttons beside it.
+        <div className="mx-4 mb-3 flex flex-wrap items-center gap-x-1 gap-y-1 rounded-xl border border-line bg-raised px-3 py-2 sm:gap-x-2">
+          <p className="basis-full text-[12px] text-muted sm:flex-1 sm:basis-auto">
             {exercise.extra
               ? `Delete ${setCount} logged set${setCount === 1 ? "" : "s"} of ${exercise.name}?`
               : setCount > 0
-                ? "Remove from today's plan? Your logged sets stay."
-                : "Remove from today?"}
+                ? "Swap it, or take it off today? Your logged sets stay."
+                : "Swap it, or take it off today?"}
           </p>
-          <button onClick={() => setConfirmRemove(false)} className="-my-1 px-2.5 py-2.5 text-[12px] text-muted">Keep</button>
+          <button onClick={() => setConfirmRemove(false)} className="-my-1 ml-auto px-2.5 py-2.5 text-[12px] text-muted sm:ml-0">Keep</button>
+          {/* The swap, where the decision is actually being made. "This one is
+              wrong for today" has two answers and they belong together. */}
+          <button onClick={() => { setConfirmRemove(false); setChanging(true); }}
+            className="-my-1 px-2.5 py-2.5 text-[12px] font-medium text-accent">
+            Replace
+          </button>
           <button onClick={removeFromToday} disabled={removing}
             className="-my-1 px-2.5 py-2.5 text-[12px] font-medium text-miss disabled:opacity-50">
             {removing ? "…" : "Remove"}
