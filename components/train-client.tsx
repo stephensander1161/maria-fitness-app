@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet } from "@/lib/holds";
+import { cueItems, cuePages } from "@/lib/cue-pages";
 import { AddExercise } from "./add-exercise";
 import { ExerciseFigure } from "./exercise-figure";
 import { AskCoach } from "./ask-coach";
@@ -2323,8 +2324,17 @@ export function ExerciseCard({
                 read. Skipping it logs the set with no answer — which is
                 recorded as unknown, never as zero. */}
             {loaded && (
+              /*
+                One compact row on a phone.
+
+                It was a shouted label above four tall buttons, which is a lot
+                of furniture for an optional question sitting between the reps
+                she just typed and the button that sends them. Small pills on
+                the same line as the label: still 44px of touch target, a third
+                of the height. Desktop keeps the roomier version.
+              */
               <div className="flex items-center gap-1.5">
-                <span className="mr-0.5 shrink-0 text-[11px] uppercase tracking-wide text-faint">
+                <span className="mr-auto shrink-0 text-[10px] uppercase tracking-wide text-faint md:text-[11px]">
                   Left in tank
                 </span>
                 {[0, 1, 2, 3].map((n) => (
@@ -2334,7 +2344,7 @@ export function ExerciseCard({
                     disabled={saving}
                     aria-pressed={rir === n}
                     aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank`}
-                    className={`min-w-11 flex-1 rounded-lg border py-2.5 text-[13px] active:bg-raised disabled:opacity-40 ${
+                    className={`size-10 shrink-0 rounded-lg border text-[13px] active:bg-raised disabled:opacity-40 md:size-auto md:flex-1 md:py-2.5 ${
                       rir === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
                     }`}
                   >
@@ -2642,85 +2652,89 @@ function SetSquare({
 }
 
 /**
- * How to do it, at a height that never moves.
+ * How to do it, without pushing the work off the screen.
  *
- * Four numbered cues, the common mistakes and a safety note is most of a phone
- * screen. Stacked, they pushed the set squares and the entry below the fold,
- * so logging a set meant scrolling past the instructions every time — and the
- * card grew and shrank with whatever the library happened to say about that
- * movement, which is why the layout jumped between exercises.
+ * A stacked list is the right density — several bullets read at once — but it
+ * grew with whatever the library says about that movement, and the long
+ * entries pushed the set squares and the entry below the fold. One panel per
+ * bullet fixed the height and went too far the other way: nine pages to read
+ * four cues.
  *
- * So on a phone they lie side by side and she swipes: one panel at a time,
- * scroll-snapped, and the box is exactly one panel tall whether the movement
- * has one cue or nine. The card is a fixed height, the entry is always where
- * she left it, and nothing is hidden behind a control — the last attempt at
- * this was a "show help" button, and a disclosure whose only useful state is
- * open is just a row that invites a tap to hide what she came to read.
+ * So it is still a list, and only becomes swipeable when it would overflow —
+ * then exactly two pages, because a third is a document. Most movements fit
+ * one page and show no dots at all.
  *
- * Desktop has the room and keeps the stacked list.
+ * Nothing is behind a control. An earlier attempt put all of this behind a
+ * "show help" button, and this file already had the lesson: a disclosure whose
+ * only useful state is open is a row that invites a tap to hide what she came
+ * to read.
  *
- * Two details that matter on a touch screen: `touch-pan-x` so a vertical drag
- * still scrolls the page rather than being eaten by the strip, and
- * `overscroll-x-contain` so swiping past the last cue does not trigger the
- * browser's back gesture.
+ * `touch-pan-x` so a vertical drag still belongs to the page, and
+ * `overscroll-x-contain` so swiping past the last page is not the browser's
+ * back gesture.
  */
 function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   const [at, setAt] = useState(0);
 
-  const panels: { key: string; kind: "cue" | "miss" | "safety"; n?: number; text: string }[] = [
-    ...formCues.map((c, i) => ({ key: `c${i}`, kind: "cue" as const, n: i + 1, text: c })),
-    ...commonMistakes.map((m, i) => ({ key: `m${i}`, kind: "miss" as const, text: m })),
-    ...(safetyNote ? [{ key: "safety", kind: "safety" as const, text: safetyNote }] : []),
-  ];
-  if (panels.length === 0) return null;
+  const { pages, truncated } = cuePages(cueItems(formCues, commonMistakes, safetyNote));
+  if (pages.length === 0) return null;
 
   return (
     <>
-      {/* Phone: one at a time, swiped. */}
+      {/* Phone: one page at a time, swiped only when there is a second. */}
       <div className="md:hidden">
         <div
           onScroll={(e) => {
             const el = e.currentTarget;
             setAt(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
           }}
-          aria-label={`How to do ${exercise.name} — swipe for more`}
-          className="flex snap-x snap-mandatory touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label={`How to do ${exercise.name}${pages.length > 1 ? " — swipe for more" : ""}`}
+          className="flex snap-x snap-mandatory touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {panels.map((p) => (
-            <div key={p.key} className="w-full shrink-0 snap-start pr-3">
-              <div className={`flex h-[68px] items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed ${
-                p.kind === "safety"
-                  ? "border-hold/40 bg-hold-soft text-hold"
-                  : p.kind === "miss"
-                    ? "border-line bg-raised/50 text-faint"
-                    : "border-line bg-raised/50 text-muted"
-              }`}>
-                <span className="shrink-0 pt-px text-[10px] font-semibold uppercase tracking-widest text-faint">
-                  {p.kind === "cue" ? p.n : p.kind === "miss" ? "avoid" : "care"}
-                </span>
-                {/* Clamped rather than scrolled: a panel that scrolls inside a
-                    strip that scrolls is two gestures fighting for one thumb. */}
-                <span className="line-clamp-3 overflow-hidden">{p.text}</span>
-              </div>
-            </div>
+          {pages.map((page, i) => (
+            <ul key={i} // The cap is a safety net for a single pathological bullet, not the
+                // layout: cuePages already budgets to fit. Clipped rather than
+                // allowed to push the Log button behind the tab bar.
+                className="max-h-[104px] w-full shrink-0 snap-start space-y-1 overflow-hidden pr-4 text-[12px] leading-snug">
+              {page.map((item) => (
+                <li
+                  key={item.text}
+                  className={`flex gap-2 ${
+                    item.kind === "safety" ? "text-hold" : item.kind === "miss" ? "text-faint" : "text-muted"
+                  }`}
+                >
+                  <span aria-hidden className="shrink-0 tabular-nums text-faint">
+                    {item.kind === "cue" ? item.n : item.kind === "safety" ? "!" : "\u00b7"}
+                  </span>
+                  {item.text}
+                </li>
+              ))}
+              {/* Only when something genuinely did not fit — the full entry is
+                  a page of its own and always has been. */}
+              {truncated && i === pages.length - 1 && (
+                <li className="pt-0.5">
+                  <Link href={`/learn/${exercise.slug}`} className="text-faint underline underline-offset-2">
+                    Full guide
+                  </Link>
+                </li>
+              )}
+            </ul>
           ))}
         </div>
-        {panels.length > 1 && (
-          <div className="mb-3 flex justify-center gap-1.5" aria-hidden>
-            {panels.map((p, i) => (
+        {pages.length > 1 && (
+          <div className="mb-2 flex justify-center gap-1.5" aria-hidden>
+            {pages.map((_, i) => (
               <span
-                key={p.key}
-                className={`h-1 rounded-full transition-all ${
-                  i === at ? "w-4 bg-accent" : "w-1 bg-edge"
-                }`}
+                key={i}
+                className={`h-1 rounded-full transition-all ${i === at ? "w-4 bg-accent" : "w-1 bg-edge"}`}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Desktop: all of it, as before. */}
+      {/* Desktop: all of it, as before. There was never a problem here. */}
       <div className="hidden space-y-3 px-4 pb-3 text-[12px] leading-relaxed md:block">
         {formCues.length > 0 && (
           <ol className="space-y-1.5 text-muted">
@@ -2737,7 +2751,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             <p className="mb-1 text-[10px] uppercase tracking-widest text-faint">Commonly gets wrong</p>
             <ul className="space-y-1 text-faint">
               {commonMistakes.map((m) => (
-                <li key={m} className="flex gap-2"><span aria-hidden>·</span>{m}</li>
+                <li key={m} className="flex gap-2"><span aria-hidden>\u00b7</span>{m}</li>
               ))}
             </ul>
           </div>

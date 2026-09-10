@@ -46,6 +46,9 @@ export function SessionDone({
 
   return (
     <div
+      // Marked so a rank earned by this very session queues behind it rather
+      // than stacking a second takeover on top — see components/title-earned.
+      data-celebration="session"
       role="status"
       aria-live="assertive"
       className="fixed inset-0 z-[90] grid place-items-center bg-ink/92 px-6 backdrop-blur-sm"

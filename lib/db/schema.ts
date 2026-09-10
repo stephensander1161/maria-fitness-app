@@ -109,6 +109,16 @@ export const profiles = pgTable("profiles", {
   postpartumSymptoms: jsonb("postpartum_symptoms").$type<string[]>().default([]).notNull(),
   /** The newest "what's new" entry she has dismissed — see lib/whats-new.ts. */
   whatsNewSeen: text("whats_new_seen"),
+  /**
+   * The rank she has already been shown, stored as its `at` threshold — see
+   * lib/titles.ts. Null means she has never been shown one, which is stamped
+   * silently rather than celebrated: nobody wants confetti for signing up.
+   *
+   * The threshold rather than the name, because the names are jokes and jokes
+   * get rewritten; a rename would otherwise hand everybody a celebration for
+   * a rank they had held for months.
+   */
+  titleSeenAt: integer("title_seen_at"),
   /** How her body is measured — weight, height, tape. */
   units: text("units", { enum: ["imperial", "metric"] }).default("imperial").notNull(),
   /** How her food is measured — portions, ingredients, oven temperatures.

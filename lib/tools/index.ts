@@ -186,6 +186,7 @@ const all: Tool[] = [
   sleep.sleepThisWeek,
   sleep.setSleepTarget,
   sleep.removeSleep,
+  whatsNew.acknowledgeTitle,
   appearance.listThemes,
   appearance.setTheme,
   postpartum.setPostpartumStatus,

@@ -133,3 +133,29 @@ export function streakWeeks(sessionDates: ISODate[], weekStartOf: (d: ISODate) =
   }
   return n;
 }
+
+/**
+ * The rank she has just crossed into, or null.
+ *
+ * `seenAt` is the threshold of the rank she was last shown. Null is a person
+ * the app has never told, and that is *not* a celebration: a new account is
+ * already "Just Started" the moment it exists, and confetti for signing up is
+ * the kind of praise that teaches her to ignore the real thing later. The
+ * caller stamps it silently instead.
+ *
+ * Only ever forward. Every input to `scoreFor` is a lifetime total so the
+ * score cannot fall, but this refuses to look backwards regardless — if that
+ * ever changes, a bad fortnight must not produce a "you are now Rep Counter"
+ * screen for a rank she is dropping into.
+ */
+export function newRankFor(stats: TitleStats, seenAt: number | null): Rank | null {
+  const score = scoreFor(stats);
+  let i = 0;
+  while (i + 1 < RANKS.length && score >= RANKS[i + 1].at) i += 1;
+  const here = RANKS[i];
+  if (seenAt === null) return null;
+  return here.at > seenAt ? here : null;
+}
+
+/** Where a rank sits in the list, for "12 of 30". */
+export const rankNumber = (rank: Rank): number => RANKS.findIndex((r) => r.at === rank.at) + 1;

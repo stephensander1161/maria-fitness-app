@@ -18,7 +18,9 @@ import { restSecondsFor } from "@/lib/rest";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay, macroSplit } from "@/lib/nutrition";
-import { streakWeeks, titleFor } from "@/lib/titles";
+import {
+  newRankFor, RANKS, rankNumber, streakWeeks, titleFor, type Rank, type TitleStats,
+} from "@/lib/titles";
 import { workoutHappened } from "@/lib/sessions";
 import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 
@@ -838,7 +840,14 @@ export async function movementView(slug: string) {
  * Lifetime totals only — see lib/titles.ts for why. Four cheap counts and the
  * dates of her sessions, which is the only evidence a weekly streak has.
  */
-export async function titleStats(profileId: string, asOf: ISODate) {
+/**
+ * The lifetime totals a rank is computed from.
+ *
+ * Split out from `titleStats` so the celebration can compare the same numbers
+ * against what she has already been shown, without a second set of queries
+ * that could drift from these.
+ */
+export async function titleStatsRaw(profileId: string, asOf: ISODate): Promise<TitleStats> {
   const [[sets], [sessions], [days], [milestones], sessionDates] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` })
       .from(setLogs)
@@ -861,7 +870,7 @@ export async function titleStats(profileId: string, asOf: ISODate) {
       .limit(400),
   ]);
 
-  return titleFor({
+  return {
     sets: sets?.n ?? 0,
     sessions: sessions?.n ?? 0,
     daysLogged: days?.n ?? 0,
@@ -871,7 +880,25 @@ export async function titleStats(profileId: string, asOf: ISODate) {
       weekStart(asOf),
     ),
     milestones: milestones?.n ?? 0,
-  });
+  };
+}
+
+export async function titleStats(profileId: string, asOf: ISODate) {
+  return titleFor(await titleStatsRaw(profileId, asOf));
+}
+
+/**
+ * The rank she has just crossed into, if the app has not told her about it.
+ *
+ * Read here rather than in the gate component because components in this app
+ * never touch the database — the same rule as every other screen read.
+ */
+export async function titleEarned(
+  profile: { id: string; titleSeenAt: number | null },
+  asOf: ISODate,
+): Promise<{ rank: Rank; number: number; of: number } | null> {
+  const rank = newRankFor(await titleStatsRaw(profile.id, asOf), profile.titleSeenAt);
+  return rank ? { rank, number: rankNumber(rank), of: RANKS.length } : null;
 }
 
 

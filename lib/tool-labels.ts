@@ -110,6 +110,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_sleep_this_week: "reading your week's sleep",
   set_sleep_target: "setting your sleep target",
   remove_sleep: "removing that night",
+  acknowledge_title: "putting that away",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");

@@ -764,3 +764,19 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .session-drop { animation: none; }
 }
+
+/*
+  Two celebrations, one screen.
+
+  Finishing a session is what usually pushes her over a rank, so the summary
+  and the new-title screen want the screen at the same moment. The summary
+  wins and the title waits — stacked, she would read neither.
+
+  In CSS rather than JavaScript because a hidden element takes no pointer
+  events, so the tap that clears the summary cannot also clear the title
+  underneath it. Doing this by polling from an effect would mean setting state
+  inside one, which the React compiler correctly refuses.
+*/
+body:has([data-celebration="session"]) [data-celebration="title"] {
+  display: none !important;
+}

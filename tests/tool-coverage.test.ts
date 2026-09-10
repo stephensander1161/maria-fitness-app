@@ -187,7 +187,21 @@ suite("a failed action is never silent", () => {
       return tools.some((t) => !/^(get|list|search|find|lookup|suggest)_/.test(t));
     };
 
+    /*
+      One exemption, hard-coded so it changes only in a commit.
+
+      The celebration screen's only write is `acknowledge_title`, which marks a
+      rank as seen. Nothing of hers is at stake in it — the five components
+      this test was written for lost tape-measure readings, written feedback
+      and a spend limit she believed she had set. If this one fails she is
+      simply told about her new title once more, which is a better outcome than
+      an error message on a screen congratulating her, where there is nothing
+      to retry and nothing for her to do.
+    */
+    const NOTHING_OF_HERS_AT_STAKE = ["components/title-earned.tsx"];
+
     const silent = walk("components")
+      .filter((f) => !NOTHING_OF_HERS_AT_STAKE.includes(f))
       .filter((f) => /\baction\s*[<(]/.test(read(f)))
       .filter(writesOnly)
       .filter((f) => !/setError|setLogError|actionMessage|ActionError/.test(read(f)));

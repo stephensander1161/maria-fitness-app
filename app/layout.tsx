@@ -5,6 +5,7 @@ import { TabBar } from "@/components/tab-bar";
 import { ViewportCover } from "@/components/viewport-cover";
 import { MoreNavGate } from "@/components/more-nav-gate";
 import { ShippedNoteGate } from "@/components/shipped-note-gate";
+import { TitleGate } from "@/components/title-gate";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { SideNavGate } from "@/components/side-nav-gate";
@@ -112,6 +113,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Nothing before 5am — see lib/morning-weigh-in.ts.
         */}
         <WeighInGate />
+        {/* The rank went up, and nobody told her — see title-gate.tsx. */}
+        <TitleGate />
         {/* Things she asked for that have shipped — see shipped-note.tsx. */}
         <ShippedNoteGate />
         <RefreshOnFocus />

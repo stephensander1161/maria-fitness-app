@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { LATEST_ID } from "@/lib/whats-new";
+import { RANKS } from "@/lib/titles";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns, pushSubscriptions,
@@ -151,6 +152,10 @@ export const updateProfile = defineTool({
       if (!p.planSetupAt) patch.planSetupAt = new Date();
       // Everything shipped before today was never "new" to her.
       patch.whatsNewSeen = LATEST_ID;
+      // She has "Just Started" from the moment the account exists. Stamped
+      // rather than announced: confetti for signing up is the kind of praise
+      // that teaches her to ignore the real thing later — see lib/titles.ts.
+      patch.titleSeenAt = RANKS[0].at;
     }
 
     await db.update(profiles).set(patch).where(eq(profiles.id, ctx.profileId));
