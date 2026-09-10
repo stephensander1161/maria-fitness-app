@@ -34,6 +34,7 @@ import * as burn from "./burn";
 import * as shipped from "./shipped";
 import * as whatsNew from "./whats-new";
 import * as sleep from "./sleep";
+import * as stretches from "./stretches";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -187,6 +188,7 @@ const all: Tool[] = [
   sleep.setSleepTarget,
   sleep.removeSleep,
   whatsNew.acknowledgeTitle,
+  stretches.getStretches,
   appearance.listThemes,
   appearance.setTheme,
   postpartum.setPostpartumStatus,

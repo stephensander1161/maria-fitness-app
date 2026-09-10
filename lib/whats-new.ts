@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-stretches",
+    date: "2026-09-10",
+    title: "Warm up and cool down, picked for the day",
+    blurb:
+      "A line at each end of the session, chosen from what that day actually trains \u2014 a squat day gets ankles and hips, a pressing day the upper back and chest. Rest days get a loosen-off too.",
+    href: "/train",
+  },
+  {
     id: "2026-09-10-new-title-screen",
     date: "2026-09-10",
     title: "The app tells you when your title goes up",

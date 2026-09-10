@@ -94,6 +94,9 @@ export type TodayExercise = {
   isHold: boolean;
   /** Drives the wireframe figure's fallback when the name matches no pattern. */
   category: string;
+  /** What it trains, used to choose the day's warm-up and cool-down —
+   *  see lib/stretches.ts. */
+  muscles: string[];
   /** Logged today but not on the plan — an extra she added, or one she removed
    *  from the schedule after already training it. Never hide logged work. */
   extra: boolean;
@@ -257,6 +260,7 @@ export async function todayView(profileId: string, units: Units, date = today())
       const prev = lastTime.get(i.exerciseId);
       return {
         slug: i.slug, name: i.name, bodyweight: i.bodyweight,
+        muscles: i.primaryMuscles ?? [],
         formCues: i.formCues ?? [], commonMistakes: i.commonMistakes ?? [], safetyNote: i.safetyNote ?? null,
         loadable: canHoldWeight(i.equipment),
         isHold: i.isHold ?? false,

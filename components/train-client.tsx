@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
+import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
+import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
 import { ExerciseFigure } from "./exercise-figure";
 import { AskCoach } from "./ask-coach";
@@ -467,10 +469,33 @@ export function TrainClient({
   }
 
 
+  /** What this day trains, which is what its stretches are chosen from. */
+  const dayMuscles = view.exercises.flatMap((e) => e.muscles);
+  /**
+   * Slug to name, out of the picker the screen already has.
+   *
+   * No new query and no new content: the forty-two mobility movements were
+   * seeded long before this feature, and `pickable` is the whole library.
+   */
+  const stretchNames = (slugs: string[]) => {
+    const by = new Map(pickable.groups.flatMap((g) => g.items).map((x) => [x.slug, x.name]));
+    // Ordered as chosen, and silently short when her equipment list excludes
+    // one — a mat is a piece of kit, and a warm-up is not worth a broken link.
+    return slugs.flatMap((slug) => (by.has(slug) ? [{ slug, name: by.get(slug)! }] : []));
+  };
+
   if (view.isRest && view.exercises.length === 0) {
     return (
       <div className="space-y-4">
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
+        {/* And then it offers some. The card said "mobility work is plenty"
+            and gave none, which is the app naming a thing it does not do. */}
+        <StretchBlock
+          tone="rest"
+          title="Loosen off"
+          hint="about 30 seconds each"
+          items={stretchNames(REST_DAY_FLOW)}
+        />
         {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
       </div>
     );
@@ -503,6 +528,7 @@ export function TrainClient({
 
   /** Where a movement's own page lives, for this day. */
   const pageFor = (slug: string) => `/train/${slug}${date ? `?d=${date}` : ""}`;
+
 
   if (focus !== undefined) {
     const at = view.exercises.findIndex((e) => e.slug === focus);
@@ -678,6 +704,18 @@ export function TrainClient({
         A grid rather than a flowed column: a card grows when she opens the
         stepper, and in a flow that would shove every later card sideways.
       */}
+      {/*
+        Before and after, chosen from what this day actually trains — a squat
+        day gets ankles and hips, a pressing day gets the upper back and chest.
+        Both are closed by one line: a warm-up she has to scroll past to reach
+        the first set makes the app worse for the person who does not want one.
+      */}
+      <StretchBlock
+        title="Warm up"
+        hint="a few reps each, nothing held"
+        items={stretchNames(warmUpFor(dayMuscles))}
+      />
+
       <div
         ref={listRef}
         className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
@@ -748,6 +786,14 @@ export function TrainClient({
         );
       })}
       </div>
+
+      {/* Holds, here: it is after the lifting that a long stretch costs
+          nothing. Before it, the same hold measurably lowers force output. */}
+      <StretchBlock
+        title="Cool down"
+        hint="about 30 seconds each"
+        items={stretchNames(coolDownFor(dayMuscles))}
+      />
 
       {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
 
@@ -2333,24 +2379,26 @@ export function ExerciseCard({
                 the same line as the label: still 44px of touch target, a third
                 of the height. Desktop keeps the roomier version.
               */
-              <div className="flex items-center gap-1.5">
-                <span className="mr-auto shrink-0 text-[10px] uppercase tracking-wide text-faint md:text-[11px]">
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
                   Left in tank
-                </span>
-                {[0, 1, 2, 3].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setRir(rir === n ? null : n)}
-                    disabled={saving}
-                    aria-pressed={rir === n}
-                    aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank`}
-                    className={`size-10 shrink-0 rounded-lg border text-[13px] active:bg-raised disabled:opacity-40 md:size-auto md:flex-1 md:py-2.5 ${
-                      rir === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
-                    }`}
-                  >
-                    {n === 3 ? "3+" : n}
-                  </button>
-                ))}
+                </p>
+                <div className="flex gap-1.5">
+                  {[0, 1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setRir(rir === n ? null : n)}
+                      disabled={saving}
+                      aria-pressed={rir === n}
+                      aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank`}
+                      className={`h-9 flex-1 rounded-lg border text-[13px] active:bg-raised disabled:opacity-40 md:h-auto md:py-2.5 ${
+                        rir === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                      }`}
+                    >
+                      {n === 3 ? "3+" : n}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -2669,15 +2717,18 @@ function SetSquare({
  * only useful state is open is a row that invites a tap to hide what she came
  * to read.
  *
- * `touch-pan-x` so a vertical drag still belongs to the page, and
- * `overscroll-x-contain` so swiping past the last page is not the browser's
- * back gesture.
+ * No `touch-action` override: the default lets the browser pick the axis from
+ * the gesture, so a sideways drag pages the strip and an up-or-down drag
+ * scrolls the page as it should. Pinning it to `pan-x` did keep the paging
+ * clean and also swallowed every vertical swipe that started inside the box,
+ * which on a card this size is most of them. `overscroll-x-contain` stays, so
+ * swiping past the last page is not the browser's back gesture.
  */
 function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   const [at, setAt] = useState(0);
 
-  const { pages, truncated } = cuePages(cueItems(formCues, commonMistakes, safetyNote));
+  const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote));
   if (pages.length === 0) return null;
 
   return (
@@ -2690,13 +2741,13 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             setAt(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
           }}
           aria-label={`How to do ${exercise.name}${pages.length > 1 ? " — swipe for more" : ""}`}
-          className="flex snap-x snap-mandatory touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {pages.map((page, i) => (
             <ul key={i} // The cap is a safety net for a single pathological bullet, not the
                 // layout: cuePages already budgets to fit. Clipped rather than
                 // allowed to push the Log button behind the tab bar.
-                className="max-h-[104px] w-full shrink-0 snap-start space-y-1 overflow-hidden pr-4 text-[12px] leading-snug">
+                className="max-h-[84px] w-full shrink-0 snap-start space-y-1 overflow-hidden pr-4 text-[12px] leading-snug">
               {page.map((item) => (
                 <li
                   key={item.text}
@@ -2710,15 +2761,6 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
                   {item.text}
                 </li>
               ))}
-              {/* Only when something genuinely did not fit — the full entry is
-                  a page of its own and always has been. */}
-              {truncated && i === pages.length - 1 && (
-                <li className="pt-0.5">
-                  <Link href={`/learn/${exercise.slug}`} className="text-faint underline underline-offset-2">
-                    Full guide
-                  </Link>
-                </li>
-              )}
             </ul>
           ))}
         </div>

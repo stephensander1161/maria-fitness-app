@@ -71,7 +71,9 @@ const WARM_UP: Record<Area, string[]> = {
   thoracic: ["cat-cow", "thoracic-rotation"],
   shoulders: ["wall-slide", "band-pass-through", "pendulum-swing"],
   chest: ["band-pass-through", "wall-slide"],
-  lats: ["dead-hang", "downward-dog"],
+  // Not the dead hang: it is a hold, and it is on the cool-down list for
+  // exactly that reason. The rule above is not a style preference.
+  lats: ["downward-dog", "thoracic-rotation"],
   lowerBack: ["cat-cow", "pelvic-tilt"],
   neck: ["chin-tuck"],
   wrists: ["wrist-flexor-stretch"],

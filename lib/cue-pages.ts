@@ -1,5 +1,5 @@
 /**
- * The movement's guide, split into at most two swipeable pages.
+ * The movement's guide, split into swipeable pages.
  *
  * The card was a stacked list, which is the right density — several bullets
  * read at once — but it grew with whatever the library happened to say about
@@ -8,12 +8,13 @@
  * other way: nine pages to read four cues.
  *
  * So the list stays a list. It only becomes swipeable when it would overflow,
- * and then it is exactly two pages, because a third is a document.
+ * and then it keeps going for as long as there is something to read — every
+ * page is one flick, and stopping short to send her somewhere else for the
+ * rest is a worse answer than one more flick.
  *
- * Order is deliberate and is what stops the important thing being the thing
- * that falls off: cues, then the safety note, then the common mistakes. A
- * movement long enough to overrun two pages loses the tail of its mistakes
- * list, never its warning.
+ * Order is still deliberate: cues, then the safety note, then the common
+ * mistakes. Nothing is dropped now, but the warning still belongs before the
+ * list of ways to get it slightly wrong.
  */
 export type CueItem = { kind: "cue" | "safety" | "miss"; text: string; n?: number };
 
@@ -26,13 +27,14 @@ export const CHARS_PER_LINE = 44;
 /**
  * Lines a page shows.
  *
- * Five, measured rather than chosen: on an iPhone 14 Pro the tab bar starts at
- * 596px, and five lines puts the bottom of the Log button at 580 for the
+ * Four, measured rather than chosen: on an iPhone 14 Pro the tab bar starts at
+ * 596px, and four lines puts the bottom of the Log button at 572 for the
  * longest entries in the library (barbell bench press, dumbbell pullover,
- * pelvic floor activation). Six puts bench at 617, behind the tab bar.
+ * pelvic floor activation). The card caps a page at 84px for the same reason
+ * from the other side — one five-line bullet was enough on its own to push the
+ * button under the bar.
  */
-export const LINES_PER_PAGE = 5;
-export const MAX_PAGES = 2;
+export const LINES_PER_PAGE = 4;
 
 export const linesOf = (text: string): number =>
   Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
@@ -49,41 +51,31 @@ export function cueItems(
   ];
 }
 
-export type CuePages = {
-  pages: CueItem[][];
-  /** Something did not fit even two pages — the card says where the rest is. */
-  truncated: boolean;
-};
-
 export function cuePages(
   items: readonly CueItem[],
-  { perPage = LINES_PER_PAGE, maxPages = MAX_PAGES }: { perPage?: number; maxPages?: number } = {},
-): CuePages {
-  if (items.length === 0) return { pages: [], truncated: false };
+  { perPage = LINES_PER_PAGE }: { perPage?: number } = {},
+): CueItem[][] {
+  if (items.length === 0) return [];
 
   const total = items.reduce((t, i) => t + linesOf(i.text), 0);
   // Fits as it always did: one page, no dots, nothing to swipe.
-  if (total <= perPage) return { pages: [[...items]], truncated: false };
+  if (total <= perPage) return [[...items]];
 
   const pages: CueItem[][] = [];
   let page: CueItem[] = [];
   let used = 0;
-  let at = 0;
-  for (; at < items.length; at++) {
-    const cost = linesOf(items[at].text);
+  for (const item of items) {
+    const cost = linesOf(item.text);
     // A bullet taller than a whole page still gets one — better a clipped
     // paragraph than an empty page followed by it.
     if (page.length > 0 && used + cost > perPage) {
       pages.push(page);
-      if (pages.length === maxPages) break;
       page = [];
       used = 0;
     }
-    page.push(items[at]);
+    page.push(item);
     used += cost;
   }
-  if (pages.length < maxPages && page.length > 0) pages.push(page);
-
-  const shown = pages.reduce((t, p) => t + p.length, 0);
-  return { pages, truncated: shown < items.length };
+  if (page.length > 0) pages.push(page);
+  return pages;
 }
