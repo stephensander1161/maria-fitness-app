@@ -19,7 +19,15 @@ export function e1rm(weightKg: number | null, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
-export type SetSummary = { setNumber: number; reps: number; weightKg: number | null; rpe: number | null };
+export type SetSummary = {
+  setNumber: number; reps: number; weightKg: number | null; rpe: number | null;
+  /**
+   * Seconds, for a held movement. `reps` is 1 for those — one set is one hold
+   * — so anything showing her what she did last time has to read this instead,
+   * or a 45-second plank comes back as "1".
+   */
+  holdSeconds: number | null;
+};
 
 export type Performance = {
   date: ISODate;
@@ -68,6 +76,7 @@ export async function exerciseHistory(
       date: workouts.date,
       setNumber: setLogs.setNumber,
       reps: setLogs.reps,
+      holdSeconds: setLogs.holdSeconds,
       weightKg: setLogs.weightKg,
       rpe: setLogs.rpe,
     })
@@ -110,7 +119,7 @@ function pct(now: number, before: number): number | null {
 /** The short human rendering of one session's sets: `3×10 @ 88lb`, or a
  *  per-set list when the sets weren't uniform. */
 export function describe(
-  sets: Pick<SetSummary, "reps" | "weightKg">[],
+  sets: Pick<SetSummary, "reps" | "weightKg" | "holdSeconds">[],
   units: Units,
 ): string {
   if (sets.length === 0) return "nothing logged";
@@ -119,14 +128,23 @@ export function describe(
   // rounding that again turns 220.46 lb into 221.
   const show = (kg: number) => Math.round(units === "imperial" ? kgToLb(kg) : kg);
 
+  // A hold stores reps = 1 and the duration beside it, so counting reps
+  // reports a 45-second plank as "1×1" — which is what the coach then said
+  // back to her, and it is nonsense in the same way asking for eight of a
+  // wall sit is.
+  const held = (s: { reps: number; holdSeconds?: number | null }) =>
+    s.holdSeconds !== null && s.holdSeconds !== undefined;
+  const count = (s: { reps: number; holdSeconds?: number | null }) =>
+    held(s) ? `${s.holdSeconds}s` : String(s.reps);
+
   const w = sets[0].weightKg;
   const sameWeight = sets.every((s) => s.weightKg === w);
-  const sameReps = sets.every((s) => s.reps === sets[0].reps);
-  if (sameWeight && sameReps) {
-    return `${sets.length}×${sets[0].reps}${w === null ? "" : ` @ ${show(w)}${unit}`}`;
+  const sameCount = sets.every((s) => count(s) === count(sets[0]));
+  if (sameWeight && sameCount) {
+    return `${sets.length}×${count(sets[0])}${w === null ? "" : ` @ ${show(w)}${unit}`}`;
   }
   return sets
-    .map((s) => `${s.reps}${s.weightKg === null ? "" : `@${show(s.weightKg)}`}`)
+    .map((s) => `${count(s)}${s.weightKg === null ? "" : `@${show(s.weightKg)}`}`)
     .join(", ");
 }
 
@@ -278,6 +296,7 @@ export async function lastTimeTargets(
       date: workouts.date,
       setNumber: setLogs.setNumber,
       reps: setLogs.reps,
+      holdSeconds: setLogs.holdSeconds,
       weightKg: setLogs.weightKg,
       rpe: setLogs.rpe,
     })
@@ -526,6 +545,9 @@ export async function todaySnapshot(
     .select({
       name: exercises.name,
       reps: setLogs.reps,
+      // Without this the block told the coach a 45-second plank was "1×1",
+      // and the block is the thing the model believes completely.
+      holdSeconds: setLogs.holdSeconds,
       weightKg: setLogs.weightKg,
     })
     .from(setLogs)
@@ -537,7 +559,7 @@ export async function todaySnapshot(
     return `Today: "${workout.title}" is open but no sets logged yet.`;
   }
 
-  const byExercise = new Map<string, { reps: number; weightKg: number | null }[]>();
+  const byExercise = new Map<string, { reps: number; weightKg: number | null; holdSeconds: number | null }[]>();
   for (const r of rows) {
     if (!byExercise.has(r.name)) byExercise.set(r.name, []);
     byExercise.get(r.name)!.push(r);

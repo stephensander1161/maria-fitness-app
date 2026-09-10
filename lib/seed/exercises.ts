@@ -1738,7 +1738,26 @@ export const EXERCISES: Seed[] = [
       "Breathe normally — if you can't, you're bracing too hard.",
     ],
     commonMistakes: ["Hips sagging into the lower back.", "Hips piked up into an easy inverted V.", "Holding your breath."],
-    easier: ["bird-dog"], harder: ["plank-shoulder-tap", "hollow-hold"],
+    easier: ["knee-plank", "bird-dog"], harder: ["plank-shoulder-tap", "hollow-hold"],
+  },
+  {
+    slug: "knee-plank", name: "Knee Plank", category: "core",
+    isHold: true,
+    primaryMuscles: ["core", "shoulders"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    tags: ["modified plank", "half plank", "plank on knees", "beginner plank", "postpartum", "after baby", "core rebuild"],
+    formCues: [
+      "Elbows under shoulders, forearms flat, knees on the mat.",
+      "Squeeze your glutes and tuck your ribs down so your lower back flattens.",
+      "One straight line from knees to head — the line just starts lower.",
+      "Breathe normally the whole hold.",
+    ],
+    commonMistakes: [
+      "Sitting the hips back towards the heels, which takes the core out of it entirely.",
+      "Hips sagging into the lower back — the same fault as a full plank, and the reason to regress to this one.",
+      "Holding your breath.",
+    ],
+    safetyNote: "The honest step before a full plank. Holding a full plank with the hips sagging trains the position it is meant to prevent, so dropping to the knees and keeping the line is the better set, not the easy way out.",
+    easier: ["wall-plank", "bird-dog"], harder: ["plank"],
   },
   {
     slug: "side-plank", name: "Side Plank", category: "core",

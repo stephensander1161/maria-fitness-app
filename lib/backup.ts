@@ -5,7 +5,7 @@ import {
   complaints, cycleEvents, factViews, feedback, friendships, goals, highFives, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
   pushSubscriptions, savedMeals, setLogs, shoppingExtras,
-  usageDaily, weighIns, workouts,
+  sleepLogs, usageDaily, weighIns, workouts,
 } from "@/lib/db/schema";
 
 /**
@@ -31,7 +31,7 @@ import {
 
 // Order matters for restore: parents before children.
 export const BACKUP_TABLES = {
-  profiles, weighIns, measurements, goals, photos, complaints, cycleEvents,
+  profiles, weighIns, sleepLogs, measurements, goals, photos, complaints, cycleEvents,
   plans, planDays, planExercises,
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,

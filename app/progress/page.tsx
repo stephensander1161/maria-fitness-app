@@ -26,6 +26,9 @@ import { dayFoodView } from "@/lib/views";
 import { MacroBars } from "@/components/macro-bars";
 import { type MacroRow } from "@/lib/macro-progress";
 import { Headline, ProgressSection } from "@/components/progress-section";
+import { SleepCard } from "@/components/sleep-card";
+import { SleepTrend } from "@/components/sleep-trend";
+import { formatSleep, sleepTarget, sleepTotals } from "@/lib/sleep";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +38,10 @@ export default async function ProgressPage() {
   const unit = weightLabel(u);
 
   const her = profileToday(profile);
+  // One target for every sleep figure on the screen, hers or the default.
+  const target = sleepTarget(profile);
 
-  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals, food] = await Promise.all([
+  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals, food, sleep] = await Promise.all([
     db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
@@ -49,6 +54,7 @@ export default async function ProgressPage() {
     burnThisWeek(profile.id, weekStart(her), profile.startWeightKg ?? 70),
     trainingTotals(profile.id, her),
     dayFoodView(profile.id, her),
+    sleepTotals(profile.id, her),
   ]);
 
   // The trend, not this morning's reading: a day's weight moves on water,
@@ -210,6 +216,14 @@ export default async function ProgressPage() {
 
         <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
 
+        {/* Directly under the weigh-in: both are a number she gives the app
+            first thing, and between them they explain most of a bad week. */}
+        <SleepCard
+          lastNight={sleep.lastNight ? formatSleep(sleep.lastNight.minutes) : null}
+          target={formatSleep(target)}
+          quality={sleep.lastNight?.quality ?? null}
+        />
+
         {/* What she has eaten so far, on the same terms as the Eat screen: a
             total built from entries that carry no figures is a floor, and gets
             a bar with no verdict rather than a colour it has not earned. */}
@@ -276,6 +290,7 @@ export default async function ProgressPage() {
         </div>
 
         <NutritionTrendCard trend={eating} />
+        <SleepTrend window={sleep.week} label="slept a night this week" target={target} />
       </ProgressSection>
 
       {/*
@@ -296,6 +311,7 @@ export default async function ProgressPage() {
         )}
         <Measurements sites={sites} unit={lengthLabel(u)} />
         <Progression items={progression} unit={weightLabel(u)} />
+        <SleepTrend window={sleep.month} label="slept a night this month" target={target} />
       </ProgressSection>
 
       {/*

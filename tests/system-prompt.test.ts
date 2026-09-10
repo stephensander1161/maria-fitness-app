@@ -19,7 +19,7 @@ const profile = (tone: Profile["coachTone"]): Profile => ({
   dailyBudgetMicros: null, topUpMicros: 0, topUpOn: null, topUpRequestedOn: null,
   maintenanceUntil: null, tempEquipment: null,
   defaultRestSeconds: null, restByGroup: null, weighInReminderHour: null, weighInRemindedOn: null,
-  shareCode: null, theme: null, whatsNewSeen: null,
+  shareCode: null, theme: null, whatsNewSeen: null, sleepTargetMinutes: null,
   postpartumBirthDate: null, postpartumDelivery: null, postpartumClearedAt: null,
   breastfeeding: false, postpartumSymptoms: [],
   tempEquipmentUntil: null, planSetupAt: null, planSetupSkippedAt: null,

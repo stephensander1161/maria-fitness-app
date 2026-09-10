@@ -101,8 +101,11 @@ export type TodayExercise = {
   restSeconds: number; notes: string | null;
   /** The superset this belongs to, or null when it stands alone. */
   supersetGroup: string | null;
-  lastTime: { date: ISODate; sets: { reps: number; weight: number | null }[] } | null;
-  loggedToday: { setNumber: number; reps: number; weight: number | null }[];
+  /** `holdSeconds` is what a held movement actually did — `reps` is 1 for
+   *  those, so anything rendering "last time" must read it or a 45-second
+   *  plank comes back as "1". */
+  lastTime: { date: ISODate; sets: { reps: number; weight: number | null; holdSeconds: number | null }[] } | null;
+  loggedToday: { setNumber: number; reps: number; weight: number | null; holdSeconds: number | null }[];
   /** Recent sessions, oldest first, for the trend shown once she finishes her
    *  target sets. Excludes today — the point is what came before. */
   trend: { date: ISODate; volume: number; topSet: number | null; reps: number }[];
@@ -176,7 +179,7 @@ export async function todayView(profileId: string, units: Units, date = today())
   const logged = workout
     ? await db.select({
         exerciseId: setLogs.exerciseId, setNumber: setLogs.setNumber,
-        reps: setLogs.reps, weightKg: setLogs.weightKg,
+        reps: setLogs.reps, holdSeconds: setLogs.holdSeconds, weightKg: setLogs.weightKg,
       }).from(setLogs).where(eq(setLogs.workoutId, workout.id)).orderBy(asc(setLogs.setNumber))
     : [];
 
@@ -267,10 +270,10 @@ export async function todayView(profileId: string, units: Units, date = today())
         notes: i.notes,
         supersetGroup: i.supersetGroup ?? null,
         lastTime: prev
-          ? { date: prev.date, sets: prev.sets.map((s) => ({ reps: s.reps, weight: weightOut(s.weightKg, units) })) }
+          ? { date: prev.date, sets: prev.sets.map((s) => ({ reps: s.reps, holdSeconds: s.holdSeconds, weight: weightOut(s.weightKg, units) })) }
           : null,
         loggedToday: logged.filter((l) => l.exerciseId === i.exerciseId)
-          .map((l) => ({ setNumber: l.setNumber, reps: l.reps, weight: weightOut(l.weightKg, units) })),
+          .map((l) => ({ setNumber: l.setNumber, reps: l.reps, holdSeconds: l.holdSeconds, weight: weightOut(l.weightKg, units) })),
         trend: trends.get(i.exerciseId) ?? [],
       };
     }),

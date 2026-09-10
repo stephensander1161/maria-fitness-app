@@ -155,6 +155,21 @@ export const PATTERNS: Record<string, Pattern> = {
       hip: [56, 56], knee: [70, 58], foot: [80, 84],
     },
   },
+  kneePlank: {
+    // The line starts at the knees rather than the heels: shins on the floor,
+    // feet lifted behind. Drawn as its own pattern because falling through to
+    // the full plank would show her the exact position she has regressed out
+    // of, which is the one thing the movement is for.
+    label: "Line from knees to head, ribs tucked",
+    start: {
+      head: [22, 56], shoulder: [34, 60], elbow: [30, 76], hand: [22, 76],
+      hip: [56, 66], knee: [72, 76], foot: [86, 64],
+    },
+    end: {
+      head: [22, 58], shoulder: [34, 62], elbow: [30, 76], hand: [22, 76],
+      hip: [55, 64], knee: [72, 76], foot: [86, 62],
+    },
+  },
   plank: {
     label: "One straight line, ribs tucked",
     start: {
@@ -463,6 +478,8 @@ const RULES: [RegExp, PatternKey][] = [
   // Before the plank rule, which otherwise catches these through `category`.
   [/punch|jab|boxer/, "punch"],
   [/v-?up|jackknife|sit-?up|toe-touch|pike-crunch/, "vSit"],
+  // Before the general plank rule, or it renders as a full one.
+  [/knee-?plank|half-?plank|modified-?plank/, "kneePlank"],
   [/plank|hollow|dead-?bug|bird-?dog|superman|ab-wheel|crunch|knee-raise/, "plank"],
   [/pallof|woodchop|rotation|twist|russian/, "rotation"],
   [/carry|suitcase|farmer|rack-walk|weighted-walk/, "carry"],

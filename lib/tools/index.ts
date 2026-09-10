@@ -33,6 +33,7 @@ import * as postpartum from "./postpartum";
 import * as burn from "./burn";
 import * as shipped from "./shipped";
 import * as whatsNew from "./whats-new";
+import * as sleep from "./sleep";
 
 /**
  * The single registry. The agent loop reads `anthropicTools` from it; the UI's
@@ -180,6 +181,11 @@ const all: Tool[] = [
   friends.sendHighFive,
   friends.acknowledgeHighFives,
   friends.getHighFives,
+  sleep.logSleep,
+  sleep.getSleep,
+  sleep.sleepThisWeek,
+  sleep.setSleepTarget,
+  sleep.removeSleep,
   appearance.listThemes,
   appearance.setTheme,
   postpartum.setPostpartumStatus,

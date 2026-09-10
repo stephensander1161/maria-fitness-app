@@ -8,7 +8,7 @@ import type { SetSummary } from "@/lib/progress";
  * later tweak to the scoring has to be deliberate.
  */
 const sets = (spec: [reps: number, kg: number | null][]): SetSummary[] =>
-  spec.map(([reps, weightKg], i) => ({ setNumber: i + 1, reps, weightKg, rpe: null }));
+  spec.map(([reps, weightKg], i) => ({ setNumber: i + 1, reps, weightKg, rpe: null, holdSeconds: null }));
 
 const uniform = (count: number, reps: number, kg: number | null) =>
   sets(Array.from({ length: count }, () => [reps, kg] as [number, number | null]));

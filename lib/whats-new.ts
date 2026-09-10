@@ -25,6 +25,21 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-sleep",
+    date: "2026-09-10",
+    title: "Sleep is tracked now, like everything else",
+    blurb:
+      "Log last night on Progress or just tell the coach. It gets a target, a daily figure and trends at every horizon \u2014 and it explains a flat session more often than anything else the app already tracks.",
+    href: "/progress",
+  },
+  {
+    id: "2026-09-10-holds-in-seconds",
+    date: "2026-09-10",
+    title: "Planks are logged in seconds, not reps",
+    blurb:
+      "The card asked for reps and a weight on a plank, and a 45-second hold came back as \u201c1\u201d. Holds now ask for seconds everywhere \u2014 logging, correcting, and last time.",
+  },
+  {
     id: "2026-09-10-turn-survives-backgrounding",
     date: "2026-09-10",
     title: "Switching apps mid-answer no longer loses it",

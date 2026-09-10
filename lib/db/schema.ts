@@ -186,6 +186,15 @@ export const profiles = pgTable("profiles", {
    * hosting plan decides the schedule and she should not.
    */
   weighInRemindedOn: date("weigh_in_reminded_on"),
+  /**
+   * How long she is aiming to sleep, in minutes. Null means the default —
+   * see SLEEP_TARGET_DEFAULT_MIN in lib/sleep.ts.
+   *
+   * Minutes rather than hours for the same reason weight is kilograms: one
+   * canonical unit, converted at the boundary. Seven hours twenty is not 7.33
+   * and nobody should have to round it to store it.
+   */
+  sleepTargetMinutes: integer("sleep_target_minutes"),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**
@@ -447,6 +456,47 @@ export const weighIns = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("weigh_ins_profile_date").on(t.profileId, t.date)],
+);
+
+/**
+ * What she slept, one row per night.
+ *
+ * Treated like calories on purpose: a target, a daily figure, and trends at
+ * every horizon — because it moves training and appetite as much as either of
+ * those and the app was silent about it.
+ *
+ * **A night is filed under the morning she woke up.** In bed at 1am and up at
+ * 9am on Tuesday is Tuesday's sleep. Every tracker does it this way and it is
+ * the only labelling where "did I sleep enough last night" has one stable
+ * answer for the whole of the day she is asking on. Filed under the evening
+ * instead, the answer changes at midnight and last night's sleep is missing
+ * all morning.
+ *
+ * Duration and quality are separate columns because they are separate facts:
+ * eight broken hours is not eight hours, and an app that averages them into
+ * one number can tell her she slept well through a week of waking at 3am.
+ * Quality is 1-5 and **nullable** — she will not rate every night, and a
+ * missing rating is not a bad one.
+ */
+export const sleepLogs = pgTable(
+  "sleep_logs",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** The morning she woke. See above — this is not the evening she went up. */
+    date: date("date").notNull(),
+    minutes: integer("minutes").notNull(),
+    /** 1 terrible - 5 excellent. Null is "she did not say", never "bad". */
+    quality: integer("quality"),
+    /** Local clock times, "HH:MM", in her timezone. Optional and only ever
+     *  used to talk about timing and consistency — `minutes` is the duration,
+     *  and is never recomputed from these two. */
+    bedAt: text("bed_at"),
+    wakeAt: text("wake_at"),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("sleep_logs_profile_date").on(t.profileId, t.date)],
 );
 
 /**

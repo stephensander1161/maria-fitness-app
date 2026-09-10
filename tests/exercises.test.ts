@@ -200,6 +200,11 @@ suite("the figure shows the movement it is labelled with", () => {
     // A lateral raise seen side-on is an arm pointing at the viewer that
     // barely appears to move — which is what the "raise" figure was showing,
     // and it is a front raise.
+    // A knee plank drawn as a full plank shows her the exact position she has
+    // regressed out of, which is the one thing the movement exists to avoid.
+    expect(patternFor("knee-plank", "core")).toBe("kneePlank");
+    expect(patternFor("plank", "core")).toBe("plank");
+    expect(patternFor("side-plank", "core")).toBe("plank");
     expect(patternFor("lateral-raise", "isolation")).toBe("lateral");
     expect(patternFor("palms-up-lateral-raise", "isolation")).toBe("lateral");
     expect(patternFor("front-raise", "isolation")).toBe("raise");

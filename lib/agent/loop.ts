@@ -15,6 +15,7 @@ import { allowanceLeftPct } from "@/lib/allowance-pct";
 import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
 import { cycleSignal } from "@/lib/tools/cycle-tools";
+import { sleepSignal, sleepTarget } from "@/lib/sleep";
 import { phaseSignal } from "@/lib/tools/phases";
 import { preppedSummary } from "@/lib/tools/batch-cooking";
 import type { Profile } from "@/lib/db/schema";
@@ -85,7 +86,7 @@ export async function* runCoach(
   // nothing — so it asks her to retype the session she just finished, which is
   // the exact failure todaySnapshot exists to prevent.
   const her = profileToday(profile);
-  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge, aim] = await Promise.all([
+  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge, aim, sleep] = await Promise.all([
     todaySnapshot(profile.id, profile.units, her),
     planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
@@ -95,6 +96,9 @@ export async function* runCoach(
     cycleSignal(profile.id, her),
     preppedSummary(profile.id, her),
     goalDirectionSignal(profile),
+    // Short sleep explains a flat session more often than anything else
+    // the block already carries, and the app used to be silent about it.
+    sleepSignal(profile.id, her, sleepTarget(profile)),
   ]);
   // Not a promise: everything it needs is already on the profile.
   const recovery = postpartumSignal({
@@ -110,7 +114,7 @@ export async function* runCoach(
     // backwards does the damage: the app was weight-loss-first everywhere, and
     // told someone trying to gain that their rising scale was a problem.
     [recovery, snapshot, plan, weight, aim, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
-      fridge, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
+      fridge, sleep, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
     opts.speakingTo ?? null,
   );

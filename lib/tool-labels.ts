@@ -105,6 +105,11 @@ export const TOOL_LABELS: Record<string, string> = {
   forget_push_device: "turning off notifications",
   export_transcript: "writing out your conversation",
   submit_feedback: "passing that on", list_feedback: "reading your feedback",
+  log_sleep: "writing down your sleep",
+  get_sleep: "reading your sleep",
+  get_sleep_this_week: "reading your week's sleep",
+  set_sleep_target: "setting your sleep target",
+  remove_sleep: "removing that night",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");

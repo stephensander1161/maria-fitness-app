@@ -230,12 +230,25 @@ async function main() {
       // The key set, not a substring sweep: a bare "90" also matches the hex
       // of a random uuid, which is a false alarm, while a new field carrying
       // her weight would slip through a list of numbers nobody updated.
+      //
+      // Hand-written on purpose, and updated only in a commit: that is the
+      // property that makes it a gate rather than a description. Adding a
+      // field to FriendTraining should fail here until somebody has looked at
+      // it and said out loud that it carries no body data.
       const ALLOWED = new Set([
         "friendshipId", "name", "title", "sessionsThisWeek", "setsThisWeek",
         "streakWeeks", "sessionsAllTime", "bestLifts", "hasEverLogged",
+        // All training. Volume, sets and movements are counts of what he
+        // lifted; lastSessionOn is a date; bestEver is exercise/weight/reps.
+        "setsAllTime", "volumeThisWeek", "movementsThisWeek", "lastSessionOn", "bestEver",
       ]);
       const extra = Object.keys(seen?.friend ?? {}).filter((k) => !ALLOWED.has(k));
-      if (extra.length) failures.push(`get_friend_stats returned unexpected fields: ${extra.join(", ")}`);
+      if (extra.length) {
+        failures.push(
+          `get_friend_stats returned unexpected fields: ${extra.join(", ")}. `
+          + "Training crosses between friends and a body never does — check each one, then add it to ALLOWED here.",
+        );
+      }
       const lifts = (seen?.friend?.bestLifts ?? []) as Record<string, unknown>[];
       const liftExtra = [...new Set(lifts.flatMap((l) => Object.keys(l)))]
         .filter((k) => !["exercise", "weight", "reps", "unit"].includes(k));

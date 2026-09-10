@@ -12,7 +12,7 @@ import {
 type SetSpec = [reps: number, weightKg: number | null];
 
 const sets = (specs: SetSpec[]): SetSummary[] =>
-  specs.map(([reps, weightKg], i) => ({ setNumber: i + 1, reps, weightKg, rpe: null }));
+  specs.map(([reps, weightKg], i) => ({ setNumber: i + 1, reps, weightKg, rpe: null, holdSeconds: null }));
 
 const uniform = (count: number, reps: number, weightKg: number | null): SetSummary[] =>
   sets(Array.from({ length: count }, () => [reps, weightKg] as SetSpec));

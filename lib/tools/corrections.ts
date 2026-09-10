@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import {
   complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements,
   messages, pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
-  setLogs, shoppingExtras, weighIns, workouts,
+  setLogs, shoppingExtras, sleepLogs, weighIns, workouts,
 } from "@/lib/db/schema";
 import { audit } from "@/lib/audit";
 import { forgetPhotoBlobs, releasePhotoBlobs } from "@/lib/photos";
@@ -368,11 +368,11 @@ export const clearRange = defineTool({
   input: z.object({
     fromDate: z.string().describe("YYYY-MM-DD"),
     toDate: z.string().describe("YYYY-MM-DD"),
-    what: z.array(z.enum(["workouts", "meals", "weighIns", "measurements"])).optional()
+    what: z.array(z.enum(["workouts", "meals", "weighIns", "sleep", "measurements"])).optional()
       .describe("Omit for all four"),
   }),
   handler: async (input, ctx) => {
-    const kinds = input.what?.length ? input.what : ["workouts", "meals", "weighIns", "measurements"];
+    const kinds = input.what?.length ? input.what : ["workouts", "meals", "weighIns", "sleep", "measurements"];
     const from = input.fromDate;
     const to = input.toDate;
     if (from > to) return { ok: false, error: "Those dates are the wrong way round." };
@@ -400,6 +400,12 @@ export const clearRange = defineTool({
         .where(and(eq(weighIns.profileId, ctx.profileId), gte(weighIns.date, from), lte(weighIns.date, to)))
         .returning({ id: weighIns.id });
       removed.weighIns = rows.length;
+    }
+    if (kinds.includes("sleep")) {
+      const rows = await db.delete(sleepLogs)
+        .where(and(eq(sleepLogs.profileId, ctx.profileId), gte(sleepLogs.date, from), lte(sleepLogs.date, to)))
+        .returning({ id: sleepLogs.id });
+      removed.sleep = rows.length;
     }
     if (kinds.includes("measurements")) {
       const rows = await db.delete(measurements)
@@ -486,6 +492,7 @@ const OWNED = [
   { table: mealPlans, via: "profile" as const },
   { table: mealLogs, via: "profile" as const },
   { table: weighIns, via: "profile" as const },
+  { table: sleepLogs, via: "profile" as const },
   { table: measurements, via: "profile" as const },
   { table: photos, via: "profile" as const },
   { table: goals, via: "profile" as const },
@@ -502,7 +509,7 @@ const OWNED = [
 export const eraseAllData = defineTool({
   name: "erase_all_my_data",
   description:
-    "Clears everything she has ever logged and returns the app to the state it was in before she signed up — training, food, weigh-ins, measurements, photos, plans, the kitchen and the whole conversation. Her account and password survive, so she can sign back in and start over. This cannot be undone and there is no backup she can reach, so say that plainly and get a clear yes before calling it. It requires the literal confirmation string, which she has to give.",
+    "Clears everything she has ever logged and returns the app to the state it was in before she signed up — training, food, weigh-ins, sleep, measurements, photos, plans, the kitchen and the whole conversation. Her account and password survive, so she can sign back in and start over. This cannot be undone and there is no backup she can reach, so say that plainly and get a clear yes before calling it. It requires the literal confirmation string, which she has to give.",
   input: z.object({
     confirm: z.literal("erase everything").describe(
       "Exactly 'erase everything'. Ask her to say it; do not supply it yourself.",

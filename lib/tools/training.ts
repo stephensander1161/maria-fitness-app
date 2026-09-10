@@ -601,7 +601,10 @@ export const logSet = defineTool({
       const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
       return {
         ok: true, duplicate: true, exercise: ex.name,
-        reps: input.reps, weight: input.weight ?? null, unit: weightLabel(units),
+        // What the movement is actually measured in, so the coach says "45s"
+      // back to her rather than "undefined reps".
+      ...(ex.isHold ? { holdSeconds: input.holdSeconds } : { reps: input.reps }),
+      weight: input.weight ?? null, unit: weightLabel(units),
         vsLastTime: comparison.status, comparison: comparison.headline,
       };
     }
@@ -609,7 +612,10 @@ export const logSet = defineTool({
     const comparison = await compareToPrevious(ctx.profileId, ex.id, units);
     return {
       ok: true, exercise: ex.name, setNumber: n + 1,
-      reps: input.reps, weight: input.weight ?? null, unit: weightLabel(units),
+      // What the movement is actually measured in, so the coach says "45s"
+      // back to her rather than "undefined reps".
+      ...(ex.isHold ? { holdSeconds: input.holdSeconds } : { reps: input.reps }),
+      weight: input.weight ?? null, unit: weightLabel(units),
       vsLastTime: comparison.status,
       comparison: comparison.headline,
     };
@@ -1184,6 +1190,7 @@ async function herSet(
   const [row] = await db
     .select({
       id: setLogs.id, setNumber: setLogs.setNumber, reps: setLogs.reps,
+      holdSeconds: setLogs.holdSeconds,
       weightKg: setLogs.weightKg, rpe: setLogs.rpe, loggedAt: setLogs.loggedAt,
       workoutId: setLogs.workoutId, exerciseId: setLogs.exerciseId,
       name: exercises.name, slug: exercises.slug, date: workouts.date,
@@ -1283,12 +1290,15 @@ export const removeLoggedExercise = defineTool({
 export const correctSet = defineTool({
   name: "correct_set",
   description:
-    "Changes a set she already logged — the weight, the reps, how hard it was, or which movement it was against. With nothing but the movement it corrects the most recent one. Use it when she says the number was wrong rather than logging a second set, which would leave the session wrong in a different way.",
+    "Changes a set she already logged — the weight, the reps or seconds held, how hard it was, or which movement it was against. With nothing but the movement it corrects the most recent one. Use it when she says the number was wrong rather than logging a second set, which would leave the session wrong in a different way.",
   input: z.object({
     exerciseSlug: z.string().optional().describe("Which movement's set to correct; omit for her last set"),
     setNumber: z.number().optional(),
     date: z.string().optional(),
-    reps: z.number().optional(),
+    reps: z.number().optional()
+      .describe("Whole reps, or a half. For a held movement pass holdSeconds instead."),
+    holdSeconds: z.number().optional()
+      .describe("How long she actually held it, for a plank, wall sit or dead hang."),
     weight: z.number().nullable().optional().describe("Her units. Pass null for bodyweight."),
     rpe: z.number().nullable().optional(),
     rir: z.number().nullable().optional().describe("Reps in reserve"),
@@ -1311,11 +1321,30 @@ export const correctSet = defineTool({
       name = to.name;
     }
 
+    // Same rule as log_set: a hold is seconds and a counted movement is reps,
+    // and neither is silently written into the other's column. Correcting a
+    // plank to "8" is the exact thing holds were added to stop.
+    const [holdCheck] = await db.select({ isHold: exercises.isHold, name: exercises.name })
+      .from(exercises).where(eq(exercises.id, exerciseId)).limit(1);
+    if (holdCheck?.isHold && input.reps !== undefined && input.holdSeconds === undefined) {
+      return {
+        ok: false,
+        error: `Nothing was changed. ${holdCheck.name} is held, not counted. Pass holdSeconds (how long she held it) rather than reps.`,
+      };
+    }
+    if (holdCheck && !holdCheck.isHold && input.holdSeconds !== undefined) {
+      return {
+        ok: false,
+        error: `Nothing was changed. ${holdCheck.name} is counted in reps, not seconds. Pass reps.`,
+      };
+    }
+
     const units = await unitsOf(ctx);
     // Only what she corrected. Everything else keeps the value it had, or a
     // correction to the weight would quietly blank the reps.
     const patch = {
       ...(input.reps === undefined ? {} : { reps: input.reps }),
+      ...(input.holdSeconds === undefined ? {} : { holdSeconds: input.holdSeconds }),
       ...(input.weight === undefined
         ? {}
         : { weightKg: input.weight === null ? null : weightIn(input.weight, units) }),
@@ -1324,7 +1353,7 @@ export const correctSet = defineTool({
       ...(exerciseId === row.exerciseId ? {} : { exerciseId }),
     };
     if (Object.keys(patch).length === 0) {
-      return { ok: false, error: "Nothing to change — pass reps, weight, rpe or moveToExerciseSlug." };
+      return { ok: false, error: "Nothing to change — pass reps (or holdSeconds), weight, rpe or moveToExerciseSlug." };
     }
 
     const [updated] = await db.update(setLogs).set(patch)
@@ -1335,11 +1364,13 @@ export const correctSet = defineTool({
       exercise: name,
       setNumber: updated.setNumber,
       was: {
-        reps: row.reps, weight: weightOut(row.weightKg, units),
+        ...(holdCheck?.isHold ? { holdSeconds: row.holdSeconds } : { reps: row.reps }),
+        weight: weightOut(row.weightKg, units),
         exercise: row.name,
       },
       now: {
-        reps: updated.reps, weight: weightOut(updated.weightKg, units),
+        ...(holdCheck?.isHold ? { holdSeconds: updated.holdSeconds } : { reps: updated.reps }),
+        weight: weightOut(updated.weightKg, units),
         exercise: name,
       },
       unit: weightLabel(units),

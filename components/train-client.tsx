@@ -10,6 +10,7 @@ import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
+import { countField, describeSet } from "@/lib/holds";
 import { AddExercise } from "./add-exercise";
 import { ExerciseFigure } from "./exercise-figure";
 import { AskCoach } from "./ask-coach";
@@ -354,7 +355,7 @@ export function TrainClient({
     } catch { setError("Couldn't unchain that."); }
   }
 
-  const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null }) => {
+  const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null; holdSeconds?: number | null }) => {
     beginRest({
       slug: exercise.slug,
       name: exercise.name,
@@ -368,7 +369,9 @@ export function TrainClient({
       // labels the field accordingly, so this number must already be in the
       // right unit. A wall sit seeded with "3 reps" is nonsense either way.
       reps: exercise.isHold
-        ? last?.reps ?? exercise.targetHoldSeconds ?? 30
+        // `last.reps` is 1 for a hold — one set is one hold — so the seconds
+        // come from holdSeconds or there is nothing sensible to seed with.
+        ? last?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
         : last?.reps ?? exercise.targetReps,
       weight: last?.weight ?? exercise.targetWeight,
       loadable: !exercise.bodyweight || exercise.loadable,
@@ -1289,7 +1292,7 @@ function ChangeMovement({
 }
 
 function SetEditor({
-  slug, setNumber, set, unit, bodyweight, date, onDone, onCancel,
+  slug, setNumber, set, unit, bodyweight, isHold, date, onDone, onCancel,
 }: {
   slug: string;
   setNumber: number;
@@ -1298,6 +1301,8 @@ function SetEditor({
   set: { reps: number; weight: number | null };
   unit: string;
   bodyweight: boolean;
+  /** Seconds rather than reps, and corrected as seconds — see lib/holds.ts. */
+  isHold: boolean;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -1308,6 +1313,7 @@ function SetEditor({
   // the reps silently throws the weight away.
   const [addWeight, setAddWeight] = useState(false);
   const loaded = !bodyweight || addWeight || set.weight !== null;
+  const count = countField(isHold);
   const [busy, setBusy] = useState<"save" | "delete" | null>(null);
   /**
    * Into view on open, clear of the tab bar.
@@ -1335,7 +1341,8 @@ function SetEditor({
         await action("delete_set", { exerciseSlug: slug, setNumber, ...(date === undefined ? {} : { date }) });
       } else {
         await action("correct_set", {
-          exerciseSlug: slug, setNumber, reps,
+          exerciseSlug: slug, setNumber,
+          ...(isHold ? { holdSeconds: reps } : { reps }),
           ...(date === undefined ? {} : { date }),
           ...(loaded ? { weight: weight > 0 ? weight : null } : {}),
         });
@@ -1357,7 +1364,8 @@ function SetEditor({
           <NumberField label={`Weight (${unit})`} value={weight} step={step} min={0} max={2000}
             onChange={setWeight} />
         )}
-        <NumberField label="Reps" value={reps} step={1} decimals min={0.5} max={500} onChange={setReps} />
+        <NumberField label={count.label} value={reps} step={count.step} decimals={count.decimals}
+          min={count.min} max={count.max} onChange={setReps} />
       </div>
       {!loaded && (
         <button
@@ -1464,7 +1472,7 @@ export function ExerciseCard({
    * effect: when the refresh lands, `landed.length` moves and these are
    * dropped on the next render with nothing writing state during one.
    */
-  const [unconfirmed, setUnconfirmed] = useState<{ at: number; sets: { reps: number; weight: number | null }[] }>(
+  const [unconfirmed, setUnconfirmed] = useState<{ at: number; sets: { reps: number; weight: number | null; holdSeconds: number | null }[] }>(
     { at: landed.length, sets: [] },
   );
   const justLogged = unconfirmed.at === landed.length ? unconfirmed.sets : [];
@@ -1496,13 +1504,24 @@ export function ExerciseCard({
       setRemovingSet(null);
     }
   }
-  const queued = pending.map((p) => ({ reps: p.input.reps, weight: p.input.weight }));
+  const queued = pending.map((p) => ({
+    // Queued holds carry their seconds the same way a landed one does.
+    reps: p.input.holdSeconds ?? p.input.reps,
+    holdSeconds: p.input.holdSeconds ?? null,
+    weight: p.input.weight,
+  }));
   // Prefill from what she did on the last set today — including one still in
   // the outbox — else last session, else target.
   const seedWeight =
     queued.at(-1)?.weight ?? done.at(-1)?.weight ??
     exercise.lastTime?.sets.at(-1)?.weight ?? exercise.targetWeight ?? 0;
-  const seedReps = queued.at(-1)?.reps ?? done.at(-1)?.reps ?? exercise.targetReps;
+  // A hold stores reps = 1 and the duration in holdSeconds, so seeding from
+  // `reps` opened the second plank set on "1". The count field is seconds for
+  // a hold, and so is everything that feeds it.
+  const seedReps = exercise.isHold
+    ? queued.at(-1)?.reps ?? done.at(-1)?.holdSeconds
+      ?? exercise.lastTime?.sets.at(-1)?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
+    : queued.at(-1)?.reps ?? done.at(-1)?.reps ?? exercise.targetReps;
 
   /**
    * The entry, re-seeded whenever a set lands.
@@ -1576,6 +1595,7 @@ export function ExerciseCard({
     || done.some((s) => s.weight !== null)
     || queued.some((s) => s.weight !== null);
 
+  const count = countField(exercise.isHold);
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
 
@@ -1643,7 +1663,14 @@ export function ExerciseCard({
     // happened for a moment and then the whole card changed at once, which
     // reads as the page reloading rather than as a set being logged. If the
     // save fails it is taken straight back out again, beside the error.
-    const mine = { reps, weight: loaded && weight > 0 ? weight : null };
+    // For a hold the entry field is seconds, and the row stores reps = 1 with
+    // the duration beside it. The optimistic square has to match the row it is
+    // standing in for, or it reads "45" for a moment and then "1".
+    const mine = {
+      reps: exercise.isHold ? 1 : reps,
+      holdSeconds: exercise.isHold ? reps : null,
+      weight: loaded && weight > 0 ? weight : null,
+    };
     setUnconfirmed((u) => ({
       at: landed.length,
       sets: [...(u.at === landed.length ? u.sets : []), mine],
@@ -2080,7 +2107,7 @@ export function ExerciseCard({
           // true once the server's own list says so. It becomes editable a
           // moment later, when the refresh lands.
           const isUnconfirmed = i >= landed.length && i < done.length;
-          const label = s ? `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}` : "—";
+          const label = s ? describeSet(s, exercise.isHold) : "—";
           // Against the same set last time, where there is one to compare
           // against. **The higher of the two is the one that gets marked**, in
           // green, and it is a celebration rather than a verdict: a set that
@@ -2180,6 +2207,7 @@ export function ExerciseCard({
           set={done[editingSet - 1]}
           unit={unit}
           bodyweight={exercise.bodyweight}
+          isHold={exercise.isHold}
           onDone={() => { setEditingSet(null); onRemoved(); }}
           onCancel={() => setEditingSet(null)}
         />
@@ -2241,7 +2269,7 @@ export function ExerciseCard({
               <p className="text-[11px] text-faint tabular">
                 Last time ({exercise.lastTime.date.slice(5)}):{" "}
                 {exercise.lastTime.sets
-                  .map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`)
+                  .map((s) => describeSet(s, exercise.isHold))
                   .join(" · ")}
               </p>
             )}
@@ -2257,17 +2285,16 @@ export function ExerciseCard({
                     onChange={setWeight}
                   />
                 )}
+                {/* Seconds for a hold, reps otherwise. The card used to ask
+                    for reps on a plank, which is the app not understanding
+                    the movement — see lib/holds.ts. */}
                 <NumberField
-                  label="Reps"
+                  label={count.label}
                   value={reps}
-                  // The buttons nudge by whole reps, because that is what a rep
-                  // is. Typing accepts a half for the set she got part-way
-                  // through — rounding that down loses the half she did and
-                  // rounding it up claims one she did not.
-                  step={1}
-                  decimals
-                  min={0.5}
-                  max={500}
+                  step={count.step}
+                  decimals={count.decimals}
+                  min={count.min}
+                  max={count.max}
                   onChange={setReps}
                   className={loaded ? "" : "col-span-2"}
                 />
