@@ -100,3 +100,25 @@ suite("it never becomes food", () => {
     }
   });
 });
+
+suite("a session lands somewhere a physiologist would recognise", () => {
+  it("puts a twenty-set session in the published band, not below it", () => {
+    // It read 130 kcal for twenty sets — 2.2 METs averaged over the
+    // forty-two minutes the same model says that takes, which is roughly
+    // standing up. The Compendium puts resistance training at 3.5 for
+    // light-to-moderate and 6.0 for vigorous, for the whole session.
+    // Isolation, because that is where it collapses and that is what a
+    // shoulders or arms day is made of: the working MET is 3.5, so almost all
+    // of the arithmetic is the gaps between sets.
+    const sets = Array.from({ length: 20 }, () => ({
+      met: null, category: "isolation", reps: 12, holdSeconds: null,
+    }));
+    const { kcal, minutes } = burnForSession(sets, 80);
+    expect(minutes).toBeGreaterThan(35);
+    const metsAveraged = (kcal / minutes) / ((3.5 * 80) / 200);
+    expect(metsAveraged).toBeGreaterThan(2.8);
+    // …and still the low end: this is never added to what she can eat, so
+    // under is the right side to be wrong on.
+    expect(metsAveraged).toBeLessThan(4.5);
+  });
+});

@@ -25,6 +25,20 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-macro-bars",
+    date: "2026-09-10",
+    title: "Carb and fat targets, and the day as four bars",
+    blurb: "Carbs and fat now have targets — worked out from the two numbers that actually get decided, calories and protein, so they always add up to each other. Logging something shows where the day stands, and tapping the tally opens the same picture. Going over is said plainly and never scolded: it is information for the next meal.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-10-burn-rest",
+    date: "2026-09-10",
+    title: "A session's cost was reading about a third low",
+    blurb: "The estimate treated the gaps between sets as barely above sitting still, and three quarters of a session is the gaps — so twenty sets came out at 130 calories, which over the same model's own forty-two minutes is roughly the effort of standing up. The gaps are walking pace now. Still the low end of the published range, and still never added to what you can eat.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-10-food-facts",
     date: "2026-09-10",
     title: "Sixteen more food facts, and the card reads the room",

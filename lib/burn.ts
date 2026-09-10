@@ -31,8 +31,23 @@ const BY_CATEGORY: Record<string, number> = {
 
 /** A set is not a minute. This is the working time one set actually takes. */
 const SECONDS_PER_REP = 3;
-/** Between sets she is still elevated, but not working. */
-const REST_MET = 1.8;
+/**
+ * Between sets: standing, re-racking, walking back, and still breathing hard.
+ *
+ * This was 1.8, which is barely above sitting quietly, and it dominates the
+ * arithmetic — three quarters of a session is the gaps. A twenty-set session
+ * came out at 130 kcal, which over the forty-two minutes the same model says
+ * it takes is an average of 2.2 METs for an hour of lifting. That is not
+ * conservative, it is wrong: the Compendium puts resistance training at 3.5
+ * for light-to-moderate and 6.0 for vigorous, *for the session* rather than
+ * for the seconds under the bar.
+ *
+ * 2.8 is walking-pace, which is what the gaps actually are, and lands a
+ * blended session near 3 METs. Still the low end of the published range,
+ * which is the right side to be wrong on for a number that is never added to
+ * what she can eat.
+ */
+const REST_MET = 2.8;
 const DEFAULT_REST_SECONDS = 90;
 
 export type LoggedSet = {

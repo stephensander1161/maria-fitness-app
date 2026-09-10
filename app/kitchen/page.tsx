@@ -39,7 +39,10 @@ export default async function KitchenPage() {
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
-          <p className="mt-0.5 text-[13px] text-muted">
+          <p className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-hold/40 bg-hold-soft px-2.5 py-1 text-[11px] font-medium text-hold">
+            Work in progress
+          </p>
+          <p className="mt-1 text-[13px] text-muted">
             {kitchen.toBuy > 0
               ? `${kitchen.toBuy} to buy · week of ${prettyDate(weekStart(her))}`
               : `Week of ${prettyDate(weekStart(her))}`}

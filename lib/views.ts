@@ -17,7 +17,7 @@ import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import { restSecondsFor } from "@/lib/rest";
 import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
-import { FIBRE_TARGET_G, fibreForDay } from "@/lib/nutrition";
+import { FIBRE_TARGET_G, fibreForDay, macroSplit } from "@/lib/nutrition";
 import { streakWeeks, titleFor } from "@/lib/titles";
 import { workoutHappened } from "@/lib/sessions";
 import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
@@ -577,6 +577,13 @@ export type DayFoodView = {
   carbsComplete: boolean;
   fatG: number;
   fatComplete: boolean;
+  /**
+   * Carbohydrate and fat targets, from the plan where it set them and derived
+   * from the two numbers that were actually decided where it did not. Null
+   * only when there is no calorie target to derive from — see macroSplit.
+   */
+  carbTargetG: number | null;
+  fatTargetG: number | null;
 };
 
 /**
@@ -593,6 +600,25 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
 
   const [plan] = await db.select().from(mealPlans)
     .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
+
+  // Her weight, for the fat floor: the latest reading, or what she started at.
+  const [weighed] = await db.select({ kg: weighIns.weightKg }).from(weighIns)
+    .where(eq(weighIns.profileId, profileId)).orderBy(desc(weighIns.date)).limit(1);
+  const [prof] = await db.select({ kg: profiles.startWeightKg }).from(profiles)
+    .where(eq(profiles.id, profileId)).limit(1);
+  const weightKg = weighed?.kg ?? prof?.kg ?? null;
+
+  /*
+    Derived when the plan did not set them, never invented.
+
+    The two numbers that get *decided* are calories and protein; carbohydrate
+    and fat are what is left of the first once the second is paid for. Showing
+    a carb target that does not reconcile with the calorie target above it is
+    the fastest way to make every number on the card look made up.
+  */
+  const derived = plan && weightKg !== null
+    ? macroSplit(plan.calorieTarget, plan.proteinTargetG, weightKg)
+    : null;
 
   const fibre = fibreForDay(rows);
   // A meal described in words carries no figures, so the day's total is a
@@ -620,6 +646,8 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     carbsComplete: rows.length > 0 && rows.every((r) => r.carbsG !== null),
     fatG: rows.reduce((n, r) => n + (r.fatG ?? 0), 0),
     fatComplete: rows.length > 0 && rows.every((r) => r.fatG !== null),
+    carbTargetG: plan?.carbTargetG ?? derived?.carbTargetG ?? null,
+    fatTargetG: plan?.fatTargetG ?? derived?.fatTargetG ?? null,
   };
 }
 

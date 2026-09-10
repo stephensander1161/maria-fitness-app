@@ -81,6 +81,9 @@ export const CALORIE_FLOOR = 1200;
 export function nutritionTargets(input: TargetInput): {
   calorieTarget: number;
   proteinTargetG: number;
+  /** See macroSplit — derived from the two above, never set independently. */
+  carbTargetG: number;
+  fatTargetG: number;
   maintenanceCalories: number;
   direction: GoalDirection;
 } {
@@ -134,7 +137,51 @@ export function nutritionTargets(input: TargetInput): {
   // just cost her money.
   const proteinTargetG = Math.round((input.weightKg * 1.6) / 5) * 5;
 
-  return { calorieTarget, proteinTargetG, maintenanceCalories: Math.round(maintenance), direction };
+  const { carbTargetG, fatTargetG } = macroSplit(calorieTarget, proteinTargetG, input.weightKg);
+
+  return {
+    calorieTarget, proteinTargetG, carbTargetG, fatTargetG,
+    maintenanceCalories: Math.round(maintenance), direction,
+  };
+}
+
+/**
+ * Carbohydrate and fat, from the two numbers that were actually decided.
+ *
+ * Only calories and protein are chosen here — the first from her direction and
+ * her measured expenditure, the second from her body weight — and the other
+ * two are what is left over. Setting all four independently is how a target
+ * ends up not summing to itself, which is the one thing a person notices
+ * immediately and never trusts again.
+ *
+ * Fat first, and with a floor. It carries the fat-soluble vitamins and the
+ * substrate for sex hormones, and a very low-fat deficit is a well-known way
+ * to feel terrible for no advantage — so it is 30% of calories, but never less
+ * than 0.6g per kg however tight the deficit is. Carbohydrate takes the
+ * remainder, because it is the one the body has no absolute requirement for
+ * and the one that flexes with how much she trains.
+ *
+ * Pure and exported so the arithmetic is tested rather than trusted: 4 kcal a
+ * gram for protein and carbs, 9 for fat.
+ */
+export const FAT_SHARE_OF_CALORIES = 0.3;
+export const FAT_FLOOR_G_PER_KG = 0.6;
+
+export function macroSplit(
+  calorieTarget: number,
+  proteinTargetG: number,
+  weightKg: number,
+): { carbTargetG: number; fatTargetG: number } {
+  const fromShare = (calorieTarget * FAT_SHARE_OF_CALORIES) / 9;
+  const floor = weightKg * FAT_FLOOR_G_PER_KG;
+  const fatTargetG = Math.round(Math.max(fromShare, floor) / 5) * 5;
+
+  const left = calorieTarget - proteinTargetG * 4 - fatTargetG * 9;
+  // Never negative. A very high protein target on a small calorie one can eat
+  // the whole budget, and a carb target below zero is not a target.
+  const carbTargetG = Math.max(0, Math.round(left / 4 / 5) * 5);
+
+  return { carbTargetG, fatTargetG };
 }
 
 /**

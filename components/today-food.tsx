@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView, SavedMeal } from "@/lib/views";
 import { proteinForCalories } from "@/lib/nutrition";
+import { afterLogLine, macroBar, type MacroRow } from "@/lib/macro-progress";
+import { MacroBars } from "./macro-bars";
 
 /**
  * What she has eaten today. Sits above the week's plan because the question
@@ -16,6 +18,36 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
   const [removing, setRemoving] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showBars, setShowBars] = useState(false);
+
+  /**
+   * The four figures as bars, judged in one place — see lib/macro-progress.ts.
+   * Carbs and fat carry their own completeness flag because a meal typed in
+   * words has no macro split, and counting it as zero grams of fat is the same
+   * lie as counting it as zero calories.
+   */
+  const macroRows: MacroRow[] = [
+    { key: "calories", label: "Calories", value: day.calories, target: day.calorieTarget, complete: day.caloriesComplete, suffix: "" },
+    { key: "protein", label: "Protein", value: day.proteinG, target: day.proteinTargetG, complete: day.caloriesComplete, suffix: "g" },
+    { key: "carbs", label: "Carbs", value: day.carbsG, target: day.carbTargetG, complete: day.carbsComplete, suffix: "g" },
+    { key: "fat", label: "Fat", value: day.fatG, target: day.fatTargetG, complete: day.fatComplete, suffix: "g" },
+  ];
+
+  /**
+   * What to say after something is logged, held until she moves on.
+   *
+   * Keyed off the day's own totals rather than set by the thing that logged:
+   * the entry is written, the route refreshes, and the totals coming back
+   * different from the ones this rendered with is exactly the event worth
+   * marking — including when the coach logged it rather than the form.
+   */
+  const stamp = `${day.logged.length}:${day.calories}:${day.proteinG}`;
+  const [seen, setSeen] = useState(stamp);
+  const [logged, setLogged] = useState<{ text: string; tone: "good" | "warn" | "plain" } | null>(null);
+  if (stamp !== seen) {
+    setSeen(stamp);
+    setLogged(day.logged.length > 0 ? afterLogLine(macroRows.map(macroBar)) : null);
+  }
 
   // Re-logging goes through log_meal with the macros she last recorded, so it
   // is the same write path as typing it out — just without the typing.
@@ -58,8 +90,48 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
     <section className="card mb-3 p-5">
       <h2 className="mb-3 text-[15px] font-semibold">Today&rsquo;s food</h2>
 
+      {/*
+        What just happened to the day, the moment something is logged.
+
+        The session-done screen is the model, but it is not a full screen here
+        on purpose: a workout ends once and a meal is logged four or five times
+        a day, and a takeover that often stops being a reward and becomes a
+        thing to dismiss. It is loud enough to notice, it says the one true
+        thing, and it goes when she taps the tally or logs the next thing.
+
+        Going over is never scolded. It is information for the next meal, and
+        "you are over" said warmly at four in the afternoon is the difference
+        between logging dinner and not logging it — which is the only thing
+        that actually breaks a food diary.
+      */}
+      {logged && (
+        <div className={`mb-3 rounded-xl border p-3 ${
+          logged.tone === "warn" ? "border-miss/40 bg-miss-soft"
+            : logged.tone === "good" ? "border-beat/40 bg-beat-soft"
+              : "border-line bg-raised"
+        }`}>
+          <p className={`text-[13px] font-medium ${
+            logged.tone === "warn" ? "text-miss" : logged.tone === "good" ? "text-beat" : "text-text"
+          }`}>
+            {logged.text}
+          </p>
+          <div className="mt-2.5">
+            <MacroBars rows={macroRows} compact />
+          </div>
+        </div>
+      )}
+
       {/* Five figures do not fit across a phone. A wrapping grid keeps each
-          one readable instead of squeezing all of them to illegible. */}
+          one readable instead of squeezing all of them to illegible.
+          Tapping it opens the same bars the logging moment shows — the numbers
+          say where she is, the bars say how far that is. */}
+      <button
+        type="button"
+        onClick={() => { setShowBars((v) => !v); setLogged(null); }}
+        aria-expanded={showBars}
+        aria-label={showBars ? "Hide the day's progress bars" : "Show the day's progress bars"}
+        className="block w-full text-left"
+      >
       <div className="grid grid-cols-3 gap-y-3 sm:flex sm:divide-x sm:divide-line">
         <Stat
           label="Calories"
@@ -76,13 +148,13 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
         <Stat
           label="Carbs"
           value={`${day.carbsComplete ? "" : "≥"}${day.carbsG}g`}
-          of={null}
+          of={day.carbTargetG}
           suffix="g"
         />
         <Stat
           label="Fat"
           value={`${day.fatComplete ? "" : "≥"}${day.fatG}g`}
-          of={null}
+          of={day.fatTargetG}
           suffix="g"
         />
         <Stat
@@ -95,6 +167,13 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
           suffix="g"
         />
       </div>
+      </button>
+
+      {showBars && !logged && (
+        <div className="mt-3 rounded-xl border border-line bg-raised p-3">
+          <MacroBars rows={macroRows} />
+        </div>
+      )}
 
       {day.caloriesUnknownFor > 0 && (
         <p className="mt-2 text-[11px] leading-relaxed text-faint">
