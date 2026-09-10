@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-add-movements",
+    date: "2026-09-10",
+    title: "Asking for four movements adds four movements",
+    blurb: "It used to look each one up, tell you what the library had, and stop — nothing added, and a reply that sounded like it had worked. Your coach now adds them in one call using the names you used, and says plainly which ones it could not find. Changing a target takes a name too, so \"make bench 5 sets\" no longer needs it to fetch the plan first.",
+    href: "/train",
+  },
+  {
     id: "2026-09-10-macro-bars",
     date: "2026-09-10",
     title: "Carb and fat targets, and the day as four bars",

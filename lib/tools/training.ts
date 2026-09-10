@@ -741,14 +741,70 @@ async function rationaleNoLongerApplies(planId: string) {
     .where(and(eq(plans.id, planId), isNotNull(plans.rationale)));
 }
 
+/**
+ * A movement from what she called it, without a round trip.
+ *
+ * Exact slug first, because the model often has one; then the same
+ * spelling-tolerant search the picker and `search_exercises` use, so "bench
+ * press" and "benchpress" and "incline dumbbell press" all land. One row or
+ * nothing — a wrong guess added silently is worse than a name reported back.
+ */
+async function resolveMovement(said: string): Promise<{ id: string; name: string } | null> {
+  const term = said.trim();
+  if (!term) return null;
+
+  const [exact] = await db.select({ id: exercises.id, name: exercises.name })
+    .from(exercises).where(eq(exercises.slug, term.toLowerCase())).limit(1);
+  if (exact) return exact;
+
+  const variants = queryVariants(term);
+  const squashed = term.toLowerCase().replace(/[\s-]/g, "");
+  const [hit] = await db.select({ id: exercises.id, name: exercises.name, slug: exercises.slug })
+    .from(exercises)
+    .where(or(
+      ...variants.flatMap((v) => [
+        ilike(exercises.name, `%${v}%`),
+        ilike(exercises.slug, `%${v}%`),
+        sql`${exercises.tags}::text ilike ${`%${v}%`}`,
+      ]),
+      ...(squashed.length >= 4
+        ? [sql`lower(replace(replace(${exercises.name}, ' ', ''), '-', '')) like ${`%${squashed}%`}`]
+        : []),
+    ))
+    // Shortest name wins: "Bench Press" over "Close-Grip Bench Press" for
+    // "bench press", which is what she meant.
+    .orderBy(sql`length(${exercises.name})`)
+    .limit(1);
+  return hit ? { id: hit.id, name: hit.name } : null;
+}
+
+/** What to offer instead, when nothing matched. Names only — she reads these. */
+async function nearestMovements(said: string): Promise<string[]> {
+  const words = queryWords(said).filter((w) => w.length >= 3);
+  if (words.length === 0) return [];
+  const rows = await db.select({ name: exercises.name })
+    .from(exercises)
+    .where(or(...words.map((w) => ilike(exercises.name, `%${w}%`))))
+    .orderBy(sql`length(${exercises.name})`)
+    .limit(3);
+  return rows.map((r) => r.name);
+}
+
 export const addExerciseToDay = defineTool({
   name: "add_exercise_to_day",
   description:
-    "Append one exercise to a day of the plan, leaving everything else in place. Use this when she wants to add something to a day rather than rebuild the week — 'throw in some curls', 'can I add core work'. It works whether or not she has a plan yet: with no week, this starts one and puts the movement in it, so never send her to create_weekly_plan just to add a movement. Defaults to today.",
+    "Append exercises to a day of the plan, leaving everything else in place. Use this when she wants to add something rather than rebuild the week — 'throw in some curls', 'add bench, incline and flyes'. **Pass `movements` — the names as she said them — and this finds them itself; you do not need search_exercises first.** Anything it cannot find comes back in `notFound` with the nearest matches, and everything it *did* find is added, so a name you got wrong never costs her the rest of the list. It works whether or not she has a plan yet: with no week, this starts one, so never send her to create_weekly_plan just to add a movement. Defaults to today.",
   input: z.object({
-    slug: z.string().describe("From search_exercises"),
-    sets: z.number(),
-    reps: z.number(),
+    movements: z.array(z.object({
+      name: z.string().describe("The movement as she said it — 'bench press', 'incline dumbbell press'"),
+      sets: z.number(),
+      reps: z.number(),
+      weight: z.number().nullable().optional().describe("Her units; omit for bodyweight or unknown"),
+      notes: z.string().optional(),
+    })).optional().describe("Several at once. Preferred over slug — one call, no search first."),
+    slug: z.string().optional().describe("A single exercise by exact slug, when you already have one"),
+    sets: z.number().optional(),
+    reps: z.number().optional(),
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight or unknown"),
     restSeconds: z.number().optional(),
     notes: z.string().optional(),
@@ -759,28 +815,67 @@ export const addExerciseToDay = defineTool({
   }),
   handler: async (input, ctx) => {
     const units = await unitsOf(ctx);
+    /*
+      One call, names and all.
+
+      This took a slug, so adding four movements meant `search_exercises` for
+      each, a round trip to read the results, and then four more calls — and
+      what actually happened was that the model searched, narrated what it had
+      found, and stopped. Nothing was added and the reply sounded like
+      progress. The library is an indexed local table; there was never a reason
+      for the model to be the thing that looks names up in it.
+
+      Everything found is added even when part of the list is not, because
+      losing three movements over a fourth she spelled unusually is the wrong
+      failure. What is missing comes back with the nearest matches.
+    */
+    const wanted = input.movements?.length
+      ? input.movements
+      : input.slug !== undefined && input.sets !== undefined && input.reps !== undefined
+        ? [{ name: input.slug, sets: input.sets, reps: input.reps, weight: input.weight, notes: input.notes }]
+        : null;
+    if (!wanted) {
+      return { ok: false, error: "Pass `movements` — a name, sets and reps for each thing to add." };
+    }
+
     // The one path that starts a week: adding something to it.
     const found = await planDayFor(ctx.profileId, input, true);
     if ("error" in found) return { ok: false, error: found.error };
 
-    const [ex] = await db.select({ id: exercises.id, name: exercises.name })
-      .from(exercises).where(eq(exercises.slug, input.slug)).limit(1);
-    if (!ex) return { ok: false, error: `Unknown slug '${input.slug}'. Use search_exercises.` };
-
     const [{ n }] = await db.select({ n: sql<number>`count(*)::int` })
       .from(planExercises).where(eq(planExercises.planDayId, found.day.id));
 
-    await db.insert(planExercises).values({
-      planDayId: found.day.id,
-      exerciseId: ex.id,
-      sortOrder: n,
-      targetSets: input.sets,
-      targetReps: input.reps,
-      targetWeightKg:
-        input.weight === null || input.weight === undefined ? null : weightIn(input.weight, units),
-      restSeconds: input.restSeconds ?? 90,
-      notes: input.notes ?? null,
-    });
+    const added: string[] = [];
+    const notFound: { asked: string; nearest: string[] }[] = [];
+    let order = n;
+
+    for (const want of wanted) {
+      const ex = await resolveMovement(want.name);
+      if (!ex) {
+        notFound.push({ asked: want.name, nearest: await nearestMovements(want.name) });
+        continue;
+      }
+      await db.insert(planExercises).values({
+        planDayId: found.day.id,
+        exerciseId: ex.id,
+        sortOrder: order,
+        targetSets: want.sets,
+        targetReps: want.reps,
+        targetWeightKg:
+          want.weight === null || want.weight === undefined ? null : weightIn(want.weight, units),
+        restSeconds: input.restSeconds ?? 90,
+        notes: want.notes ?? null,
+      });
+      added.push(ex.name);
+      order += 1;
+    }
+
+    if (added.length === 0) {
+      return {
+        ok: false, notFound,
+        error: `Nothing was added — the library has no match for ${notFound.map((x) => `"${x.asked}"`).join(", ")}. Try the nearest names it offered, or tell her it is not in the library.`,
+      };
+    }
 
     await rationaleNoLongerApplies(found.day.planId);
 
@@ -799,16 +894,22 @@ export const addExerciseToDay = defineTool({
         ...(restNote ? { notes: null } : {}),
       }).where(eq(planDays.id, found.day.id));
     }
-    return { ok: true, added: ex.name, day: DAY_NAMES[found.dow] };
+    return {
+      ok: true,
+      added,
+      day: DAY_NAMES[found.dow],
+      // Named so it cannot be skimmed past: what she asked for and did not get.
+      ...(notFound.length ? { notFound, note: "Tell her which ones are not in the library." } : {}),
+    };
   },
 });
 
 export const setExerciseTarget = defineTool({
   name: "set_exercise_target",
   description:
-    "Change what a movement is aiming for on a day of the plan — sets, reps or weight — without touching anything else on it. Use this for 'make it four sets', 'drop the curls to 8 reps', 'put the squats up to 30kg'. Anything you leave out keeps its current value. Defaults to today.",
+    "Change what a movement is aiming for on a day of the plan — sets, reps or weight — without touching anything else on it. Use this for 'make it four sets', 'drop the curls to 8 reps', 'put the squats up to 30kg'. `slug` takes the name as she said it as well as an exact slug, matched against what is on that day, so you do not need get_plan first. Anything you leave out keeps its current value. Defaults to today.",
   input: z.object({
-    slug: z.string().describe("From get_plan"),
+    slug: z.string().describe("The movement, by slug or by the name she used"),
     sets: z.number().int().min(1).max(20).optional(),
     reps: z.number().int().min(1).max(500).optional(),
     holdSeconds: z.number().int().min(5).max(900).optional().describe("For a held movement, instead of reps"),
@@ -821,12 +922,33 @@ export const setExerciseTarget = defineTool({
     const found = await planDayFor(ctx.profileId, input);
     if ("error" in found) return { ok: false, error: found.error };
 
-    const [row] = await db.select({ id: planExercises.id, name: exercises.name })
+    /*
+      By slug, or by what she called it.
+
+      "Make bench 5 sets" needed the model to have fetched get_plan for the
+      exact slug first — a round trip to learn a string, against a day that
+      usually holds four rows. Matched against the day rather than the library
+      so "press" on a chest day resolves to the press that is actually there.
+    */
+    const onDay = await db.select({ id: planExercises.id, name: exercises.name, slug: exercises.slug })
       .from(planExercises)
       .innerJoin(exercises, eq(planExercises.exerciseId, exercises.id))
-      .where(and(eq(planExercises.planDayId, found.day.id), eq(exercises.slug, input.slug)))
-      .limit(1);
-    if (!row) return { ok: false, error: `${input.slug} is not on ${DAY_NAMES[found.dow]}. Call get_plan for what is.` };
+      .where(eq(planExercises.planDayId, found.day.id));
+
+    const asked = input.slug.trim().toLowerCase();
+    const squash = (t: string) => t.toLowerCase().replace(/[\s-]/g, "");
+    const row =
+      onDay.find((r) => r.slug === asked)
+      ?? onDay.find((r) => squash(r.name) === squash(asked))
+      ?? onDay.find((r) => squash(r.name).includes(squash(asked)) || squash(asked).includes(squash(r.slug)))
+      ?? null;
+    if (!row) {
+      return {
+        ok: false,
+        error: `Nothing matching "${input.slug}" is on ${DAY_NAMES[found.dow]}.`,
+        onThatDay: onDay.map((r) => r.name),
+      };
+    }
 
     // Only what she named. A target update that quietly reset the fields it
     // was not given would be a rewrite wearing the word "change".

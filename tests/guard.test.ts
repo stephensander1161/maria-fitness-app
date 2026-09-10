@@ -103,7 +103,10 @@ suite("the loop and the registry agree with the guard", () => {
   it("the persona says adding is one step and a refusal is not to be retried", () => {
     const persona = fs.readFileSync("lib/agent/system.ts", "utf8");
     expect(persona).toMatch(/## Adding things is one step/);
-    expect(persona).toMatch(/add_exercise_to_day once per day she means/);
+    // One call per *day*, never one per movement — and never a search that
+    // ends in a description of what the library has instead of an addition.
+    expect(persona).toMatch(/One call per \*day\* she means, never one per movement/);
+    expect(persona).toMatch(/Searching and then describing what you found is not adding anything/);
     expect(persona).toMatch(/Never retry a refused call/);
   });
 });
