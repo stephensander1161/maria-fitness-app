@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-card-one-screen",
+    date: "2026-09-10",
+    title: "Logging a set fits one screen again",
+    blurb:
+      "On a phone the movement card is a fixed height and the form cues swipe sideways, so the sets and the entry are always where you left them \u2014 no scrolling past the instructions to log a set.",
+  },
+  {
     id: "2026-09-10-sleep",
     date: "2026-09-10",
     title: "Sleep is tracked now, like everything else",

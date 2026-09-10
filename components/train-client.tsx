@@ -1984,7 +1984,12 @@ export function ExerciseCard({
       {/* Everything between the header and the entry scrolls. `min-h-0` is
           load-bearing: a flex child's default minimum is its content, so
           without it this box refuses to shrink and the entry is pushed off
-          the bottom exactly as before. */}
+          the bottom exactly as before.
+
+          On a phone there is now nothing tall enough in here to need it: the
+          cue strip is a fixed height whatever the library says about the
+          movement, so the card fits a screen and this never scrolls. It stays
+          because a long enough safety note on a small enough phone still can. */}
       <div className={open ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""}>
 
       {justMet && (
@@ -2636,35 +2641,112 @@ function SetSquare({
   );
 }
 
+/**
+ * How to do it, at a height that never moves.
+ *
+ * Four numbered cues, the common mistakes and a safety note is most of a phone
+ * screen. Stacked, they pushed the set squares and the entry below the fold,
+ * so logging a set meant scrolling past the instructions every time — and the
+ * card grew and shrank with whatever the library happened to say about that
+ * movement, which is why the layout jumped between exercises.
+ *
+ * So on a phone they lie side by side and she swipes: one panel at a time,
+ * scroll-snapped, and the box is exactly one panel tall whether the movement
+ * has one cue or nine. The card is a fixed height, the entry is always where
+ * she left it, and nothing is hidden behind a control — the last attempt at
+ * this was a "show help" button, and a disclosure whose only useful state is
+ * open is just a row that invites a tap to hide what she came to read.
+ *
+ * Desktop has the room and keeps the stacked list.
+ *
+ * Two details that matter on a touch screen: `touch-pan-x` so a vertical drag
+ * still scrolls the page rather than being eaten by the strip, and
+ * `overscroll-x-contain` so swiping past the last cue does not trigger the
+ * browser's back gesture.
+ */
 function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
-  if (formCues.length === 0 && commonMistakes.length === 0 && !safetyNote) return null;
+  const [at, setAt] = useState(0);
+
+  const panels: { key: string; kind: "cue" | "miss" | "safety"; n?: number; text: string }[] = [
+    ...formCues.map((c, i) => ({ key: `c${i}`, kind: "cue" as const, n: i + 1, text: c })),
+    ...commonMistakes.map((m, i) => ({ key: `m${i}`, kind: "miss" as const, text: m })),
+    ...(safetyNote ? [{ key: "safety", kind: "safety" as const, text: safetyNote }] : []),
+  ];
+  if (panels.length === 0) return null;
+
   return (
-    <div className="space-y-3 px-4 pb-3 text-[12px] leading-relaxed">
-      {formCues.length > 0 && (
-        <ol className="space-y-1.5 text-muted">
-          {formCues.map((c, i) => (
-            <li key={c} className="flex gap-2">
-              <span className="shrink-0 tabular-nums text-faint">{i + 1}</span>
-              {c}
-            </li>
+    <>
+      {/* Phone: one at a time, swiped. */}
+      <div className="md:hidden">
+        <div
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setAt(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
+          }}
+          aria-label={`How to do ${exercise.name} — swipe for more`}
+          className="flex snap-x snap-mandatory touch-pan-x overflow-x-auto overscroll-x-contain px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {panels.map((p) => (
+            <div key={p.key} className="w-full shrink-0 snap-start pr-3">
+              <div className={`flex h-[68px] items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed ${
+                p.kind === "safety"
+                  ? "border-hold/40 bg-hold-soft text-hold"
+                  : p.kind === "miss"
+                    ? "border-line bg-raised/50 text-faint"
+                    : "border-line bg-raised/50 text-muted"
+              }`}>
+                <span className="shrink-0 pt-px text-[10px] font-semibold uppercase tracking-widest text-faint">
+                  {p.kind === "cue" ? p.n : p.kind === "miss" ? "avoid" : "care"}
+                </span>
+                {/* Clamped rather than scrolled: a panel that scrolls inside a
+                    strip that scrolls is two gestures fighting for one thumb. */}
+                <span className="line-clamp-3 overflow-hidden">{p.text}</span>
+              </div>
+            </div>
           ))}
-        </ol>
-      )}
-      {commonMistakes.length > 0 && (
-        <div>
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-faint">Commonly gets wrong</p>
-          <ul className="space-y-1 text-faint">
-            {commonMistakes.map((m) => (
-              <li key={m} className="flex gap-2"><span aria-hidden>·</span>{m}</li>
-            ))}
-          </ul>
         </div>
-      )}
-      {safetyNote && (
-        <p className="rounded-lg border border-hold/40 bg-hold-soft px-3 py-2 text-hold">{safetyNote}</p>
-      )}
-    </div>
+        {panels.length > 1 && (
+          <div className="mb-3 flex justify-center gap-1.5" aria-hidden>
+            {panels.map((p, i) => (
+              <span
+                key={p.key}
+                className={`h-1 rounded-full transition-all ${
+                  i === at ? "w-4 bg-accent" : "w-1 bg-edge"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: all of it, as before. */}
+      <div className="hidden space-y-3 px-4 pb-3 text-[12px] leading-relaxed md:block">
+        {formCues.length > 0 && (
+          <ol className="space-y-1.5 text-muted">
+            {formCues.map((c, i) => (
+              <li key={c} className="flex gap-2">
+                <span className="shrink-0 tabular-nums text-faint">{i + 1}</span>
+                {c}
+              </li>
+            ))}
+          </ol>
+        )}
+        {commonMistakes.length > 0 && (
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-widest text-faint">Commonly gets wrong</p>
+            <ul className="space-y-1 text-faint">
+              {commonMistakes.map((m) => (
+                <li key={m} className="flex gap-2"><span aria-hidden>·</span>{m}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {safetyNote && (
+          <p className="rounded-lg border border-hold/40 bg-hold-soft px-3 py-2 text-hold">{safetyNote}</p>
+        )}
+      </div>
+    </>
   );
 }
 
