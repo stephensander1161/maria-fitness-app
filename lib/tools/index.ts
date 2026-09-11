@@ -189,6 +189,7 @@ const all: Tool[] = [
   sleep.removeSleep,
   whatsNew.acknowledgeTitle,
   stretches.getStretches,
+  appearance.setCardCollapsed,
   appearance.listThemes,
   appearance.setTheme,
   postpartum.setPostpartumStatus,

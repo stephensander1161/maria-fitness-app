@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { THEMES, themeIds, themeOf } from "@/lib/theme";
+import { CARDS, isCardId, withCard } from "@/lib/cards";
 
 /**
  * How the app looks, changeable by asking.
@@ -45,5 +46,33 @@ export const setTheme = defineTool({
     await db.update(profiles).set({ theme: chosen.id })
       .where(eq(profiles.id, ctx.profileId));
     return { ok: true, theme: chosen.id, name: chosen.name, note: `Switched to ${chosen.name}. ${chosen.blurb}` };
+  },
+});
+
+/**
+ * Fold a card away, or bring it back.
+ *
+ * Remembered on the account rather than in the browser, so the choice follows
+ * her between her phone and a laptop — the same reason the theme lives there.
+ */
+export const setCardCollapsed = defineTool({
+  name: "set_card_collapsed",
+  description:
+    "Folds one of the screen's cards away, or opens it again, and remembers the choice. Use it when she says a section is in the way, that she does not use it, or asks to get it back. Cards: " +
+    Object.entries(CARDS).map(([id, about]) => `${id} (${about})`).join("; ") + ".",
+  input: z.object({
+    card: z.string().describe("The card id, from the list in this description"),
+    collapsed: z.boolean().describe("True folds it away; false opens it again"),
+  }),
+  handler: async (input, ctx) => {
+    if (!isCardId(input.card)) {
+      return { ok: false, error: `No card called "${input.card}". Options: ${Object.keys(CARDS).join(", ")}.` };
+    }
+    const [p] = await db.select({ collapsed: profiles.collapsedCards }).from(profiles)
+      .where(eq(profiles.id, ctx.profileId)).limit(1);
+    const next = withCard(p?.collapsed, input.card, !input.collapsed);
+    await db.update(profiles).set({ collapsedCards: next })
+      .where(eq(profiles.id, ctx.profileId));
+    return { ok: true, card: input.card, collapsed: input.collapsed };
   },
 });

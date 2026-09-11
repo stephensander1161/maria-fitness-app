@@ -112,6 +112,7 @@ export const TOOL_LABELS: Record<string, string> = {
   remove_sleep: "removing that night",
   acknowledge_title: "putting that away",
   get_stretches: "picking your stretches",
+  set_card_collapsed: "tidying that away",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");

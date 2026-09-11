@@ -110,6 +110,14 @@ export const profiles = pgTable("profiles", {
   /** The newest "what's new" entry she has dismissed — see lib/whats-new.ts. */
   whatsNewSeen: text("whats_new_seen"),
   /**
+   * Cards she has folded away, by id — see lib/cards.ts.
+   *
+   * A list rather than a column each, because the next card that wants this
+   * should not need a migration. Absent means open: everything starts
+   * expanded, and only a deliberate tap puts one away.
+   */
+  collapsedCards: jsonb("collapsed_cards").$type<string[]>().default([]).notNull(),
+  /**
    * The rank she has already been shown, stored as its `at` threshold — see
    * lib/titles.ts. Null means she has never been shown one, which is stamped
    * silently rather than celebrated: nobody wants confetti for signing up.

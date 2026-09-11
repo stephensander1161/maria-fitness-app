@@ -4,7 +4,7 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView, SavedMeal } from "@/lib/views";
-import { proteinForCalories } from "@/lib/nutrition";
+import { gramsForCalories } from "@/lib/nutrition";
 import { afterLogLine, macroBar, type MacroRow } from "@/lib/macro-progress";
 import { MacroBars } from "./macro-bars";
 
@@ -301,29 +301,30 @@ function SaveMeal({
 function EditLog({
   log, onDone, onCancel,
 }: {
-  log: { id: string; description: string; calories: number | null; proteinG: number | null };
+  log: {
+    id: string; description: string;
+    calories: number | null; proteinG: number | null;
+    carbsG: number | null; fatG: number | null; fibreG: number | null;
+  };
   onDone: () => void;
   onCancel: () => void;
 }) {
   const [what, setWhat] = useState(log.description);
-  const [calories, setCalories] = useState(log.calories === null ? "" : String(log.calories));
-  const [protein, setProtein] = useState(log.proteinG === null ? "" : String(log.proteinG));
+  const [macros, setMacros] = useState<Macros>(() => fromLog(log));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function save() {
     setBusy(true);
     setError(null);
-    const kcal = Number(calories);
-    const g = Number(protein);
     try {
       await action("update_meal_log", {
         logId: log.id,
         description: what.trim() || log.description,
-        // Null, not zero, when she clears it: the day counts an unknown as a
-        // floor rather than as nothing eaten.
-        calories: calories.trim() && Number.isFinite(kcal) ? kcal : null,
-        proteinG: protein.trim() && Number.isFinite(g) ? g : null,
+        // Null, not zero, when she clears one: the day counts an unknown as a
+        // floor rather than as nothing eaten. Every macro, not just the two
+        // the form used to ask for.
+        ...asNulls(macros),
       });
       onDone();
     } catch (err) {
@@ -341,13 +342,7 @@ function EditLog({
         className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] focus:border-accent focus:outline-none"
       />
       <div className="mt-2">
-        <FoodNumbers
-          calories={calories}
-          onCalories={setCalories}
-          protein={protein}
-          onProtein={setProtein}
-          describes={what}
-        />
+        <FoodNumbers value={macros} onChange={setMacros} describes={what} />
       </div>
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
       <div className="mt-2 flex gap-2">
@@ -381,25 +376,88 @@ function EditLog({
  * app quietly invented and she never checked is exactly the kind of made-up
  * data it refuses to produce anywhere else.
  */
+/** The five figures a meal can carry, as strings so "" means "she did not say". */
+export type Macros = { calories: string; protein: string; carbs: string; fat: string; fibre: string };
+export const NO_MACROS: Macros = { calories: "", protein: "", carbs: "", fat: "", fibre: "" };
+
+/** What the tools call each of them. */
+const FIELD = {
+  calories: "calories", protein: "proteinG", carbs: "carbsG", fat: "fatG", fibre: "fibreG",
+} as const;
+
+const asNumber = (v: string): number | null => {
+  const n = Number(v);
+  return v.trim() !== "" && Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Only what she filled in, for logging. A blank is left out of the call
+ * entirely rather than sent as zero — unknown is not zero, and the day counts
+ * a missing figure as a floor instead of as nothing eaten.
+ */
+export function asGiven(m: Macros): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of Object.keys(FIELD) as (keyof Macros)[]) {
+    const n = asNumber(m[k]);
+    if (n !== null) out[FIELD[k]] = n;
+  }
+  return out;
+}
+
+/**
+ * Every field, for correcting. Here a blank is sent as an explicit null —
+ * clearing a number she had put in has to be able to make it unknown again,
+ * which leaving it out could not say.
+ */
+export function asNulls(m: Macros): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const k of Object.keys(FIELD) as (keyof Macros)[]) out[FIELD[k]] = asNumber(m[k]);
+  return out;
+}
+
+const show = (n: number | null) => (n === null ? "" : String(n));
+
+export const fromLog = (l: {
+  calories: number | null; proteinG: number | null;
+  carbsG: number | null; fatG: number | null; fibreG: number | null;
+}): Macros => ({
+  calories: show(l.calories), protein: show(l.proteinG),
+  carbs: show(l.carbsG), fat: show(l.fatG), fibre: show(l.fibreG),
+});
+
+/**
+ * The numbers on a meal, all five of them.
+ *
+ * It asked for calories and protein only, which made the manual form the one
+ * place in the app that could not record a whole meal — the coach has logged
+ * carbs and fat for a while, the day totals them, and the bars draw them, so a
+ * meal typed in by hand arrived permanently incomplete and turned the day into
+ * a floor. Every macro the day counts can be typed here.
+ *
+ * Blank still means blank. None of these is required and none defaults to
+ * zero: a meal she cannot put numbers to is logged without them and the day
+ * says so, which is the rule the whole app is built on.
+ */
 function FoodNumbers({
-  calories, onCalories, protein, onProtein, describes, optional = false,
+  value, onChange, describes, optional = false,
 }: {
-  calories: string;
-  onCalories: (v: string) => void;
-  protein: string;
-  onProtein: (v: string) => void;
+  value: Macros;
+  onChange: (v: Macros) => void;
   describes: string;
   optional?: boolean;
 }) {
+  const set = (k: keyof Macros) => (v: string) => onChange({ ...value, [k]: v });
+  const { calories } = value;
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const wantsCalories = calories.trim() === "";
-  const wantsProtein = protein.trim() === "";
+  /** Which of the five she has left for the lookup to fill in. */
+  const blanks = (Object.keys(NO_MACROS) as (keyof Macros)[]).filter((k) => value[k].trim() === "");
 
   async function estimate() {
     const food = describes.trim();
-    if (!food || (!wantsCalories && !wantsProtein)) return;
+    if (!food || blanks.length === 0) return;
     setBusy(true);
     setFailed(false);
     try {
@@ -408,30 +466,36 @@ function FoodNumbers({
       // "kcal": no library match, and a syntax the app invented handed to the
       // model to interpret. Her calorie figure is applied here instead, as
       // arithmetic — see proteinForCalories.
-      const r = await action<{ found: boolean; kcal?: number; proteinG?: number }>(
-        "lookup_food", { query: food },
-      );
-      const refKcal = typeof r.kcal === "number" ? r.kcal : null;
-      const refProtein = typeof r.proteinG === "number" ? r.proteinG : null;
+      const r = await action<{
+        found: boolean; kcal?: number;
+        proteinG?: number; carbsG?: number; fatG?: number; fibreG?: number;
+      }>("lookup_food", { query: food });
+      const num = (v: unknown) => (typeof v === "number" ? v : null);
+      const refKcal = num(r.kcal);
 
+      const next = { ...value };
       let filled = false;
-      if (wantsCalories && r.found && refKcal !== null) {
-        onCalories(String(Math.round(refKcal)));
+      if (blanks.includes("calories") && r.found && refKcal !== null) {
+        next.calories = String(Math.round(refKcal));
         filled = true;
       }
-      if (wantsProtein && r.found && refProtein !== null) {
-        // Scaled to her portion when she gave a calorie figure; otherwise the
-        // reference portion's own protein, alongside the calories just filled
-        // in for the same portion.
+      // Each gram figure scaled to her portion when she gave a calorie figure;
+      // otherwise the reference portion's own, alongside the calories just
+      // filled in for that same portion.
+      for (const [key, ref] of [
+        ["protein", num(r.proteinG)], ["carbs", num(r.carbsG)],
+        ["fat", num(r.fatG)], ["fibre", num(r.fibreG)],
+      ] as const) {
+        if (!blanks.includes(key) || !r.found || ref === null) continue;
         const hers = wantsCalories
-          ? Math.round(refProtein)
-          : proteinForCalories(refProtein, refKcal ?? 0, Number(calories));
-        if (hers !== null) {
-          onProtein(String(hers));
-          filled = true;
-        }
+          ? Math.round(ref)
+          : gramsForCalories(ref, refKcal ?? 0, Number(calories));
+        if (hers === null) continue;
+        next[key] = String(hers);
+        filled = true;
       }
-      if (!filled) setFailed(true);
+      if (filled) onChange(next);
+      else setFailed(true);
     } catch {
       setFailed(true);
     } finally {
@@ -439,29 +503,41 @@ function FoodNumbers({
     }
   }
 
-  const label = wantsCalories && wantsProtein
-    ? "estimate both"
-    : wantsCalories ? "estimate calories" : "estimate protein";
+  const label =
+    blanks.length === 0 ? "nothing left to work out"
+      : blanks.length === 1 ? `estimate ${blanks[0] === "calories" ? "calories" : blanks[0]}`
+        : "work out the rest";
 
   return (
     <div>
+      {/* The two that drive every target on their own row, and the three that
+          fill in the picture under them — five equal boxes across a phone
+          would be five numbers nobody can read. */}
       <div className="grid grid-cols-2 gap-2">
-        <input
-          value={calories}
-          onChange={(e) => { onCalories(e.target.value); setFailed(false); }}
-          inputMode="numeric"
-          placeholder={optional ? "kcal (optional)" : "kcal"}
-          aria-label="Calories"
-          className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-        />
-        <input
-          value={protein}
-          onChange={(e) => { onProtein(e.target.value); setFailed(false); }}
-          inputMode="numeric"
-          placeholder={optional ? "protein g (optional)" : "protein g"}
-          aria-label="Protein in grams"
-          className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-        />
+        {(["calories", "protein"] as const).map((k) => (
+          <input
+            key={k}
+            value={value[k]}
+            onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
+            inputMode="numeric"
+            placeholder={`${k === "calories" ? "kcal" : "protein g"}${optional ? " (optional)" : ""}`}
+            aria-label={k === "calories" ? "Calories" : "Protein in grams"}
+            className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+          />
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {(["carbs", "fat", "fibre"] as const).map((k) => (
+          <input
+            key={k}
+            value={value[k]}
+            onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
+            inputMode="numeric"
+            placeholder={`${k} g`}
+            aria-label={`${k[0].toUpperCase()}${k.slice(1)} in grams`}
+            className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+          />
+        ))}
       </div>
       {/* Under the pair, not inside a field: half a grid column is not much
           room for a number and a word, and the button ran into the
@@ -469,7 +545,7 @@ function FoodNumbers({
       <button
         type="button"
         onClick={estimate}
-        disabled={busy || !describes.trim() || (!wantsCalories && !wantsProtein)}
+        disabled={busy || !describes.trim() || blanks.length === 0}
         className="mt-1 px-1 text-[11px] font-medium text-accent underline underline-offset-2 disabled:no-underline disabled:opacity-30"
       >
         {busy ? "working it out…" : failed ? "no match — type it" : label}
@@ -498,8 +574,7 @@ function QuickAdd({
   const [open, setOpen] = useState(false);
   const [slot, setSlot] = useState<"breakfast" | "lunch" | "dinner" | "snack">("snack");
   const [what, setWhat] = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
+  const [macros, setMacros] = useState<Macros>(NO_MACROS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -529,15 +604,14 @@ function QuickAdd({
     if (!said) return;
     setBusy(true);
     setError(null);
-    const kcal = Number(calories);
-    const g = Number(protein);
     try {
       await action("log_meal", {
         slot, description: said, date,
-        ...(calories.trim() && Number.isFinite(kcal) ? { calories: kcal } : {}),
-        ...(protein.trim() && Number.isFinite(g) ? { proteinG: g } : {}),
+        // Only what she actually filled in. A blank is left out entirely
+        // rather than sent as zero — see asGiven.
+        ...asGiven(macros),
       });
-      setWhat(""); setCalories(""); setProtein(""); setOpen(false);
+      setWhat(""); setMacros(NO_MACROS); setOpen(false);
       onDone();
     } catch (err) {
       setError(actionMessage(err, "That didn't log — try again."));
@@ -619,14 +693,7 @@ function QuickAdd({
         className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
       />
       <div className="mt-2">
-        <FoodNumbers
-          calories={calories}
-          onCalories={setCalories}
-          protein={protein}
-          onProtein={setProtein}
-          describes={what}
-          optional
-        />
+        <FoodNumbers value={macros} onChange={setMacros} describes={what} optional />
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-faint">
         Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather

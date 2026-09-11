@@ -1,4 +1,5 @@
 import { EatClient } from "@/components/eat-client";
+import { cardOpen } from "@/lib/cards";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
 import { APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
@@ -51,7 +52,8 @@ export default async function EatPage() {
         calorieTarget={mealWeek.exists ? mealWeek.calorieTarget : null}
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}
         foodUnits={mealWeek.foodUnits}
-        defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
+        plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
+      defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
       />
 
       {/*

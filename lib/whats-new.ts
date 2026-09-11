@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-manual-macros-and-folding",
+    date: "2026-09-11",
+    title: "Type in every macro, and fold away what you don\u2019t use",
+    blurb:
+      "Adding food by hand now takes carbs, fat and fibre as well as calories and protein, and the estimate button fills all five. \u201cPlanned for today\u201d can be folded away, and stays folded on your account.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-11-rest-means-empty",
     date: "2026-09-11",
     title: "A day with movements on it is not a rest day",

@@ -198,7 +198,15 @@ suite("a failed action is never silent", () => {
       an error message on a screen congratulating her, where there is nothing
       to retry and nothing for her to do.
     */
-    const NOTHING_OF_HERS_AT_STAKE = ["components/title-earned.tsx"];
+    const NOTHING_OF_HERS_AT_STAKE = [
+      "components/title-earned.tsx",
+      // Folding a card away. Nothing of hers is in it, the card is folded on
+      // the tap and saved behind it, and a failed save means it is open again
+      // next time — the safe direction for a control that hides content. An
+      // error message under a section she has just tidied away would be about
+      // the app's bookkeeping, not about anything she can act on.
+      "components/foldable-card.tsx",
+    ];
 
     const silent = walk("components")
       .filter((f) => !NOTHING_OF_HERS_AT_STAKE.includes(f))
