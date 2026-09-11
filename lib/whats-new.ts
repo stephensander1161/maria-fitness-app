@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-protein-meter-label",
+    date: "2026-09-11",
+    title: "The bar under your coach says what it is",
+    blurb:
+      "It is today\u2019s protein against your target, and now it says so. Unlabelled under the coach, it was easy to read as the coach allowance \u2014 which is a different number entirely.",
+  },
+  {
     id: "2026-09-11-fibre-and-bars",
     date: "2026-09-11",
     title: "Fibre is counted, and the tally is one set of bars",

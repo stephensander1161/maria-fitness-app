@@ -164,17 +164,30 @@ export function Companion({
         said properly and with the floor spelled out when some of the day was
         typed in words. Hidden entirely when it cannot be said — an empty bar
         reads as zero, and nothing logged is not zero protein.
+
+        It says "protein" out loud now. It was a bare rule with the word only
+        in an aria-label, which is a label for some people and no label at all
+        for everyone else — and an unlabelled meter under the coach, on a
+        screen where the coach also reports how much of today's allowance is
+        left, gets read as the allowance. It was, and the two disagreed
+        wildly, because they were measuring different things.
       */}
       {fullness !== null && (
-        <div
-          className="h-1 w-full bg-raised"
-          role="img"
-          aria-label={`Protein today, about ${Math.round(fullness * 100)} percent of target`}
-        >
+        <div className="px-3 pb-2">
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[10px] uppercase tracking-wide text-faint">
+            <span>Protein today</span>
+            <span className="tabular">{Math.round(fullness * 100)}%</span>
+          </div>
           <div
-            className={`h-full transition-all duration-500 ${fullness >= 1 ? "bg-beat" : "bg-accent"}`}
-            style={{ width: `${Math.round(fullness * 100)}%` }}
-          />
+            className="h-1 w-full overflow-hidden rounded-full bg-raised"
+            role="img"
+            aria-label={`Protein today, about ${Math.round(fullness * 100)} percent of target`}
+          >
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${fullness >= 1 ? "bg-beat" : "bg-accent"}`}
+              style={{ width: `${Math.round(fullness * 100)}%` }}
+            />
+          </div>
         </div>
       )}
     </div>
