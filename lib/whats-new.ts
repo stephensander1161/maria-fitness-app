@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-macro-bar-colour",
+    date: "2026-09-11",
+    title: "Every macro bar is coloured, and deepens as it fills",
+    blurb:
+      "Carbs, fat and fibre used to go grey whenever an entry carried no figure for them \u2014 which read as macros the app could not be bothered to colour. They keep the colour now and are hatched instead, and every bar darkens as it approaches its target.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-11-protein-meter-label",
     date: "2026-09-11",
     title: "The bar under your coach says what it is",

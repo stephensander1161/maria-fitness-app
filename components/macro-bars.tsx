@@ -1,6 +1,6 @@
 "use client";
 
-import { macroBar, type MacroRow } from "@/lib/macro-progress";
+import { barPaint, macroBar, type MacroRow } from "@/lib/macro-progress";
 
 /**
  * The day's four numbers as bars, in one place.
@@ -15,11 +15,20 @@ export function MacroBars({ rows, compact = false }: { rows: MacroRow[]; compact
     <div className={compact ? "space-y-1.5" : "space-y-2.5"}>
       {rows.map((row) => {
         const b = macroBar(row);
-        const track =
-          b.state === "over" ? "bg-miss"
-            : b.state === "there" ? "bg-beat"
-              : b.state === "unknown" ? "bg-edge"
-                : "bg-accent";
+        const paint = barPaint(b);
+        /*
+          A gradient rather than a flat fill: the far end mixes toward `scrim`
+          in proportion to how far along it is, so the bar deepens as it
+          approaches the target and is richest when it gets there.
+
+          Every macro is coloured, including a floor. The floor used to be
+          painted in the neutral edge grey to mean "no verdict", and on a real
+          day that came out as calories and protein in colour with carbs, fat
+          and fibre in grey — which reads as three macros the app does not
+          bother to colour, not as three numbers it cannot vouch for. It is
+          hatched instead: the same colour, visibly provisional.
+        */
+        const fill = `linear-gradient(to right, var(${paint.role}), color-mix(in srgb, var(${paint.role}) ${100 - paint.depth}%, var(--color-scrim) ${paint.depth}%))`;
         return (
           <div key={b.key}>
             {/* The figure is the thing she came to read, so it is the biggest
@@ -57,8 +66,16 @@ export function MacroBars({ rows, compact = false }: { rows: MacroRow[]; compact
             >
               {b.fill !== null && (
                 <div
-                  className={`h-full rounded-full transition-[width] duration-700 ease-out ${track}`}
-                  style={{ width: `${Math.round(b.fill * 100)}%` }}
+                  className="h-full rounded-full transition-[width] duration-700 ease-out"
+                  style={{
+                    width: `${Math.round(b.fill * 100)}%`,
+                    backgroundImage: paint.hatched
+                      // Narrow diagonal stripes over the same gradient. Drawn
+                      // in `scrim` at low alpha rather than a second hue, so a
+                      // floor reads as the macro's own colour, interrupted.
+                      ? `repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-scrim) 55%, transparent) 0 3px, transparent 3px 6px), ${fill}`
+                      : fill,
+                  }}
                 />
               )}
             </div>

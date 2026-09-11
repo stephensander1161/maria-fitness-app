@@ -90,3 +90,42 @@ export function afterLogLine(bars: MacroBar[]): { text: string; tone: "good" | "
   }
   return { text: "Logged. Good start on the day.", tone: "plain" };
 }
+
+/**
+ * How the bar is painted: which colour role, and how deep it has run.
+ *
+ * Two things a flat fill could not say at once.
+ *
+ * **Every macro gets a colour.** A floor used to be drawn in the neutral edge
+ * grey, which was meant to read as "no verdict" and instead read as "carbs
+ * don't get a colour" — on a real day, calories and protein were coloured and
+ * the other three were not, because some entry had carried no figure for them.
+ * The floor is still marked, but by a hatch over the same colour rather than
+ * by having the colour taken away.
+ *
+ * **It darkens as it fills.** The far end of the bar mixes toward `scrim` in
+ * proportion to how close she is, so a bar deepens as it approaches the
+ * target and is at its richest when it gets there. `scrim` is the one token
+ * that is dark in every theme — see CLAUDE.md — so this darkens in a light
+ * palette as well as a dark one, which mixing toward `ink` would not.
+ */
+export const DEEPEN_MAX = 45;
+
+export function barPaint(bar: Pick<MacroBar, "state" | "fill">): {
+  /** The CSS custom property holding the colour role. */
+  role: string;
+  /** Percent of `scrim` mixed into the far end, 0–DEEPEN_MAX. */
+  depth: number;
+  /** A floor: coloured like the rest, hatched so it still says so. */
+  hatched: boolean;
+} {
+  const role =
+    bar.state === "over" ? "--color-miss"
+      : bar.state === "there" ? "--color-beat"
+        : "--color-accent";
+  return {
+    role,
+    depth: Math.round(Math.min(1, Math.max(0, bar.fill ?? 0)) * DEEPEN_MAX),
+    hatched: bar.state === "unknown",
+  };
+}
