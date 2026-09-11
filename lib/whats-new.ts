@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-rest-means-empty",
+    date: "2026-09-11",
+    title: "A day with movements on it is not a rest day",
+    blurb:
+      "Adding exercises to a day marked as rest left your coach still calling it a rest day \u2014 it was being handed a week with that day listed as empty. What is on the day decides now, not what it was called.",
+  },
+  {
     id: "2026-09-11-macro-bar-colour",
     date: "2026-09-11",
     title: "Every macro bar is coloured, and deepens as it fills",

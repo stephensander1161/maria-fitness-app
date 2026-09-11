@@ -21,6 +21,7 @@ import { FIBRE_TARGET_G, fibreForDay, macroSplit } from "@/lib/nutrition";
 import {
   newRankFor, RANKS, rankNumber, streakWeeks, titleFor, type Rank, type TitleStats,
 } from "@/lib/titles";
+import { dayTitle, isRestDay } from "@/lib/rest-day";
 import { workoutHappened } from "@/lib/sessions";
 import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 
@@ -57,10 +58,18 @@ function canHoldWeight(equipment: string[]): boolean {
   return equipment.some((e) => LOADS.test(e));
 }
 
-function restWordsFor(day: { title: string; isRest: boolean; notes: string | null }) {
-  if (day.isRest) return { title: day.title, isRest: true, notes: day.notes };
+/**
+ * What to call the day, and whether it is really a rest.
+ *
+ * `movements` is the count actually planned on it, and it overrules the flag:
+ * see lib/rest-day.ts for why that matters more than it looks.
+ */
+function restWordsFor(day: { title: string; isRest: boolean; notes: string | null }, movements: number) {
+  if (isRestDay({ isRest: day.isRest, movements })) {
+    return { title: day.title, isRest: true, notes: day.notes };
+  }
   return {
-    title: /^rest\b/i.test(day.title) ? "Session" : day.title,
+    title: dayTitle({ title: day.title, isRest: day.isRest, movements }),
     isRest: false,
     notes: day.notes !== null && REST_DAY_NOTES.has(day.notes) ? null : day.notes,
   };
@@ -247,7 +256,9 @@ export async function todayView(profileId: string, units: Units, date = today())
   return {
     ...base,
     hasPlan: true,
-    ...(day ? restWordsFor(day) : { title: "Freestyle session", isRest: false, notes: null }),
+    // `all` is every movement on the day, planned or logged as an extra —
+    // a day with work on it is not a rest day, whatever it was called.
+    ...(day ? restWordsFor(day, all.length) : { title: "Freestyle session", isRest: false, notes: null }),
     completed: workout?.completedAt != null,
     // The session's own clock, so the screen can say how long she has been at
     // it rather than inferring a workout from whether any sets exist.
@@ -362,14 +373,17 @@ export async function weekView(
   return {
     weekStart: week, exists: true, title: plan.title, rationale: plan.rationale,
     todayIndex: dayIndex(asOf), unit: weightLabel(units),
-    days: days.map((d) => ({
+    days: days.map((d) => {
+      const mine = items.filter((i) => i.planDayId === d.id);
+      return {
       dayOfWeek: d.dayOfWeek, dayName: DAY_NAMES[d.dayOfWeek],
-      focus: d.focus, ...restWordsFor(d),
-      exercises: items.filter((i) => i.planDayId === d.id).map((i) => ({
+      focus: d.focus, ...restWordsFor(d, mine.length),
+      exercises: mine.map((i) => ({
         slug: i.slug, name: i.name, notes: i.notes,
         target: `${i.sets}×${i.reps}${i.weightKg !== null ? ` @ ${weightOut(i.weightKg, units)}${weightLabel(units)}` : ""}`,
       })),
-    })),
+      };
+    }),
   };
 }
 
