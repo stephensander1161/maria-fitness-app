@@ -1,8 +1,8 @@
 import { EatClient } from "@/components/eat-client";
 import { cardOpen } from "@/lib/cards";
-import { formatWater, waterPresets, waterState, waterTarget, waterTotals } from "@/lib/water";
+import { waterPresets, waterRow, waterTarget } from "@/lib/water";
 import { requireOnboarded } from "@/lib/session";
-import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
+import { dayFoodView, mealWeekView, savedMealsView, waterTotals } from "@/lib/views";
 import { addDays, APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
 import Link from "next/link";
 import { DayStep } from "@/components/day-nav";
@@ -89,12 +89,13 @@ export default async function EatPage({
         foodUnits={mealWeek.foodUnits}
         plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
         isToday={isToday}
+        // The sixth bar, and the buttons that fill it. Built here because
+        // `waterRow` needs her food units and the target, both of which the
+        // page already has — the card just paints it.
         water={{
-          total: water.today === null ? null : formatWater(water.today, mealWeek.foodUnits),
-          target: formatWater(waterGoal, mealWeek.foodUnits),
-          state: waterState(water.today, waterGoal),
-          anythingLogged: water.today !== null,
+          row: waterRow(water.today, waterGoal, mealWeek.foodUnits),
           presets: waterPresets(mealWeek.foodUnits),
+          anythingLogged: water.today !== null,
         }}
       defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
         burnKcal={burnToday.reduce((n, d) => n + d.kcal, 0)}

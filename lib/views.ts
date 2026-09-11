@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, sql } fro
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, weighIns, workouts,
+  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, waterLogs, weighIns, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, daysBetween, today, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
@@ -12,6 +12,7 @@ import type { BuddyState, Tone as BuddyTone } from "@/lib/buddy";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
 import { foodLines, quantityLabel } from "@/lib/food-units";
 import { compareStock, normaliseItem, summariseStock, unitOut, type Need, type Stock } from "@/lib/pantry";
+import type { WaterDay } from "@/lib/water";
 import { guessCategory, sortKitchen, stateFor } from "@/lib/kitchen";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
 import { restSecondsFor } from "@/lib/rest";
@@ -1195,4 +1196,38 @@ export async function buddyState(profile: {
     direction: goalDirection(weighed[0]?.weightKg ?? profile.startWeightKg ?? 0, profile.goalWeightKg),
     tone: profile.coachTone ?? "plain",
   };
+}
+
+/**
+ * Water logged per day, ending on `asOf`. Null days are days with no rows.
+ *
+ * Here rather than in lib/water.ts so that module stays pure: a client
+ * component importing one helper out of it dragged `postgres` into the browser
+ * bundle, and the build said so in six frames of module trace.
+ */
+export async function waterTotals(profileId: string, asOf: ISODate): Promise<{
+  today: number | null;
+  week: WaterDay[];
+  month: WaterDay[];
+}> {
+  const from = addDays(asOf, -29);
+  const rows = await db.select({
+    date: waterLogs.date,
+    ml: sql<number>`sum(${waterLogs.ml})::int`,
+  }).from(waterLogs)
+    .where(and(
+      eq(waterLogs.profileId, profileId),
+      gte(waterLogs.date, from),
+      lte(waterLogs.date, asOf),
+    ))
+    .groupBy(waterLogs.date);
+
+  const byDate = new Map(rows.map((x) => [x.date as ISODate, x.ml]));
+  const window = (n: number): WaterDay[] =>
+    Array.from({ length: n }, (_, i) => {
+      const date = addDays(asOf, -(n - 1 - i));
+      return { date, ml: byDate.get(date) ?? null };
+    });
+
+  return { today: byDate.get(asOf) ?? null, week: window(7), month: window(30) };
 }

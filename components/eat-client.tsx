@@ -3,12 +3,12 @@
 import { TodayFood } from "./today-food";
 import { CalorieCalculator } from "./calorie-calculator";
 import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
+import type { MacroRow } from "@/lib/macro-progress";
 import { MealRow } from "./meal-row";
 import { RecipeScan } from "./recipe-scan";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
 import { AteThePlan } from "./ate-the-plan";
-import { WaterCard } from "./water-card";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -25,13 +25,11 @@ export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
   burnKcal, burnSessions, isToday, water,
 }: {
-  /** Today's drinking, already in her food units — see lib/water.ts. */
+  /** Water as the sixth macro, plus the vessels that fill it. */
   water: {
-    total: string | null;
-    target: string;
-    state: "none" | "low" | "close" | "there" | "unknown";
-    anythingLogged: boolean;
+    row: MacroRow;
     presets: { ml: number; label: string }[];
+    anythingLogged: boolean;
   };
   /** Whether the day on screen is her today. "Planned for today" over
    *  Thursday is the kind of wrong that only gets noticed after it is
@@ -70,7 +68,7 @@ export function EatClient({
       {/* The day's log is the point of the screen and the widest thing on it —
           it takes the whole row rather than sharing one. */}
       <div className="xl:col-span-2">
-        <TodayFood day={day} saved={saved} isToday={isToday} />
+        <TodayFood day={day} saved={saved} isToday={isToday} water={water} />
       </div>
 
       {/* Folds away, and stays folded — on the account, so it follows her to
@@ -116,18 +114,6 @@ export function EatClient({
           </p>
         )}
       </FoldableCard>
-
-      {/*
-        Beside the food rather than under it. Water is logged in the same
-        moments as a meal — she is in the kitchen, she has just eaten — and a
-        card two screens down is a card she remembers at bedtime.
-      */}
-      <WaterCard
-        {...water}
-        units={foodUnits}
-        date={day.date}
-        isToday={isToday}
-      />
 
       <RecipeScan defaultSlot={defaultSlot} />
 

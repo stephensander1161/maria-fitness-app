@@ -24,7 +24,7 @@ import { Measurements } from "@/components/measurements";
 import { NutritionTrendCard } from "@/components/nutrition-trend";
 import { ProgressPhotos } from "@/components/photos";
 import { photoLibrary } from "@/lib/photos";
-import { dayFoodView } from "@/lib/views";
+import { dayFoodView, waterTotals } from "@/lib/views";
 import { MacroBars } from "@/components/macro-bars";
 import { type MacroRow } from "@/lib/macro-progress";
 import { Headline, ProgressSection } from "@/components/progress-section";
@@ -32,10 +32,7 @@ import { signed, WindowStats } from "@/components/window-stats";
 import { SleepCard } from "@/components/sleep-card";
 import { SleepTrend } from "@/components/sleep-trend";
 import { formatSleep, sleepTarget, sleepTotals } from "@/lib/sleep";
-import { summariseWater, waterTarget, waterTotals } from "@/lib/water";
-import { WaterTrend } from "@/components/water-trend";
-import { WaterCard } from "@/components/water-card";
-import { formatWater, waterPresets, waterState } from "@/lib/water";
+import { waterRow, waterTarget } from "@/lib/water";
 import { foodUnitsOf } from "@/lib/food-units";
 
 export const dynamic = "force-dynamic";
@@ -155,12 +152,16 @@ export default async function ProgressPage({
   const monthName = new Date(`${her}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
   const lb = (kg: number) => (u === "imperial" ? Math.round(kgToLb(kg)) : Math.round(kg)).toLocaleString();
 
-  /** Today's four food numbers, judged in the one place — see MacroBars. */
+  /** The day's food numbers, judged in the one place — see MacroBars. */
   const macroRows: MacroRow[] = [
     { key: "calories", label: "Calories", value: food.calories, target: food.calorieTarget, complete: food.caloriesComplete, suffix: "" },
     { key: "protein", label: "Protein", value: food.proteinG, target: food.proteinTargetG, complete: food.caloriesComplete, suffix: "g" },
     { key: "carbs", label: "Carbs", value: food.carbsG, target: food.carbTargetG, complete: food.carbsComplete, suffix: "g" },
     { key: "fat", label: "Fat", value: food.fatG, target: food.fatTargetG, complete: food.fatComplete, suffix: "g" },
+    // The sixth. It was a card of its own with its own meter and its own idea
+    // of what "close" meant — a second, worse drawing of the picture these
+    // bars already make five times.
+    waterRow(water.today, waterGoal, drinkUnits),
   ];
 
   /*
@@ -351,20 +352,6 @@ export default async function ProgressPage({
           nightLabel={isToday ? "Last night" : `Night of ${prettyDate(her)}`}
         />
 
-        {/* Drinking sits with sleeping and weighing: three numbers she gives
-            the app rather than three the app works out, and between them they
-            explain most of a week that felt harder than it looks on paper. */}
-        <WaterCard
-          total={water.today === null ? null : formatWater(water.today, drinkUnits)}
-          target={formatWater(waterGoal, drinkUnits)}
-          state={waterState(water.today, waterGoal)}
-          anythingLogged={water.today !== null}
-          units={drinkUnits}
-          presets={waterPresets(drinkUnits)}
-          date={her}
-          isToday={isToday}
-        />
-
         {/* What she has eaten so far, on the same terms as the Eat screen: a
             total built from entries that carry no figures is a floor, and gets
             a bar with no verdict rather than a colour it has not earned. */}
@@ -441,7 +428,6 @@ export default async function ProgressPage({
 
         <NutritionTrendCard trend={eating} />
         <SleepTrend window={sleep.week} label="slept a night this week" target={target} />
-        <WaterTrend window={summariseWater(water.week, waterGoal)} label="drunk a day this week" target={waterGoal} units={drinkUnits} />
       </ProgressSection>
 
       {/*
@@ -470,7 +456,6 @@ export default async function ProgressPage({
         <Measurements sites={sites} unit={lengthLabel(u)} />
         <Progression items={progression} unit={weightLabel(u)} />
         <SleepTrend window={sleep.month} label="slept a night this month" target={target} />
-        <WaterTrend window={summariseWater(water.month, waterGoal)} label="drunk a day this month" target={waterGoal} units={drinkUnits} />
       </ProgressSection>
 
       {/*

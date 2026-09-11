@@ -29,7 +29,7 @@ export const WHATS_NEW: WhatsNew[] = [
     date: "2026-09-11",
     title: "Water, one tap at a time",
     blurb:
-      "A card on Eat with a glass, a bottle and a big bottle, an undo, and a target you can move. Your coach can log it too \u2014 \u201cI\u2019ve had about a litre\u201d is enough. A day you didn\u2019t log is never counted as a day you didn\u2019t drink.",
+      "Water is a sixth macro now \u2014 same meter as calories and protein, on Eat and on Progress. Add it where you add food: a glass, a bottle, or type it. Your coach can log it too, and a day you didn\u2019t log is never counted as a day you didn\u2019t drink.",
     href: "/eat",
   },
   {

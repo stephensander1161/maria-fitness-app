@@ -14,8 +14,18 @@ import { MacroBars } from "./macro-bars";
  * I supposed to have on Thursday".
  */
 export function TodayFood({
-  day, saved, isToday = true,
-}: { day: DayFoodView; saved: SavedMeal[]; isToday?: boolean }) {
+  day, saved, isToday = true, water,
+}: {
+  day: DayFoodView;
+  saved: SavedMeal[];
+  isToday?: boolean;
+  /** Water as the sixth bar, and the vessels that fill it. */
+  water: {
+    row: MacroRow;
+    presets: { ml: number; label: string }[];
+    anythingLogged: boolean;
+  };
+}) {
   // The screen steps back a day at a time; the heading has to follow it.
   const heading = isToday ? "Today\u2019s food" : "That day\u2019s food";
   const router = useRouter();
@@ -38,6 +48,16 @@ export function TodayFood({
     // the lookup misses, exactly as it estimates carbs and fat, so a day is
     // rarely a floor any more. The "≥" is still there for the days it is.
     { key: "fibre", label: "Fibre", value: day.fibreG, target: day.fibreTargetG, complete: day.fibreComplete, suffix: "g" },
+    /*
+      And water, the sixth.
+
+      It had its own card with its own meter, its own verdict sentence and its
+      own idea of what "close" meant — a second, worse drawing of the picture
+      these bars already make five times over. It is a number with a daily
+      target, which is what this list is. A day with nothing written down is a
+      floor here exactly as it is for calories: hatched, and no verdict.
+    */
+    water.row,
   ];
 
   /**
@@ -79,7 +99,21 @@ export function TodayFood({
           Nothing logged yet. Add it below, work it out with the calculator, or just tell your coach.
         </p>
 
-      <QuickAdd date={day.date} saved={saved} onDone={() => startTransition(() => router.refresh())} />
+        {/*
+          Water on its own, when it is the only thing with anything in it.
+
+          This branch returns before the bars, so folding water into that list
+          would have hidden the one meter that *does* have a figure on exactly
+          the day she has drunk three glasses and eaten nothing she wrote down.
+          The food bars stay away: there is genuinely nothing to say about them.
+        */}
+        {water.anythingLogged && (
+          <div className="mt-3 rounded-xl border border-line bg-raised p-3">
+            <MacroBars rows={[water.row]} />
+          </div>
+        )}
+
+      <QuickAdd date={day.date} saved={saved} water={water} onDone={() => startTransition(() => router.refresh())} />
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
@@ -215,7 +249,7 @@ export function TodayFood({
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
 
-      <QuickAdd date={day.date} saved={saved} onDone={() => startTransition(() => router.refresh())} />
+      <QuickAdd date={day.date} saved={saved} water={water} onDone={() => startTransition(() => router.refresh())} />
     </section>
   );
 }
@@ -575,9 +609,23 @@ function FoodNumbers({
  * by making her invent one.
  */
 function QuickAdd({
-  date, saved, onDone,
-}: { date: string; saved: SavedMeal[]; onDone: () => void }) {
+  date, saved, water, onDone,
+}: {
+  date: string;
+  saved: SavedMeal[];
+  water: { presets: { ml: number; label: string }[]; anythingLogged: boolean };
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  /*
+    Water goes on the day from the same place food does.
+
+    It was a whole card of its own further down the screen, which is two
+    scrolls from the moment she is actually in — she is at the fridge, she has
+    just eaten, and the glass went with it. Same row, same shape: the vessels
+    open where the food form opens.
+  */
+  const [pouring, setPouring] = useState(false);
   const [slot, setSlot] = useState<"breakfast" | "lunch" | "dinner" | "snack">("snack");
   const [what, setWhat] = useState("");
   const [macros, setMacros] = useState<Macros>(NO_MACROS);
@@ -633,25 +681,44 @@ function QuickAdd({
       // one for a plate with four things on it — and it used to live at the
       // bottom of the screen, past everything, which is a scroll away from
       // the moment she is actually in.
-      <div className="mt-4 flex gap-2">
-        <button
-          onClick={() => setOpen(true)}
-          className="flex-1 rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
-        >
-          + Add food
-        </button>
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
-          aria-label="Tell your coach what you ate"
-          title="Tell your coach what you ate"
-          className="grid w-12 shrink-0 place-items-center rounded-xl border border-dashed border-line text-muted transition-colors active:bg-raised hover:text-accent"
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" />
-          </svg>
-        </button>
-      </div>
+      <>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => { setOpen(true); setPouring(false); }}
+            className="flex-1 rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
+          >
+            + Add food
+          </button>
+          <button
+            onClick={() => setPouring(!pouring)}
+            aria-expanded={pouring}
+            className={`flex-1 rounded-xl border border-dashed py-3 text-[13px] transition-colors active:bg-raised ${
+              pouring ? "border-accent text-accent" : "border-line text-muted"
+            }`}
+          >
+            + Water
+          </button>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
+            aria-label="Tell your coach what you ate"
+            title="Tell your coach what you ate"
+            className="grid w-12 shrink-0 place-items-center rounded-xl border border-dashed border-line text-muted transition-colors active:bg-raised hover:text-accent"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 3c4.97 0 9 3.58 9 8 0 4.42-4.03 8-9 8a10 10 0 0 1-2.6-.34L4 21l1.2-3.6A7.5 7.5 0 0 1 3 11c0-4.42 4.03-8 9-8Z" />
+            </svg>
+          </button>
+        </div>
+        {pouring && (
+          <Water
+            date={date}
+            presets={water.presets}
+            anythingLogged={water.anythingLogged}
+            onDone={onDone}
+          />
+        )}
+      </>
     );
   }
 
@@ -722,3 +789,92 @@ function QuickAdd({
   );
 }
 
+
+/**
+ * The vessels, where the food form is.
+ *
+ * One tap per glass, because that is the only interaction anybody does eight
+ * times in a day. Typing is for the times it is not a glass, and undo is there
+ * because the eighth tap is the one that lands twice.
+ *
+ * No meter of its own: the bar above is the meter, and this is only the way to
+ * move it. That was the whole problem with the card this replaced.
+ */
+function Water({
+  date, presets, anythingLogged, onDone,
+}: {
+  date: string;
+  presets: { ml: number; label: string }[];
+  anythingLogged: boolean;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [typed, setTyped] = useState("");
+
+  async function run(key: string, call: () => Promise<unknown>) {
+    setBusy(key);
+    setError(null);
+    try {
+      await call();
+      setTyped("");
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't save — try again."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-raised p-3">
+      <div className="flex flex-wrap gap-2">
+        {presets.map((p) => (
+          <button
+            key={p.ml}
+            onClick={() => void run(String(p.ml), () => action("log_water", { amount: `${p.ml}ml`, date }))}
+            disabled={busy !== null}
+            className="flex-1 rounded-lg border border-edge bg-surface py-2.5 text-[13px] font-medium text-accent transition-colors active:bg-raised disabled:opacity-40"
+          >
+            {busy === String(p.ml) ? "…" : `+ ${p.label}`}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const said = typed.trim();
+            if (said) void run("typed", () => action("log_water", { amount: said, date }));
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2"
+        >
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="330ml, 1.5L, 16oz, a pint"
+            aria-label="How much you drank"
+            className="min-w-0 flex-1 rounded-lg border border-edge bg-base px-3 py-2 text-[13px] placeholder:text-faint focus:border-accent focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={busy !== null || !typed.trim()}
+            className="shrink-0 rounded-full border border-line px-3 py-1.5 text-[12.5px] text-muted disabled:opacity-40"
+          >
+            {busy === "typed" ? "…" : "Add"}
+          </button>
+        </form>
+        {anythingLogged && (
+          <button
+            onClick={() => void run("undo", () => action("remove_water_log", { date }))}
+            disabled={busy !== null}
+            className="shrink-0 rounded-full px-2 py-1 text-[12px] text-faint underline underline-offset-2 disabled:opacity-40"
+          >
+            {busy === "undo" ? "…" : "Undo last"}
+          </button>
+        )}
+      </div>
+      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+    </div>
+  );
+}

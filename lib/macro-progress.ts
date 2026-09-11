@@ -18,7 +18,7 @@ export const ON_TARGET_BAND = 0.05;
 export const OVER_BAND = 0.1;
 
 export type MacroRow = {
-  key: "calories" | "protein" | "carbs" | "fat" | "fibre";
+  key: "calories" | "protein" | "carbs" | "fat" | "fibre" | "water";
   label: string;
   /** Grams, or calories for the first one. */
   value: number;

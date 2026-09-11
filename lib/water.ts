@@ -1,8 +1,5 @@
-import { and, eq, gte, lte, sql } from "drizzle-orm";
-
-import { db } from "@/lib/db";
-import { waterLogs } from "@/lib/db/schema";
-import { addDays, type ISODate } from "@/lib/date";
+import type { MacroRow } from "@/lib/macro-progress";
+import type { ISODate } from "@/lib/date";
 
 /**
  * Water, tracked the way sleep and food are.
@@ -203,30 +200,33 @@ export function waterSignal(
     + `${todayMl >= target ? " — she is there" : ""}.`;
 }
 
-/** Today's total, and the window behind it. Null days are days with no rows. */
-export async function waterTotals(profileId: string, asOf: ISODate): Promise<{
-  today: number | null;
-  week: WaterDay[];
-  month: WaterDay[];
-}> {
-  const from = addDays(asOf, -29);
-  const rows = await db.select({
-    date: waterLogs.date,
-    ml: sql<number>`sum(${waterLogs.ml})::int`,
-  }).from(waterLogs)
-    .where(and(
-      eq(waterLogs.profileId, profileId),
-      gte(waterLogs.date, from),
-      lte(waterLogs.date, asOf),
-    ))
-    .groupBy(waterLogs.date);
-
-  const byDate = new Map(rows.map((r) => [r.date as ISODate, r.ml]));
-  const window = (n: number): WaterDay[] =>
-    Array.from({ length: n }, (_, i) => {
-      const date = addDays(asOf, -(n - 1 - i));
-      return { date, ml: byDate.get(date) ?? null };
-    });
-
-  return { today: byDate.get(asOf) ?? null, week: window(7), month: window(30) };
+/**
+ * Water as the sixth macro.
+ *
+ * It used to be its own card with its own meter, its own verdict sentence and
+ * its own idea of what "close" meant — a second, worse version of the picture
+ * the macro bars already draw five times. It is a number with a daily target,
+ * which is exactly what those bars are for.
+ *
+ * The unit is the display unit, whole: millilitres, or fluid ounces. Not
+ * litres, because every other row on that list is a plain integer against a
+ * plain integer, and "1.5 L / 2 L" beside "124g / 130g" reads as a different
+ * kind of fact.
+ *
+ * `complete` carries exactly the meaning it carries for calories: a day with
+ * nothing written down is a floor, not a zero. It draws hatched and earns no
+ * verdict, which is the whole rule.
+ */
+export function waterRow(
+  ml: number | null, targetMl: number, units: "metric" | "imperial",
+): MacroRow {
+  const out = (v: number) => (units === "imperial" ? Math.round(v / ML_PER_FL_OZ) : Math.round(v));
+  return {
+    key: "water",
+    label: "Water",
+    value: out(ml ?? 0),
+    target: out(targetMl),
+    complete: ml !== null,
+    suffix: units === "imperial" ? "oz" : "ml",
+  };
 }

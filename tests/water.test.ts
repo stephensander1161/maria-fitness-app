@@ -1,9 +1,10 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  formatWater, parseWater, summariseWater, waterSignal, waterState, waterTarget,
+  formatWater, parseWater, summariseWater, waterRow, waterSignal, waterState, waterTarget,
   WATER_MAX_ML, WATER_MIN_ML, WATER_TARGET_DEFAULT_ML,
 } from "@/lib/water";
+import { macroBar } from "@/lib/macro-progress";
 import { registry } from "@/lib/tools";
 import { FACTS } from "@/lib/seed/facts";
 
@@ -139,5 +140,55 @@ suite("the library has something to say about it", () => {
   it("and does not repeat the eight-glasses myth as fact", () => {
     const myth = FACTS.find((f) => f.slug === "water-eight-glasses")!;
     expect(myth.text).toMatch(/no research behind it/);
+  });
+});
+
+suite("water is the sixth macro, not a card of its own", () => {
+  it("is a row on the same list, in her units", () => {
+    // It had its own meter, its own verdict sentence and its own idea of what
+    // "close" meant — a second, worse drawing of the picture these bars make
+    // five times already.
+    expect(waterRow(1500, 2000, "metric")).toMatchObject({
+      key: "water", label: "Water", value: 1500, target: 2000, suffix: "ml", complete: true,
+    });
+    expect(waterRow(1500, 2000, "imperial")).toMatchObject({
+      value: 51, target: 68, suffix: "oz",
+    });
+  });
+
+  it("draws an unlogged day as a floor, never as a miss", () => {
+    // The same treatment calories get: a day nobody wrote down earns no
+    // verdict, so it is hatched rather than painted as empty.
+    const nothing = macroBar(waterRow(null, 2000, "metric"));
+    expect(nothing.state).toBe("unknown");
+    expect(nothing.value).toBe(0);
+    // …and a day she actually hit is allowed to say so.
+    expect(macroBar(waterRow(2000, 2000, "metric")).state).toBe("there");
+  });
+
+  it("is added from where food is added", () => {
+    const food = fs.readFileSync("components/today-food.tsx", "utf8");
+    expect(food).toMatch(/\+ Water/);
+    expect(food).toMatch(/"log_water", \{ amount: `\$\{p\.ml\}ml`, date \}/);
+    // And it is on the bar list rather than beside it.
+    expect(food).toMatch(/water\.row,/);
+  });
+
+  it("no longer has a card or a trend of its own", () => {
+    expect(fs.existsSync("components/water-card.tsx")).toBe(false);
+    expect(fs.existsSync("components/water-trend.tsx")).toBe(false);
+    // Progress shows it as a food meter like the rest, not as its own section.
+    const progress = fs.readFileSync("app/progress/page.tsx", "utf8");
+    expect(progress).toMatch(/waterRow\(water\.today, waterGoal, drinkUnits\)/);
+    expect(progress).not.toMatch(/WaterTrend/);
+  });
+
+  it("still shows the meter on a day with water and no food", () => {
+    // That branch returns before the bars, so folding water in would have
+    // hidden the one meter with a figure on it.
+    const food = fs.readFileSync("components/today-food.tsx", "utf8");
+    const empty = food.slice(food.indexOf("if (day.logged.length === 0)"), food.indexOf("// The \"only a fully-counted"));
+    expect(empty).toMatch(/water\.anythingLogged/);
+    expect(empty).toMatch(/rows=\{\[water\.row\]\}/);
   });
 });

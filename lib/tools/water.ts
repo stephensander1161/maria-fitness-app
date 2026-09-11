@@ -8,8 +8,9 @@ import { getProfileById, todayForProfile } from "@/lib/profile";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
 import {
   formatWater, parseWater, summariseWater, waterState, waterTarget,
-  WATER_MAX_ML, WATER_MIN_ML, waterTotals,
+  WATER_MAX_ML, WATER_MIN_ML,
 } from "@/lib/water";
+import { waterTotals } from "@/lib/views";
 import { defineTool } from "./define";
 
 /**
