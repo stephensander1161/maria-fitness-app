@@ -586,6 +586,16 @@ export type DayFoodView = {
   }[];
   calories: number;
   proteinG: number;
+  /**
+   * False when any entry has no protein figure.
+   *
+   * It borrowed `caloriesComplete` for years, which is the one place this
+   * screen did not treat the macros alike: an entry with calories and no
+   * protein left the protein bar painted and confident over a total that was
+   * a floor. Every one of the five is now the same question asked five times —
+   * does every entry on the day carry a figure for *this*.
+   */
+  proteinComplete: boolean;
   calorieTarget: number | null;
   proteinTargetG: number | null;
   /** Grams from the entries that carry a figure — a floor when incomplete. */
@@ -663,6 +673,7 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     caloriesUnknownFor: rows.length - counted.length,
     caloriesComplete: rows.length > 0 && counted.length === rows.length,
     proteinG: rows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+    proteinComplete: rows.length > 0 && rows.every((r) => r.proteinG !== null),
     calorieTarget: plan?.calorieTarget ?? null,
     proteinTargetG: plan?.proteinTargetG ?? null,
     fibreG: fibre.grams,

@@ -224,8 +224,18 @@ suite("a day greyed out by one entry can be fixed", () => {
     expect(fill).toMatch(/if \(v === null\) continue;/);
   });
 
-  it("is offered on the screen, not only to the coach", () => {
-    expect(fs.readFileSync("components/today-food.tsx", "utf8")).toMatch(/"fill_macro_gaps", \{ date \}/);
+  it("is the coach's to run, not furniture on the screen", () => {
+    /*
+      There were three goes at explaining the hatching on the card — a
+      paragraph, a line naming each macro with a count, and a button — over a
+      bar that already writes "≥" and is already drawn hatched. The tool
+      stayed; the furniture went.
+    */
+    expect(registry.get("fill_macro_gaps")).toBeDefined();
+    const food = fs.readFileSync("components/today-food.tsx", "utf8");
+    expect(food).not.toMatch(/action[^\n]*fill_macro_gaps/);
+    expect(food).not.toMatch(/Hatched bars are floors/);
+    expect(food).not.toMatch(/so these are floors, not totals/);
   });
 });
 

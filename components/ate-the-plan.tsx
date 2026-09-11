@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 
 /**
- * "I ate the plan" — the whole day, in one tap.
+ * "Ate all of it" — a link, not a card.
  *
- * The plan already holds a title, calories and every macro for each meal, and
- * on a day she stuck to it she was retyping all of that into the calculator
- * four times. The data is right there; this copies it across.
+ * It was a full-width button with a paragraph under it explaining what it was
+ * about to do, for a day with three meals on it where tapping each row's own
+ * "Ate it" is three taps. A control that costs more screen than the work it
+ * saves is a control in the way, so this is one small line at the end of the
+ * list and nothing else.
  *
- * It only ever logs what is *not already down*, so tapping it after logging
+ * It still only logs what is *not already down*: tapping it after logging
  * breakfast by hand adds lunch and dinner rather than a second breakfast, and
- * tapping it twice does nothing the second time. The tool holds that as well,
- * with one key per planned meal per day — a double tap on a slow connection
- * must not be able to log the day twice.
+ * the tool holds that too, with one key per planned meal per day so a double
+ * tap on a slow connection cannot log the day twice.
  */
 export function AteThePlan({ date, remaining }: { date: string; remaining: number }) {
   const router = useRouter();
@@ -41,37 +42,27 @@ export function AteThePlan({ date, remaining }: { date: string; remaining: numbe
     }
   }
 
-  // Nothing left to log is not a hidden button — a control that vanishes reads
-  // as broken. It says why it has nothing to do.
+  // Nothing left to log, nothing to draw. The row's own ticks already say
+  // which meals are down, so a line here saying it again is noise.
   if (remaining === 0) {
-    return (
-      <p className="mt-3 border-t border-line/60 pt-3 text-[12px] text-faint">
-        {done !== null ? `Logged ${done}. ` : ""}
-        {skipped.length > 0
-          // Named, never silent: a meal it decided not to log is exactly the
-          // thing she would otherwise notice as missing an hour later.
-          ? `Left your own ${skipped.join(", ")} alone — there was already something in.`
-          : "Every meal planned for this day is already in your log."}
+    return done !== null || skipped.length > 0 ? (
+      <p className="mt-2 text-right text-[11px] text-faint">
+        {done ? `Logged ${done}.` : ""}
+        {skipped.length > 0 ? ` Left your own ${skipped.join(", ")} alone.` : ""}
       </p>
-    );
+    ) : null;
   }
 
   return (
-    <div className="mt-3 border-t border-line/60 pt-3">
+    <div className="mt-2 text-right">
       <button
         onClick={log}
         disabled={busy}
-        className="w-full rounded-lg border border-edge py-2.5 text-[13px] font-medium text-accent transition-colors hover:bg-raised active:bg-raised disabled:opacity-40"
+        className="rounded-full px-1 py-1 text-[11px] font-medium text-accent underline underline-offset-2 disabled:opacity-40"
       >
-        {busy
-          ? "Logging…"
-          : `Ate ${remaining === 1 ? "it" : "all of this"} — log ${remaining} meal${remaining === 1 ? "" : "s"}`}
+        {busy ? "Logging\u2026" : `Ate all ${remaining}`}
       </button>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
-        Copies the planned figures into your log and takes the ingredients out of your kitchen.
-        Anything you have already logged is left alone.
-      </p>
-      {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-[11px] text-miss">{error}</p>}
     </div>
   );
 }

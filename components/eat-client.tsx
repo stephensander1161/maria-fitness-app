@@ -97,9 +97,9 @@ export function EatClient({
                 logged={loggedMealIds.has(m.id)}
               />
             ))}
-            {/* The plan already holds every figure she would otherwise retype.
-                `remaining` counts only what is not already in her log, so the
-                button says how much work it is actually about to do. */}
+            {/* One small line, not a card. Each row has its own "Ate it" and
+                three taps is not a hardship — this is only here for the day
+                she wants all of them at once. */}
             <AteThePlan
               date={day.date}
               remaining={planned.filter((m) => !takenSlots.has(m.slot)).length}

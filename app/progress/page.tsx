@@ -155,7 +155,7 @@ export default async function ProgressPage({
   /** The day's food numbers, judged in the one place — see MacroBars. */
   const macroRows: MacroRow[] = [
     { key: "calories", label: "Calories", value: food.calories, target: food.calorieTarget, complete: food.caloriesComplete, suffix: "" },
-    { key: "protein", label: "Protein", value: food.proteinG, target: food.proteinTargetG, complete: food.caloriesComplete, suffix: "g" },
+    { key: "protein", label: "Protein", value: food.proteinG, target: food.proteinTargetG, complete: food.proteinComplete, suffix: "g" },
     { key: "carbs", label: "Carbs", value: food.carbsG, target: food.carbTargetG, complete: food.carbsComplete, suffix: "g" },
     { key: "fat", label: "Fat", value: food.fatG, target: food.fatTargetG, complete: food.fatComplete, suffix: "g" },
     // Fibre, which this screen simply never had. Eat has shown six rows and

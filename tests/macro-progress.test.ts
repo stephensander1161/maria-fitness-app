@@ -115,3 +115,26 @@ suite("an empty meter looks empty, not absent", () => {
     expect(macroBar(row({ value: 0, target: null })).fill).toBeNull();
   });
 });
+
+suite("all six macros are judged the same way", () => {
+  it("asks the same question of each: does every entry carry this figure", () => {
+    /*
+      Protein borrowed `caloriesComplete`, which is the one place this screen
+      did not treat the macros alike: an entry with calories and no protein
+      left the protein bar painted and confident over a total that was a floor.
+    */
+    const views = fs.readFileSync("lib/views.ts", "utf8");
+    for (const [flag, col] of [
+      ["proteinComplete", "proteinG"], ["carbsComplete", "carbsG"], ["fatComplete", "fatG"],
+    ] as const) {
+      expect(views, flag).toContain(
+        `${flag}: rows.length > 0 && rows.every((r) => r.${col} !== null)`,
+      );
+    }
+    for (const file of ["components/today-food.tsx", "app/progress/page.tsx"]) {
+      const src = fs.readFileSync(file, "utf8");
+      expect(src, file).toMatch(/key: "protein"[^\n]*complete: (day|food)\.proteinComplete/);
+      expect(src, file).not.toMatch(/key: "protein"[^\n]*complete: (day|food)\.caloriesComplete/);
+    }
+  });
+});
