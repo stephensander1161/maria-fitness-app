@@ -46,7 +46,7 @@ export const THIRD_PARTIES = [
   },
   {
     name: "Apple, Google or Mozilla push services",
-    what: "Only if you turn on a weigh-in reminder. The push carries no content at all — it wakes your device, and the words are already on it.",
+    what: "Only if you turn on a weigh-in reminder, or if you run the app and someone asks you for more coach allowance. The push carries no content at all — it wakes your device, and the app then works out what to say. The push service never sees a word of it.",
     optional: true,
   },
 ] as const;

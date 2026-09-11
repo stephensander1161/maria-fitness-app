@@ -41,24 +41,49 @@ self.addEventListener("activate", (event) => {
 });
 
 /**
- * A reminder arrives with no payload on purpose.
+ * A push arrives with no payload on purpose.
  *
- * The only notification this app sends says "time to weigh in", which the
- * service worker already knows — so nothing about her passes through Apple's
- * or Google's push service. See lib/push.ts.
+ * Nothing about anybody passes through Apple's or Google's push service — the
+ * envelope is empty and always has been. What changed is that there is now
+ * more than one thing a notification can be about, so instead of baking the
+ * only wording into this file, the worker asks the app over its own session
+ * and shows what comes back. The push service still sees nothing.
+ *
+ * The fallback is the weigh-in wording: it is the notification this app sent
+ * for its whole life so far, and a woken device that says nothing at all is
+ * worse than one that says the likely thing.
  */
+const FALLBACK = {
+  title: "Time to weigh in",
+  body: "Ten seconds on the scale. No single reading is judged.",
+  url: "/progress",
+  tag: "coach-weigh-in",
+};
+
 self.addEventListener("push", (event) => {
   event.waitUntil(
-    self.registration.showNotification("Time to weigh in", {
-      body: "Ten seconds on the scale. No single reading is judged.",
-      icon: "/icon-192",
-      badge: "/icon-192",
-      // One reminder replaces the last rather than stacking up a column of
-      // them after a few days away.
-      tag: "coach-weigh-in",
-      renotify: true,
-      data: { url: "/progress" },
-    }),
+    (async () => {
+      let say = FALLBACK;
+      try {
+        const res = await fetch("/api/push/pending", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.title) say = data;
+        }
+      } catch {
+        // Offline, or the session has gone. Show the likely thing.
+      }
+      await self.registration.showNotification(say.title, {
+        body: say.body,
+        icon: "/icon-192",
+        badge: "/icon-192",
+        // One of a kind replaces the last rather than stacking up a column of
+        // them after a few days away.
+        tag: say.tag || FALLBACK.tag,
+        renotify: true,
+        data: { url: say.url || FALLBACK.url },
+      });
+    })(),
   );
 });
 

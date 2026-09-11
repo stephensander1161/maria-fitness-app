@@ -25,6 +25,18 @@ export type AuditEventName =
   | "signup.failure"
   | "logout"
   | "budget.changed"
+  /**
+   * The owner changing what somebody else may spend, granting a day's extra,
+   * or changing who can see the console.
+   *
+   * Recorded because these are the three writes on this deployment that one
+   * person makes about another: the first two decide what her coach will
+   * still answer today, and the third decides who can read this log. Ids and
+   * amounts only — never an email, which is already on `users`.
+   */
+  | "admin.budget_set"
+  | "admin.top_up_granted"
+  | "admin.role_changed"
   // A device registered for notifications. Recorded because it is a new
   // place her app can be reached, and never with the endpoint — that is an
   // address someone else could push to.
@@ -68,7 +80,12 @@ export type AuditEventName =
   | "backup.taken"
   | "backup.failed";
 
-const WARN: AuditEventName[] = ["login.failure", "login.rate_limited", "signup.failure", "data.deleted", "backup.failed"];
+const WARN: AuditEventName[] = [
+  "login.failure", "login.rate_limited", "signup.failure", "data.deleted", "backup.failed",
+  // Granting the console is the one change here that widens who can see
+  // everybody else, so it is worth a second look even when it was deliberate.
+  "admin.role_changed",
+];
 
 /** Never let logging break the request it is describing. */
 export async function audit(

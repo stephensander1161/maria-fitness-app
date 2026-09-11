@@ -1,5 +1,6 @@
 import { adminCosts } from "@/lib/admin-costs";
 import { CostTable } from "@/components/cost-table";
+import { AccountControls } from "@/components/account-controls";
 import { adminOverview, money, requireOwner } from "@/lib/admin";
 import { audit } from "@/lib/audit";
 
@@ -156,6 +157,16 @@ export default async function AdminPage() {
             <p className="mt-3 text-[12px] text-faint">
               Last session {a.lastSessionOn ?? "— none logged"}
             </p>
+
+            {/* Budgets, a day's extra, and the console itself — from here
+                rather than from a terminal holding the production credential.
+                See app/api/admin/account: a route, never a tool. */}
+            <AccountControls
+              userId={a.userId}
+              email={a.email}
+              role={a.role}
+              isOnlyOwner={a.role === "owner" && data.accounts.filter((x) => x.role === "owner").length <= 1}
+            />
           </section>
         ))}
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { alertOwners } from "@/lib/owner-alert";
 import { profiles } from "@/lib/db/schema";
 import { audit } from "@/lib/audit";
 import { today } from "@/lib/date";
@@ -48,6 +49,21 @@ export const requestTopUp = defineTool({
 
     await db.update(profiles).set({ topUpRequestedOn: day }).where(eq(profiles.id, ctx.profileId));
     await audit("topup.requested", { detail: { profileId: ctx.profileId, day } });
+
+    /*
+      Wake the owner.
+
+      Until somebody answers, this person's coach is switched off — and the
+      ask is the one message in this app that is somebody wanting to *spend*
+      rather than complain. Discovering it on the console tomorrow is the same
+      as not getting it.
+
+      Best effort and never awaited into the answer she is waiting for: a push
+      service having a bad minute must not turn "asked" into an error. The
+      request is on the console either way, which is what it was before.
+    */
+    void alertOwners().catch(() => { /* see above */ });
+
     return { ok: true, message: "Asked. The owner sees it on the console and can add more for today." };
   },
 });

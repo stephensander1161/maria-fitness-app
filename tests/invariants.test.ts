@@ -192,6 +192,18 @@ suite("a day-level date is her day, everywhere", () => {
       // global window rather than her day.
       "lib/date.ts",
       "lib/limits.ts",
+      /*
+        The spend ledger's day, which is the deployment's and not anybody's.
+
+        A top-up lifts a budget counted in one global window, so granting one
+        — or asking whether somebody is waiting for one today — has to bucket
+        the same way lib/limits.ts does. Dated in her timezone instead, an ask
+        made at 11pm in Denver would land against a spend window that had
+        already reset. lib/tools/top-up.ts is named for the same reason in
+        tests/tool-coverage.test.ts.
+      */
+      "app/api/admin/account/route.ts",
+      "app/api/push/pending/route.ts",
     ]);
 
     const offenders: string[] = [];
@@ -267,6 +279,22 @@ suite("every mutation goes through the tool registry", () => {
     // for stamping lastLoginAt would be a tool for changing a password. Those
     // writes must touch `users` and nothing else.
     const AUTH = /^app\/api\/(login|auth)\//;
+    /*
+      The second exception, and the same inverse-of-a-loophole shape.
+
+      The owner's console writes three things about somebody else: what they
+      may spend a day, a single day's extra, and whether they can see the
+      console at all. None of those may be a tool. A top-up is the only thing
+      in this app that can take a person *above* the deployment's ceiling, and
+      a prompt that could grant one is a prompt that could buy itself an
+      unlimited day; a role is what gates the console, and `users` is out of
+      the model's reach by design. Account deletion is a route for exactly the
+      same reason — see CLAUDE.md.
+
+      One named file. The arithmetic still comes from lib/budget.ts, shared
+      with the command line, so the screen cannot be the permissive way in.
+    */
+    const OWNER_CONSOLE = "app/api/admin/account/route.ts";
 
     const offenders: string[] = [];
     for (const file of walk("app")) {
@@ -275,6 +303,7 @@ suite("every mutation goes through the tool registry", () => {
       for (const m of writes) {
         const table = m[2];
         if (AUTH.test(file) && table === "users") continue;
+        if (file === OWNER_CONSOLE && (table === "users" || table === "profiles")) continue;
         offenders.push(`${file}: db.${m[1]}(${table})`);
       }
     }

@@ -25,6 +25,15 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-owner-console-writes",
+    date: "2026-09-11",
+    title: "Give someone more allowance without a terminal",
+    blurb:
+      "Budgets, a day\u2019s extra and who can see the console are all set from the admin screen now \u2014 and an owner gets a notification the moment somebody runs out and asks.",
+    href: "/admin",
+    audience: "owner",
+  },
+  {
     id: "2026-09-11-ask-from-the-top",
     date: "2026-09-11",
     title: "Ask your coach from the top of any screen",
