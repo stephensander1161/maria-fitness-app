@@ -6,6 +6,7 @@ import { ViewportCover } from "@/components/viewport-cover";
 import { MoreNavGate } from "@/components/more-nav-gate";
 import { ShippedNoteGate } from "@/components/shipped-note-gate";
 import { TitleGate } from "@/components/title-gate";
+import { AskButton } from "@/components/ask-button";
 import { InstallApp } from "@/components/install-app";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { SideNavGate } from "@/components/side-nav-gate";
@@ -88,7 +89,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               */}
               <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
                 <MobileGreeting />
-                {children}
+                {/*
+                  The coach, on the page's own top row.
+                  On a desktop there is no greeting bar to hang it from, and
+                  every page writes its own heading — so rather than editing
+                  ten of them, it sits here and the heading floats up beside
+                  it. Sticky, so it survives a scroll on the long screens.
+                */}
+                <div className="pointer-events-none sticky top-4 z-30 hidden justify-end md:flex">
+                  <AskButton className="pointer-events-auto" />
+                </div>
+                <div className="md:-mt-9">{children}</div>
                 <DailyFact />
                 {/* Below the fact, at the bottom of every screen: the coach,
                     as somebody rather than a button. */}

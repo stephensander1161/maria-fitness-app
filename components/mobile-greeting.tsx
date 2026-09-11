@@ -4,6 +4,7 @@ import { titleStats } from "@/lib/views";
 import { profileToday } from "@/lib/profile";
 import { APP_TIMEZONE, greetingFor, hourIn } from "@/lib/date";
 import { MobileMenu } from "./mobile-menu";
+import { AskButton } from "./ask-button";
 
 /**
  * Who she is, at the top of a phone screen.
@@ -12,9 +13,10 @@ import { MobileMenu } from "./mobile-menu";
  * so both were simply invisible there — the rank in particular is a thing you
  * earn and never see, which is the same as not having one.
  *
- * Small and out of the way, and deliberately not sticky: it is a greeting, not
- * a control, and a bar that follows you down the page had better be doing
- * something for its keep.
+ * Sticky now, and earning it: it carries the two controls that belong at the
+ * top of a phone — the rest of the app, and the coach. A greeting alone had no
+ * business following her down the page; a way to ask a question about whatever
+ * she has scrolled to does.
  */
 export async function MobileGreeting() {
   const user = await currentUser();
@@ -28,7 +30,7 @@ export async function MobileGreeting() {
   const name = user.name ?? profile.name;
 
   return (
-    <div className="mb-4 flex items-start justify-between gap-3 md:hidden">
+    <div className="sticky top-0 z-40 -mx-4 mb-4 flex items-start justify-between gap-3 border-b border-line/40 bg-base/85 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] backdrop-blur-xl md:hidden">
       {/* Two lines, not one squeezed row. Sharing a row with the rank, the
           greeting truncated to "Good night, …" — cutting off the one word on
           this screen that is her own name. Stacked, both fit whole. */}
@@ -49,6 +51,10 @@ export async function MobileGreeting() {
       <span className="sr-only">{title.blurb}</span>
       {/* The rest of the app. It used to be a row of pills at the end of every
           page — half the app below the fold on the device most people use. */}
+      {/* Beside the menu, so the two things she reaches for at the top of a
+          phone are together — and she no longer scrolls past the whole page to
+          ask about what is on it. */}
+      <AskButton />
       <MobileMenu isOwner={user.role === "owner"} recovering={profile.postpartumBirthDate !== null} />
     </div>
   );

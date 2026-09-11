@@ -474,8 +474,12 @@ thread next to a specific thing — a movement, an empty week. All of it is one
 conversation through `useCoachThread()` / `ThreadMessages` / `Composer`.
 
 **The sheet draws no button of its own.** The companion at the bottom of every
-page is what opens it (`float` defaults to false), because two coach triggers on
-one screen is one too many — which is why the floating bubble was retired. That
+page opens it, and so does `AskButton` at the top — the page's own heading row
+on a desktop, beside the menu on a phone, both sticky. The floating bubble that
+was retired floated *over* the page; these sit in the chrome, which is the
+difference. The companion stayed because he is somebody rather than a button,
+and the top control exists because the bottom one meant scrolling past a whole
+screen to ask about the thing at the top of it. That
 retirement is also how the sheet came to be mounted *nowhere*: the gate was
 written, exported and never called, so for months the companion dispatched
 `coach:open` into an empty room and tapping him did nothing on every screen in
