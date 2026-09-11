@@ -137,3 +137,44 @@ export function describeTrend(
   if (Math.abs(change) < 0.1) return `Trend ${format(t.trendKg!)} — level over the last week.`;
   return `Trend ${format(t.trendKg!)} — ${change < 0 ? "down" : "up"} ${format(Math.abs(change))} over the last week.`;
 }
+
+/**
+ * The trend weight on a day — the last point at or before it.
+ *
+ * The trend line is only defined where she weighed in, so "what did the line
+ * say on the 1st" means the most recent reading up to the 1st. Null before her
+ * first weigh-in: there is no line there to read.
+ */
+export function trendOn(series: TrendPoint[], date: ISODate): number | null {
+  let found: number | null = null;
+  for (const p of series) {
+    if (p.date > date) break;
+    found = p.trend;
+  }
+  return found;
+}
+
+/**
+ * How much the trend moved across a window, or null if it cannot say.
+ *
+ * Two readings, and at least one of them inside the window. The second half is
+ * the one that matters: a single weigh-in in the window with nothing before it
+ * would compare a number to itself and report "level", which is a claim about
+ * a week nobody measured. Where the window opens before her first weigh-in —
+ * "this year" for someone who started in March — it measures from the first
+ * reading it contains rather than refusing.
+ *
+ * Rounded to a tenth, because the unrounded difference of two exponential
+ * averages is noise dressed as precision.
+ */
+export function trendChange(
+  series: TrendPoint[], from: ISODate, to: ISODate,
+): number | null {
+  const inside = series.filter((p) => p.date > from && p.date <= to);
+  if (inside.length === 0) return null;
+  const before = trendOn(series, from);
+  if (before === null && inside.length < 2) return null;
+  const start = before ?? inside[0].trend;
+  const end = inside[inside.length - 1].trend;
+  return Math.round((end - start) * 10) / 10;
+}

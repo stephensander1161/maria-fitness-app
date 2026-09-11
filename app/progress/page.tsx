@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
 import { GoalCard } from "@/components/goal-card";
@@ -13,10 +13,10 @@ import { kgToLb, lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { BurnCard } from "@/components/burn-card";
 import { WeighIn } from "@/components/weigh-in";
-import { addDays, prettyDate, weekStart } from "@/lib/date";
+import { addDays, dayIndex, prettyDate, weekStart } from "@/lib/date";
 import Link from "next/link";
 import { DayStep } from "@/components/day-nav";
-import { weightTrend } from "@/lib/trend";
+import { trendChange, weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
 import { CheckIn } from "@/components/check-in";
 import { Progression } from "@/components/progression";
@@ -28,6 +28,7 @@ import { dayFoodView } from "@/lib/views";
 import { MacroBars } from "@/components/macro-bars";
 import { type MacroRow } from "@/lib/macro-progress";
 import { Headline, ProgressSection } from "@/components/progress-section";
+import { signed, WindowStats } from "@/components/window-stats";
 import { SleepCard } from "@/components/sleep-card";
 import { SleepTrend } from "@/components/sleep-trend";
 import { formatSleep, sleepTarget, sleepTotals } from "@/lib/sleep";
@@ -58,16 +59,38 @@ export default async function ProgressPage({
   // One target for every sleep figure on the screen, hers or the default.
   const target = sleepTarget(profile);
 
-  const [history, milestones, review, streak, sites, library, progression, eating, burn, totals, food, sleep] = await Promise.all([
-    db.select().from(weighIns).where(eq(weighIns.profileId, profile.id))
+  /*
+    How many days each horizon has actually had, up to the day on screen.
+
+    The food summaries are windows ending on `her`, so a month three days old
+    is averaged over three days and not thirty — a window mostly in the future
+    would read as almost entirely unlogged and refuse to say anything.
+  */
+  const daysThisWeek = dayIndex(her) + 1;
+  const daysThisMonth = Number(her.slice(8, 10));
+  const daysThisYear = Math.round(
+    (Date.parse(`${her}T00:00:00Z`) - Date.parse(`${her.slice(0, 4)}-01-01T00:00:00Z`)) / 86_400_000,
+  ) + 1;
+
+  const [
+    history, milestones, review, streak, sites, library, progression,
+    eating, weekFood, monthFood, yearFood, burn, totals, food, sleep,
+  ] = await Promise.all([
+    // Nothing after the day she is looking at. This is what left Friday's
+    // weigh-in sitting on Thursday's page, under a heading saying Thursday.
+    db.select().from(weighIns)
+      .where(and(eq(weighIns.profileId, profile.id), lte(weighIns.date, her)))
       .orderBy(desc(weighIns.date)).limit(60),
     db.select().from(goals).where(eq(goals.profileId, profile.id)).orderBy(goals.sortOrder, goals.createdAt),
     weekReview(profile.id, u, weekStart(her), her),
     currentStreak(profile.id, her),
-    measurementProgress(profile.id, u),
+    measurementProgress(profile.id, u, her),
     photoLibrary(profile.id),
     exerciseProgression(profile.id, u, { asOf: her }),
     nutritionTrend(profile.id, 14, her),
+    nutritionTrend(profile.id, daysThisWeek, her),
+    nutritionTrend(profile.id, daysThisMonth, her),
+    nutritionTrend(profile.id, daysThisYear, her),
     burnThisWeek(profile.id, weekStart(her), profile.startWeightKg ?? 70),
     trainingTotals(profile.id, her),
     dayFoodView(profile.id, her),
@@ -130,6 +153,55 @@ export default async function ProgressPage({
     { key: "carbs", label: "Carbs", value: food.carbsG, target: food.carbTargetG, complete: food.carbsComplete, suffix: "g" },
     { key: "fat", label: "Fat", value: food.fatG, target: food.fatTargetG, complete: food.fatComplete, suffix: "g" },
   ];
+
+  /*
+    One horizon's three strands, built the same way each time.
+
+    Training and food both refuse rather than round: a window with nothing
+    logged gets a dash and "nothing logged", and a food window the trend calls
+    under-logged says so instead of averaging four days into thirty. The body
+    figure is the *trend* across the window and is null unless she weighed in
+    inside it — one reading at the start and none since is not a flat month.
+  */
+  const strands = (
+    win: { sessions: number; volumeKg: number },
+    eat: typeof eating,
+    from: string,
+  ) => ({
+    training: win.sessions > 0
+      ? {
+          value: lb(win.volumeKg), unit,
+          sub: `lifted over ${win.sessions} session${win.sessions === 1 ? "" : "s"}`,
+        }
+      : null,
+    food: eat.avgCalories !== null && eat.trend !== "under-logged"
+      ? {
+          value: eat.avgCalories.toLocaleString(),
+          sub: `kcal a day${eat.avgProteinG !== null ? `, ${eat.avgProteinG}g protein` : ""}` +
+            ` · ${eat.daysCounted}/${eat.windowDays} days`,
+        }
+      : eat.daysLogged > 0
+        ? { value: `${eat.daysLogged}/${eat.windowDays}`, sub: "days logged — too few to average" }
+        : null,
+    body: (() => {
+      const moved = weightOut(trendChange(trend.series, from, her), u);
+      if (moved === null) return null;
+      // Down is good when she is losing, up is good when she is gaining, and
+      // neither is anything when she is holding. One place decides that, and
+      // it is not this line — `direction` came from goalDirection.
+      const right = direction === "hold"
+        ? Math.abs(moved) < 0.5
+        : direction === "lose" ? moved < 0 : moved > 0;
+      return {
+        value: signed(moved)!, unit: moved === 0 ? undefined : unit,
+        sub: "on the trend",
+        tone: (moved !== 0 && right ? "good" : "plain") as "good" | "plain",
+      };
+    })(),
+  });
+
+  const monthFrom = addDays(`${her.slice(0, 7)}-01`, -1);
+  const yearFrom = addDays(`${her.slice(0, 4)}-01-01`, -1);
 
   return (
     <>
@@ -250,7 +322,14 @@ export default async function ProgressPage({
           </div>
         </section>
 
-        <WeighIn current={current} unit={unit} loggedToday={weighedInToday} tone={profile.coachTone} />
+        <WeighIn
+          current={current}
+          unit={unit}
+          loggedToday={weighedInToday}
+          tone={profile.coachTone}
+          date={her}
+          dayLabel={isToday ? "Today" : prettyDate(her)}
+        />
 
         {/* Directly under the weigh-in: both are a number she gives the app
             first thing, and between them they explain most of a bad week. */}
@@ -259,6 +338,8 @@ export default async function ProgressPage({
           lastNight={sleep.lastNight ? formatSleep(sleep.lastNight.minutes) : null}
           target={formatSleep(target)}
           quality={sleep.lastNight?.quality ?? null}
+          date={her}
+          nightLabel={isToday ? "Last night" : `Night of ${prettyDate(her)}`}
         />
 
         {/* What she has eaten so far, on the same terms as the Eat screen: a
@@ -266,7 +347,9 @@ export default async function ProgressPage({
             a bar with no verdict rather than a colour it has not earned. */}
         {(food.logged.length > 0 || food.calorieTarget !== null) && (
           <section className="card mb-3 p-5">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-faint">Food today</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-faint">
+              {isToday ? "Food today" : "Food that day"}
+            </p>
             <MacroBars rows={macroRows} />
           </section>
         )}
@@ -275,13 +358,20 @@ export default async function ProgressPage({
             number still hers to change today. */}
         {totals.todaySets > 0 && (
           <section className="card mb-3 flex items-end justify-between gap-4 p-5">
-            <Headline value={lb(totals.todayVolumeKg)} unit={unit} label="lifted today" tone="good" />
+            <Headline value={lb(totals.todayVolumeKg)} unit={unit} label={isToday ? "lifted today" : "lifted that day"} tone="good" />
             <Headline value={String(totals.todaySets)} label={`set${totals.todaySets === 1 ? "" : "s"} logged`} />
           </section>
         )}
       </ProgressSection>
 
       <ProgressSection title="This week" hint={`week of ${prettyDate(weekStart(her))}`}>
+        <WindowStats
+          {...strands(
+            { sessions: totals.thisWeekSessions, volumeKg: totals.thisWeekVolumeKg },
+            weekFood,
+            addDays(weekStart(her), -1),
+          )}
+        />
         <section className="card mb-3 p-5">
           {/* What is left, first: after finishing Tuesday's session this said
               "still to do: Monday" and nothing at all about the two sessions
@@ -337,6 +427,13 @@ export default async function ProgressPage({
         rather than beside this morning's weigh-in.
       */}
       <ProgressSection title="This month" hint={monthName}>
+        <WindowStats
+          {...strands(
+            { sessions: totals.thisMonthSessions, volumeKg: totals.thisMonthVolumeKg },
+            monthFood,
+            monthFrom,
+          )}
+        />
         {totals.thisMonthSessions > 0 && (
           <section className="card mb-3 flex flex-wrap items-end justify-between gap-4 p-5">
             <Headline value={lb(totals.thisMonthVolumeKg)} unit={unit} label="lifted this month" tone="good" />
@@ -357,6 +454,13 @@ export default async function ProgressPage({
         is the section to scroll to on the day the week has gone badly.
       */}
       <ProgressSection title="This year and all time" hint={her.slice(0, 4)}>
+        <WindowStats
+          {...strands(
+            { sessions: totals.thisYearSessions, volumeKg: totals.thisYearVolumeKg },
+            yearFood,
+            yearFrom,
+          )}
+        />
         {totals.sessions > 0 && (
           <section className="card mb-3 overflow-hidden p-5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-beat">Lifted, all time</p>

@@ -7,6 +7,7 @@ import { MealRow } from "./meal-row";
 import { RecipeScan } from "./recipe-scan";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
+import { AteThePlan } from "./ate-the-plan";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -21,8 +22,12 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  */
 export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
-  burnKcal, burnSessions,
+  burnKcal, burnSessions, isToday,
 }: {
+  /** Whether the day on screen is her today. "Planned for today" over
+   *  Thursday is the kind of wrong that only gets noticed after it is
+   *  believed — the screen steps back a day at a time now. */
+  isToday: boolean;
   day: DayFoodView;
   /** Her regulars, for one-tap logging. */
   saved: SavedMeal[];
@@ -38,12 +43,20 @@ export function EatClient({
   burnKcal: number;
   burnSessions: number;
 }) {
+  /*
+    Which meals of the day already have something in them.
+
+    By slot, matching the tool: a meal she typed in herself carries no planned
+    meal id, so counting by id offered to log a breakfast that was already in
+    her log — and then did.
+  */
+  const takenSlots = new Set(day.logged.map((l) => l.slot));
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
       {/* The day's log is the point of the screen and the widest thing on it —
           it takes the whole row rather than sharing one. */}
       <div className="xl:col-span-2">
-        <TodayFood day={day} saved={saved} />
+        <TodayFood day={day} saved={saved} isToday={isToday} />
       </div>
 
       {/* Folds away, and stays folded — on the account, so it follows her to
@@ -51,7 +64,7 @@ export function EatClient({
           is worth having. */}
       <FoldableCard
         id="plannedFood"
-        title="Planned for today"
+        title={isToday ? "Planned for today" : "Planned for that day"}
         startOpen={plannedOpen}
         // A column beside another one with room to spare: folding it here
         // saves nothing and only hides something.
@@ -63,7 +76,16 @@ export function EatClient({
         ) : null}
       >
         {planned.length > 0 ? (
-          <div>{planned.map((m) => <MealRow key={m.id} meal={m} />)}</div>
+          <div>
+            {planned.map((m) => <MealRow key={m.id} meal={m} />)}
+            {/* The plan already holds every figure she would otherwise retype.
+                `remaining` counts only what is not already in her log, so the
+                button says how much work it is actually about to do. */}
+            <AteThePlan
+              date={day.date}
+              remaining={planned.filter((m) => !takenSlots.has(m.slot)).length}
+            />
+          </div>
         ) : (
           // An empty state, not a missing card: a section that disappears is
           // indistinguishable from one that is broken.
@@ -88,7 +110,7 @@ export function EatClient({
         already contains her training.
       */}
       <BurnCard
-        title="Training today"
+        title={isToday ? "Training today" : "Training that day"}
         kcal={burnKcal}
         sub="burned"
         sessions={burnSessions}

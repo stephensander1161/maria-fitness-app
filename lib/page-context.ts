@@ -8,7 +8,7 @@ import { dayFoodView, mealWeekView, todayView, weekView } from "@/lib/views";
 import { lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { profileToday } from "@/lib/profile";
 import { foodUnitsOf } from "@/lib/food-units";
-import { DAY_NAMES, weekStart } from "@/lib/date";
+import { DAY_NAMES, type ISODate, isFuture, prettyDate, weekStart } from "@/lib/date";
 
 export type OpinionPage = "train" | "plan" | "progress";
 
@@ -22,15 +22,42 @@ export type OpinionPage = "train" | "plan" | "progress";
 export async function buildPageContext(
   profileId: string,
   page: OpinionPage,
+  /*
+    The day the screen is actually showing.
+
+    Train, Eat and Progress all take a `?d=`, and this read every one of them
+    as today — so on Friday, stepped back to Thursday, the coach was handed
+    Friday's numbers and answered about Friday. It believes this block
+    completely, so being one day out is not a small wrongness: it is the coach
+    telling her she has eaten nothing when she is looking at a full day.
+
+    Defaults to her today, and `contextForPath` is the only caller that can
+    set it — from a date it has already validated.
+  */
+  on?: ISODate,
 ): Promise<string> {
   const [profile] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
   if (!profile) return "No profile.";
   const u = profile.units;
   const unit = weightLabel(u);
+  const today = profileToday(profile);
+  // A day she cannot be reading. The pages clamp their own, so this is the
+  // browser being wrong or lying, and either way today is the honest answer.
+  const day = on && !isFuture(on, today) ? on : today;
+  const isToday = day === today;
+  // Said once, plainly, and said first. Everything below it is that day's.
+  const whichDay = isToday
+    ? ""
+    : `NOTE: she has stepped back to ${prettyDate(day)}. Everything below is that day, ` +
+      `NOT today — today is ${prettyDate(today)}. Answer about the day she is looking at, ` +
+      `and do not congratulate or worry her about today from these numbers.`;
 
   if (page === "train") {
-    const view = await todayView(profileId, u, profileToday(profile));
-    if (!view.hasPlan) return "She is looking at today's workout. There is no plan for this week.";
+    const view = await todayView(profileId, u, day);
+    if (!view.hasPlan) {
+      return [whichDay, `She is looking at the workout for ${prettyDate(day)}. There is no plan for that week.`]
+        .filter(Boolean).join("\n");
+    }
 
     const lines = view.exercises.map((e) => {
       const doneStr = e.loggedToday.length
@@ -39,13 +66,15 @@ export async function buildPageContext(
       const last = e.lastTime
         ? e.lastTime.sets.map((s) => `${s.reps}${s.weight !== null ? `@${s.weight}` : ""}`).join(", ")
         : "no previous session";
-      return `- ${e.name}${e.extra ? " (added today)" : ""}: target ${e.targetSets}×${e.targetReps}` +
+      return `- ${e.name}${e.extra ? " (added that day)" : ""}: target ${e.targetSets}×${e.targetReps}` +
         `${e.targetWeight !== null ? ` @ ${e.targetWeight}${unit}` : ""}. ` +
-        `Logged today: ${doneStr}. Last time: ${last}.`;
+        `Logged ${isToday ? "today" : "that day"}: ${doneStr}. Last time: ${last}.`;
     });
 
     return [
-      `She is looking at TODAY'S WORKOUT — ${view.dayName}, "${view.title}".`,
+      whichDay,
+      `She is looking at ${isToday ? "TODAY'S WORKOUT" : `THE WORKOUT FOR ${prettyDate(day)}`}` +
+        ` — ${view.dayName}, "${view.title}".`,
       view.isRest ? "It is a rest day." : "",
       view.completed ? "She has already signed the session off." : "",
       ...lines,
@@ -54,9 +83,9 @@ export async function buildPageContext(
 
   if (page === "plan") {
     const [week, mealWeek, dayFood] = await Promise.all([
-      weekView(profileId, u, weekStart(profileToday(profile)), profileToday(profile)),
-      mealWeekView(profileId, foodUnitsOf(profile), weekStart(profileToday(profile)), profileToday(profile)),
-      dayFoodView(profileId, profileToday(profile)),
+      weekView(profileId, u, weekStart(day), day),
+      mealWeekView(profileId, foodUnitsOf(profile), weekStart(day), day),
+      dayFoodView(profileId, day),
     ]);
     const training = week.exists
       ? week.days.map((d) =>
@@ -74,9 +103,10 @@ export async function buildPageContext(
     // this the coach reads the plan and answers "how am I doing today?" from
     // meals she may never have eaten — planned food reads as eaten food unless
     // you say which is which. It is also the top of the screen she is on.
+    const when = isToday ? "so far today" : `on ${prettyDate(day)}`;
     const eaten = dayFood.logged.length
       ? [
-          `EATEN so far today (this is actual intake, not the plan): ${dayFood.calories} kcal` +
+          `EATEN ${when} (this is actual intake, not the plan): ${dayFood.calories} kcal` +
             `${dayFood.calorieTarget !== null ? ` of a ${dayFood.calorieTarget} kcal target` : ""}, ` +
             `${dayFood.proteinG}g protein` +
             `${dayFood.proteinTargetG !== null ? ` of ${dayFood.proteinTargetG}g` : ""}.`,
@@ -88,21 +118,23 @@ export async function buildPageContext(
           ...dayFood.logged.map((l) =>
             `- ${l.slot}: ${l.description}${l.calories !== null ? ` (${l.calories} kcal)` : ""}`),
         ]
-      : ["She has not logged any food today."];
+      : [`She has not logged any food ${isToday ? "today" : `on ${prettyDate(day)}`}.`];
 
     return [
-      `She is looking at THIS WEEK'S PLAN${week.exists ? ` — "${week.title}"` : ""}.`,
+      whichDay,
+      `She is looking at ${isToday ? "THIS WEEK'S PLAN" : `the plan for the week of ${prettyDate(weekStart(day))}`}` +
+        `${week.exists ? ` — "${week.title}"` : ""}.`,
       "Training:", ...training, "", "Meals planned:", ...food, "", ...eaten,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
 
   // progress
   const [review, streak, sites, progression, eating] = await Promise.all([
-    weekReview(profileId, u, weekStart(profileToday(profile)), profileToday(profile)),
-    currentStreak(profileId, profileToday(profile)),
+    weekReview(profileId, u, weekStart(day), day),
+    currentStreak(profileId, day),
     measurementProgress(profileId, u),
-    exerciseProgression(profileId, u, { asOf: profileToday(profile) }),
-    nutritionTrend(profileId, 14, profileToday(profile)),
+    exerciseProgression(profileId, u, { asOf: day }),
+    nutritionTrend(profileId, 14, day),
   ]);
 
   // The direction is spelled out rather than left to be inferred from three
@@ -135,6 +167,7 @@ export async function buildPageContext(
   })();
 
   return [
+    whichDay,
     "She is looking at PROGRESS.",
     `Weight: ${weight || "nothing recorded"}.`,
     // On this screen the eating is what explains the weight line. The headline
@@ -144,7 +177,7 @@ export async function buildPageContext(
       (eating.trend === "under-logged" || eating.trend === "no-data"
         ? " Do not infer anything about her eating from this — there is not enough logged."
         : ""),
-    `This week: ${review.completed} of ${review.planned} sessions, ${review.totalSets} sets, ${streak}-day streak.`,
+    `${isToday ? "This week" : `The week of ${prettyDate(weekStart(day))}`}: ${review.completed} of ${review.planned} sessions, ${review.totalSets} sets, ${streak}-day streak.`,
     review.remainingDays.length
       ? `Left to do this week: ${review.remainingDays.join(", ")}.`
       : "",
@@ -183,9 +216,34 @@ export const dayName = (i: number) => DAY_NAMES[i];
  * screen whose contents the coach already has in its state block.
  */
 export type Screen =
-  | { kind: "opinion"; page: OpinionPage; label: string }
+  | { kind: "opinion"; page: OpinionPage; label: string; on: ISODate | null }
   | { kind: "library"; label: string }
   | { kind: "movement"; slug: string };
+
+/**
+ * The day a `?d=` names, or null — and null for anything that is not one.
+ *
+ * The screens that step back and forward all use `?d=`, and the coach has to
+ * know which day is on the screen or it answers about today. That makes this
+ * the second thing the browser gets to say, so it is held to the same standard
+ * as the movement slug: an exact shape, parsed, and checked to be the date it
+ * claims to be — "2026-02-31" round-trips to March and is refused rather than
+ * quietly moved. A future date is refused too; she cannot be reading one.
+ *
+ * The value is never pasted into the prompt as given. Everything rendered from
+ * it goes through `prettyDate`, so the most a hostile string can achieve is a
+ * real date that is not the one she is on. A date in the future is turned away
+ * in `buildPageContext`, where her today is known.
+ */
+export function dayInPath(path: string): ISODate | null {
+  const raw = path.split("#")[0].split("?")[1];
+  if (!raw) return null;
+  const d = new URLSearchParams(raw).get("d");
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const parsed = new Date(`${d}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== d) return null;
+  return d as ISODate;
+}
 
 /**
  * Which screen a path names — and nothing else.
@@ -198,15 +256,16 @@ export type Screen =
  */
 export function screenFor(path: string): Screen | null {
   const clean = path.split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
+  const on = dayInPath(path);
 
-  if (clean === "/train") return { kind: "opinion", page: "train", label: "today's workout" };
-  if (clean === "/plan") return { kind: "opinion", page: "plan", label: "this week's plan" };
+  if (clean === "/train") return { kind: "opinion", page: "train", on, label: on ? `the workout on ${prettyDate(on)}` : "today's workout" };
+  if (clean === "/plan") return { kind: "opinion", page: "plan", on: null, label: "this week's plan" };
   // Eat and Kitchen are both about food this week, which is what the plan
   // context already assembles — planned meals, and what she has actually
   // eaten today, kept apart from each other.
-  if (clean === "/eat") return { kind: "opinion", page: "plan", label: "today's food" };
-  if (clean === "/kitchen") return { kind: "opinion", page: "plan", label: "the shopping and the kitchen" };
-  if (clean === "/progress") return { kind: "opinion", page: "progress", label: "her progress" };
+  if (clean === "/eat") return { kind: "opinion", page: "plan", on, label: on ? `her food on ${prettyDate(on)}` : "today's food" };
+  if (clean === "/kitchen") return { kind: "opinion", page: "plan", on: null, label: "the shopping and the kitchen" };
+  if (clean === "/progress") return { kind: "opinion", page: "progress", on, label: on ? `her progress as of ${prettyDate(on)}` : "her progress" };
   if (clean === "/learn") return { kind: "library", label: "the movement library" };
 
   const move = clean.match(/^\/learn\/([a-z0-9-]+)$/);
@@ -221,7 +280,10 @@ export async function contextForPath(
   if (!screen) return null;
 
   if (screen.kind === "opinion") {
-    return { label: screen.label, context: await buildPageContext(profileId, screen.page) };
+    return {
+      label: screen.label,
+      context: await buildPageContext(profileId, screen.page, screen.on ?? undefined),
+    };
   }
   if (screen.kind === "library") {
     return { label: screen.label, context: "She is browsing the movement library." };

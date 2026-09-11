@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCoachThread } from "@/lib/use-coach-thread";
 import { useDialog } from "@/lib/use-dialog";
 import { Composer, ThreadMessages } from "./coach-thread";
@@ -113,7 +113,11 @@ function Sheet({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const path = usePathname();
+  // The query as well as the path: `?d=` is how these screens say which day,
+  // and a read of "her food" on Thursday must not be a read of Friday's.
+  const only = usePathname();
+  const search = useSearchParams().toString();
+  const path = search ? `${only}?${search}` : only;
   const {
     messages, streaming, activity, busy, error, errorCode, input, setInput, stream, send, replay, stop,
   } = useCoachThread({ onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); } });
@@ -136,10 +140,10 @@ function Sheet({
     // running and writing into a component that is gone.
     const controller = new AbortController();
     let live = true;
-    void stream({ opinion: page }, { signal: controller.signal })
+    void stream({ opinion: page, page: path }, { signal: controller.signal })
       .then(() => { if (live) setOpened(true); });
     return () => { live = false; controller.abort(); };
-  }, [mode, page, stream]);
+  }, [mode, page, path, stream]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });

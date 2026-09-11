@@ -39,11 +39,21 @@ type Logged = {
 };
 
 export function WeighIn({
-  current, unit, loggedToday, tone,
+  current, unit, loggedToday, tone, date, dayLabel = "Today",
 }: {
   current: number | null;
   unit: string;
   loggedToday: boolean;
+  /*
+    The day this writes to — the one on screen, not the one it is.
+
+    Progress steps back a day at a time, and this said "Today" over Thursday
+    and then filed the reading under Friday. `log_weight` has always taken a
+    date; nothing was passing it one.
+  */
+  date?: string;
+  /** What to call that day above the row. */
+  dayLabel?: string;
   /** The register she picked. The screens used to speak in one voice while
    *  the coach spoke in hers, which reads as two different apps. */
   tone: Tone | null;
@@ -59,7 +69,7 @@ export function WeighIn({
     setSaving(true);
     setError(null);
     try {
-      const r = await action<Logged>("log_weight", { weight: value });
+      const r = await action<Logged>("log_weight", { weight: value, ...(date ? { date } : {}) });
       setOpen(false);
       setDone(r);
       startTransition(() => router.refresh());
@@ -121,7 +131,7 @@ export function WeighIn({
       return (
         <section className="card mb-3 flex items-center gap-3 p-3 pl-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wide text-faint">Today</p>
+            <p className="text-[11px] uppercase tracking-wide text-faint">{dayLabel}</p>
             <p className="text-[13px] text-muted tabular">
               {current !== null ? `Weighed in at ${current} ${unit}` : "Weighed in"}
             </p>
@@ -145,7 +155,7 @@ export function WeighIn({
     return (
       <section className="card mb-3 flex items-center gap-3 border-accent/50 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-wide text-accent">Today</p>
+          <p className="text-[11px] uppercase tracking-wide text-accent">{dayLabel}</p>
           <p className="text-[13px] text-muted">Not weighed in yet — it takes ten seconds.</p>
         </div>
         <button

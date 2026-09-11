@@ -85,6 +85,7 @@ export default async function EatPage({
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}
         foodUnits={mealWeek.foodUnits}
         plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
+        isToday={isToday}
       defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
         burnKcal={burnToday.reduce((n, d) => n + d.kcal, 0)}
         burnSessions={burnToday.length}

@@ -561,6 +561,108 @@ export const getFact = defineTool({
   },
 });
 
+export const logPlannedDay = defineTool({
+  name: "log_planned_day",
+  description:
+    "Logs the day's planned meals as eaten, in one call — for when she says she ate the plan, ate everything, or stuck to it. Leaves alone any meal slot she has already logged something in, so it is safe to call twice and safe to call after she has logged breakfast herself; `skipped` names those slots and you should say so. Each meal takes its ingredients out of the kitchen exactly as logging it one at a time would. Returns what it logged and the day's totals; pass a date for a day she is catching up on.",
+  input: z.object({
+    date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
+    slots: z.array(slotEnum).optional()
+      .describe("Only these meals — 'I had the planned breakfast and lunch'. Omit for the whole day."),
+  }),
+  handler: async (input, ctx) => {
+    const her = await todayForProfile(ctx.profileId);
+    const date = input.date ?? her;
+    if (isFuture(date, her)) return { ok: false, error: FUTURE_DATE_ERROR };
+
+    /*
+      The plan for that day, scoped through the plan row.
+
+      Same rule as `herMeal`: a meal id is only hers if the plan it belongs to
+      is. Here the meals are found *from* her plan rather than looked up and
+      checked afterwards, which is the version that cannot be got wrong.
+    */
+    const rows = await db.select({
+      id: meals.id, slot: meals.slot, title: meals.title,
+      calories: meals.calories, proteinG: meals.proteinG,
+      carbsG: meals.carbsG, fatG: meals.fatG, ingredients: meals.ingredients,
+    })
+      .from(meals)
+      .innerJoin(mealPlans, eq(meals.mealPlanId, mealPlans.id))
+      .where(and(
+        eq(mealPlans.profileId, ctx.profileId),
+        eq(mealPlans.weekStart, weekStart(date)),
+        eq(meals.dayOfWeek, dayIndex(date)),
+      ));
+
+    if (rows.length === 0) {
+      return { ok: false, error: `Nothing is planned for ${date}, so there is nothing to log. Log what she actually ate with log_meal.` };
+    }
+
+    /*
+      What is already down for that day.
+
+      By *slot*, not by meal id — and that distinction is the whole thing. A
+      meal she typed in herself carries no meal id, so matching on the id let
+      this log a second breakfast on top of the one she had already written
+      down: 2150 kcal for a 1730 kcal day, and the button's own copy promised
+      it would not. If something is already in the slot, this leaves the slot
+      alone and says how many it skipped.
+    */
+    const already = await db.select({ slot: mealLogs.slot })
+      .from(mealLogs)
+      .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+    const taken = new Set(already.map((r) => r.slot));
+
+    const wanted = input.slots?.length ? new Set(input.slots) : null;
+    const todo = rows.filter((m) => !taken.has(m.slot) && (!wanted || wanted.has(m.slot)));
+
+    const done: { slot: string; title: string; calories: number }[] = [];
+    for (const m of todo) {
+      const [row] = await db.insert(mealLogs).values({
+        profileId: ctx.profileId, date, slot: m.slot, mealId: m.id,
+        description: m.title,
+        calories: m.calories, proteinG: m.proteinG,
+        carbsG: m.carbsG, fatG: m.fatG,
+        // The planner writes calories and macros, never fibre. Null rather
+        // than 0: the day's fibre stays a floor and says so, exactly as it
+        // does for a meal described in words.
+        fibreG: null,
+        confidence: "library",
+        // One key per meal per day, so a double tap or a retried request
+        // cannot log the same planned meal twice.
+        clientKey: `planned:${ctx.profileId}:${date}:${m.id}`,
+      }).onConflictDoNothing({ target: mealLogs.clientKey }).returning();
+      if (!row) continue;
+      done.push({ slot: m.slot, title: m.title, calories: m.calories });
+      // Eating a planned meal empties part of the kitchen, the same as
+      // logging it one at a time does.
+      await consumeForMeal(ctx.profileId, m.ingredients);
+    }
+
+    const dayRows = await db.select({
+      calories: mealLogs.calories, proteinG: mealLogs.proteinG, fibreG: mealLogs.fibreG,
+    }).from(mealLogs)
+      .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+    const counted = dayRows.filter((r) => r.calories !== null);
+    const fibre = fibreForDay(dayRows);
+
+    return {
+      ok: true,
+      date,
+      logged: done,
+      /** Planned meals left alone because that slot already had something in
+          it. Tell her which, so a skipped meal is never a silent one. */
+      skipped: rows.filter((m) => taken.has(m.slot)).map((m) => m.slot),
+      dayCalories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
+      dayProteinG: dayRows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
+      caloriesAreComplete: counted.length === dayRows.length,
+      dayFibreG: fibre.grams,
+      fibreIsCompleteForDay: fibre.complete,
+    };
+  },
+});
+
 export const removeMealLog = defineTool({
   name: "remove_meal_log",
   description:

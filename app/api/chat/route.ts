@@ -8,7 +8,7 @@ import { checkChatAllowed, LIMITS } from "@/lib/limits";
 import { hasHistory } from "@/lib/agent/history";
 import { audit } from "@/lib/audit";
 import {
-  buildPageContext, contextForPath, OPINION_PROMPT, type OpinionPage,
+  buildPageContext, contextForPath, dayInPath, OPINION_PROMPT, type OpinionPage,
 } from "@/lib/page-context";
 
 /**
@@ -106,8 +106,12 @@ export async function POST(req: Request) {
     // the browser — same rule as the opening greeting. Handing the coach the
     // data directly also saves several tool round trips for a question that is
     // explicitly about what is already on screen.
+    // Which day that screen is showing, where it is showing one. Validated in
+    // `dayInPath` and clamped against her today inside `buildPageContext` —
+    // the browser names the day, the server still reads what is on it.
+    const on = typeof page === "string" && page.length < 200 ? dayInPath(page) : null;
     text = `[She tapped "Get my coach's read" on this screen.]\n\n${
-      await buildPageContext(profile.id, opinion)
+      await buildPageContext(profile.id, opinion, on ?? undefined)
     }\n\n${OPINION_PROMPT[opinion]}`;
     silent = true;
   } else {

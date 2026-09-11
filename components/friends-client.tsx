@@ -173,7 +173,19 @@ export function FriendsClient({
           </p>
         </section>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div
+          /*
+            Two across only where two actually fit.
+
+            From xl the paperwork takes an 18rem column out of the page, and a
+            friend card in half of what is left is about 290px — with the rank
+            beside the name and the high-five stamp in the corner, the name was
+            truncated to a letter or two. So the pair collapses back to one
+            column exactly where the sidebar appears, and returns at 2xl where
+            there is width for both.
+          */
+          className="grid gap-3 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
+        >
           {friends.map((f) => (
             <FriendWeek
               key={f.friendshipId}
@@ -412,8 +424,13 @@ function FriendWeek({
           long by design and names are short; the one that has to fit is the
           one that says who this is. */}
       <div className="flex flex-col gap-0.5 pr-16 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-        <h2 className="min-w-0 truncate text-[15px] font-semibold">{friend.name}</h2>
-        <span className="min-w-0 truncate text-[11px] uppercase tracking-widest text-accent">{friend.title}</span>
+        {/* Twice the share of the row, so when there is not enough for both it
+            is the rank that gives way. Truncating the name is the one thing
+            this card must not do: it is the only part that says who it is. */}
+        <h2 className="min-w-0 flex-[2] truncate text-[15px] font-semibold">{friend.name}</h2>
+        <span className="min-w-0 flex-1 truncate text-[11px] uppercase tracking-widest text-accent sm:text-right">
+          {friend.title}
+        </span>
       </div>
 
       {friend.sessionsThisWeek === 0 ? (

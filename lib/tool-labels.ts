@@ -55,6 +55,7 @@ export const TOOL_LABELS: Record<string, string> = {
   log_cook_session: "noting what you cooked", list_prepped_portions: "checking the fridge",
   eat_prepped_portion: "logging that portion", adjust_prepped_portion: "updating the count",
   log_meal: "logging your meal", update_meal_log: "correcting that entry",
+  log_planned_day: "logging the planned meals",
   clear_meal_logs: "clearing that day's food", get_day_nutrition: "totalling today's food",
   get_fact: "finding something worth knowing",
   estimate_recipe_from_photo: "reading the recipe",

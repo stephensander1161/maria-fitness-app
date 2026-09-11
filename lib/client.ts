@@ -91,7 +91,9 @@ export async function* streamCoach(
   body:
     | { message: string; page?: string }
     | { kickoff: true; page?: string }
-    | { opinion: "train" | "plan" | "progress" },
+    // `page` rides along with an opinion too: the read is about the screen,
+    // and on Eat, Train and Progress the screen may be showing an earlier day.
+    | { opinion: "train" | "plan" | "progress"; page?: string },
   opts: { signal?: AbortSignal } = {},
 ): AsyncGenerator<CoachEvent> {
   const res = await fetch("/api/chat", {

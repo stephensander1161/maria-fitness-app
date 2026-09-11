@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
@@ -40,7 +40,18 @@ export function CoachBubble({
    */
   float?: boolean;
 }) {
-  const path = usePathname();
+  /*
+    The path *and* its query, because the query is what says which day.
+
+    Eat, Train and Progress all step back with `?d=`, and `usePathname()`
+    drops it — so from Thursday's food the coach was handed Friday and
+    answered about Friday. The server still reads what is on the screen; it
+    just needs to be told which screen, and "/eat" and "/eat?d=2026-09-10"
+    are two of them.
+  */
+  const only = usePathname();
+  const search = useSearchParams().toString();
+  const path = search ? `${only}?${search}` : only;
   const [open, setOpen] = useState(false);
 
   /**

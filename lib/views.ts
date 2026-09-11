@@ -580,6 +580,8 @@ export type DayFoodView = {
     id: string; slot: string; description: string;
     calories: number | null; proteinG: number | null; fibreG: number | null;
     carbsG: number | null; fatG: number | null;
+    /** The planned meal this entry was, where it was one. */
+    mealId: string | null;
   }[];
   calories: number;
   proteinG: number;
@@ -653,7 +655,7 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     logged: rows.map((r) => ({
       id: r.id, slot: r.slot, description: r.description,
       calories: r.calories, proteinG: r.proteinG, fibreG: r.fibreG,
-      carbsG: r.carbsG, fatG: r.fatG,
+      carbsG: r.carbsG, fatG: r.fatG, mealId: r.mealId,
     })),
     calories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
     caloriesKnownFor: counted.length,

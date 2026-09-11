@@ -611,11 +611,23 @@ export type SiteProgress = {
 export async function measurementProgress(
   profileId: string,
   units: Units,
+  /*
+    The day the screen is read as of.
+
+    Progress steps back a day at a time, and this used to return the newest
+    measurement whatever day was on screen — so Thursday's page carried
+    Friday's tape. Nothing after the day she is looking at, the same way every
+    other figure on that screen behaves.
+  */
+  asOf?: ISODate,
 ): Promise<SiteProgress[]> {
   const rows = await db
     .select({ site: measurements.site, date: measurements.date, valueCm: measurements.valueCm })
     .from(measurements)
-    .where(eq(measurements.profileId, profileId))
+    .where(and(
+      eq(measurements.profileId, profileId),
+      ...(asOf ? [lte(measurements.date, asOf)] : []),
+    ))
     .orderBy(measurements.site, measurements.date);
 
   const bySite = new Map<string, { date: ISODate; value: number }[]>();

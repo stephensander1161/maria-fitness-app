@@ -25,6 +25,22 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-ate-the-plan",
+    date: "2026-09-11",
+    title: "Ate the plan? One tap",
+    blurb:
+      "On a day you stuck to the plan, one button on the Eat screen copies every planned meal into your log \u2014 figures, macros and all \u2014 and takes the ingredients out of your kitchen. It leaves alone any meal you have already logged yourself.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-11-progress-horizons",
+    date: "2026-09-11",
+    title: "Training, food and body at every horizon",
+    blurb:
+      "The week, the month and the year each show all three now instead of training alone. And stepping back a day moves the whole screen with it \u2014 the weigh-in, the tape and the labels included.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-11-yesterday",
     date: "2026-09-11",
     title: "Look back a day",

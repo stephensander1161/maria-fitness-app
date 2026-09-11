@@ -33,8 +33,12 @@ type Logged = {
 const QUALITY = ["Rough", "Poor", "OK", "Good", "Great"];
 
 export function SleepCard({
-  lastNight, target, quality: loggedQuality, tone,
+  lastNight, target, quality: loggedQuality, tone, date, nightLabel = "Last night",
 }: {
+  /** The morning this is filed under — the day on screen, not today's. */
+  date?: string;
+  /** What to call that night. "Last night" only reads right on today. */
+  nightLabel?: string;
   /** The register she picked — see lib/voice.ts. */
   tone: Tone | null;
   /** What she slept, already formatted — "7h 30m" — or null for not logged. */
@@ -57,6 +61,7 @@ export function SleepCard({
       const r = await action<Logged>("log_sleep", {
         howLong: `${hours}h`,
         ...(quality === null ? {} : { quality }),
+        ...(date ? { date } : {}),
       });
       setOpen(false);
       setDone(r);
@@ -102,7 +107,7 @@ export function SleepCard({
       return (
         <section className="card mb-3 flex items-center gap-3 p-3 pl-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wide text-faint">Last night</p>
+            <p className="text-[11px] uppercase tracking-wide text-faint">{nightLabel}</p>
             <p className="text-[13px] text-muted tabular">
               {lastNight}
               {loggedQuality !== null && ` · ${QUALITY[loggedQuality - 1]}`}
@@ -122,7 +127,7 @@ export function SleepCard({
     return (
       <section className="card mb-3 flex items-center gap-3 border-accent/50 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-wide text-accent">Last night</p>
+          <p className="text-[11px] uppercase tracking-wide text-accent">{nightLabel}</p>
           <p className="text-[13px] text-muted">No sleep logged — it takes five seconds.</p>
         </div>
         <button

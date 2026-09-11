@@ -152,6 +152,7 @@ const all: Tool[] = [
   foodTools.findRecipes,
   foodTools.lookupFood,
   nutrition.logMeal,
+  nutrition.logPlannedDay,
   nutrition.updateMealLog,
   nutrition.clearMealLogs,
   training.logSet,

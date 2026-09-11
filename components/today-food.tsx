@@ -13,7 +13,11 @@ import { MacroBars } from "./macro-bars";
  * she actually has standing at the fridge is "where am I now", not "what was
  * I supposed to have on Thursday".
  */
-export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[] }) {
+export function TodayFood({
+  day, saved, isToday = true,
+}: { day: DayFoodView; saved: SavedMeal[]; isToday?: boolean }) {
+  // The screen steps back a day at a time; the heading has to follow it.
+  const heading = isToday ? "Today\u2019s food" : "That day\u2019s food";
   const router = useRouter();
   const [removing, setRemoving] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -70,7 +74,7 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
   if (day.logged.length === 0) {
     return (
       <section className="card mb-3 p-5">
-        <h2 className="text-[15px] font-semibold">Today&rsquo;s food</h2>
+        <h2 className="text-[15px] font-semibold">{heading}</h2>
         <p className="mt-1 text-[13px] text-faint">
           Nothing logged yet. Add it below, work it out with the calculator, or just tell your coach.
         </p>
@@ -90,7 +94,7 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
 
   return (
     <section className="card mb-3 p-5">
-      <h2 className="mb-3 text-[15px] font-semibold">Today&rsquo;s food</h2>
+      <h2 className="mb-3 text-[15px] font-semibold">{heading}</h2>
 
       {/*
         What just happened to the day, the moment something is logged.
