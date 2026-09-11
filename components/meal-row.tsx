@@ -18,8 +18,23 @@ import type { MealWeekView } from "@/lib/views";
 type Meal = MealWeekView["days"][number]["meals"][number];
 type Recipe = { ingredients: string[]; steps: string[]; prepMinutes: number | null };
 
-export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number }) {
+export function MealRow({
+  meal, dayOfWeek, ateOn, logged = false,
+}: {
+  meal: Meal;
+  dayOfWeek?: number;
+  /*
+    The day this row is being read on — set only on the Eat screen, where the
+    question is what she *ate*. Given one, the row offers to log itself: the
+    plan already holds the title and every figure, and the alternative was
+    typing all of it back into the calculator.
+  */
+  ateOn?: string;
+  /** Already in her log for that day. */
+  logged?: boolean;
+}) {
   const router = useRouter();
+  const [eating, setEating] = useState(false);
   const [open, setOpen] = useState(false);
   /**
    * Changing what is planned, where it is planned.
@@ -70,6 +85,22 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
     }
   };
 
+  async function ate() {
+    setEating(true);
+    setError(null);
+    try {
+      // Through the same tool as "ate the plan", naming this one meal — so the
+      // figures come off the plan on the server rather than being sent up from
+      // here, and a double tap cannot log it twice.
+      await action("log_planned_day", { date: ateOn, mealIds: [meal.id] });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't log that — try again."));
+    } finally {
+      setEating(false);
+    }
+  }
+
   async function remove() {
     setRemoving(true);
     setError(null);
@@ -106,6 +137,30 @@ export function MealRow({ meal, dayOfWeek }: { meal: Meal; dayOfWeek?: number })
             {meal.fatG !== null && meal.fatG !== undefined && ` · ${meal.fatG}f`}
           </span>
         </button>
+        {ateOn !== undefined && (
+          logged ? (
+            // Not a disabled button and not nothing: a tick says the row is
+            // done, where a control that vanished would read as broken.
+            <span
+              aria-label={`${meal.title} is logged`}
+              className="-my-1 grid size-7 shrink-0 place-items-center rounded-full text-beat"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="m5 13 4 4L19 7" />
+              </svg>
+            </span>
+          ) : (
+            <button
+              onClick={ate}
+              disabled={eating}
+              aria-label={`Log that you ate ${meal.title}`}
+              className="-my-1 shrink-0 rounded-full border border-edge px-2.5 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-raised active:bg-raised disabled:opacity-40"
+            >
+              {eating ? "…" : "Ate it"}
+            </button>
+          )
+        )}
         {dayOfWeek !== undefined && (
           <>
             <button

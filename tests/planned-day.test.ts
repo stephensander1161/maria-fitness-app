@@ -31,6 +31,18 @@ suite("logging the day she ate the plan", () => {
       .toMatch(/takenSlots\.has\(m\.slot\)/);
   });
 
+  it("logs one named meal even into a slot that already has something in it", () => {
+    // The slot guard is for "I ate the plan", where leaving a filled slot
+    // alone is the honest default. Tapping one meal is her pointing at it, and
+    // refusing because there is already a snack down would be the app arguing.
+    expect(handler).toMatch(/const byId = input\.mealIds\?\.length \? new Set\(input\.mealIds\) : null;/);
+    expect(handler).toMatch(/\? rows\.filter\(\(m\) => byId\.has\(m\.id\)\)/);
+    // And a named meal that is not in her plan is a refusal, not a silent
+    // no-op — the rows were found through her plan, so an id from anywhere
+    // else simply is not there.
+    expect(handler).toMatch(/if \(byId && todo\.length === 0\)/);
+  });
+
   it("cannot log the same planned meal twice even on a retry", () => {
     // One key per planned meal per day, on the unique column — a double tap
     // on a slow connection is the normal shape of this.

@@ -51,6 +51,11 @@ export function EatClient({
     her log — and then did.
   */
   const takenSlots = new Set(day.logged.map((l) => l.slot));
+  // …and which planned meals are down as themselves, for the row's own tick.
+  // A meal she typed by hand has no id, so this marks fewer rows than are
+  // really eaten rather than more — the direction that leaves a button she
+  // can still press.
+  const loggedMealIds = new Set(day.logged.map((l) => l.mealId).filter(Boolean));
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
       {/* The day's log is the point of the screen and the widest thing on it —
@@ -77,7 +82,14 @@ export function EatClient({
       >
         {planned.length > 0 ? (
           <div>
-            {planned.map((m) => <MealRow key={m.id} meal={m} />)}
+            {planned.map((m) => (
+              <MealRow
+                key={m.id}
+                meal={m}
+                ateOn={day.date}
+                logged={loggedMealIds.has(m.id)}
+              />
+            ))}
             {/* The plan already holds every figure she would otherwise retype.
                 `remaining` counts only what is not already in her log, so the
                 button says how much work it is actually about to do. */}

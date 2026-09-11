@@ -29,7 +29,7 @@ export const WHATS_NEW: WhatsNew[] = [
     date: "2026-09-11",
     title: "Ate the plan? One tap",
     blurb:
-      "On a day you stuck to the plan, one button on the Eat screen copies every planned meal into your log \u2014 figures, macros and all \u2014 and takes the ingredients out of your kitchen. It leaves alone any meal you have already logged yourself.",
+      "Every planned meal on the Eat screen has an \u201cAte it\u201d button, and there is one under them for the whole day. Either copies the planned figures straight into your log and takes the ingredients out of your kitchen \u2014 no retyping. The day button leaves alone any meal you have already logged yourself.",
     href: "/eat",
   },
   {

@@ -569,6 +569,8 @@ export const logPlannedDay = defineTool({
     date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
     slots: z.array(slotEnum).optional()
       .describe("Only these meals — 'I had the planned breakfast and lunch'. Omit for the whole day."),
+    mealIds: z.array(z.string()).optional()
+      .describe("Particular planned meals, by id from get_meal_plan. Naming one logs it even if that slot already has something in it — she pointed at it, so she means it."),
   }),
   handler: async (input, ctx) => {
     const her = await todayForProfile(ctx.profileId);
@@ -614,8 +616,24 @@ export const logPlannedDay = defineTool({
       .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
     const taken = new Set(already.map((r) => r.slot));
 
+    /*
+      Naming a meal overrides the slot guard.
+
+      The guard exists for "I ate the plan", where the honest default on a slot
+      she has already filled is to leave it alone. Tapping one meal is not that
+      request — it is her saying "this one, now" — and refusing it because the
+      slot has a snack in it would be the app arguing with her. The retry key
+      still holds: the same meal cannot land twice on the same day.
+    */
+    const byId = input.mealIds?.length ? new Set(input.mealIds) : null;
     const wanted = input.slots?.length ? new Set(input.slots) : null;
-    const todo = rows.filter((m) => !taken.has(m.slot) && (!wanted || wanted.has(m.slot)));
+    const todo = byId
+      ? rows.filter((m) => byId.has(m.id))
+      : rows.filter((m) => !taken.has(m.slot) && (!wanted || wanted.has(m.slot)));
+
+    if (byId && todo.length === 0) {
+      return { ok: false, error: `None of those meals are in her plan for ${date}. Call get_meal_plan for the right ids.` };
+    }
 
     const done: { slot: string; title: string; calories: number }[] = [];
     for (const m of todo) {
@@ -653,7 +671,7 @@ export const logPlannedDay = defineTool({
       logged: done,
       /** Planned meals left alone because that slot already had something in
           it. Tell her which, so a skipped meal is never a silent one. */
-      skipped: rows.filter((m) => taken.has(m.slot)).map((m) => m.slot),
+      skipped: byId ? [] : rows.filter((m) => taken.has(m.slot)).map((m) => m.slot),
       dayCalories: counted.reduce((n, r) => n + (r.calories ?? 0), 0),
       dayProteinG: dayRows.reduce((n, r) => n + (r.proteinG ?? 0), 0),
       caloriesAreComplete: counted.length === dayRows.length,
