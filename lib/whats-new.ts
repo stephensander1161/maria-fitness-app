@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-calc-macros-cached",
+    date: "2026-09-11",
+    title: "The calculator draws every macro the same, and remembers",
+    blurb:
+      "Protein, carbs, fat and fibre now look like the calorie figure instead of three different things. And a food the library has never heard of is looked up once \u2014 the next time is instant, still labelled an estimate.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-11-replan-food",
     date: "2026-09-11",
     title: "Write the food again \u2014 a day or the week",

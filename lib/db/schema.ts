@@ -1012,6 +1012,18 @@ export const foods = pgTable(
     unitLabel: text("unit_label"),
     /** Alternative names, so "aubergine" finds "eggplant". */
     aliases: jsonb("aliases").$type<string[]>().default([]).notNull(),
+    /**
+     * Written by the model when the library had no match, not seeded.
+     *
+     * Kept in this table so the next lookup of the same thing is free, and
+     * flagged so it can never quietly become a fact: every surface that reads
+     * a row still says "estimated" and still shows the caveat. Laundering a
+     * guess into the curated library by storing it the same way is the one
+     * thing this cache must not do.
+     */
+    estimated: boolean("estimated").default(false).notNull(),
+    /** Why the estimate varies — carried so a cache hit keeps the caveat. */
+    note: text("note"),
   },
   (t) => [uniqueIndex("foods_slug").on(t.slug), index("foods_name").on(t.name)],
 );

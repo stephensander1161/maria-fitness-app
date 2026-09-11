@@ -191,28 +191,33 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
                 </p>
               </div>
 
-              {/* Protein and fibre get their own line: they are the two she is
-                  actually trying to hit, and burying them in a macro list makes
-                  them as easy to skim past as the ones she isn't tracking. */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Macro
-                  label="Protein"
-                  value={result.proteinG === undefined || result.proteinG === null ? "—" : `${result.proteinG}g`}
-                  strong
-                />
-                <Macro
-                  label="Fibre"
-                  value={result.fibreG === null || result.fibreG === undefined ? "—" : `${result.fibreG}g`}
-                  strong
-                />
+              {/*
+                All four in one row, drawn the way the calorie figure is.
+
+                They used to arrive three different ways: calories big and
+                bold, protein and fibre in boxes, and carbs and fat as a line
+                of grey text — which ranked them by typeface rather than by
+                anything true, and made two of the five look like a footnote on
+                the other three. They are the same kind of fact, so they are
+                the same size.
+
+                A macro nobody knows is a dash, never "undefinedg" beside a
+                confident calorie figure.
+              */}
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {([
+                  ["Protein", result.proteinG],
+                  ["Carbs", result.carbsG],
+                  ["Fat", result.fatG],
+                  ["Fibre", result.fibreG],
+                ] as const).map(([label, grams]) => (
+                  <Macro
+                    key={label}
+                    label={label}
+                    value={grams === undefined || grams === null ? "—" : `${grams}g`}
+                  />
+                ))}
               </div>
-              {/* A macro nobody knows is a dash, never "undefinedg" beside a
-                  confident calorie figure. */}
-              {(result.carbsG !== undefined || result.fatG !== undefined) && (
-                <p className="mt-2 text-[12px] text-faint tabular">
-                  {result.carbsG ?? "—"}g carbs · {result.fatG ?? "—"}g fat
-                </p>
-              )}
 
               {result.assumed100g && (
                 <p className="mt-2 text-[11px] text-faint">
@@ -381,9 +386,16 @@ export function CalorieCalculator({ calorieTarget, foodUnits }: { calorieTarget:
   );
 }
 
-const Macro = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
-  <div className="rounded-lg bg-base px-3 py-2">
-    <p className="text-[10px] uppercase tracking-wide text-faint">{label}</p>
-    <p className={`tabular ${strong ? "text-[16px] font-semibold" : "text-[14px]"}`}>{value}</p>
+/**
+ * One macro, in the same hand as the calorie figure beside it.
+ *
+ * Bold and tabular, with the unit carried in the value rather than a second
+ * typeface — the point is that all five numbers on this card look like the
+ * same kind of fact, because they are.
+ */
+const Macro = ({ label, value }: { label: string; value: string }) => (
+  <div className="min-w-0 rounded-lg bg-base px-2 py-2 text-center">
+    <p className="truncate text-[9px] uppercase tracking-wide text-faint">{label}</p>
+    <p className="truncate text-[15px] font-bold tabular">{value}</p>
   </div>
 );

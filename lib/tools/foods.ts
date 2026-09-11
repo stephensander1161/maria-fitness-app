@@ -71,7 +71,10 @@ export const lookupFood = defineTool({
       }
       return {
         found: true,
-        source: "library",
+        // A cached estimate is still an estimate. It is in this table so the
+        // next lookup is free, not so it can pass for library data.
+        source: best.estimated ? "estimated" : "library",
+        ...(best.estimated && best.note ? { note: best.note } : {}),
         food: best.name,
         category: best.category,
         grams: Math.round(grams),
@@ -95,7 +98,9 @@ export const lookupFood = defineTool({
     if (input.allowEstimate === false) {
       return { found: false, error: `Nothing in the library matches "${portion.query}".` };
     }
-    return estimate(input.query, ctx);
+    // The food without the amount, so the alias is the thing and not the
+    // portion — "200g wobblecake" and "wobblecake" are one row.
+    return estimate(input.query, ctx, portion.query);
   },
 });
 
@@ -248,7 +253,65 @@ const Estimate = z.object({
 });
 
 /** The fallback. Cheap, and only reached when the library has nothing. */
-async function estimate(query: string, ctx: ToolContext) {
+/**
+ * Put an estimate in the foods table, per 100g, marked as an estimate.
+ *
+ * `onConflictDoNothing` rather than an update: the first answer for a name is
+ * the one that stays, so a later lookup of the same food cannot silently move
+ * a number she has already logged a meal against. A seeded row always wins,
+ * because a real figure beats a guess — and the slug collision is what makes
+ * that automatic.
+ */
+/**
+ * An estimate as a foods row: per 100g, marked, with her wording kept.
+ *
+ * Pure, so the arithmetic that decides what gets written to the shared table
+ * can be tested without one. Null when there is nothing to scale from — a
+ * zero-gram estimate would write Infinity into every column.
+ */
+export function estimateRow(e: z.infer<typeof Estimate>, asked: string) {
+  if (!Number.isFinite(e.grams) || e.grams <= 0) return null;
+  const per100 = (n: number) => Math.round((n / e.grams) * 100 * 10) / 10;
+  return {
+    slug: slugify(e.food),
+    name: e.food,
+    category: e.category,
+    kcal: per100(e.kcal),
+    proteinG: per100(e.proteinG),
+    carbsG: per100(e.carbsG),
+    fatG: per100(e.fatG),
+    fibreG: e.fibreG === null || e.fibreG === undefined ? null : per100(e.fibreG),
+    // What she actually typed, as an alias.
+    //
+    // The cache keys on the food's *name*, and the model names things its own
+    // way — "cheese quesadilla" comes back as itself and hits, but anything it
+    // tidies or shortens would not, and the second lookup would pay the model
+    // again for an answer already on the table. Aliases are searched; this is
+    // what they are for. Left empty when it would only repeat the name.
+    aliases: asked && asked.toLowerCase() !== e.food.toLowerCase() ? [asked] : [],
+    estimated: true,
+    note: e.note ?? null,
+  };
+}
+
+/**
+ * Put an estimate in the foods table.
+ *
+ * `onConflictDoNothing` rather than an update: the first answer for a name is
+ * the one that stays, so a later lookup cannot silently move a number she has
+ * already logged a meal against. A seeded row always wins for the same reason
+ * — a real figure beats a guess, and the slug collision makes that automatic.
+ */
+async function remember(e: z.infer<typeof Estimate>, asked: string): Promise<void> {
+  const row = estimateRow(e, asked);
+  if (row) await db.insert(foods).values(row).onConflictDoNothing({ target: foods.slug });
+}
+
+/** Lower-case, hyphenated, the same shape the seed uses. */
+const slugify = (name: string): string =>
+  name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+
+async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
   try {
     // Gated before the call, like every other model call. This one was
     // recording its usage and checking nothing, and lookup_food is reachable
@@ -279,6 +342,18 @@ async function estimate(query: string, ctx: ToolContext) {
     );
     const parsed = block && Estimate.safeParse(block.input);
     if (!parsed?.success) return { found: false, error: "Couldn't estimate that one." };
+
+    // Kept, so the same question is not paid for twice.
+    //
+    // Every lookup of a food the library has never heard of costs a model
+    // call, and the foods people eat repeat — "cheese quesadilla" on Tuesday
+    // is the same arithmetic on Thursday. Stored per 100g like every other
+    // row, flagged as an estimate, and with the note that explains the
+    // variance, so a cache hit says exactly what the first answer said.
+    //
+    // Best effort: a cache that fails to write must not fail the lookup she
+    // has already paid for.
+    void remember(parsed.data, portionQuery).catch(() => { /* see above */ });
 
     return {
       found: true, source: "estimated", ...parsed.data,
