@@ -318,7 +318,6 @@ function CoachSheet({
             error={error}
             errorCode={errorCode}
             onReplay={(m) => void replay(m, path)}
-            onStop={stop}
           />
 
           {loadFailed && (
@@ -340,7 +339,8 @@ function CoachSheet({
           style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 0.75rem) + var(--covered-bottom, 0px))" }}
         >
           <AllowanceNote leftPct={allowance} />
-          <Composer value={input} onChange={setInput} onSubmit={say} busy={busy} autoFocus />
+          <Composer
+            onStop={stop} value={input} onChange={setInput} onSubmit={say} busy={busy} autoFocus />
         </div>
       </div>
 

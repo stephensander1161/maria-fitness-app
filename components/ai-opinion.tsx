@@ -203,7 +203,6 @@ function Sheet({
               error={error}
               errorCode={errorCode}
               onReplay={(m) => void replay(m, path)}
-              onStop={stop}
             />
           )}
           <div ref={end} className="h-2" />
@@ -214,6 +213,7 @@ function Sheet({
             scroller, so the newest message can never sit behind it. */}
         <div className="shrink-0 border-t border-line/60 px-5 pt-3">
           <Composer
+            onStop={stop}
             value={input}
             onChange={setInput}
             // The path, not the contents: the server reads the screen. Same

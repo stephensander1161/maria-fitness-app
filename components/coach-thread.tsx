@@ -93,7 +93,7 @@ function CopyMessage({ text }: { text: string }) {
 }
 
 export function ThreadMessages({
-  messages, streaming, activity, busy, error, errorCode, compact, onReplay, onStop,
+  messages, streaming, activity, busy, error, errorCode, compact, onReplay,
 }: {
   messages: Msg[];
   streaming: string;
@@ -113,7 +113,6 @@ export function ThreadMessages({
    */
   onReplay?: (m: Msg) => void;
   /** Stop the turn that is running. Only given where one can be. */
-  onStop?: () => void;
 }) {
   const size = compact ? "text-[14px]" : "text-[15px]";
   return (
@@ -154,21 +153,6 @@ export function ThreadMessages({
         </div>
       )}
 
-      {/* A way out of a turn that is taking too long, or that she has changed
-          her mind about. Only while one is running. */}
-      {busy && onStop && (
-        <button
-          type="button"
-          onClick={onStop}
-          className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[12px] text-muted transition-colors hover:bg-raised active:bg-raised"
-        >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="5" y="5" width="14" height="14" rx="2.5" />
-          </svg>
-          Stop
-        </button>
-      )}
-
       {activity && (
         <div className="flex items-center gap-2 text-[13px] text-muted">
           <span className="size-1.5 animate-pulse rounded-full bg-accent" />
@@ -195,20 +179,31 @@ export function ThreadMessages({
   );
 }
 
-/** The box she types in. One implementation, two placements. */
+/**
+ * The box she types in. One implementation, two placements.
+ *
+ * One button, and which job it does depends on whether a turn is running.
+ * Stop used to be a small pill above the thread while send sat greyed out
+ * where her thumb already was — so the obvious thing to press did nothing, and
+ * the way to stop was somewhere else on the screen. A turn taking too long is
+ * exactly when she is most likely to press the same place again.
+ */
 export function Composer({
-  value, onChange, onSubmit, busy, placeholder, className, innerClassName, style, autoFocus,
+  value, onChange, onSubmit, busy, onStop, placeholder, className, innerClassName, style, autoFocus,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (text: string) => void;
   busy: boolean;
+  /** Given, the send button becomes a stop button while a turn is running. */
+  onStop?: () => void;
   placeholder?: string;
   className?: string;
   innerClassName?: string;
   style?: React.CSSProperties;
   autoFocus?: boolean;
 }) {
+  const stopping = busy && Boolean(onStop);
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); if (value.trim() && !busy) onSubmit(value.trim()); }}
@@ -225,16 +220,31 @@ export function Composer({
           autoFocus={autoFocus}
           className="min-w-0 flex-1 rounded-full border border-edge bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60"
         />
+        {/*
+          Same place, same size, different job. Not the accent fill: a stop
+          button that looks exactly like send is one she presses expecting to
+          send, and the square reads as stop at a glance where an arrow does
+          not.
+        */}
         <button
-          type="submit"
-          disabled={busy || !value.trim()}
-          className="grid size-12 shrink-0 place-items-center rounded-full bg-accent text-on-accent transition-opacity disabled:opacity-30"
-          aria-label="Send"
+          type={stopping ? "button" : "submit"}
+          onClick={stopping ? onStop : undefined}
+          disabled={stopping ? false : busy || !value.trim()}
+          className={`grid size-12 shrink-0 place-items-center rounded-full transition-opacity disabled:opacity-30 ${
+            stopping ? "border border-edge bg-raised text-text" : "bg-accent text-on-accent"
+          }`}
+          aria-label={stopping ? "Stop the coach" : "Send"}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
+          {stopping ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <rect x="5" y="5" width="14" height="14" rx="2.5" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          )}
         </button>
       </div>
     </form>

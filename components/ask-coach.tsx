@@ -72,7 +72,6 @@ export function AskCoach({
             errorCode={errorCode}
             compact
             onReplay={(m) => void replay(m)}
-            onStop={stop}
           />
           <div ref={end} />
         </div>
@@ -82,6 +81,7 @@ export function AskCoach({
 
       <AllowanceNote leftPct={allowance} />
       <Composer
+            onStop={stop}
         value={input}
         onChange={setInput}
         onSubmit={send}

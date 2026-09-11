@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-stop-in-place-of-send",
+    date: "2026-09-10",
+    title: "Stop is where send was",
+    blurb:
+      "While the coach is thinking, the send button becomes a stop button \u2014 same place, same size. Pressing where you just pressed now stops the turn instead of doing nothing.",
+  },
+  {
     id: "2026-09-10-blank-weight",
     date: "2026-09-10",
     title: "No more clearing a 0 before you can type",

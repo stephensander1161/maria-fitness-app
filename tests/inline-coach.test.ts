@@ -135,6 +135,29 @@ suite("she can send an earlier message again", () => {
     const thread = fs.readFileSync("components/coach-thread.tsx", "utf8");
     expect(thread).toMatch(/function CopyMessage/);
     expect(thread).toMatch(/navigator\.clipboard\.writeText\(text\)/);
-    expect(thread).toMatch(/\{busy && onStop && \(/);
+    // Stop lives in the send button's place now, not as a pill above the
+    // thread — see "one button, two jobs" below.
+    expect(thread).toMatch(/const stopping = busy && Boolean\(onStop\)/);
+  });
+
+  it("puts stop where send was, not somewhere else on the screen", () => {
+    // Send sat greyed out under her thumb while the way to stop was a small
+    // pill further up. The obvious thing to press did nothing, and a turn
+    // taking too long is exactly when she presses that place again.
+    const thread = fs.readFileSync("components/coach-thread.tsx", "utf8");
+    expect(thread).toMatch(/type=\{stopping \? "button" : "submit"\}/);
+    expect(thread).toMatch(/onClick=\{stopping \? onStop : undefined\}/);
+    // Enabled precisely when it is the stop button, whatever the box holds.
+    expect(thread).toMatch(/disabled=\{stopping \? false : busy \|\| !value\.trim\(\)\}/);
+    expect(thread).toMatch(/aria-label=\{stopping \? "Stop the coach" : "Send"\}/);
+    // And it does not look like send, or she presses it expecting to send.
+    expect(thread).toMatch(/stopping \? "border border-edge bg-raised text-text" : "bg-accent text-on-accent"/);
+  });
+
+  it("is offered on every surface that can start a turn", () => {
+    for (const file of ["components/coach-bubble.tsx", "components/ask-coach.tsx", "components/ai-opinion.tsx"]) {
+      const src = fs.readFileSync(file, "utf8");
+      expect(src, `${file} cannot stop a turn`).toMatch(/<Composer\s+onStop=\{stop\}/);
+    }
   });
 });
