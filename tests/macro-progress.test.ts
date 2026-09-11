@@ -1,4 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
+import fs from "node:fs";
 import { afterLogLine, macroBar, ON_TARGET_BAND, OVER_BAND, type MacroRow } from "@/lib/macro-progress";
 
 const row = (over: Partial<MacroRow> = {}): MacroRow => ({
@@ -55,5 +56,45 @@ suite("where the day stands, and what may be said about it", () => {
     ];
     expect(afterLogLine(bars).tone).toBe("good");
     expect(afterLogLine(bars).text).toMatch(/Protein target hit/);
+  });
+});
+
+suite("a blank macro greys the whole day, and the app says why", () => {
+  const nutrition = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+  const log = nutrition.slice(nutrition.indexOf('name: "log_meal"'), nutrition.indexOf('name: "log_planned_day"'));
+
+  it("asks for carbs and fat, not only calories and protein", () => {
+    /*
+      A real day: "Protein shake" logged as 147 kcal and 25g protein with
+      nothing else, which made the carb and fat bars floors for the whole day
+      — every other entry on it carefully filled in and greyed out anyway.
+      Nothing in the schema had ever asked the model for those two.
+    */
+    expect(log).toMatch(/carbsG: wholeGramsOptional\s*\n\s*\.describe\(/);
+    expect(log).toMatch(/fatG: wholeGramsOptional\s*\n\s*\.describe\(/);
+  });
+
+  it("names the gaps on the way back out", () => {
+    // The input description is read once at the start of a turn; this is read
+    // straight after the write, while she is still looking at the meal.
+    expect(log).toMatch(/loggedWithout/);
+    expect(log).toMatch(/update_meal_log with logId/);
+  });
+
+  it("counts a blank, never a zero", () => {
+    expect(log).toMatch(/\.filter\(\(\[, v\]\) => v === null\)/);
+  });
+});
+
+suite("every screen draws the same list", () => {
+  it("Progress shows fibre too", () => {
+    // Eat showed six rows and Progress five, which reads as the app not
+    // tracking fibre rather than as a list somebody forgot to extend.
+    const progress = fs.readFileSync("app/progress/page.tsx", "utf8");
+    const rows = progress.slice(progress.indexOf("const macroRows"), progress.indexOf("];", progress.indexOf("const macroRows")));
+    for (const key of ["calories", "protein", "carbs", "fat", "fibre"]) {
+      expect(rows, key).toContain(`key: "${key}"`);
+    }
+    expect(rows).toContain("waterRow(");
   });
 });

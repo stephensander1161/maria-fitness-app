@@ -326,8 +326,24 @@ export const logMeal = defineTool({
     ),
     calories: wholeGramsOptional,
     proteinG: wholeGramsOptional,
-    carbsG: wholeGramsOptional,
-    fatG: wholeGramsOptional,
+    /*
+      All five or none, and the reason is what the screen does with a blank.
+
+      A day's bar is a *floor* — hatched, no verdict — if a single entry on it
+      is missing that macro, so one shake logged as calories and protein alone
+      greys out carbs and fat for the whole day however carefully everything
+      else was logged. That is the correct behaviour and it is why these
+      descriptions now say so: a blank is not neutral, and the model was
+      filling in two of five because nothing told it otherwise.
+
+      "Estimate" is not "invent". If you know it is a protein shake you know
+      roughly what is in one; if she said "dinner at Mum's" you do not, and
+      leaving them out is right.
+    */
+    carbsG: wholeGramsOptional
+      .describe("Grams of carbohydrate. Give it whenever you are giving calories — estimate it the same way you estimated those. A blank here makes the day's carb bar a floor with no verdict on it, for every entry."),
+    fatG: wholeGramsOptional
+      .describe("Grams of fat. Same rule as carbs: if you can put a calorie figure on it you can put a fat figure on it, and a blank greys out the day."),
     fibreG: wholeGramsOptional
       .describe("Grams of fibre. Estimate it when the lookup misses, exactly as you estimate carbs and fat — a rough figure logged beats a blank. Leave it out only when you genuinely have no idea what was in the meal."),
     caloriesLow: wholeGramsOptional
@@ -447,9 +463,26 @@ export const logMeal = defineTool({
     const [plan] = await db.select().from(mealPlans)
       .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
 
+    /*
+      Which of the five the row landed without.
+
+      Said on the way out as well as in the input descriptions, because the
+      description is read once at the start of a turn and this is read right
+      after the write — and it is the moment the model can still offer to fill
+      them in while she is looking at the meal.
+    */
+    const blanks = ([
+      ["calories", row.calories], ["protein", row.proteinG], ["carbs", row.carbsG],
+      ["fat", row.fatG], ["fibre", row.fibreG],
+    ] as const).filter(([, v]) => v === null).map(([k]) => k);
+
     return {
       ok: true, date,
       logId: row.id,
+      ...(blanks.length > 0 ? {
+        loggedWithout: blanks,
+        loggedWithoutMeans: `Those bars read as floors for the whole day now, not just for this entry. If you can estimate them, call update_meal_log with logId ${row.id} and fill them in.`,
+      } : {}),
       // What the plate was priced at, line by line, so the reply can read it
       // back to her — and what could not be priced, which she has to be told
       // about because the meal's figure is a floor without it.
@@ -759,7 +792,7 @@ async function describeIntent(profileId: string, calorieTarget: number) {
 export const updateMealLog = defineTool({
   name: "update_meal_log",
   description:
-    "Corrects something she already logged eating — the calories, the protein, or what it was. Use it when she says a figure was off ('that curry was more like 800') rather than logging a second entry, which leaves the day wrong in a different way. Call get_day_nutrition for the logId. Only the fields you pass change; leave the rest out.",
+    "Corrects something she already logged eating — the calories, the protein, or what it was. Use it when she says a figure was off ('that curry was more like 800') rather than logging a second entry, which leaves the day wrong in a different way, and use it to fill in a macro an earlier entry went in without: one blank greys out that bar for the whole day. Call get_day_nutrition for the logId. Only the fields you pass change; leave the rest out.",
   input: z.object({
     logId: z.string().describe("From get_day_nutrition or log_meal"),
     description: z.string().optional(),

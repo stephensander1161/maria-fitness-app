@@ -158,7 +158,11 @@ export default async function ProgressPage({
     { key: "protein", label: "Protein", value: food.proteinG, target: food.proteinTargetG, complete: food.caloriesComplete, suffix: "g" },
     { key: "carbs", label: "Carbs", value: food.carbsG, target: food.carbTargetG, complete: food.carbsComplete, suffix: "g" },
     { key: "fat", label: "Fat", value: food.fatG, target: food.fatTargetG, complete: food.fatComplete, suffix: "g" },
-    // The sixth. It was a card of its own with its own meter and its own idea
+    // Fibre, which this screen simply never had. Eat has shown six rows and
+    // Progress five, which reads as the app not tracking fibre rather than as
+    // a list somebody forgot to extend.
+    { key: "fibre", label: "Fibre", value: food.fibreG, target: food.fibreTargetG, complete: food.fibreComplete, suffix: "g" },
+    // And water. It was a card of its own with its own meter and its own idea
     // of what "close" meant — a second, worse drawing of the picture these
     // bars already make five times.
     waterRow(water.today, waterGoal, drinkUnits),
