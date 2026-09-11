@@ -192,3 +192,68 @@ suite("the session ending is not another rest", () => {
     expect(provider).toMatch(/after\.kind === "done" \? null : nextRest\(/);
   });
 });
+
+suite("a superset is one round, then one rest", () => {
+  const s = (slug: string, targetSets: number, done: number, supersetGroup: string | null = null) =>
+    ({ slug, targetSets, done, supersetGroup });
+
+  it("goes straight on to the partner, with no rest between", () => {
+    // That is what a superset *is*. A ninety-second countdown in the middle of
+    // one is the app misunderstanding the movement.
+    const pair = [s("press", 3, 0, "g1"), s("row", 3, 0, "g1")];
+    expect(whatNext(pair, "press")).toEqual({ kind: "straight-on", movement: s("row", 3, 0, "g1") });
+  });
+
+  it("rests only once the round is complete", () => {
+    // One set of each. After the second half, the pair has earned its rest.
+    const pair = [s("press", 3, 1, "g1"), s("row", 3, 0, "g1")];
+    expect(whatNext(pair, "row")).toEqual({ kind: "same" });
+  });
+
+  it("alternates through a chain of three rather than bouncing between two", () => {
+    const three = [s("a", 3, 0, "g"), s("b", 3, 0, "g"), s("c", 3, 0, "g")];
+    expect(whatNext(three, "a")).toEqual({ kind: "straight-on", movement: s("b", 3, 0, "g") });
+    expect(whatNext([s("a", 3, 1, "g"), s("b", 3, 1, "g"), s("c", 3, 0, "g")], "b"))
+      .toEqual({ kind: "straight-on", movement: s("c", 3, 0, "g") });
+  });
+
+  it("skips a partner that is already finished", () => {
+    const pair = [s("press", 4, 2, "g1"), s("row", 2, 2, "g1")];
+    expect(whatNext(pair, "press")).toEqual({ kind: "same" });
+  });
+
+  it("never pairs movements that merely sit next to each other", () => {
+    const loose = [s("press", 3, 0), s("row", 3, 0)];
+    expect(whatNext(loose, "press")).toEqual({ kind: "same" });
+    // Nor two different chains.
+    expect(whatNext([s("a", 3, 0, "g1"), s("b", 3, 0, "g2")], "a")).toEqual({ kind: "same" });
+  });
+
+  it("ends the session when the last round finishes", () => {
+    // The second half of the last round is the end of the day, not another
+    // rest. Press is already done; row's set in hand completes it.
+    const pair = [s("press", 2, 2, "g1"), s("row", 2, 1, "g1")];
+    expect(whatNext(pair, "row")).toEqual({ kind: "done" });
+  });
+
+  it("still owes the partner a set when it is one behind", () => {
+    // Both on one of two: finishing row leaves press a set short, so the round
+    // is not over and the pair has not earned its rest.
+    const pair = [s("press", 2, 1, "g1"), s("row", 2, 1, "g1")];
+    expect(whatNext(pair, "row")).toEqual({ kind: "straight-on", movement: s("press", 2, 1, "g1") });
+  });
+
+  it("is what both logging paths ask", () => {
+    const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    // The GO screen prompts the partner immediately rather than resting.
+    expect(provider).toMatch(/after\.kind === "straight-on"/);
+    expect(provider).toMatch(/endsAt: Date\.now\(\)/);
+    // And the card starts no countdown at all.
+    expect(card).toMatch(/next\.kind === "straight-on"/);
+    // The group has to reach the provider, or it cannot tell a superset from
+    // two movements that happen to be adjacent.
+    expect(card).toMatch(/supersetGroup: e\.supersetGroup/);
+    expect(provider).toMatch(/supersetGroup: string \| null/);
+  });
+});

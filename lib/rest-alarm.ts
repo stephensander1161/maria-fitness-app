@@ -56,7 +56,11 @@ export const resetFired = (): void => { fired = null; };
 
 /* ------------------------------------------------- what comes next --- */
 
-export type Movement = { slug: string; targetSets: number; done: number };
+export type Movement = {
+  slug: string; targetSets: number; done: number;
+  /** Chained to another movement: they alternate, and only the pair rests. */
+  supersetGroup?: string | null;
+};
 
 /**
  * What happens after she logs a set of `slug`.
@@ -64,6 +68,10 @@ export type Movement = { slug: string; targetSets: number; done: number };
  * Three outcomes, and they have to be three because two of them used to be
  * `null` and the caller could not tell them apart:
  *
+ * - **straight on** — that movement is chained to another and the partner is
+ *   a set behind. That is what a superset *is*: no rest between the two, one
+ *   rest after the pair. The app used to hand her a ninety-second countdown in
+ *   the middle of a superset, which is the one place a countdown is wrong.
  * - **same** — that movement still has sets in it. The ordinary between-sets
  *   rest, counting down to the same thing.
  * - **next** — that set finished the movement, and something else is still
@@ -79,6 +87,7 @@ export type Movement = { slug: string; targetSets: number; done: number };
  * counting her down to a set that does not exist.
  */
 export type WhatNext<T> =
+  | { kind: "straight-on"; movement: T }
   | { kind: "same" }
   | { kind: "next"; movement: T }
   | { kind: "done" };
@@ -91,6 +100,25 @@ export function whatNext<T extends Movement>(session: T[], slug: string): WhatNe
   if (at === -1) return { kind: "same" };
 
   const current = session[at];
+
+  /*
+    The partner in a superset, before anything else.
+
+    A round is one set of each. The partner is owed this round when it has
+    fewer sets logged than this movement now has — `done` is the count before
+    the set in hand, so that is `done + 1`. Order within the group is plan
+    order, wrapping, so a chain of three alternates properly rather than
+    bouncing between the first two.
+
+    It comes first because a superset overrides both of the cases below: the
+    movement having sets left, and the session being over.
+  */
+  if (current.supersetGroup) {
+    const group = [...session.slice(at + 1), ...session.slice(0, at)]
+      .filter((m) => m.supersetGroup === current.supersetGroup);
+    const partner = group.find((m) => m.done < current.done + 1 && (m.targetSets === 0 || m.done < m.targetSets));
+    if (partner) return { kind: "straight-on", movement: partner };
+  }
   // `done` is the count before this set, so this set is the one that finishes it.
   const finished = current.targetSets > 0 && current.done + 1 >= current.targetSets;
   if (!finished) return { kind: "same" };

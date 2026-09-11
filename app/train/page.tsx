@@ -80,6 +80,7 @@ export default async function TrainPage({
           build and one of them permanently behind. What the day changes is
           what can be done on it, which the cards decide for themselves. */}
       <TrainClient
+        tone={profile.coachTone}
         view={view}
         pickable={pickable}
         targets={targets}

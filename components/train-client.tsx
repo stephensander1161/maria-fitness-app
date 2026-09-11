@@ -13,6 +13,8 @@ import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
+import { whatNext } from "@/lib/rest-alarm";
+import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
 import { ExerciseFigure } from "./exercise-figure";
@@ -75,6 +77,7 @@ export function TrainClient({
   isToday = true,
   focus,
   focusEntry = false,
+  tone = null,
   dayLabel,
   heading,
   stepBack,
@@ -113,6 +116,8 @@ export function TrainClient({
    * card opens is a keyboard over the thing she came to look at.
    */
   focusEntry?: boolean;
+  /** The register she picked, for the copy this screen writes — see lib/voice.ts. */
+  tone?: Tone | null;
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
   /**
@@ -213,6 +218,9 @@ export function TrainClient({
       targetSets: e.targetSets, done: e.loggedToday.length,
       targetReps: e.targetReps, targetHoldSeconds: e.targetHoldSeconds, targetWeight: e.targetWeight,
       restSeconds: e.restSeconds,
+      // Without this the provider cannot tell a superset from two movements
+      // that happen to be next to each other, and rests in the middle of one.
+      supersetGroup: e.supersetGroup,
     })));
   }, [view.exercises, isToday, setSession]);
   // Movements that still have sets left in them. "Complete" has to mean
@@ -394,6 +402,38 @@ export function TrainClient({
   }, [beginRest, view.unit, date]);
 
   /**
+   * What the rest timer should do once a set is in.
+   *
+   * One function for both card paths — the grid and the movement page — and it
+   * asks the same `whatNext` the GO screen asks, so the two cannot answer
+   * differently about the same set.
+   *
+   * - A superset goes **straight on** to its partner with no countdown at all.
+   *   A ninety-second rest in the middle of a superset is the app
+   *   misunderstanding the movement.
+   * - A finished movement rests into the *next* one, not back into the one she
+   *   has just finished: that rest is over before she walks to the rack, and
+   *   the GO screen was offering her a fifth set of something she had done
+   *   four of.
+   * - Nothing outstanding ends it. There is nothing to count down to.
+   */
+  const restAfter = useCallback((ex: TodayExercise, logged: { reps: number; weight: number | null }) => {
+    const next = afterSet(view.exercises, ex.slug);
+    const find = (slug: string) => view.exercises.find((e) => e.slug === slug) ?? null;
+    if (next.kind === "done") { dismissRest(); return; }
+    // No countdown at all between the halves of a superset. The partner does
+    // not need marking here: a group is highlighted as one, and `currentSlug`
+    // falls through to the first movement with sets outstanding.
+    if (next.kind === "straight-on") { dismissRest(); return; }
+    if (next.kind === "next") {
+      const on = find(next.movement.slug);
+      if (on) { startRest(on); return; }
+    }
+    startRest(ex, logged);
+  }, [view.exercises, dismissRest, startRest]);
+
+
+  /**
    * Finishing is one button now.
    *
    * It used to be five — Brutal to Easy — asking how the session felt. Reps in
@@ -569,12 +609,7 @@ export function TrainClient({
             pending={pendingFor.get(ex.slug) ?? NO_PENDING}
             onLogged={(r, finishedExercise, logged) => {
               if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
-              const wasLastOfSession = finishedExercise
-                && outstanding.filter((name) => name !== ex.name).length === 0;
-              const nextUp = finishedExercise ? nextAfter(view.exercises, ex.slug) : null;
-              if (wasLastOfSession) dismissRest();
-              else if (nextUp) startRest(nextUp);
-              else startRest(ex, logged);
+              restAfter(ex, logged);
               if (r) router.refresh();
             }}
             onRetryPending={flush}
@@ -774,16 +809,7 @@ export function TrainClient({
             // squats is exactly when she needs a minute before the next thing.
             // The only set with nothing to recover for is the last one of the
             // session, and that is the one that stops the timer.
-            const wasLastOfSession = finishedExercise
-              && outstanding.filter((name) => name !== ex.name).length === 0;
-            // Finishing a movement rests *into the next one*, not back into
-            // the one she has just finished — that rest is over before she
-            // walks to the rack, and the GO screen was offering her a fifth
-            // set of something she had done four of.
-            const next = finishedExercise ? nextAfter(view.exercises, ex.slug) : null;
-            if (wasLastOfSession) dismissRest();
-            else if (next) startRest(next);
-            else startRest(ex, logged);
+            restAfter(ex, logged);
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
@@ -865,6 +891,7 @@ export function TrainClient({
           // Frozen when the session ended, not read from the clock during a
           // render — the length of a finished session does not change.
           durationMs={finishedMs}
+          tone={tone}
           seed={view.startedAt ?? view.date}
           onClose={() => setDone(false)}
         />
@@ -1206,6 +1233,25 @@ function SessionBar({
  * Wraps, because she may have skipped down the card list and come back — the
  * one thing it will not return is the movement she has just finished.
  */
+/**
+ * What to do after she logs a set, in the language the card speaks.
+ *
+ * The same decision the GO screen makes through `whatNext` — one rule, so the
+ * two paths cannot answer differently for the same set. `loggedToday.length`
+ * is the count before the set in hand, which is exactly what `done` means.
+ */
+export function afterSet(exercises: TodayExercise[], slug: string) {
+  return whatNext(
+    exercises.map((e) => ({
+      slug: e.slug,
+      targetSets: e.targetSets,
+      done: e.loggedToday.length,
+      supersetGroup: e.supersetGroup,
+    })),
+    slug,
+  );
+}
+
 export function nextAfter(exercises: TodayExercise[], slug: string): TodayExercise | null {
   const at = exercises.findIndex((e) => e.slug === slug);
   if (at === -1) return null;

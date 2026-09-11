@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { doneLine, readableDuration } from "@/lib/session-clock";
+import { readableDuration } from "@/lib/session-clock";
+import { line } from "@/lib/voice";
+import type { Tone } from "@/lib/buddy";
 
 /**
  * The end of a workout, said properly.
@@ -16,7 +18,7 @@ import { doneLine, readableDuration } from "@/lib/session-clock";
  * and nothing behind it that needs blocking.
  */
 export function SessionDone({
-  sets, volume, unit, movements, durationMs = null, seed = "", onClose,
+  sets, volume, unit, movements, durationMs = null, seed = "", tone = null, onClose,
 }: {
   sets: number;
   volume: number;
@@ -26,6 +28,9 @@ export function SessionDone({
   durationMs?: number | null;
   /** Chosen from this, so the line does not change while she reads it. */
   seed?: string;
+  /** The register she picked. The screens used to speak in one neutral voice
+   *  while the coach spoke in hers — see lib/voice.ts. */
+  tone?: Tone | null;
   onClose: () => void;
 }) {
   const closed = useRef(false);
@@ -70,7 +75,7 @@ export function SessionDone({
         {/* One of twenty, picked from the session rather than at random on
             every render — a sentence that changes while she is reading it is
             a sentence she cannot read. */}
-        <p className="go-sub mt-3 text-[14px] text-muted">{doneLine(seed)}</p>
+        <p className="go-sub mt-3 text-[14px] text-muted">{line("sessionDone", tone, seed)}</p>
 
         <dl className={`go-sub mt-7 grid gap-3 ${durationMs === null ? "grid-cols-3" : "grid-cols-2"}`}>
           <Stat label="sets" value={String(sets)} />

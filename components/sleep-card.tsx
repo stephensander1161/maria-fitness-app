@@ -4,6 +4,8 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
+import { line } from "@/lib/voice";
+import type { Tone } from "@/lib/buddy";
 
 /**
  * Last night, and the way to write it down.
@@ -28,20 +30,13 @@ type Logged = {
   state: "short" | "under" | "there" | "long" | "unknown";
 };
 
-/** Rotated so the fiftieth night does not read exactly like the first. */
-const LINES = [
-  "Written down.",
-  "Noted — that one counts as data too.",
-  "In it goes.",
-  "Logged. The pattern is worth more than the night.",
-  "That's another night the trend can lean on.",
-];
-
 const QUALITY = ["Rough", "Poor", "OK", "Good", "Great"];
 
 export function SleepCard({
-  lastNight, target, quality: loggedQuality,
+  lastNight, target, quality: loggedQuality, tone,
 }: {
+  /** The register she picked — see lib/voice.ts. */
+  tone: Tone | null;
   /** What she slept, already formatted — "7h 30m" — or null for not logged. */
   lastNight: string | null;
   target: string;
@@ -74,7 +69,7 @@ export function SleepCard({
   }
 
   if (done) {
-    const line = LINES[Math.floor(hours * 2) % LINES.length];
+    const said = line("sleepLogged", tone, String(hours));
     // Short nights get a plain surface rather than the celebratory one. Not a
     // warning colour: she did not do anything wrong, and a red card for a bad
     // night is the app telling her off for the baby waking up.
@@ -84,7 +79,7 @@ export function SleepCard({
         <p className={`text-[28px] font-bold tabular leading-none ${warm ? "text-beat" : "text-text"}`}>
           {done.slept}
         </p>
-        <p className="mt-2 text-[13px] text-text">{line}</p>
+        <p className="mt-2 text-[13px] text-text">{said}</p>
         <p className="mt-1 text-[12px] text-muted tabular">target {done.target}</p>
         {done.state === "short" && (
           <p className="mx-auto mt-3 max-w-xs border-t border-line pt-3 text-[12px] leading-relaxed text-muted">

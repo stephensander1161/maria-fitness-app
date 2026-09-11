@@ -214,11 +214,12 @@ export default async function ProgressPage() {
           </div>
         </section>
 
-        <WeighIn current={current} unit={unit} loggedToday={weighedInToday} />
+        <WeighIn current={current} unit={unit} loggedToday={weighedInToday} tone={profile.coachTone} />
 
         {/* Directly under the weigh-in: both are a number she gives the app
             first thing, and between them they explain most of a bad week. */}
         <SleepCard
+          tone={profile.coachTone}
           lastNight={sleep.lastNight ? formatSleep(sleep.lastNight.minutes) : null}
           target={formatSleep(target)}
           quality={sleep.lastNight?.quality ?? null}

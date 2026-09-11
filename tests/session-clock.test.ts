@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
-import { clockDuration, DONE_LINES, doneLine, elapsedMs, readableDuration } from "@/lib/session-clock";
+import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import fs from "node:fs";
 
 suite("how long she has been training", () => {
@@ -34,30 +34,6 @@ suite("how long she has been training", () => {
     expect(clockDuration(9_000)).toBe("0:09");
     expect(clockDuration(12 * 60_000 + 4_000)).toBe("12:04");
     expect(clockDuration(3_750_000)).toBe("1:02:30");
-  });
-});
-
-suite("what it says when she finishes", () => {
-  it("has plenty to say and never repeats itself in one list", () => {
-    expect(DONE_LINES.length).toBeGreaterThanOrEqual(20);
-    expect(new Set(DONE_LINES).size).toBe(DONE_LINES.length);
-  });
-
-  it("says the same thing for the whole time one session is on screen", () => {
-    // A line that changes while she is reading it is a line she cannot read.
-    expect(doneLine("workout-abc")).toBe(doneLine("workout-abc"));
-    expect(DONE_LINES).toContain(doneLine("workout-abc"));
-  });
-
-  it("uses more than one of them across sessions", () => {
-    const seen = new Set(Array.from({ length: 200 }, (_, i) => doneLine(`w${i}`)));
-    expect(seen.size).toBeGreaterThan(10);
-  });
-
-  it("is about the work, never about her body", () => {
-    for (const line of DONE_LINES) {
-      expect(line, line).not.toMatch(/\b(fat|skinny|weight|thin|lean|body|beast|savage)\b/i);
-    }
   });
 });
 
@@ -96,7 +72,9 @@ suite("the session has edges", () => {
     expect(card).toMatch(/durationMs=\{finishedMs\}/);
     const done = read("components/session-done.tsx");
     expect(done).toMatch(/label="on your feet"/);
-    expect(done).toMatch(/\{doneLine\(seed\)\}/);
+    // The line is seeded the same way, but chosen in the register she picked
+    // — see lib/voice.ts.
+    expect(done).toMatch(/\{line\("sessionDone", tone, seed\)\}/);
   });
 
   it("the clock comes off the workout row, so it survives a reload", () => {

@@ -116,6 +116,8 @@ export type SessionMovement = {
   targetSets: number; done: number;
   targetReps: number; targetHoldSeconds: number | null; targetWeight: number | null;
   restSeconds: number;
+  /** Chained to another movement: they alternate, and only the pair rests. */
+  supersetGroup: string | null;
 };
 
 type RestContext = {
@@ -281,6 +283,34 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
               never comes due, and the alarm would never fire again for the
               rest of the session.
             */
+            if (after.kind === "straight-on") {
+              /*
+                The other half of a superset, with no rest in between — that
+                is what a superset is, and a ninety-second countdown in the
+                middle of one is the app misunderstanding the movement.
+
+                Straight to the GO screen for the partner rather than a rest
+                that has already elapsed: she is standing there with the second
+                pair of dumbbells, and what she needs is somewhere to put the
+                number.
+              */
+              const partner = after.movement;
+              write(null);
+              setGo({
+                ...go,
+                slug: partner.slug, name: partner.name, category: partner.category,
+                isHold: partner.isHold, loadable: partner.loadable,
+                reps: partner.isHold ? partner.targetHoldSeconds ?? 30 : partner.targetReps,
+                weight: partner.targetWeight,
+                seconds: partner.restSeconds,
+                endsAt: Date.now(),
+              });
+              session.current = session.current.map((m) =>
+                m.slug === go.slug ? { ...m, done: m.done + 1 } : m);
+              setAwaiting(null);
+              startTransition(() => router.refresh());
+              return;
+            }
             write(after.kind === "done" ? null : nextRest(after.kind === "next"
               ? {
                 ...go,

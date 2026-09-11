@@ -123,9 +123,12 @@ suite("the training card during a session", () => {
 
   it("rests into the next movement when one is finished, and marks it", () => {
     // The rest used to be for the movement she had just finished — the GO
-    // screen offered her a fifth set of something she had done four of.
-    expect(card).toMatch(/const next = finishedExercise \? nextAfter\(view\.exercises, ex\.slug\) : null/);
-    expect(card).toMatch(/else if \(next\) startRest\(next\)/);
+    // screen offered her a fifth set of something she had done four of. Both
+    // card paths now ask `restAfter`, which asks the same `whatNext` the GO
+    // screen asks, so the two cannot answer differently about the same set.
+    expect(card).toMatch(/const next = afterSet\(view\.exercises, ex\.slug\)/);
+    expect(card).toMatch(/if \(next\.kind === "next"\)/);
+    expect([...card.matchAll(/restAfter\(ex, logged\)/g)]).toHaveLength(2);
     // Beating while the session runs; still, but still marked, before it.
     expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
   });

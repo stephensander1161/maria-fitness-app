@@ -55,6 +55,7 @@ export default async function MovementPage({
   // page title, a day title and a back link is three lines saying two things.
   return (
     <TrainClient
+      tone={profile.coachTone}
       view={view}
       pickable={pickable}
       targets={targets}

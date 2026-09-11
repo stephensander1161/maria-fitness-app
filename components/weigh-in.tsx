@@ -4,6 +4,8 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { NumberField } from "./number-field";
+import { line } from "@/lib/voice";
+import type { Tone } from "@/lib/buddy";
 
 /**
  * The first thing on the Progress screen, and on a day she has not weighed in,
@@ -36,22 +38,15 @@ type Logged = {
   context: string | null;
 };
 
-/** Rotated so the fiftieth weigh-in does not read exactly like the first. */
-const LINES = [
-  "Another dot on the line.",
-  "That's the data. The trend does the talking.",
-  "Logged. Ten seconds well spent.",
-  "In it goes.",
-  "Noted. The line gets steadier every time you do this.",
-  "One more reading the trend can lean on.",
-];
-
 export function WeighIn({
-  current, unit, loggedToday,
+  current, unit, loggedToday, tone,
 }: {
   current: number | null;
   unit: string;
   loggedToday: boolean;
+  /** The register she picked. The screens used to speak in one voice while
+   *  the coach spoke in hers, which reads as two different apps. */
+  tone: Tone | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -78,14 +73,14 @@ export function WeighIn({
   // Just weighed in: say something, then get out of the way. The card returns
   // to its quiet state on the next page load.
   if (done) {
-    const line = LINES[Math.floor(Math.abs(done.logged.weight * 10)) % LINES.length];
+    const said = line("weighedIn", tone, String(done.logged.weight));
     return (
       <section className="card mb-3 border-beat/40 bg-beat-soft p-5 text-center">
         <p className="text-[28px] font-bold tabular leading-none text-beat">
           {done.logged.weight}
           <span className="ml-1 text-[15px] font-medium">{done.logged.unit}</span>
         </p>
-        <p className="mt-2 text-[13px] text-text">{line}</p>
+        <p className="mt-2 text-[13px] text-text">{said}</p>
         {/* A span long enough to mean something. Today against yesterday is
             not, and is the one comparison never shown here. */}
         {done.changeSinceStart !== null && done.changeSinceStart !== 0 && (

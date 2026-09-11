@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-supersets-and-voice",
+    date: "2026-09-10",
+    title: "Supersets rest once, and the app speaks your register",
+    blurb:
+      "A chained pair now goes straight from one movement to the other with no countdown in between, and rests once after the round. The screens also talk the way your coach does instead of in one neutral voice.",
+  },
+  {
     id: "2026-09-10-back-and-rest",
     date: "2026-09-10",
     title: "Back goes back, and the last set ends the session",
