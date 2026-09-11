@@ -206,6 +206,12 @@ suite("a failed action is never silent", () => {
       // error message under a section she has just tidied away would be about
       // the app's bookkeeping, not about anything she can act on.
       "components/foldable-card.tsx",
+      // Putting the "new since you were last here" note away. Same shape: the
+      // note holds nothing of hers, and a failed save means it appears once
+      // more, which is the safe direction for a thing whose whole job is to be
+      // read once. It waited for the round trip before hiding and that read as
+      // a button that had not worked.
+      "components/whats-new-note.tsx",
     ];
 
     const silent = walk("components")

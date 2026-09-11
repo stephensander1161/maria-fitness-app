@@ -51,3 +51,25 @@ suite("which notes may be dismissed this way", () => {
     expect(shipped).toMatch(/Not quite/);
   });
 });
+
+suite("it goes away on the tap, not on the round trip", () => {
+  it("hides first and saves behind it", () => {
+    // It used to wait: she pressed "Got it", the button became an ellipsis,
+    // and the note sat there for as long as the request took. On a slow
+    // connection that reads as a button that did not work, and the second
+    // press has nothing left to do.
+    const note = fs.readFileSync("components/whats-new-note.tsx", "utf8");
+    const fn = note.slice(note.indexOf("function dismiss()"));
+    expect(fn.indexOf("setGone(true)")).toBeLessThan(fn.indexOf("action("));
+    // And nothing awaits the write.
+    expect(fn.slice(0, 400)).not.toMatch(/await action/);
+    expect(fn.slice(0, 400)).toMatch(/void action\("dismiss_whats_new"\)/);
+  });
+
+  it("does not ask the server to re-render before the write lands", () => {
+    // The note removes itself locally; a refresh in the same breath is how it
+    // would come straight back.
+    const note = fs.readFileSync("components/whats-new-note.tsx", "utf8");
+    expect(note).not.toMatch(/router\.refresh\(\)/);
+  });
+});
