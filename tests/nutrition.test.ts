@@ -206,18 +206,67 @@ suite("every macro says what it knows", () => {
   });
 
   it("and the screen writes the ≥ when they are", () => {
+    // The grid of five numbers is gone — the bars are the tally now — so each
+    // macro's `complete` flag has to reach the bar instead, and the bar is
+    // what writes the ≥.
     const eat = read("components/today-food.tsx");
-    for (const macro of ["carbsComplete", "fatComplete", "fibreComplete", "caloriesComplete"]) {
-      expect(eat, macro).toMatch(new RegExp(`\\\$\\{day\\.${macro} \\? "" : "≥"\\}`));
+    for (const macro of ["caloriesComplete", "carbsComplete", "fatComplete", "fibreComplete"]) {
+      expect(eat, macro).toContain(`complete: day.${macro}`);
     }
+    expect(read("components/macro-bars.tsx")).toMatch(/\{b\.complete \? "" : "≥"\}/);
   });
 
-  it("shows all four on the day and on a meal", () => {
+  it("shows all five on the day and on a meal", () => {
     const eat = read("components/today-food.tsx");
     for (const label of ["Calories", "Protein", "Carbs", "Fat", "Fibre"]) {
-      expect(eat, label).toContain(`label="${label}"`);
+      expect(eat, label).toContain(`label: "${label}"`);
     }
     expect(read("components/meal-row.tsx")).toMatch(/carbsG/);
     expect(read("components/plan-client.tsx")).toMatch(/g carbs · \$\{foodDay\.fatG\}g fat/);
+  });
+
+  it("draws the tally once, not as numbers and bars of the same thing", () => {
+    // A grid of five figures with the same five bars hidden behind a tap on it
+    // is one fact drawn twice, with a control in the way of the better half.
+    const eat = read("components/today-food.tsx");
+    expect(eat).not.toMatch(/function Stat\(/);
+    expect(eat).not.toMatch(/setShowBars/);
+  });
+});
+
+suite("fibre is a macro like the rest", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("is estimated when the lookup misses, the way carbs and fat are", () => {
+    /*
+      It was the only macro the coach was forbidden to estimate — "not a
+      guess" — while it estimated calories, protein, carbs and fat freely. So
+      almost every day was a fibre floor, the screen carried a "≥" and a
+      paragraph explaining it, and the explanation was the app apologising for
+      a rule it applied to nothing else.
+
+      Unknown is still not zero: `fibreForDay` still counts what it knows and
+      says how much of the day that covers, and a meal with no figure still
+      makes the day a floor. What changed is that there is usually a figure.
+    */
+    const tool = read("lib/tools/nutrition.ts");
+    const fn = tool.slice(tool.indexOf("fibreG: wholeGramsOptional"));
+    expect(fn.slice(0, 400)).toMatch(/Estimate it when the lookup misses/);
+    expect(fn.slice(0, 400)).not.toMatch(/not a guess/);
+    expect(read("lib/agent/system.ts")).toMatch(/Fibre is a macro like any other/);
+  });
+
+  it("still refuses to invent one for a meal nobody described", () => {
+    // The floor machinery is untouched — this is about having a number more
+    // often, never about pretending to have one.
+    const lib = read("lib/nutrition.ts");
+    expect(lib).toMatch(/export function fibreForDay/);
+    expect(lib).toMatch(/knownFor/);
+  });
+
+  it("has a bar rather than a paragraph of apology", () => {
+    const eat = read("components/today-food.tsx");
+    expect(eat).toContain('key: "fibre"');
+    expect(eat).not.toMatch(/Fibre counts only what was looked up by name/);
   });
 });

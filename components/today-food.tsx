@@ -18,7 +18,6 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
   const [removing, setRemoving] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showBars, setShowBars] = useState(false);
 
   /**
    * The four figures as bars, judged in one place — see lib/macro-progress.ts.
@@ -31,6 +30,10 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
     { key: "protein", label: "Protein", value: day.proteinG, target: day.proteinTargetG, complete: day.caloriesComplete, suffix: "g" },
     { key: "carbs", label: "Carbs", value: day.carbsG, target: day.carbTargetG, complete: day.carbsComplete, suffix: "g" },
     { key: "fat", label: "Fat", value: day.fatG, target: day.fatTargetG, complete: day.fatComplete, suffix: "g" },
+    // Fibre is a macro like the rest of them now: the coach estimates it when
+    // the lookup misses, exactly as it estimates carbs and fat, so a day is
+    // rarely a floor any more. The "≥" is still there for the days it is.
+    { key: "fibre", label: "Fibre", value: day.fibreG, target: day.fibreTargetG, complete: day.fibreComplete, suffix: "g" },
   ];
 
   /**
@@ -80,11 +83,10 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
     );
   }
 
-  // Only a fully-counted day can be over target. A day whose lunch was typed
-  // in words is a floor, and colouring a floor "over" — or, worse, leaving it
-  // green at 900 when three meals carry no figures — is a claim we cannot make.
-  const overCalories =
-    day.calorieTarget !== null && day.caloriesComplete && day.calories > day.calorieTarget;
+  // The "only a fully-counted day can be over target" rule used to live here,
+  // for the grid of numbers. It lives in macroBar now — one judgement for the
+  // bars, the logging moment and Progress — and a floor gets a bar with no
+  // colour rather than a verdict it has not earned.
 
   return (
     <section className="card mb-3 p-5">
@@ -121,56 +123,17 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
         </div>
       )}
 
-      {/* Five figures do not fit across a phone. A wrapping grid keeps each
-          one readable instead of squeezing all of them to illegible.
-          Tapping it opens the same bars the logging moment shows — the numbers
-          say where she is, the bars say how far that is. */}
-      <button
-        type="button"
-        onClick={() => { setShowBars((v) => !v); setLogged(null); }}
-        aria-expanded={showBars}
-        aria-label={showBars ? "Hide the day's progress bars" : "Show the day's progress bars"}
-        className="block w-full text-left"
-      >
-      <div className="grid grid-cols-3 gap-y-3 sm:flex sm:divide-x sm:divide-line">
-        <Stat
-          label="Calories"
-          value={`${day.caloriesComplete ? "" : "≥"}${day.calories}`}
-          of={day.calorieTarget}
-          tone={overCalories ? "over" : "on"}
-        />
-        <Stat
-          label="Protein"
-          value={`${day.caloriesComplete ? "" : "≥"}${day.proteinG}g`}
-          of={day.proteinTargetG}
-          suffix="g"
-        />
-        <Stat
-          label="Carbs"
-          value={`${day.carbsComplete ? "" : "≥"}${day.carbsG}g`}
-          of={day.carbTargetG}
-          suffix="g"
-        />
-        <Stat
-          label="Fat"
-          value={`${day.fatComplete ? "" : "≥"}${day.fatG}g`}
-          of={day.fatTargetG}
-          suffix="g"
-        />
-        <Stat
-          label="Fibre"
-          // A total built from entries that carry no figure is a floor, not a
-          // reading. Saying "12g" when lunch was typed in words claims
-          // knowledge we do not have, and reads as failure at 30g.
-          value={`${day.fibreComplete ? "" : "≥"}${day.fibreG}g`}
-          of={day.fibreTargetG}
-          suffix="g"
-        />
-      </div>
-      </button>
+      {/*
+        The bars *are* the tally.
 
-      {showBars && !logged && (
-        <div className="mt-3 rounded-xl border border-line bg-raised p-3">
+        There was a grid of five numbers with the same five bars hidden behind
+        a tap on it — the numbers saying where she is and the bars saying how
+        far that is, which is one fact drawn twice and a control in the way of
+        the better half. The bars carry the figure, the target and the distance
+        in one line each.
+      */}
+      {!logged && (
+        <div className="rounded-xl border border-line bg-raised p-3">
           <MacroBars rows={macroRows} />
         </div>
       )}
@@ -180,12 +143,6 @@ export function TodayFood({ day, saved }: { day: DayFoodView; saved: SavedMeal[]
           {day.caloriesUnknownFor} {day.caloriesUnknownFor === 1 ? "entry has" : "entries have"} no
           figures, so these are floors, not totals — the dashes below are the ones missing. Tell your
           coach roughly what was in them and it&rsquo;ll fill them in.
-        </p>
-      )}
-
-      {day.caloriesUnknownFor === 0 && !day.fibreComplete && day.logged.length > 0 && (
-        <p className="mt-2 text-[11px] leading-relaxed text-faint">
-          Fibre counts only what was looked up by name — anything described in words isn&rsquo;t in that total.
         </p>
       )}
 
@@ -692,21 +649,3 @@ function QuickAdd({
   );
 }
 
-function Stat({
-  label, value, of, suffix = "", tone = "on",
-}: {
-  label: string; value: string; of: number | null; suffix?: string; tone?: "on" | "over";
-}) {
-  return (
-    <div className="min-w-0 flex-1 px-3 sm:first:pl-0 sm:last:pr-0">
-      <p className="text-[11px] uppercase tracking-wide text-faint">{label}</p>
-      <p className={`text-lg font-semibold tabular ${tone === "over" ? "text-miss" : ""}`}>{value}</p>
-      {of !== null && (
-        <p className="text-[11px] text-faint tabular">
-          of {of}
-          {suffix}
-        </p>
-      )}
-    </div>
-  );
-}

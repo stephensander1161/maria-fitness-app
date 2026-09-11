@@ -316,7 +316,7 @@ export const logMeal = defineTool({
     carbsG: wholeGramsOptional,
     fatG: wholeGramsOptional,
     fibreG: wholeGramsOptional
-      .describe("Only when you actually know it — from lookup_food, not a guess. Omitting it is correct and expected; a wrong figure here is worse than none."),
+      .describe("Grams of fibre. Estimate it when the lookup misses, exactly as you estimate carbs and fat — a rough figure logged beats a blank. Leave it out only when you genuinely have no idea what was in the meal."),
     caloriesLow: wholeGramsOptional
       .describe("Lower bound for a meal you cannot pin down — a restaurant plate, a friend's cooking. Pass the upper bound too."),
     caloriesHigh: wholeGramsOptional,

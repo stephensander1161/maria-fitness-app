@@ -22,15 +22,30 @@ export function MacroBars({ rows, compact = false }: { rows: MacroRow[]; compact
                 : "bg-accent";
         return (
           <div key={b.key}>
-            <div className="flex items-baseline justify-between gap-2 text-[11px]">
-              <span className="uppercase tracking-wide text-faint">{b.label}</span>
-              <span className={`tabular ${
-                b.state === "over" ? "text-miss" : b.state === "there" ? "text-beat" : "text-muted"
+            {/* The figure is the thing she came to read, so it is the biggest
+                thing on the row — the label and the target stay small beside
+                it. These bars replaced a grid of numbers that was set in 18px,
+                and shrinking the number while removing its larger twin would
+                have been a downgrade dressed as a tidy-up. */}
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={`uppercase tracking-wide text-faint ${compact ? "text-[10px]" : "text-[11px]"}`}>
+                {b.label}
+              </span>
+              <span className={`tabular font-semibold ${compact ? "text-[13px]" : "text-[17px]"} ${
+                b.state === "over" ? "text-miss" : b.state === "there" ? "text-beat" : "text-text"
               }`}>
                 {/* A floor says so, here as everywhere else in the app. */}
                 {b.complete ? "" : "≥"}{b.value}{b.suffix}
-                {b.target !== null && <span className="text-faint"> / {b.target}{b.suffix}</span>}
-                {b.over > 0 && <span className="text-miss"> · {b.over} over</span>}
+                {b.target !== null && (
+                  <span className={`font-normal text-faint ${compact ? "text-[11px]" : "text-[12px]"}`}>
+                    {" "}/ {b.target}{b.suffix}
+                  </span>
+                )}
+                {b.over > 0 && (
+                  <span className={`font-normal text-miss ${compact ? "text-[11px]" : "text-[12px]"}`}>
+                    {" "}· {b.over} over
+                  </span>
+                )}
               </span>
             </div>
             <div

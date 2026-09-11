@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-fibre-and-bars",
+    date: "2026-09-11",
+    title: "Fibre is counted, and the tally is one set of bars",
+    blurb:
+      "Your coach estimates fibre now, the same way it estimates carbs and fat, so the \u201conly what was looked up\u201d caveat is mostly gone. The grid of numbers has gone too \u2014 the bars carry the figure, the target and the distance, in bigger type.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-10-stop-in-place-of-send",
     date: "2026-09-10",
     title: "Stop is where send was",
