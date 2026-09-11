@@ -12,8 +12,13 @@ import { useRouter } from "next/navigation";
  *
  * The rules have not moved an inch. This posts to an owner-gated route that
  * calls the same `lib/budget.ts` the terminal calls: a budget can still only
- * *tighten* the deployment's ceiling, and a day's top-up is still capped. None
- * of it is a tool, so nothing the model can be talked into reaches it.
+ * *tighten* the deployment's ceiling, never lift it. None of it is a tool, so
+ * nothing the model can be talked into reaches it.
+ *
+ * A one-day grant that goes *above* the ceiling is deliberately not here. It
+ * is the only thing in this app that can, it should be rare and considered,
+ * and a row of +$1 buttons on a list of people is neither — `npm run user --
+ * topup` still does it.
  */
 export function AccountControls({
   userId, email, role, isOnlyOwner,
@@ -31,7 +36,7 @@ export function AccountControls({
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
 
-  async function post(action: "budget" | "topup" | "role", value: string, confirmEmail?: string) {
+  async function post(action: "budget" | "role", value: string, confirmEmail?: string) {
     setBusy(action);
     setError(null);
     setNote(null);
@@ -57,29 +62,6 @@ export function AccountControls({
   return (
     <div className="mt-3 border-t border-line/60 pt-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-widest text-faint">Give a day</span>
-        {/* The amounts anybody actually types. The box is still there for the
-            rest, and the route refuses anything over the cap either way. */}
-        {["1", "2", "5"].map((amount) => (
-          <button
-            key={amount}
-            onClick={() => post("topup", amount)}
-            disabled={busy !== null}
-            className="rounded-full border border-line px-3 py-1.5 text-[12.5px] text-muted active:bg-raised disabled:opacity-40"
-          >
-            +${amount}
-          </button>
-        ))}
-        <button
-          onClick={() => post("topup", "none")}
-          disabled={busy !== null}
-          className="rounded-full px-2 py-1.5 text-[12px] text-faint underline underline-offset-2 disabled:opacity-40"
-        >
-          take it back
-        </button>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-widest text-faint">Daily cap</span>
         <Amount label="Set" placeholder="2.00" busy={busy === "budget"} onSend={(v) => post("budget", v)} />
         <button

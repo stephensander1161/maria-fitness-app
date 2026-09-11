@@ -18,12 +18,27 @@ suite("the owner can change a budget from the screen", () => {
 
   it("uses the same arithmetic as the command line", () => {
     // So the screen cannot be the permissive way in: a budget still only
-    // tightens the ceiling, and a top-up is still capped, from one function.
+    // tightens the ceiling, from one function.
     expect(route).toMatch(/budgetFor\(value, LIMITS\.dailyCostMicros\)/);
     expect(route).toMatch(/topUpFor\(value\)/);
     // Not reimplemented here.
     expect(route).not.toMatch(/MAX_TOP_UP_MICROS\s*=/);
     expect(route).not.toMatch(/Number\(value\)/);
+  });
+
+  it("does not offer a grant above the ceiling from a list of people", () => {
+    /*
+      A top-up is the only thing in this app that can take somebody past the
+      deployment's ceiling. That should be rare and considered, and a row of
+      +$1 buttons beside every name is neither — it turns the one deliberate
+      act here into the easiest tap on the screen. The route still knows how,
+      for the command line; the console does not ask.
+    */
+    expect(ui).not.toMatch(/Give a day/);
+    expect(ui).not.toMatch(/"topup"/);
+    // The cap is what the console adjusts, and it can only ever tighten.
+    expect(ui).toMatch(/Daily cap/);
+    expect(ui).toMatch(/full ceiling/);
   });
 
   it("refuses to remove the last owner", () => {

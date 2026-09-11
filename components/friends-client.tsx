@@ -114,6 +114,19 @@ export function FriendsClient({
         <HighFiveCheer unseen={highFives.unseen} onDone={() => setCheering(false)} />
       )}
 
+      {/*
+        Two columns on a wide screen: the people, and the paperwork.
+
+        It was one stack of full-width cards — a request, the friends, another
+        request, a code box, a form — each a different height, running down the
+        middle of a 1400px screen with nothing beside them. The friends are the
+        page; adding one and handing out your code are the things you do once
+        and then never again, so they go in a narrower column beside them
+        rather than below them at the same weight.
+      */}
+      <div className="xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] xl:items-start xl:gap-4">
+      <div className="space-y-3">
+
       {/* Above the friends, and only when somebody is actually waiting: it is
           one line that wants an answer and disappears once it has one. */}
       {waitingOnYou.length > 0 && (
@@ -196,6 +209,12 @@ export function FriendsClient({
         </section>
       )}
 
+      </div>
+
+      {/* The paperwork. Sticky, because the friends column is the one that
+          gets long. */}
+      <aside className="mt-3 space-y-3 xl:mt-0 xl:sticky xl:top-6">
+
       <section className="card p-5">
         <h2 className="text-[15px] font-semibold">Add a friend</h2>
         <p className="mt-1 text-[13px] leading-relaxed text-muted">
@@ -249,10 +268,14 @@ export function FriendsClient({
         </div>
       </section>
 
+      {/* The rule this whole feature is built to keep, where it is read: in
+          the column that is about handing somebody access. */}
       <p className="px-1 pt-1 text-[12px] leading-relaxed text-faint">
         Friends see training only: sessions, streak, sets and best lifts. Never your weight,
         measurements, photos, food or anything you tell your coach.
       </p>
+      </aside>
+      </div>
     </div>
   );
 }

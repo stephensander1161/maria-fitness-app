@@ -206,18 +206,24 @@ function CoachSheet({
       role="dialog"
       aria-modal="true"
       aria-label="Your coach"
-      className="fixed inset-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-end md:justify-center md:p-6"
+      className="fixed inset-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
     >
       {/*
         A sheet from the bottom edge is right under a thumb and wrong under a
-        mouse — on a wide screen it becomes a panel docked to the right, at a
-        height that leaves the screen behind it visible, because the whole
-        point is asking about what is on it.
+        mouse — on a wide screen it is a window in the middle of the screen.
+
+        It used to dock to the right at reading width, on the theory that the
+        page behind it was the point. In practice the answer is the point: a
+        narrow column against the edge made long replies scroll for no reason
+        while two thirds of a 1400px screen sat empty, and anything the coach
+        had been asked *about* was behind the panel anyway. Wide and centred,
+        capped so it never becomes a full-screen takeover on a very large
+        monitor.
       */}
       <div
         ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(46rem,88dvh)] md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60"
+        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(52rem,90dvh)] md:w-[min(56rem,92vw)] md:max-w-none md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60"
         data-no-pull-to-refresh=""
       >
         {clearing && (
