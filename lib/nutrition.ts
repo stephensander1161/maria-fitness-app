@@ -290,3 +290,29 @@ export function gramsForCalories(
   if (ratio < 0.1 || ratio > 10) return null;
   return Math.round(referenceGrams * ratio);
 }
+
+
+/**
+ * Categories where an empty fibre column means none, rather than unmeasured.
+ *
+ * 172 of the seeded foods leave `fibre_g` null and almost all of them are
+ * meat, fish, dairy, eggs, oil or water — foods with no fibre by construction,
+ * where the column was skipped rather than written 0. Reading those as unknown
+ * is what made the fibre bar a floor on essentially every day anybody logs:
+ * one protein shake, one hotdog, and the whole day is hatched for a figure
+ * that is genuinely zero.
+ *
+ * Everything else keeps the honest reading. A legume or a fruit with no figure
+ * is a figure nobody has, and that is exactly the case the "≥" exists for.
+ *
+ * Pure and here rather than beside one of its callers, because the recipe
+ * cards and the meal log were each answering this question their own way and
+ * only one of them was answering it right.
+ */
+const FIBRE_FREE_BY_NATURE = new Set(["meat", "fish", "dairy", "eggs", "fat", "drink"]);
+
+/** A food's fibre per 100g, or null where nobody has measured it. */
+export function fibrePer100(food: { fibreG: number | null; category: string }): number | null {
+  if (food.fibreG !== null) return food.fibreG;
+  return FIBRE_FREE_BY_NATURE.has(food.category) ? 0 : null;
+}

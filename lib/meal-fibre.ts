@@ -1,4 +1,5 @@
 import { parsePortion, toGrams } from "@/lib/portion";
+import { fibrePer100 } from "@/lib/nutrition";
 import { searchFoods } from "@/lib/tools/foods";
 
 /**
@@ -18,30 +19,6 @@ import { searchFoods } from "@/lib/tools/foods";
  * resolved, and a recipe with fewer than it has ingredients reports a *floor*.
  */
 export type MealFibre = { grams: number; lines: number };
-
-/**
- * Categories where a null fibre figure means none, rather than unmeasured.
- *
- * 172 of the seeded foods have `fibre_g` null and almost all of them are meat,
- * fish, dairy, eggs, oil or water — foods with no fibre by construction, where
- * the column was left empty rather than written 0. Reading those as unknown
- * would make nearly every recipe in the library a floor, and the "≥" would
- * stop meaning anything. Everything else keeps the honest reading: a legume or
- * a fruit with no figure is a figure nobody has.
- */
-const NONE_BY_NATURE = new Set(["meat", "fish", "dairy", "eggs", "fat", "drink"]);
-
-/**
- * A food's fibre per 100g, or null where nobody has measured it.
- *
- * Pure, and separate from the lookup, because this is the judgement call in
- * the whole file: an empty column means two different things depending on what
- * the food is.
- */
-export function fibrePer100(food: { fibreG: number | null; category: string }): number | null {
-  if (food.fibreG !== null) return food.fibreG;
-  return NONE_BY_NATURE.has(food.category) ? 0 : null;
-}
 
 /** Grams of fibre in one ingredient line, or null if it could not be resolved. */
 export async function fibreForLine(line: string): Promise<number | null> {

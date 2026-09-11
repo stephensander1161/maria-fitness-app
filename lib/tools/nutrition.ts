@@ -17,7 +17,7 @@ import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
 import { parsePortion, toGrams } from "@/lib/portion";
 import { searchFoods } from "./foods";
 import {
-  directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, nutritionTargets, targetDirection,
+  directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, fibrePer100, nutritionTargets, targetDirection,
 } from "@/lib/nutrition";
 import { cmToIn } from "@/lib/units";
 import { desc } from "drizzle-orm";
@@ -295,8 +295,17 @@ async function priceItems(items: string[], ctx: ToolContext): Promise<{
     proteinG += at(best.proteinG);
     carbsG += at(best.carbsG);
     fatG += at(best.fatG);
-    if (best.fibreG === null) fibreKnownForAll = false;
-    else fibreG += at(best.fibreG);
+    /*
+      The same rule the recipe cards use, which this had never used.
+
+      An empty fibre column on a chicken breast means none, not unmeasured —
+      so treating it as unknown made the day's fibre a floor forever: one
+      protein shake and the bar is hatched for a figure that is genuinely
+      zero. A legume with no figure is still a figure nobody has.
+    */
+    const fibrePer = fibrePer100(best);
+    if (fibrePer === null) fibreKnownForAll = false;
+    else fibreG += at(fibrePer);
     found.push({
       item: raw, food: best.name, portion: gramsLabel(grams, units), kcal: Math.round(at(best.kcal)),
     });

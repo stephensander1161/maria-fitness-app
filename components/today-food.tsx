@@ -543,10 +543,36 @@ function FoodNumbers({
     }
   }
 
-  const label =
-    blanks.length === 0 ? "nothing left to work out"
-      : blanks.length === 1 ? `estimate ${blanks[0] === "calories" ? "calories" : blanks[0]}`
-        : "work out the rest";
+  // "Calculate". It was "estimate protein" / "work out the rest" — three
+  // phrasings of one button, and none of them said the thing the button is:
+  // the calculator, on what she has typed.
+  const label = blanks.length === 0 ? "nothing left to calculate" : "calculate";
+
+  /*
+    A label that stays, above the box.
+
+    They were placeholders, which is the oldest trap in a form: the word
+    disappears the moment there is a value in the field, so the instant the
+    calculator fills all five in she is looking at five numbers and no way to
+    tell which is fat. The label sits above now and never moves.
+  */
+  const box = (k: keyof Macros, label: string, unit: string) => (
+    <label key={k} className="block min-w-0">
+      <span className="mb-1 block text-[10px] uppercase tracking-wide text-faint">
+        {label}
+      </span>
+      <input
+        value={value[k]}
+        onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
+        inputMode="numeric"
+        // No "(optional)". None of these five is required — that is the rule
+        // the whole screen is built on — and saying it on two of them implied
+        // the other three were not.
+        placeholder={unit}
+        className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
+      />
+    </label>
+  );
 
   return (
     <div>
@@ -554,33 +580,13 @@ function FoodNumbers({
           fill in the picture under them — five equal boxes across a phone
           would be five numbers nobody can read. */}
       <div className="grid grid-cols-2 gap-2">
-        {(["calories", "protein"] as const).map((k) => (
-          <input
-            key={k}
-            value={value[k]}
-            onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
-            inputMode="numeric"
-            // No "(optional)" on the label. None of these five is required —
-            // that is the rule the whole screen is built on — and saying it on
-            // two of them implied the other three were not.
-            placeholder={k === "calories" ? "kcal" : "protein g"}
-            aria-label={k === "calories" ? "Calories" : "Protein in grams"}
-            className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-          />
-        ))}
+        {box("calories", "Calories", "kcal")}
+        {box("protein", "Protein", "g")}
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2">
-        {(["carbs", "fat", "fibre"] as const).map((k) => (
-          <input
-            key={k}
-            value={value[k]}
-            onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
-            inputMode="numeric"
-            placeholder={`${k} g`}
-            aria-label={`${k[0].toUpperCase()}${k.slice(1)} in grams`}
-            className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
-          />
-        ))}
+        {box("carbs", "Carbs", "g")}
+        {box("fat", "Fat", "g")}
+        {box("fibre", "Fibre", "g")}
       </div>
       {/* Under the pair, not inside a field: half a grid column is not much
           room for a number and a word, and the button ran into the
@@ -771,10 +777,6 @@ function QuickAdd({
       <div className="mt-2">
         <FoodNumbers value={macros} onChange={setMacros} describes={what} />
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-faint">
-        Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather
-        than counting it as nothing. Your coach can work them out for you.
-      </p>
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
       <div className="mt-2 flex gap-2">
         <button

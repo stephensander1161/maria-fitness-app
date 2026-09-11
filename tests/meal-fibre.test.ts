@@ -1,5 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
-import { fibrePer100, formatFibre } from "@/lib/meal-fibre";
+import fs from "node:fs";
+import { formatFibre } from "@/lib/meal-fibre";
+import { fibrePer100 } from "@/lib/nutrition";
 import { FOODS } from "@/lib/seed/foods";
 
 suite("the fifth macro, recovered from the ingredients", () => {
@@ -42,5 +44,22 @@ suite("the fifth macro, recovered from the ingredients", () => {
     // A dash on the card is honest; a 0 is a claim about the recipe.
     expect(formatFibre(0, 0, 4)).toBeNull();
     expect(formatFibre(null, null, 4)).toBeNull();
+  });
+});
+
+suite("one fibre rule, used everywhere fibre is worked out", () => {
+  it("prices a meal with it, not only a recipe", () => {
+    /*
+      The recipe cards had this rule and the meal log did not, so an empty
+      fibre column on a chicken breast read as unmeasured there — and one
+      protein shake left the day's fibre bar hatched for a figure that is
+      genuinely zero. It is the same question and it now has one answer.
+    */
+    const tools = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+    expect(tools).toMatch(/const fibrePer = fibrePer100\(best\);/);
+    expect(tools).toMatch(/if \(fibrePer === null\) fibreKnownForAll = false;/);
+    // …and nobody keeps a second copy of the category list.
+    expect(tools).not.toMatch(/FIBRE_FREE_BY_NATURE|NONE_BY_NATURE/);
+    expect(fs.readFileSync("lib/meal-fibre.ts", "utf8")).not.toMatch(/NONE_BY_NATURE/);
   });
 });
