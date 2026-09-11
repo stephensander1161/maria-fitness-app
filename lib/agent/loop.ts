@@ -16,6 +16,8 @@ import { planSummary } from "@/lib/views";
 import { complaintSummary } from "@/lib/tools/swaps";
 import { cycleSignal } from "@/lib/tools/cycle-tools";
 import { sleepSignal, sleepTarget } from "@/lib/sleep";
+import { waterSignal, waterTarget, waterTotals } from "@/lib/water";
+import { foodUnitsOf } from "@/lib/food-units";
 import { phaseSignal } from "@/lib/tools/phases";
 import { preppedSummary } from "@/lib/tools/batch-cooking";
 import type { Profile } from "@/lib/db/schema";
@@ -86,7 +88,7 @@ export async function* runCoach(
   // nothing — so it asks her to retype the session she just finished, which is
   // the exact failure todaySnapshot exists to prevent.
   const her = profileToday(profile);
-  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge, aim, sleep] = await Promise.all([
+  const [snapshot, plan, milestones, recomp, weight, hurts, cycle, fridge, aim, sleep, drink] = await Promise.all([
     todaySnapshot(profile.id, profile.units, her),
     planSummary(profile.id, profile.units, her),
     goalProgress(profile.id, profile.units),
@@ -99,6 +101,18 @@ export async function* runCoach(
     // Short sleep explains a flat session more often than anything else
     // the block already carries, and the app used to be silent about it.
     sleepSignal(profile.id, her, sleepTarget(profile)),
+    /*
+      What she has drunk today, or nothing at all.
+
+      `waterSignal` returns null when today has no rows, and that is the point:
+      the model believes this block completely, so "she has drunk 0 ml" would
+      have it telling her to drink when she may have had two litres and written
+      none of it down. Silence is the honest state for an unlogged day.
+    */
+    (async () => {
+      const { today } = await waterTotals(profile.id, her);
+      return waterSignal(today, waterTarget(profile), foodUnitsOf(profile));
+    })(),
   ]);
   // Not a promise: everything it needs is already on the profile.
   const recovery = postpartumSignal({
@@ -114,7 +128,7 @@ export async function* runCoach(
     // backwards does the damage: the app was weight-loss-first everywhere, and
     // told someone trying to gain that their rising scale was a problem.
     [recovery, snapshot, plan, weight, aim, cycle && `IMPORTANT: ${cycle}`, phaseSignal(profile, her),
-      fridge, sleep, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
+      fridge, sleep, drink, milestones, hurts, recomp && `IMPORTANT: ${recomp}`]
       .filter(Boolean).join("\n\n"),
     opts.speakingTo ?? null,
   );

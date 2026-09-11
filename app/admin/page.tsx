@@ -166,6 +166,8 @@ export default async function AdminPage() {
               email={a.email}
               role={a.role}
               isOnlyOwner={a.role === "owner" && data.accounts.filter((x) => x.role === "owner").length <= 1}
+              disabled={a.disabled}
+              isYou={a.userId === owner.id}
             />
           </section>
         ))}

@@ -34,6 +34,7 @@ import * as burn from "./burn";
 import * as shipped from "./shipped";
 import * as whatsNew from "./whats-new";
 import * as sleep from "./sleep";
+import * as water from "./water";
 import * as stretches from "./stretches";
 
 /**
@@ -188,6 +189,10 @@ const all: Tool[] = [
   sleep.sleepThisWeek,
   sleep.setSleepTarget,
   sleep.removeSleep,
+  water.logWater,
+  water.getWater,
+  water.setWaterTarget,
+  water.removeWaterLog,
   whatsNew.acknowledgeTitle,
   stretches.getStretches,
   appearance.setCardCollapsed,

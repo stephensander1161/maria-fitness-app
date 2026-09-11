@@ -15,11 +15,44 @@
  * for the same reason.
  */
 export const TOOLBAR_MAX = 160;
+/**
+ * Below this it is scroll jitter, not a toolbar.
+ *
+ * The visual viewport shifts by a few pixels through a momentum scroll and a
+ * rubber-band, and every one of those fired an update that moved the tab bar.
+ * No bottom toolbar is twenty pixels tall, so nothing that small is one.
+ */
+export const TOOLBAR_MIN = 24;
 
-export function coveredBottom(v: { innerHeight: number; offsetTop: number; height: number; scale: number }): number {
+/**
+ * Whether this browser leaves `position: fixed` under its own bottom toolbar.
+ *
+ * The distinction the rest of this file was missing. iOS Safari pins fixed
+ * elements to the *visual* viewport, so `bottom: 0` already sits above its
+ * toolbar — adding the strip on top lifted the tab bar a toolbar's height off
+ * the bottom of the screen, with the page still visible underneath, and moved
+ * it every time the toolbar grew or shrank through a scroll. Chrome and
+ * Firefox on iOS do not do that, which is the entire reason this exists.
+ *
+ * A user-agent test, deliberately, and it fails to *nothing*: an unrecognised
+ * browser adds zero, which is correct everywhere except the two named here.
+ * Measuring instead would mean laying out a probe element and reading it back
+ * on every scroll, for a question whose answer cannot change mid-session.
+ */
+export function coversFixedElements(ua: string): boolean {
+  if (!/iPhone|iPad|iPod/.test(ua)) return false;
+  return /CriOS|FxiOS|EdgiOS/.test(ua);
+}
+
+export function coveredBottom(v: {
+  innerHeight: number; offsetTop: number; height: number; scale: number;
+  /** False on a browser that already keeps fixed elements clear of its chrome. */
+  overlays?: boolean;
+}): number {
   if (v.scale !== 1) return 0;
+  if (v.overlays === false) return 0;
   const covered = Math.round(v.innerHeight - (v.offsetTop + v.height));
-  if (covered <= 0 || covered > TOOLBAR_MAX) return 0;
+  if (covered < TOOLBAR_MIN || covered > TOOLBAR_MAX) return 0;
   return covered;
 }
 

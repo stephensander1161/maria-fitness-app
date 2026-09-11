@@ -127,7 +127,7 @@ suite("a repeat she meant is not a loop", () => {
 
   it("marks the tools whose repeats are her intent, with the reason", () => {
     const repeatable = [...registry.values()].filter((t) => t.repeatable).map((t) => t.name).sort();
-    expect(repeatable).toEqual(["log_meal", "log_set"]);
+    expect(repeatable).toEqual(["log_meal", "log_set", "log_water"]);
     for (const name of repeatable) {
       // The reason, not a boolean — the same rule as uiOnly.
       expect(registry.get(name)!.repeatable!.length, name).toBeGreaterThan(20);

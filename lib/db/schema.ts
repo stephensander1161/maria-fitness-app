@@ -213,6 +213,15 @@ export const profiles = pgTable("profiles", {
    * and nobody should have to round it to store it.
    */
   sleepTargetMinutes: integer("sleep_target_minutes"),
+  /**
+   * What she is aiming to drink in a day, in millilitres. Null follows the
+   * default in lib/water.ts.
+   *
+   * Millilitres for the same reason sleep is minutes and weight is kilograms:
+   * one canonical unit, converted at the boundary. A pint and half a litre are
+   * not the same number and neither should have to be rounded to be stored.
+   */
+  waterTargetMl: integer("water_target_ml"),
   /** Set once onboarding has collected enough to generate a real plan. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /**
@@ -515,6 +524,34 @@ export const sleepLogs = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("sleep_logs_profile_date").on(t.profileId, t.date)],
+);
+
+/**
+ * What she drank, one row per drink.
+ *
+ * A row per drink rather than a running total per day, because a total she can
+ * only overwrite is a total she stops trusting the moment she taps twice: the
+ * last glass has to be removable without retyping the day. `get_water` sums
+ * them; `remove_water_log` takes the last one back.
+ *
+ * Millilitres, always — see `profiles.water_target_ml`. Everything shown to
+ * her goes through lib/water.ts and her food units.
+ *
+ * The day is hers, in her timezone, like every other day-level date here.
+ */
+export const waterLogs = pgTable(
+  "water_logs",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    ml: integer("ml").notNull(),
+    /** What it was, when she said — "coffee", "a pint of water". Optional:
+     *  the volume is the thing being tracked and a label is a nicety. */
+    label: text("label"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("water_logs_profile_date").on(t.profileId, t.date)],
 );
 
 /**

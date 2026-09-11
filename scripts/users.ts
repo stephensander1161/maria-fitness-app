@@ -215,6 +215,12 @@ async function main() {
         // Disabling must take effect immediately, not at token expiry.
         ...(disabling ? { sessionsValidFrom: new Date() } : {}),
       }).where(eq(users.id, user.id));
+      // The console's version of this has always been audited; this one never
+      // was, so the same action left a record or no record depending on where
+      // it was done from. A log with holes in it is the one that gets believed.
+      await audit(disabling ? "admin.account_disabled" : "admin.account_enabled", {
+        detail: { userId: user.id, from: "cli" },
+      });
       console.log(`✓ ${email} ${disabling ? "disabled" : "enabled"}.`);
       break;
     }

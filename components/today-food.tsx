@@ -443,12 +443,11 @@ export const fromLog = (l: {
  * says so, which is the rule the whole app is built on.
  */
 function FoodNumbers({
-  value, onChange, describes, optional = false,
+  value, onChange, describes,
 }: {
   value: Macros;
   onChange: (v: Macros) => void;
   describes: string;
-  optional?: boolean;
 }) {
   const set = (k: keyof Macros) => (v: string) => onChange({ ...value, [k]: v });
   const { calories } = value;
@@ -524,7 +523,10 @@ function FoodNumbers({
             value={value[k]}
             onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
             inputMode="numeric"
-            placeholder={`${k === "calories" ? "kcal" : "protein g"}${optional ? " (optional)" : ""}`}
+            // No "(optional)" on the label. None of these five is required —
+            // that is the rule the whole screen is built on — and saying it on
+            // two of them implied the other three were not.
+            placeholder={k === "calories" ? "kcal" : "protein g"}
             aria-label={k === "calories" ? "Calories" : "Protein in grams"}
             className="w-full rounded-lg border border-edge bg-base px-3 py-2 text-[14px] tabular placeholder:text-faint focus:border-accent focus:outline-none"
           />
@@ -697,7 +699,7 @@ function QuickAdd({
         className="w-full rounded-lg border border-edge bg-base px-3 py-2.5 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none"
       />
       <div className="mt-2">
-        <FoodNumbers value={macros} onChange={setMacros} describes={what} optional />
+        <FoodNumbers value={macros} onChange={setMacros} describes={what} />
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-faint">
         Leave the numbers blank if you don&rsquo;t know them — the day shows a floor rather

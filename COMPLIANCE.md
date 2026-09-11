@@ -34,8 +34,9 @@ Read it as an honest inventory, not a certificate.
 | Hashes upgraded transparently on next sign-in when parameters are raised | `lib/password.ts` |
 | Stateless signed session: `httpOnly` (unreachable from JS), `secure` in production, `sameSite=lax` (blocks cross-site POST, so no CSRF token is needed) | `lib/auth.ts` |
 | Two-layer session check: the proxy verifies signature and expiry, the handler verifies the account still exists, is enabled, and hasn't been signed out everywhere | `proxy.ts`, `lib/session.ts` |
-| Per-user revocation — `signout-everywhere`, disable, and password change all invalidate that account's sessions immediately, without touching anyone else's | `scripts/users.ts` |
+| Per-user revocation — `signout-everywhere`, disable, and password change all invalidate that account's sessions immediately, without touching anyone else's | `scripts/users.ts`, `app/api/admin/account/route.ts` |
 | Account disable retains history rather than deleting it | `users.disabledAt` |
+| Disable and re-enable are owner-gated, audited from both the console and the command line, refuse the acting owner's own account and the last owner who can still sign in | `app/api/admin/account/route.ts`, `scripts/users.ts` |
 | Global revocation by secret rotation | `AUTH_SECRET` |
 | A per-person daily spend budget that can only tighten the deployment ceiling; the one thing that exceeds it is a capped, single-day top-up granted from the command line and unreachable from any session or prompt | `lib/limits.ts`, `lib/budget.ts`, `scripts/users.ts` |
 | Brute-force ceilings, per-IP **and** global — `x-forwarded-for` is client-supplied, so a per-IP limit alone can be rotated around | `lib/limits.ts` |

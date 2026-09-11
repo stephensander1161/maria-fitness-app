@@ -55,13 +55,33 @@ suite("the owner can change a budget from the screen", () => {
     expect(ui).toMatch(/Type \$\{email\} to confirm/);
   });
 
-  it("records all three", () => {
-    // Changing what somebody may spend, or who can read this log, is exactly
-    // the class of action COMPLIANCE.md says must be audited.
-    for (const event of ["admin.budget_set", "admin.top_up_granted", "admin.role_changed"]) {
+  it("records every one of them", () => {
+    // Changing what somebody may spend, who can read this log, or whether
+    // somebody can sign in at all, is exactly the class of action
+    // COMPLIANCE.md says must be audited.
+    for (const event of [
+      "admin.budget_set", "admin.top_up_granted", "admin.role_changed",
+      "admin.account_disabled", "admin.account_enabled",
+    ]) {
       expect(route, event).toContain(event);
     }
-    expect(fs.readFileSync("lib/audit.ts", "utf8")).toMatch(/"admin\.role_changed",\n\];/);
+  });
+
+  it("flags the two that change who can reach what", () => {
+    // Granting the console widens who can see everybody else; locking an
+    // account narrows it to nothing. Both are worth a second look on the
+    // security page even when they were deliberate.
+    const audit = fs.readFileSync("lib/audit.ts", "utf8");
+    const warn = audit.slice(audit.indexOf("const WARN"), audit.indexOf("];", audit.indexOf("const WARN")));
+    expect(warn).toContain('"admin.role_changed"');
+    expect(warn).toContain('"admin.account_disabled"');
+  });
+
+  it("is audited from the command line too, not only the screen", () => {
+    // The same action left a record or no record depending on where it was
+    // done from, and a log with holes in it is the one that gets believed.
+    expect(fs.readFileSync("scripts/users.ts", "utf8"))
+      .toMatch(/audit\(disabling \? "admin\.account_disabled" : "admin\.account_enabled"/);
   });
 
   it("clears the ask when it answers it", () => {
@@ -108,5 +128,39 @@ suite("the owner is woken when somebody asks", () => {
     const pending = fs.readFileSync("app/api/push/pending/route.ts", "utf8");
     expect(pending).toMatch(/user\.role === "owner"/);
     expect(pending).toMatch(/status: 401/);
+  });
+});
+
+suite("locking somebody out", () => {
+  const route = fs.readFileSync("app/api/admin/account/route.ts", "utf8");
+  const block = route.slice(route.indexOf('if (action === "access")'), route.indexOf('const [profile]'));
+
+  it("takes effect on their next request, not at token expiry", () => {
+    // A session already issued is exactly the thing being taken away, and
+    // lib/session.ts checks both halves on every page.
+    expect(block).toMatch(/sessionsValidFrom: new Date\(\)/);
+    expect(block).toMatch(/disabledAt: disabling \? new Date\(\) : null/);
+  });
+
+  it("deletes nothing", () => {
+    // The difference between this and the delete route, and the reason this
+    // one is reversible.
+    expect(block).not.toMatch(/db\.delete/);
+  });
+
+  it("refuses to lock the owner doing it", () => {
+    expect(block).toMatch(/disabling && target\.id === owner\.id/);
+  });
+
+  it("refuses to lock the last owner who can still sign in", () => {
+    // Not just the last owner: an owner already disabled cannot open the
+    // console either, so counting roles alone would let the last usable one go.
+    expect(block).toMatch(/eq\(users\.role, "owner"\), isNull\(users\.disabledAt\)/);
+  });
+
+  it("asks for the email back, like a role change", () => {
+    // A list of people with a button beside each — the mistake worth guarding
+    // against is acting on the wrong row, which is silent from this screen.
+    expect(block).toMatch(/confirmEmail \?\? ""/);
   });
 });

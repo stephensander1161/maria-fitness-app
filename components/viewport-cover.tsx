@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { coveredBottom, visibleHeight } from "@/lib/viewport-cover";
+import { coversFixedElements, coveredBottom, visibleHeight } from "@/lib/viewport-cover";
 
 /**
  * Keeps `--covered-bottom` on <html> equal to what the browser toolbar is
@@ -14,10 +14,16 @@ export function ViewportCover() {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
+    // Asked once: no browser changes what it does with fixed elements while
+    // she is scrolling, and this used to be assumed true of all of them.
+    const overlays = coversFixedElements(navigator.userAgent);
     let last = -1;
     let lastTall = -1;
     const update = () => {
-      const px = coveredBottom({ innerHeight: window.innerHeight, offsetTop: vv.offsetTop, height: vv.height, scale: vv.scale });
+      const px = coveredBottom({
+        innerHeight: window.innerHeight, offsetTop: vv.offsetTop,
+        height: vv.height, scale: vv.scale, overlays,
+      });
       if (px !== last) {
         last = px;
         document.documentElement.style.setProperty("--covered-bottom", `${px}px`);

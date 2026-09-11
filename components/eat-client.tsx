@@ -8,6 +8,7 @@ import { RecipeScan } from "./recipe-scan";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
 import { AteThePlan } from "./ate-the-plan";
+import { WaterCard } from "./water-card";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -22,8 +23,16 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  */
 export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
-  burnKcal, burnSessions, isToday,
+  burnKcal, burnSessions, isToday, water,
 }: {
+  /** Today's drinking, already in her food units — see lib/water.ts. */
+  water: {
+    total: string | null;
+    target: string;
+    state: "none" | "low" | "close" | "there" | "unknown";
+    anythingLogged: boolean;
+    presets: { ml: number; label: string }[];
+  };
   /** Whether the day on screen is her today. "Planned for today" over
    *  Thursday is the kind of wrong that only gets noticed after it is
    *  believed — the screen steps back a day at a time now. */
@@ -107,6 +116,18 @@ export function EatClient({
           </p>
         )}
       </FoldableCard>
+
+      {/*
+        Beside the food rather than under it. Water is logged in the same
+        moments as a meal — she is in the kitchen, she has just eaten — and a
+        card two screens down is a card she remembers at bedtime.
+      */}
+      <WaterCard
+        {...water}
+        units={foodUnits}
+        date={day.date}
+        isToday={isToday}
+      />
 
       <RecipeScan defaultSlot={defaultSlot} />
 

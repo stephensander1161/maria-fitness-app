@@ -1,5 +1,6 @@
 import { EatClient } from "@/components/eat-client";
 import { cardOpen } from "@/lib/cards";
+import { formatWater, waterPresets, waterState, waterTarget, waterTotals } from "@/lib/water";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
 import { addDays, APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
@@ -42,12 +43,14 @@ export default async function EatPage({
   const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
   const isToday = on === her;
 
-  const [dayFood, mealWeek, saved, burnToday] = await Promise.all([
+  const [dayFood, mealWeek, saved, burnToday, water] = await Promise.all([
     dayFoodView(profile.id, on),
     mealWeekView(profile.id, foodUnitsOf(profile), weekStart(on), on),
     savedMealsView(profile.id),
     burnByDay(profile.id, on, on, profile.startWeightKg ?? 70),
+    waterTotals(profile.id, on),
   ]);
+  const waterGoal = waterTarget(profile);
 
   // The planned meals for the day being read, not for today — on Thursday's
   // page, Thursday's plan.
@@ -86,6 +89,13 @@ export default async function EatPage({
         foodUnits={mealWeek.foodUnits}
         plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
         isToday={isToday}
+        water={{
+          total: water.today === null ? null : formatWater(water.today, mealWeek.foodUnits),
+          target: formatWater(waterGoal, mealWeek.foodUnits),
+          state: waterState(water.today, waterGoal),
+          anythingLogged: water.today !== null,
+          presets: waterPresets(mealWeek.foodUnits),
+        }}
       defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
         burnKcal={burnToday.reduce((n, d) => n + d.kcal, 0)}
         burnSessions={burnToday.length}

@@ -37,6 +37,16 @@ export type AuditEventName =
   | "admin.budget_set"
   | "admin.top_up_granted"
   | "admin.role_changed"
+  /**
+   * Somebody locked out of their account, or let back in. Ids only.
+   *
+   * Recorded for the same reason as a role change and with more force: it is
+   * one person ending another's access to their own training, it takes effect
+   * on their next request, and from their side it looks exactly like the app
+   * being broken. "Who did that, and when" has to be answerable.
+   */
+  | "admin.account_disabled"
+  | "admin.account_enabled"
   // A device registered for notifications. Recorded because it is a new
   // place her app can be reached, and never with the endpoint — that is an
   // address someone else could push to.
@@ -85,6 +95,8 @@ const WARN: AuditEventName[] = [
   // Granting the console is the one change here that widens who can see
   // everybody else, so it is worth a second look even when it was deliberate.
   "admin.role_changed",
+  // And taking someone's account away is the one that narrows it to nothing.
+  "admin.account_disabled",
 ];
 
 /** Never let logging break the request it is describing. */

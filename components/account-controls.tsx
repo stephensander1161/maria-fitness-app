@@ -21,22 +21,27 @@ import { useRouter } from "next/navigation";
  * topup` still does it.
  */
 export function AccountControls({
-  userId, email, role, isOnlyOwner,
+  userId, email, role, isOnlyOwner, disabled, isYou,
 }: {
   userId: string;
   email: string;
   role: "owner" | "member";
   /** Demoting the last owner locks the console for everybody. */
   isOnlyOwner: boolean;
+  /** Already locked out. The control reads the other way round. */
+  disabled: boolean;
+  /** Your own row. You cannot lock yourself out of the console you are in. */
+  isYou: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  /** Which control is asking for the email — they share the one box. */
+  const [confirming, setConfirming] = useState<"role" | "access" | null>(null);
   const [typed, setTyped] = useState("");
 
-  async function post(action: "budget" | "role", value: string, confirmEmail?: string) {
+  async function post(action: "budget" | "role" | "access", value: string, confirmEmail?: string) {
     setBusy(action);
     setError(null);
     setNote(null);
@@ -49,7 +54,7 @@ export function AccountControls({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.ok === false) throw new Error(data.error ?? "That didn't work.");
       setNote(data.note ?? "Saved.");
-      setConfirming(false);
+      setConfirming(null);
       setTyped("");
       startTransition(() => router.refresh());
     } catch (err) {
@@ -75,9 +80,9 @@ export function AccountControls({
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-widest text-faint">Console</span>
-        {!confirming ? (
+        {confirming !== "role" ? (
           <button
-            onClick={() => setConfirming(true)}
+            onClick={() => { setConfirming("role"); setTyped(""); }}
             disabled={busy !== null || (role === "owner" && isOnlyOwner)}
             title={role === "owner" && isOnlyOwner ? "The only owner — promote somebody else first" : undefined}
             className="rounded-full border border-line px-3 py-1.5 text-[12.5px] text-muted active:bg-raised disabled:opacity-40"
@@ -85,37 +90,94 @@ export function AccountControls({
             {role === "owner" ? "Remove access" : "Make an owner"}
           </button>
         ) : (
-          /* The email, retyped. This is a list of people with a button beside
-             each of them, so the mistake worth guarding against is granting
-             the console to the wrong row — which is silent, and which nothing
-             on this screen would show afterwards. */
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder={email}
-              aria-label={`Type ${email} to confirm`}
-              className="min-w-0 flex-1 rounded-lg border border-edge bg-base px-2.5 py-1.5 text-[12.5px] placeholder:text-faint focus:border-accent focus:outline-none"
-            />
-            <button
-              onClick={() => post("role", role === "owner" ? "member" : "owner", typed)}
-              disabled={busy !== null}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-on-accent disabled:opacity-40"
-            >
-              Confirm
-            </button>
-            <button
-              onClick={() => { setConfirming(false); setTyped(""); }}
-              className="rounded-full px-2 py-1.5 text-[12px] text-faint"
-            >
-              Cancel
-            </button>
-          </div>
+          <Confirm
+            email={email}
+            typed={typed}
+            setTyped={setTyped}
+            busy={busy !== null}
+            onConfirm={() => post("role", role === "owner" ? "member" : "owner", typed)}
+            onCancel={() => { setConfirming(null); setTyped(""); }}
+          />
+        )}
+      </div>
+
+      {/*
+        Signing in at all — the one thing here that needs to be immediate, and
+        the one that was terminal-only. Nothing is deleted: a disabled account
+        keeps every row it has, which is what separates this from deleting one
+        and why it is the reversible control.
+      */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-widest text-faint">Sign-in</span>
+        {confirming !== "access" ? (
+          <button
+            onClick={() => { setConfirming("access"); setTyped(""); }}
+            disabled={busy !== null || (isYou && !disabled)}
+            title={isYou && !disabled ? "Your own account — somebody else has to do this one" : undefined}
+            className={`rounded-full border px-3 py-1.5 text-[12.5px] active:bg-raised disabled:opacity-40 ${
+              disabled ? "border-beat/50 text-beat" : "border-line text-muted"
+            }`}
+          >
+            {disabled ? "Let them back in" : "Lock them out"}
+          </button>
+        ) : (
+          <Confirm
+            email={email}
+            typed={typed}
+            setTyped={setTyped}
+            busy={busy !== null}
+            onConfirm={() => post("access", disabled ? "on" : "off", typed)}
+            onCancel={() => { setConfirming(null); setTyped(""); }}
+          />
+        )}
+        {disabled && (
+          <span className="text-[12px] text-hold">Locked out — their data is untouched.</span>
         )}
       </div>
 
       {note && <p className="mt-2 text-[12px] text-beat">{note}</p>}
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+    </div>
+  );
+}
+
+/*
+  The email, retyped.
+
+  This is a list of people with buttons beside each of them, so the mistake
+  worth guarding against is acting on the wrong row — which is silent, and
+  which nothing on this screen would show you afterwards. It guards both
+  controls: granting the console, and taking somebody's account away.
+*/
+function Confirm({
+  email, typed, setTyped, busy, onConfirm, onCancel,
+}: {
+  email: string;
+  typed: string;
+  setTyped: (v: string) => void;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder={email}
+        aria-label={`Type ${email} to confirm`}
+        className="min-w-0 flex-1 rounded-lg border border-edge bg-base px-2.5 py-1.5 text-[12.5px] placeholder:text-faint focus:border-accent focus:outline-none"
+      />
+      <button
+        onClick={onConfirm}
+        disabled={busy}
+        className="rounded-full bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-on-accent disabled:opacity-40"
+      >
+        Confirm
+      </button>
+      <button onClick={onCancel} className="rounded-full px-2 py-1.5 text-[12px] text-faint">
+        Cancel
+      </button>
     </div>
   );
 }

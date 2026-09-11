@@ -82,6 +82,12 @@ const LINES: Record<Moment, Lines> = {
       "Logged. Data doesn't lie, and it doesn't judge.",
       "In it goes. Trend's the only thing that counts.",
       "Numbers in. Keep feeding it.",
+      // Crude, and making a real point: the scale swings a kilo across a day
+      // on gut contents and water, which is exactly why this app reads the
+      // trend and not the morning. Same time, same conditions, every time.
+      "Was that before or after you took a dump? Consistency matters.",
+      "Same scale, same time of day, and it'll tell you the truth.",
+      "Weighed at the same time as last time? That's the whole trick.",
     ],
   },
   sleepLogged: {
