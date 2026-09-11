@@ -27,9 +27,9 @@ export const WHATS_NEW: WhatsNew[] = [
   {
     id: "2026-09-11-fold-movements",
     date: "2026-09-11",
-    title: "Fold a movement card down to its name",
+    title: "Finished movements fold themselves away",
     blurb:
-      "The chevron on a movement card folds it to just the name and the target, and remembers \u2014 so the ones you have finished stop taking up the day. Tapping it to log a set opens it as normal.",
+      "A movement folds down to its name and target once its sets are done, so the day shrinks as you work through it. The chevron folds or opens any of them by hand, and what you choose is remembered.",
     href: "/train",
   },
   {

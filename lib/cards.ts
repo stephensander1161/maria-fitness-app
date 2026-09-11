@@ -26,9 +26,19 @@ export const CARDS = {
  */
 const FAMILIES: Record<string, RegExp> = {
   movement: /^movement:[a-z0-9-]{1,80}$/,
+  /**
+   * "She opened this one on purpose."
+   *
+   * A movement card folds itself once its sets are done, which needs three
+   * states and not two: folded, open, and *nobody has said*. Presence in the
+   * list means folded, absence means nobody has said — so an explicit open
+   * has nowhere to live, and without it the card she deliberately opened
+   * folds itself again the moment the page reloads.
+   */
+  open: /^open:movement:[a-z0-9-]{1,80}$/,
 };
 
-export type CardId = keyof typeof CARDS | `movement:${string}`;
+export type CardId = keyof typeof CARDS | `movement:${string}` | `open:movement:${string}`;
 
 export const isCardId = (id: string): id is CardId =>
   Object.hasOwn(CARDS, id)
@@ -49,4 +59,43 @@ export function withCard(
 ): string[] {
   const without = (collapsed ?? []).filter((c) => c !== id);
   return open ? without : [...without, id];
+}
+
+/**
+ * Whether a movement's card is folded.
+ *
+ * Finishing a movement folds it: she has done it, and the sets she logged are
+ * the least useful thing on the screen from that moment on. But a decision she
+ * has actually made outranks that in both directions — a card she folded
+ * stays folded even half-done, and one she opened stays open even finished.
+ */
+export function movementFolded(
+  cards: readonly string[] | null | undefined,
+  slug: string,
+  complete: boolean,
+): boolean {
+  const list = cards ?? [];
+  if (list.includes(movementCard(slug))) return true;
+  if (list.includes(openedCard(slug))) return false;
+  return complete;
+}
+
+/** The marker for a movement she opened on purpose. */
+export const openedCard = (slug: string): CardId => `open:movement:${slug}`;
+
+/**
+ * The list after she folds or opens one movement.
+ *
+ * Written as a pair, in one update, because the two markers contradict each
+ * other and a list holding both is a state no reader can resolve.
+ */
+export function withMovementFold(
+  cards: readonly string[] | null | undefined,
+  slug: string,
+  folded: boolean,
+): string[] {
+  const shut = movementCard(slug);
+  const open = openedCard(slug);
+  const without = (cards ?? []).filter((c) => c !== shut && c !== open);
+  return [...without, folded ? shut : open];
 }

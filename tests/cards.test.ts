@@ -1,6 +1,8 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
-import { CARDS, cardOpen, isCardId, movementCard, withCard, type CardId } from "@/lib/cards";
+import {
+  CARDS, cardOpen, isCardId, movementCard, movementFolded, withCard, withMovementFold, type CardId,
+} from "@/lib/cards";
 
 suite("cards she can fold away", () => {
   it("starts open, always", () => {
@@ -105,7 +107,54 @@ suite("a folded movement card is its name and its target", () => {
   });
 
   it("folds on the tap and saves behind it", () => {
-    expect(card).toMatch(/setFolded\(\(f\) =>/);
-    expect(card).toMatch(/action\("set_card_collapsed", \{ card: id, collapsed: shut \}\)/);
+    expect(card).toMatch(/setFolded\(\(f\) => withMovementFold\(f, slug, shut\)\)/);
+    expect(card).toMatch(/action\("set_card_collapsed", \{ card: movementCard\(slug\), collapsed: shut \}\)/);
+  });
+});
+
+suite("a finished movement folds itself", () => {
+  it("folds once its sets are done", () => {
+    // From the moment it is finished, the sets she logged are the least
+    // useful thing on the screen.
+    expect(movementFolded([], "plank", true)).toBe(true);
+    expect(movementFolded([], "plank", false)).toBe(false);
+  });
+
+  it("but a decision she made outranks it, both ways", () => {
+    // Folded half-done stays folded; opened-when-finished stays open. Without
+    // the second marker the card she deliberately opened folds itself again
+    // the moment the page reloads, which reads as the app arguing with her.
+    expect(movementFolded(["movement:plank"], "plank", false)).toBe(true);
+    expect(movementFolded(["open:movement:plank"], "plank", true)).toBe(false);
+  });
+
+  it("writes the two markers as a pair", () => {
+    // A list holding both is a state no reader can resolve.
+    const shut = withMovementFold([], "plank", true);
+    expect(shut).toEqual(["movement:plank"]);
+    const open = withMovementFold(shut, "plank", false);
+    expect(open).toEqual(["open:movement:plank"]);
+    expect(withMovementFold(open, "plank", true)).toEqual(["movement:plank"]);
+  });
+
+  it("leaves other movements alone", () => {
+    expect(withMovementFold(["movement:squat"], "plank", true).sort())
+      .toEqual(["movement:plank", "movement:squat"]);
+  });
+
+  it("takes only the shape it expects, for the open marker too", () => {
+    expect(isCardId("open:movement:plank")).toBe(true);
+    for (const junk of ["open:plank", "open:movement:", "open:movement:With Caps", "open:"]) {
+      expect(isCardId(junk), junk).toBe(false);
+    }
+  });
+
+  it("is what the screen and the tool both use", () => {
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/movementFolded\(folded, ex\.slug, ex\.targetSets > 0 && ex\.loggedToday\.length >= ex\.targetSets\)/);
+    // And the pair is written server-side too, or a reload would disagree
+    // with what she just tapped.
+    expect(fs.readFileSync("lib/tools/appearance.ts", "utf8"))
+      .toMatch(/withMovementFold\(p\?\.collapsed, movement, input\.collapsed\)/);
   });
 });

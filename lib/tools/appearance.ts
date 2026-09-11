@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { THEMES, themeIds, themeOf } from "@/lib/theme";
-import { CARDS, isCardId, withCard } from "@/lib/cards";
+import { CARDS, isCardId, withCard, withMovementFold } from "@/lib/cards";
 
 /**
  * How the app looks, changeable by asking.
@@ -70,7 +70,12 @@ export const setCardCollapsed = defineTool({
     }
     const [p] = await db.select({ collapsed: profiles.collapsedCards }).from(profiles)
       .where(eq(profiles.id, ctx.profileId)).limit(1);
-    const next = withCard(p?.collapsed, input.card, !input.collapsed);
+    // A movement card is a pair of contradictory markers — folded, and
+    // opened-on-purpose — so it is written as a pair. See lib/cards.ts.
+    const movement = /^movement:(.+)$/.exec(input.card)?.[1];
+    const next = movement
+      ? withMovementFold(p?.collapsed, movement, input.collapsed)
+      : withCard(p?.collapsed, input.card, !input.collapsed);
     await db.update(profiles).set({ collapsedCards: next })
       .where(eq(profiles.id, ctx.profileId));
     return { ok: true, card: input.card, collapsed: input.collapsed };

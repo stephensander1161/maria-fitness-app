@@ -14,7 +14,7 @@ import { countField, describeSet } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
-import { movementCard } from "@/lib/cards";
+import { movementCard, movementFolded, withMovementFold } from "@/lib/cards";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
@@ -532,11 +532,17 @@ export function TrainClient({
    */
   const [folded, setFolded] = useState<string[]>(collapsedCards);
   const foldMovement = useCallback((slug: string, shut: boolean) => {
-    const id = movementCard(slug);
-    setFolded((f) => (shut ? [...f.filter((x) => x !== id), id] : f.filter((x) => x !== id)));
-    void action("set_card_collapsed", { card: id, collapsed: shut })
+    setFolded((f) => withMovementFold(f, slug, shut));
+    void action("set_card_collapsed", { card: movementCard(slug), collapsed: shut })
       .catch(() => { /* see above */ });
   }, []);
+  /**
+   * Folded unless she has said otherwise — and a finished movement folds
+   * itself, because from the moment it is done the sets she logged are the
+   * least useful thing on the screen.
+   */
+  const isFolded = (ex: TodayExercise) =>
+    movementFolded(folded, ex.slug, ex.targetSets > 0 && ex.loggedToday.length >= ex.targetSets);
 
   /** This screen, for anything that needs to come back to it. */
   const backHere = date ? `/train?d=${date}` : "/train";
@@ -837,7 +843,7 @@ export function TrainClient({
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
-          folded={folded.includes(movementCard(ex.slug))}
+          folded={isFolded(ex)}
           onFold={(shut) => foldMovement(ex.slug, shut)}
           upNext={isUpNext(ex)}
           // Still until she starts. Before the clock is running there is
