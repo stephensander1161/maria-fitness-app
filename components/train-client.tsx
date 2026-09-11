@@ -1469,7 +1469,7 @@ function SetEditor({
       <div className={`grid gap-2 ${loaded ? "grid-cols-2" : "grid-cols-1"}`}>
         {loaded && (
           <NumberField label={`Weight (${unit})`} value={weight} step={step} min={0} max={2000}
-            onChange={setWeight} />
+            onChange={setWeight} blankAtZero placeholder="—" />
         )}
         <NumberField label={count.label} value={reps} step={count.step} decimals={count.decimals}
           min={count.min} max={count.max} onChange={setReps} />
@@ -2398,6 +2398,11 @@ export function ExerciseCard({
                     decimals
                     onChange={setWeight}
                     focusOnMount={focusEntry}
+                    // Her first time on this movement, with a plan that named
+                    // no load: there is nothing to suggest, and "0" is a
+                    // suggestion. Blank says nobody knows yet.
+                    blankAtZero
+                    placeholder="—"
                   />
                 )}
                 {/* Seconds for a hold, reps otherwise. The card used to ask

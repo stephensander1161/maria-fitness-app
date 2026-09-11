@@ -28,6 +28,8 @@ export function NumberField({
   decimals = false,
   className = "",
   focusOnMount = false,
+  blankAtZero = false,
+  placeholder,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -48,10 +50,23 @@ export function NumberField({
    * keyboard over the thing she came to read, and was a bug once already.
    */
   focusOnMount?: boolean;
+  /**
+   * Show nothing rather than "0" when there is nothing to suggest.
+   *
+   * The first set of a movement she has never done has no weight to seed from:
+   * no history, and a plan that did not name one. It rendered as 0, which is
+   * the app's oldest bug class on a screen — unknown is not zero. A nought in
+   * the box reads as a suggestion, and it is one she has to clear before she
+   * can type. Blank with a placeholder says what is actually true: nobody
+   * knows yet, tell me.
+   */
+  blankAtZero?: boolean;
+  placeholder?: string;
 }) {
   // Kept as text while she types, so "" and a trailing "." survive mid-entry
   // instead of being snapped back to a number on every keystroke.
-  const [draft, setDraft] = useState(String(value));
+  const blank = (n: number) => (blankAtZero && n === 0 ? "" : String(n));
+  const [draft, setDraft] = useState(blank(value));
   const [editing, setEditing] = useState(false);
   const [seen, setSeen] = useState(value);
 
@@ -59,7 +74,7 @@ export function NumberField({
   // renders twice and, here, would fight her keystrokes.
   if (value !== seen && !editing) {
     setSeen(value);
-    setDraft(String(value));
+    setDraft(blank(value));
   }
 
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
@@ -87,6 +102,8 @@ export function NumberField({
 
   const nudge = (delta: number) => {
     const next = clamp(Math.round((value + delta) * 100) / 100);
+    // A tap on the stepper is her naming a number, so the field stops being
+    // blank even when that number is zero.
     setDraft(String(next));
     onChange(next);
   };
@@ -116,7 +133,19 @@ export function NumberField({
             // predictive keyboard out of the field.
             setDraft(e.target.value.replace(decimals ? /[^\d.]/g : /[^\d]/g, ""));
           }}
-          onFocus={(e) => { setEditing(true); e.currentTarget.select(); }}
+          placeholder={placeholder}
+          onFocus={(e) => {
+            setEditing(true);
+            const el = e.currentTarget;
+            el.select();
+            // Again on the next frame: iOS places the caret on touch-end,
+            // *after* focus, which collapses a selection made here — so the
+            // seeded number ends up appended to rather than replaced, and
+            // typing 135 over 95 gives 95135.
+            requestAnimationFrame(() => {
+              if (document.activeElement === el) el.select();
+            });
+          }}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") { e.currentTarget.blur(); return; }

@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-10-blank-weight",
+    date: "2026-09-10",
+    title: "No more clearing a 0 before you can type",
+    blurb:
+      "The first set of a movement you have never done has no weight to suggest, so the box is blank now instead of showing 0 \u2014 and typing over a seeded number replaces it properly on a phone.",
+  },
+  {
     id: "2026-09-10-supersets-and-voice",
     date: "2026-09-10",
     title: "Supersets rest once, and the app speaks your register",
