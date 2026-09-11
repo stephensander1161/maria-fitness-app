@@ -6,6 +6,7 @@ import {
 } from "@/lib/water";
 import { macroBar } from "@/lib/macro-progress";
 import { registry } from "@/lib/tools";
+import { plateItems } from "@/lib/tools/nutrition";
 import { FACTS } from "@/lib/seed/facts";
 
 suite("reading an amount she said", () => {
@@ -190,5 +191,74 @@ suite("water is the sixth macro, not a card of its own", () => {
     const empty = food.slice(food.indexOf("if (day.logged.length === 0)"), food.indexOf("// The \"only a fully-counted"));
     expect(empty).toMatch(/water\.anythingLogged/);
     expect(empty).toMatch(/rows=\{\[water\.row\]\}/);
+  });
+});
+
+suite("a day greyed out by one entry can be fixed", () => {
+  const src = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+  const fill = src.slice(src.indexOf('name: "fill_macro_gaps"'), src.indexOf("export const removeMealLog"));
+
+  it("fills blanks and never overwrites a figure", () => {
+    // A bar is a floor if one entry is missing that macro, and until now the
+    // only cure was opening each entry and typing the numbers by hand.
+    expect(fill).toMatch(/\.filter\(\(k\) => row\[k\] === null\)/);
+    expect(fill).toMatch(/if \(!gaps\.includes\(key\)\) continue;/);
+  });
+
+  it("anchors the portion on the calorie figure the entry already has", () => {
+    // The library prices the *words*, which carry no amount half the time —
+    // "cheese quesadillas" is one quesadilla to the parser.
+    expect(fill).toMatch(/scale = row\.calories \/ priced\.kcal/);
+  });
+
+  it("refuses to stretch a match that far, rather than inventing a number", () => {
+    // Past the band the two are not describing the same food: the lookup
+    // matched the wrong row and scaling would invent rather than recover.
+    expect(fill).toMatch(/scale < FILL_SCALE_MIN \|\| scale > FILL_SCALE_MAX/);
+    expect(fill).toMatch(/couldNotPrice\.push\(row\.description\);\s*\n\s*continue;/);
+  });
+
+  it("leaves a null null rather than writing a zero", () => {
+    // The library has no fibre figure for plenty of rows, and summing a null
+    // as zero is the bug this app has caught more times than any other.
+    expect(fill).toMatch(/if \(v === null\) continue;/);
+  });
+
+  it("is offered on the screen, not only to the coach", () => {
+    expect(fs.readFileSync("components/today-food.tsx", "utf8")).toMatch(/"fill_macro_gaps", \{ date \}/);
+  });
+});
+
+suite("the phone's header is flush with the top of the screen", () => {
+  it("pulls back the wrapper's own top padding", () => {
+    // It started 16px down and only closed the gap once she scrolled, which
+    // reads as a rendering fault because it is one.
+    expect(fs.readFileSync("components/mobile-greeting.tsx", "utf8")).toMatch(/sticky top-0 z-40 -mx-4 -mt-4/);
+    expect(fs.readFileSync("app/layout.tsx", "utf8")).toMatch(/px-4 pb-28 pt-4/);
+  });
+});
+
+suite("filling a gap from part of a plate", () => {
+  const src = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+  const fill = src.slice(src.indexOf('name: "fill_macro_gaps"'), src.indexOf("export const removeMealLog"));
+
+  it("refuses a plate it could only half price", () => {
+    /*
+      Real entry: "2x cheese quesadillas and 2x pickles". The pickles price and
+      the quesadillas do not — a model-estimated row with no per-item weight —
+      so the figures cover a tenth of the meal, and the calorie anchor would
+      scale them by forty-five trying to reach 450 kcal.
+    */
+    expect(fill).toMatch(/if \(priced\.unpriced\.length > 0\) \{ couldNotPrice\.push/);
+  });
+
+  it("reads '2x foo' as two of it", () => {
+    // The portion parser takes the "x" as the unit and hands "x cheese
+    // quesadillas" to the library, which finds nothing.
+    expect(plateItems("2x cheese quesadillas and 2x pickles"))
+      .toEqual(["2 cheese quesadillas", "2 pickles"]);
+    expect(plateItems("Protein shake")).toEqual(["Protein shake"]);
+    expect(plateItems("chicken, rice and broccoli"))
+      .toEqual(["chicken", "rice", "broccoli"]);
   });
 });

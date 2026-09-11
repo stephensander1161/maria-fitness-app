@@ -58,7 +58,14 @@ export function MacroBars({ rows, compact = false }: { rows: MacroRow[]; compact
               </span>
             </div>
             <div
-              className={`mt-1 w-full overflow-hidden rounded-full bg-raised ${compact ? "h-1.5" : "h-2"}`}
+              /*
+                `line`, not `raised`. The track was the same token as the card
+                it sits on — on Eat the bars live inside a `bg-raised` box — so
+                a bar at zero was invisible and an empty macro read as a macro
+                the app does not track. An empty meter has to look empty, not
+                absent.
+              */
+              className={`mt-1 w-full overflow-hidden rounded-full bg-line ${compact ? "h-1.5" : "h-2"}`}
               role="img"
               aria-label={`${b.label}: ${b.complete ? "" : "at least "}${b.value}${b.suffix}${
                 b.target !== null ? ` of ${b.target}${b.suffix}` : ""

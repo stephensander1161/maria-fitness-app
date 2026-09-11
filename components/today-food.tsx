@@ -68,6 +68,20 @@ export function TodayFood({
    * different from the ones this rendered with is exactly the event worth
    * marking — including when the coach logged it rather than the form.
    */
+  /*
+    Which macros are floors, and how many entries are behind each.
+
+    From the entries rather than the view's flags, because the useful sentence
+    is "two entries have no fat figure" and not "fat is incomplete" — and the
+    button below has to be able to say what it is about to go and look up.
+  */
+  const gaps = ([
+    ["carbs", "carbsG"], ["fat", "fatG"], ["fibre", "fibreG"], ["protein", "proteinG"],
+    ["calories", "calories"],
+  ] as const)
+    .map(([label, key]) => ({ label, missing: day.logged.filter((l) => l[key] === null).length }))
+    .filter((g) => g.missing > 0);
+
   const stamp = `${day.logged.length}:${day.calories}:${day.proteinG}`;
   const [seen, setSeen] = useState(stamp);
   const [logged, setLogged] = useState<{ text: string; tone: "good" | "warn" | "plain" } | null>(null);
@@ -183,6 +197,17 @@ export function TodayFood({
           coach roughly what was in them and it&rsquo;ll fill them in.
         </p>
       )}
+
+      {/*
+        The way out of a hatched bar.
+
+        A bar is a floor if one entry is missing that macro, which is right —
+        but until now the only way to fix it was to open each entry and work
+        the numbers out by hand, so a day greyed out by one protein shake
+        stayed greyed out. This prices what she wrote against the library and
+        fills the blanks only. It costs nothing and never overwrites a figure.
+      */}
+      {gaps.length > 0 && <FillGaps date={day.date} missing={gaps} onDone={() => startTransition(() => router.refresh())} />}
 
       <ul className="mt-3 space-y-0.5">
         {day.logged.map((l) => (
@@ -875,6 +900,80 @@ function Water({
         )}
       </div>
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * "Fill in the gaps" — the library, not the model.
+ *
+ * The bars go grey when one entry is missing a macro, and the only cure used
+ * to be opening each entry and typing the numbers. This prices what she wrote
+ * against the foods table, scales it to the calorie figure the entry already
+ * carries, and writes only the blanks. Free, instant, and it leaves anything
+ * it cannot recognise alone — a guess is worse than a gap.
+ */
+function FillGaps({
+  date, missing, onDone,
+}: {
+  date: string;
+  missing: { label: string; missing: number }[];
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fill() {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const r = await action<{
+        filled: { description: string }[];
+        couldNotPrice: string[];
+        noFigureInLibrary: string[];
+      }>("fill_macro_gaps", { date });
+      // Three different outcomes, and they want three different next steps —
+      // "the library has never heard of it" and "the library has it but
+      // carries no fibre for cheese" are not the same problem.
+      const left = [
+        r.couldNotPrice.length > 0 ? `${r.couldNotPrice.length} it doesn't recognise` : null,
+        r.noFigureInLibrary.length > 0 ? `${r.noFigureInLibrary.length} it has no figure for` : null,
+      ].filter(Boolean).join(" and ");
+      setNote(
+        r.filled.length === 0
+          ? left ? `Nothing to fill from the library — ${left}. Ask your coach for those.`
+            : "Nothing left to fill in."
+          : left
+            ? `Filled ${r.filled.length} in; ${left}. Ask your coach for the rest.`
+            : `Filled ${r.filled.length} in.`,
+      );
+      onDone();
+    } catch (err) {
+      setError(actionMessage(err, "That didn't work — try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const list = missing.map((g) => `${g.label} (${g.missing})`).join(", ");
+
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-raised px-3 py-2.5">
+      <p className="text-[11px] leading-relaxed text-faint">
+        Hatched bars are floors, not totals: {list} missing from some entries. One blank greys the
+        whole day.
+      </p>
+      <button
+        onClick={fill}
+        disabled={busy}
+        className="mt-2 w-full rounded-lg border border-edge py-2 text-[12.5px] font-medium text-accent transition-colors active:bg-surface disabled:opacity-40"
+      >
+        {busy ? "Looking them up…" : "Fill in what the library knows"}
+      </button>
+      {note && <p className="mt-1.5 text-[11px] text-beat">{note}</p>}
+      {error && <p role="alert" className="mt-1.5 text-[11px] text-miss">{error}</p>}
     </div>
   );
 }

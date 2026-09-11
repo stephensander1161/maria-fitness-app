@@ -152,6 +152,7 @@ const all: Tool[] = [
   training.setExerciseTarget,
   foodTools.findRecipes,
   foodTools.lookupFood,
+  nutrition.fillMacroGaps,
   nutrition.logMeal,
   nutrition.logPlannedDay,
   nutrition.updateMealLog,

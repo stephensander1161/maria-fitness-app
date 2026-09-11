@@ -98,3 +98,20 @@ suite("every screen draws the same list", () => {
     expect(rows).toContain("waterRow(");
   });
 });
+
+suite("an empty meter looks empty, not absent", () => {
+  it("draws the track in a token that is not the card behind it", () => {
+    // On Eat the bars sit inside a `bg-raised` box and the track was also
+    // `bg-raised`, so a macro at zero had no visible bar at all.
+    const bars = fs.readFileSync("components/macro-bars.tsx", "utf8");
+    expect(bars).toMatch(/rounded-full bg-line/);
+    expect(bars).not.toMatch(/rounded-full bg-raised/);
+    expect(fs.readFileSync("components/today-food.tsx", "utf8")).toMatch(/bg-raised p-3">\s*<MacroBars/);
+  });
+
+  it("and a zero still has a bar to be empty of", () => {
+    // fill is 0, not null: null means no target and draws nothing at all.
+    expect(macroBar(row({ value: 0, target: 30, complete: false })).fill).toBe(0);
+    expect(macroBar(row({ value: 0, target: null })).fill).toBeNull();
+  });
+});

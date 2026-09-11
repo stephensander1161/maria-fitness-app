@@ -30,7 +30,15 @@ export async function MobileGreeting() {
   const name = user.name ?? profile.name;
 
   return (
-    <div className="sticky top-0 z-40 -mx-4 mb-4 flex items-start justify-between gap-3 border-b border-line/40 bg-base/85 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] backdrop-blur-xl md:hidden">
+    /*
+      `-mt-4` as well as `-mx-4`: the page wrapper has `pt-4`, and a sticky bar
+      inside it started a rounded 16px below the top of the screen and only
+      closed the gap once she scrolled. A bar that is flush *after* you scroll
+      and not before reads as a rendering fault, because it is one. Its own
+      top padding — the safe area plus half a rem — is what keeps it off the
+      notch, and that is unchanged.
+    */
+    <div className="sticky top-0 z-40 -mx-4 -mt-4 mb-4 flex items-start justify-between gap-3 border-b border-line/40 bg-base/85 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] backdrop-blur-xl md:hidden">
       {/* Two lines, not one squeezed row. Sharing a row with the rank, the
           greeting truncated to "Good night, …" — cutting off the one word on
           this screen that is her own name. Stacked, both fit whole. */}

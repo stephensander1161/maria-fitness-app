@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { wholeGrams, wholeGramsNullable, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
@@ -710,6 +710,160 @@ export const logPlannedDay = defineTool({
       caloriesAreComplete: counted.length === dayRows.length,
       dayFibreG: fibre.grams,
       fibreIsCompleteForDay: fibre.complete,
+    };
+  },
+});
+
+/**
+ * Split a plate written in words into the things on it.
+ *
+ * "2x cheese quesadillas and 2x pickles" is two items; "protein shake" is one.
+ * Deliberately crude — it only has to be good enough for the library lookup to
+ * find something, and anything it cannot price is reported rather than guessed.
+ */
+export function plateItems(description: string): string[] {
+  return description
+    .split(/\s*(?:,|\band\b|\bwith\b|\+|&)\s*/i)
+    // "2x cheese quesadillas" is two quesadillas. The portion parser reads the
+    // "x" as the unit and hands "x cheese quesadillas" to the library, which
+    // finds nothing — so a plate written the way people write plates came back
+    // unrecognised. Real entry, real miss.
+    .map((x) => x.trim().replace(/^(\d+(?:\.\d+)?)\s*x\s+/i, "$1 "))
+    .filter((x) => x.length > 1);
+}
+
+/**
+ * The most the library figure may be stretched to meet her calorie figure.
+ *
+ * An entry already carrying calories is the anchor: if the library prices the
+ * words at 300 kcal and she logged 450, the plate was bigger than the lookup
+ * assumed and the macros scale with it. Past this the two are not describing
+ * the same food — the lookup matched the wrong row — and scaling would invent
+ * a number rather than recover one. Refuse and say so.
+ */
+const FILL_SCALE_MIN = 0.4;
+const FILL_SCALE_MAX = 2.5;
+
+export const fillMacroGaps = defineTool({
+  name: "fill_macro_gaps",
+  description:
+    "Fills in macros an entry was logged without, by pricing what she wrote against the food library — use it when carbs, fat or fibre are missing from a day, or when she asks why a bar is greyed out. Only ever fills blanks: a figure she or you already put in is never overwritten. Two things it leaves alone and names separately, because they need different answers: food the library cannot recognise (`couldNotPrice`) and food it recognises but has no figure for (`noFigureInLibrary`, usually fibre in a dairy or meat row). A guess is worse than a gap. Costs nothing and answers instantly.",
+  input: z.object({
+    date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
+    logId: z.string().optional().describe("Just this one entry. Omit for the whole day."),
+  }),
+  handler: async (input, ctx) => {
+    const her = await todayForProfile(ctx.profileId);
+    const date = input.date ?? her;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: `"${date}" is not a date. Use YYYY-MM-DD.` };
+
+    const rows = await db.select().from(mealLogs)
+      .where(input.logId
+        ? and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.id, input.logId))
+        : and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+    if (rows.length === 0) return { ok: false, error: "Nothing logged to fill in." };
+
+    const filled: { description: string; added: string[] }[] = [];
+    const couldNotPrice: string[] = [];
+    /*
+      Recognised, but with nothing to give for the gap that was left.
+
+      Kept apart from `couldNotPrice` because they are different problems with
+      different answers. The library has no fibre figure for cheese, so a
+      quesadilla missing only fibre is not a food it failed to find — telling
+      her it was would send her off correcting something that is not wrong.
+    */
+    const noFigureInLibrary: string[] = [];
+
+    for (const row of rows) {
+      const gaps = (["calories", "proteinG", "carbsG", "fatG", "fibreG"] as const)
+        .filter((k) => row[k] === null);
+      if (gaps.length === 0) continue;
+
+      const priced = await priceItems(plateItems(row.description), ctx);
+      if (priced.kcal === null) { couldNotPrice.push(row.description); continue; }
+      /*
+        Part of a plate is not the plate.
+
+        "2x cheese quesadillas and 2x pickles" prices the pickles and not the
+        quesadillas, which leaves two figures that are both wrong: the macros
+        cover a tenth of the meal, and the calorie anchor below would scale
+        them by forty-five trying to reach 450. Writing 0.7g of fibre for that
+        plate is a floor wearing a figure's clothes, which is the one thing
+        this app must not do. All of it, or none of it.
+      */
+      if (priced.unpriced.length > 0) { couldNotPrice.push(row.description); continue; }
+
+      /*
+        Her calorie figure anchors the portion.
+
+        The library prices the *words*, which carry no amount half the time —
+        "cheese quesadillas" is one quesadilla to the parser. An entry that
+        already has calories says how much of it there actually was, so the
+        macros scale to meet it. Without one, the library's own portion is the
+        best available answer and is used unscaled.
+      */
+      let scale = 1;
+      if (row.calories !== null && priced.kcal > 0) {
+        scale = row.calories / priced.kcal;
+        if (scale < FILL_SCALE_MIN || scale > FILL_SCALE_MAX) {
+          // Not the same food. The lookup matched the wrong row, and scaling
+          // it would invent a number rather than recover one.
+          couldNotPrice.push(row.description);
+          continue;
+        }
+      }
+
+      const at = (v: number | null) => (v === null ? null : Math.round(v * scale));
+      const next: Record<string, number> = {};
+      const added: string[] = [];
+      for (const [key, label, value] of [
+        ["calories", "calories", priced.kcal], ["proteinG", "protein", priced.proteinG],
+        ["carbsG", "carbs", priced.carbsG], ["fatG", "fat", priced.fatG],
+        ["fibreG", "fibre", priced.fibreG],
+      ] as const) {
+        if (!gaps.includes(key)) continue;
+        const v = at(value);
+        // Null stays null: the library has no fibre figure for plenty of rows
+        // and writing a zero there is the bug this app has caught most often.
+        if (v === null) continue;
+        next[key] = v;
+        added.push(label);
+      }
+      if (added.length === 0) { noFigureInLibrary.push(row.description); continue; }
+
+      // Blanks only, in the update itself: a figure she typed cannot be
+      // overwritten by a race with something else writing the same row.
+      await db.update(mealLogs).set(next)
+        .where(and(
+          eq(mealLogs.id, row.id),
+          eq(mealLogs.profileId, ctx.profileId),
+          ...(gaps.includes("calories") ? [isNull(mealLogs.calories)] : []),
+        ));
+      filled.push({ description: row.description, added });
+    }
+
+    const day = await db.select({
+      calories: mealLogs.calories, proteinG: mealLogs.proteinG, carbsG: mealLogs.carbsG,
+      fatG: mealLogs.fatG, fibreG: mealLogs.fibreG,
+    }).from(mealLogs)
+      .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)));
+    const complete = (k: "calories" | "proteinG" | "carbsG" | "fatG" | "fibreG") =>
+      day.length > 0 && day.every((r) => r[k] !== null);
+
+    return {
+      ok: true,
+      date,
+      filled,
+      couldNotPrice,
+      noFigureInLibrary,
+      stillAFloor: (["calories", "proteinG", "carbsG", "fatG", "fibreG"] as const)
+        .filter((k) => !complete(k)),
+      hint: couldNotPrice.length > 0
+        ? "Those are not in the library. Estimate them yourself and pass them to update_meal_log rather than leaving the day a floor."
+        : noFigureInLibrary.length > 0
+          ? "The library recognised those but carries no figure for what was missing — usually fibre in a dairy or meat row. Estimate it if you can; leave it if you cannot."
+          : undefined,
     };
   },
 });
