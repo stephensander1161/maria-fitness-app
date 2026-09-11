@@ -48,3 +48,34 @@ export function describeSet(
   const count = isHold ? formatCount(set.holdSeconds ?? set.reps, true) : String(set.reps);
   return set.weight !== null ? `${count}@${set.weight}` : count;
 }
+
+/**
+ * What she actually did, in a line.
+ *
+ * A folded card showed its *target*, which is the one number on it she does
+ * not need once the work is done — and on a finished movement it read as
+ * though nothing had been logged. Uniform sets collapse the way they do
+ * everywhere else in this app ("4×8 @ 135"); anything else is listed, because
+ * three at 135 and one at 155 is not four of anything.
+ *
+ * Null when there is nothing logged, so the caller can fall back to the target
+ * — which is the right thing to show on a movement she has not started.
+ */
+export function loggedSummary(
+  sets: readonly { reps: number; weight: number | null; holdSeconds?: number | null }[],
+  unit: string,
+  isHold: boolean,
+): string | null {
+  if (sets.length === 0) return null;
+
+  const count = (s: { reps: number; holdSeconds?: number | null }) =>
+    isHold ? formatCount(s.holdSeconds ?? s.reps, true) : String(s.reps);
+
+  const sameCount = sets.every((s) => count(s) === count(sets[0]));
+  const sameWeight = sets.every((s) => s.weight === sets[0].weight);
+  if (sameCount && sameWeight) {
+    const load = sets[0].weight === null ? "" : ` @ ${sets[0].weight}${unit}`;
+    return `${sets.length}×${count(sets[0])}${load}`;
+  }
+  return sets.map((s) => describeSet(s, isHold)).join(" · ");
+}

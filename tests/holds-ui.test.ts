@@ -1,6 +1,6 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
-import { countField, describeSet, formatCount } from "@/lib/holds";
+import { countField, describeSet, formatCount, loggedSummary } from "@/lib/holds";
 
 const card = fs.readFileSync("components/train-client.tsx", "utf8");
 const views = fs.readFileSync("lib/views.ts", "utf8");
@@ -68,5 +68,35 @@ suite("correcting a hold", () => {
 
   it("sends seconds from the editor", () => {
     expect(card).toMatch(/\.\.\.\(isHold \? \{ holdSeconds: reps \} : \{ reps \}\)/);
+  });
+});
+
+suite("what a folded card says she did", () => {
+  const set = (reps: number, weight: number | null, holdSeconds: number | null = null) =>
+    ({ reps, weight, holdSeconds });
+
+  it("collapses uniform sets the way the rest of the app does", () => {
+    expect(loggedSummary([set(8, 135), set(8, 135), set(8, 135)], "lb", false)).toBe("3×8 @ 135lb");
+  });
+
+  it("lists them when they are not the same", () => {
+    // Three at 135 and one at 155 is not four of anything.
+    expect(loggedSummary([set(8, 135), set(6, 155)], "lb", false)).toBe("8@135 · 6@155");
+  });
+
+  it("says nothing when nothing is logged, so the target can show instead", () => {
+    // Which is the right thing on a movement she has not started.
+    expect(loggedSummary([], "lb", false)).toBeNull();
+  });
+
+  it("leaves the weight off a bodyweight movement", () => {
+    expect(loggedSummary([set(12, null), set(12, null)], "lb", false)).toBe("2×12");
+  });
+
+  it("counts a hold in seconds", () => {
+    // reps is 1 for a hold — one set is one hold — so a summary off `reps`
+    // would read "3×1".
+    expect(loggedSummary([set(1, null, 45), set(1, null, 45)], "lb", true)).toBe("2×45s");
+    expect(loggedSummary([set(1, null, 45), set(1, null, 30)], "lb", true)).toBe("45s · 30s");
   });
 });

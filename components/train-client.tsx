@@ -10,7 +10,7 @@ import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import { countField, describeSet } from "@/lib/holds";
+import { countField, describeSet, loggedSummary } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
@@ -1530,6 +1530,33 @@ function SetEditor({
   );
 }
 
+/**
+ * Fold this card away, or bring it back.
+ *
+ * One component, two homes: on the controls row while the card is open, so it
+ * sits with the other controls at the end of that row, and on the name's line
+ * when folded, because there is no controls row then.
+ */
+function FoldToggle({
+  name, shut, onFold, className = "",
+}: { name: string; shut: boolean; onFold: (folded: boolean) => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onFold(!shut)}
+      aria-expanded={!shut}
+      aria-label={shut ? `Show ${name}` : `Fold ${name} away`}
+      className={`grid size-8 shrink-0 place-items-center rounded-full text-faint active:text-muted ${className}`}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.4" strokeLinecap="round" aria-hidden
+        className={`transition-transform ${shut ? "-rotate-90" : ""}`}>
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </button>
+  );
+}
+
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
@@ -1746,6 +1773,8 @@ export function ExerciseCard({
   // the thing the fold was hiding.
   const shut = folded && !open;
   const count = countField(exercise.isHold);
+  /** What she actually did, for the folded line. Null before she starts. */
+  const logged = loggedSummary(exercise.loggedToday, unit, exercise.isHold);
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
 
@@ -2026,6 +2055,11 @@ export function ExerciseCard({
                 dayOfWeek={dayOfWeekOf(date)}
                 onSaved={onRemoved}
               />
+            ) : shut && logged !== null ? (
+              // Folded, she has done it, so this says what she did. The target
+              // is the one number on a finished movement she no longer needs,
+              // and showing it there read as though nothing had been logged.
+              <>{logged}</>
             ) : (
               <>
                 Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
@@ -2043,24 +2077,10 @@ export function ExerciseCard({
             target and the buttons and read as a gap rather than a row. A
             desktop has the width to keep them where they belong: on the same
             line as the name, at the far right. */}
-        {/* The one control a folded card keeps, because without it there is no
-            way back. Everything else — the grip, the swap, the plus — is part
-            of what the fold was asked to put away. */}
-        {onFold && !open && (
-          <button
-            type="button"
-            onClick={() => onFold(!folded)}
-            aria-expanded={!shut}
-            aria-label={shut ? `Show ${exercise.name}` : `Fold ${exercise.name} away`}
-            className="order-last shrink-0 self-start p-1 text-faint active:text-muted"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.4" strokeLinecap="round" aria-hidden
-              className={`transition-transform ${shut ? "-rotate-90" : ""}`}>
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-        )}
+        {/* Folded, there is no controls row to sit in, so it goes on the name's
+            line — and it is the one control a folded card keeps, because
+            without it a folded card is one she cannot get back. */}
+        {onFold && shut && <FoldToggle name={exercise.name} shut onFold={onFold} className="order-last self-start" />}
         <div className={`order-first flex basis-full items-center justify-start gap-1.5 md:order-none md:basis-auto md:shrink-0 md:justify-end ${shut ? "hidden" : ""}`}>
           {/* The grip. `touch-action: none` is what stops the browser reading
               the drag as a page scroll and swallowing it — without it this
@@ -2148,6 +2168,11 @@ export function ExerciseCard({
             something else, and a relabel that loses the history is a delete
             wearing a friendly name.
           */}
+          {/* Last in the row and hard right, so it lands where a fold control
+              is looked for rather than floating beside the name. `ml-auto` on
+              a phone, where the row starts at the left edge; on a desktop the
+              row is already right-aligned and it simply follows. */}
+          {onFold && <FoldToggle name={exercise.name} shut={shut} onFold={onFold} className="ml-auto md:ml-0" />}
         </div>
       </div>
 

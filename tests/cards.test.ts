@@ -82,7 +82,7 @@ suite("the choice follows her, not the browser", () => {
   });
 });
 
-suite("a folded movement card is its name and its target", () => {
+suite("a folded movement card is its name and what she did", () => {
   const card = fs.readFileSync("components/train-client.tsx", "utf8");
 
   it("shows nothing else", () => {
@@ -97,8 +97,20 @@ suite("a folded movement card is its name and its target", () => {
 
   it("keeps the one control that can undo it", () => {
     // Without it a folded card is a card she cannot get back.
-    expect(card).toMatch(/aria-label=\{shut \? `Show \$\{exercise\.name\}`/);
+    expect(card).toMatch(/aria-label=\{shut \? `Show \$\{name\}`/);
     expect(card).toMatch(/aria-expanded=\{!shut\}/);
+    // Folded there is no controls row for it to sit in, so it goes on the
+    // name's line; open it goes at the end of the controls row instead.
+    expect(card).toMatch(/onFold && shut && <FoldToggle/);
+    expect(card).toMatch(/className="ml-auto md:ml-0"/);
+  });
+
+  it("says what she did, not what she was aiming for", () => {
+    // The target is the one number on a finished movement she no longer
+    // needs, and showing it on a folded card read as though nothing had been
+    // logged at all.
+    expect(card).toMatch(/shut && logged !== null/);
+    expect(card).toMatch(/loggedSummary\(exercise\.loggedToday, unit, exercise\.isHold\)/);
   });
 
   it("loses to opening the card for a set", () => {
