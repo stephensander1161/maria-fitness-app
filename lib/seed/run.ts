@@ -47,6 +47,12 @@ async function main() {
       kcal: f.kcal, proteinG: f.proteinG, carbsG: f.carbsG, fatG: f.fatG,
       fibreG: f.fibreG, unitGrams: f.unitGrams, unitLabel: f.unitLabel,
       aliases: f.aliases,
+      // Seeded rows come from a table somebody already checked, so they are
+      // stamped as audited and a re-seed corrects any estimate that had taken
+      // the same slug. The audit queue is then exactly the model's guesses.
+      estimated: false,
+      auditedAt: new Date(),
+      note: null,
     };
     await db.insert(foods).values(row)
       .onConflictDoUpdate({ target: foods.slug, set: row });

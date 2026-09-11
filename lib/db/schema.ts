@@ -1024,6 +1024,22 @@ export const foods = pgTable(
     estimated: boolean("estimated").default(false).notNull(),
     /** Why the estimate varies — carried so a cache hit keeps the caveat. */
     note: text("note"),
+    /**
+     * When a person last checked this row against a real source.
+     *
+     * Null on an estimate means nobody has. That is the queue: the app caches
+     * aggressively so the same question is never paid for twice, accepts that
+     * some of what it caches is wrong, and keeps a list of what to go and look
+     * at. A cache with no audit trail is just a pile of guesses nobody can
+     * ever find again.
+     *
+     * Seeded rows are stamped by the seed, because they came from a table
+     * somebody already checked.
+     */
+    auditedAt: timestamp("audited_at", { withTimezone: true }),
+    /** How many times a lookup has served this row. The most-used guesses are
+     *  the ones worth checking first. */
+    servedCount: integer("served_count").default(0).notNull(),
   },
   (t) => [uniqueIndex("foods_slug").on(t.slug), index("foods_name").on(t.name)],
 );

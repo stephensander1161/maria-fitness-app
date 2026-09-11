@@ -42,7 +42,9 @@ Read it as an honest inventory, not a certificate.
 | Every tool handler scoped to a server-supplied `profileId`, never a client-supplied one | `lib/tools/` |
 | Sharing training between accounts is opt-in both ways, carries training only (no weight, measurements, photos, food or conversation), and a *pending* request reveals nothing | `lib/friends.ts`, `tests/friends.test.ts` |
 | Friends are found by a resettable share code, never by email — so no signed-in account can test whether an address has an account here | `profiles.share_code` |
-| The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `app/admin/page.tsx` |
+| The owner console is gated on `users.role`, records every view, and shows counts and dates rather than anyone's body or training detail | `lib/admin.ts`, `lib/admin-costs.ts`, `app/admin/page.tsx` |
+| The cost view reaches `workouts` and `meal_logs` to count the days somebody used the app; it selects the profile and the date and nothing else, and `tests/admin.test.ts` fails if that changes | `lib/admin-costs.ts` |
+| Infrastructure cost on that screen is an estimate apportioned from counted activity, labelled as one, with its assumptions printed beside it | `lib/infra-cost.ts`, `components/cost-table.tsx` |
 | A refused sign-in records the address in full, and roughly where the request came from (city/region/country, from platform headers — no third party, no coordinates). A deliberate loosening: the masked form could not tell a mistyped family address from a stranger, which was the first real alert this console produced | `lib/audit.ts` |
 | What was typed as a password is still never recorded, hashed or otherwise | `app/api/login/route.ts` |
 | The audit log is read, not only written: the console flags failed-attempt bursts, a success that followed them, rate limiting, uninvited addresses and ids no longer in the database | `lib/security-signals.ts` |

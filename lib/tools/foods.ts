@@ -69,9 +69,20 @@ export const lookupFood = defineTool({
         },
         };
       }
+      // Counted, so the audit queue can be ordered by what is actually being
+      // relied on. A guess served forty times is worth an afternoon; one
+      // served once is not. Best effort and never awaited — a counter that
+      // fails must not fail her lookup.
+      if (best.estimated) {
+        void db.update(foods)
+          .set({ servedCount: sql`${foods.servedCount} + 1` })
+          .where(eq(foods.id, best.id))
+          .catch(() => { /* see above */ });
+      }
+
       return {
         found: true,
-        // A cached estimate is still an estimate. It is in this table so the
+        // A saved estimate is still an estimate. It is in this table so the
         // next lookup is free, not so it can pass for library data.
         source: best.estimated ? "estimated" : "library",
         ...(best.estimated && best.note ? { note: best.note } : {}),

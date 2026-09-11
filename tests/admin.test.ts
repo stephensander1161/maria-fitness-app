@@ -42,19 +42,42 @@ suite("only the owner reaches the console", () => {
 });
 
 suite("the console is operational, never personal", () => {
+  // Every module the console reads through, not just the first one. The cost
+  // table reaches workouts and meal_logs to count the days somebody used the
+  // app, which is exactly the kind of query that could quietly start selecting
+  // what was in them.
+  const READS = ["lib/admin.ts", "lib/admin-costs.ts"];
+  const bare = (p: string) =>
+    read(p).split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n");
   const lib = read("lib/admin.ts");
-  const code = lib.split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n");
+  const code = bare("lib/admin.ts");
 
   it("never selects anyone's body or training detail", () => {
     // Counts and dates answer "is this working for them". The numbers
     // themselves are theirs, and being the owner is not consent.
-    for (const column of [
-      "weightKg", "startWeightKg", "goalWeightKg", "heightCm", "bodyFat",
-      "photos.image", "measurements.value", "mealLogs.description", "messages.content",
-      "complaints", "cycleEvents", "injuries", "motivation",
-    ]) {
-      expect(code, `lib/admin.ts must not read ${column}`).not.toContain(column);
+    for (const file of READS) {
+      const src = bare(file);
+      for (const column of [
+        "weightKg", "startWeightKg", "goalWeightKg", "heightCm", "bodyFat",
+        "photos.image", "measurements.value", "mealLogs.description", "messages.content",
+        "complaints", "cycleEvents", "injuries", "motivation",
+        "weight_kg", "description", "content", "reps",
+      ]) {
+        expect(src, `${file} must not read ${column}`).not.toContain(column);
+      }
     }
+  });
+
+  it("takes only the date from the tables it counts days in", () => {
+    // The union that answers "did they use the app" selects profile_id and
+    // date and nothing else — a `select *` there would pull her food and her
+    // sets into the owner's console by accident.
+    const costs = bare("lib/admin-costs.ts");
+    for (const table of ["workouts", "meal_logs"]) {
+      expect(costs, `${table} is read for more than its date`)
+        .toMatch(new RegExp(`select profile_id, date from ${table}`));
+    }
+    expect(costs).not.toMatch(/select \* from/);
   });
 
   it("counts rows rather than reading them", () => {

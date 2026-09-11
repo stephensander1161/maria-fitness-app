@@ -1,3 +1,5 @@
+import { adminCosts } from "@/lib/admin-costs";
+import { CostTable } from "@/components/cost-table";
 import { adminOverview, money, requireOwner } from "@/lib/admin";
 import { audit } from "@/lib/audit";
 
@@ -19,7 +21,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminPage() {
   const owner = await requireOwner();
-  const data = await adminOverview();
+  const [data, costs] = await Promise.all([adminOverview(), adminCosts()]);
   // Reaching other people's records, even in summary, is recorded like any
   // other access to data that is not your own.
   await audit("admin.viewed", { detail: { userId: owner.id, accounts: data.totals.accounts } });
@@ -100,6 +102,16 @@ export default async function AdminPage() {
               this; only a day's top-up goes above it. */}
           <Figure label="Ceiling" value={money(data.ceilingMicros)} sub="per person, a day" />
         </section>
+
+        {/* Before the per-account cards: the question "what is this costing
+            me" is the one an owner opens this screen with, and it was only
+            answerable by adding up a figure on each card. */}
+        <CostTable
+          costs={costs}
+          people={data.accounts
+            .filter((a) => a.profileId !== null)
+            .map((a) => ({ profileId: a.profileId!, label: a.name ?? a.email }))}
+        />
 
         {data.accounts.map((a) => (
           <section key={a.userId} className="card p-5">
