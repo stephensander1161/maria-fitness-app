@@ -114,6 +114,16 @@ function CoachSheet({
   const [feedback, setFeedback] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
+  /**
+   * The screen she opened the sheet from.
+   *
+   * In a ref rather than in the effect's dependencies: the effect loads the
+   * whole transcript, and re-running it because she navigated underneath an
+   * open sheet would refetch her conversation for nothing. The greeting only
+   * needs the path at the moment it fires.
+   */
+  const openedOn = useRef(path);
+  useEffect(() => { openedOn.current = path; });
   const panel = useDialog(onClose);
 
   useEffect(() => {
@@ -134,7 +144,9 @@ function CoachSheet({
         setLoaded(true);
         if (data.messages.length === 0 && !kicked.current) {
           kicked.current = true;
-          void stream({ kickoff: true });
+          // The screen she opened it from, so the greeting leads with what
+          // is in front of her rather than with training every time.
+          void stream({ kickoff: true, page: openedOn.current });
         }
       } catch {
         // This used to fail in total silence: the fetch rejected, nothing was

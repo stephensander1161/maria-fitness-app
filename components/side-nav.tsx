@@ -6,6 +6,7 @@ import { TABS } from "./tab-bar";
 import { FeedbackNavItem } from "./feedback";
 import { SignOutNavItem } from "./sign-out";
 import { Wordmark } from "./logo";
+import { AskButton } from "./ask-button";
 import type { Title } from "@/lib/titles";
 
 /**
@@ -31,7 +32,16 @@ export function SideNav({ name, title, isOwner = false, recovering = false }: { 
       <div className="px-3 pb-6">
         {/* The app, then the person. Her rank sits under her name, where it
             always did — this only puts something above it that is not her. */}
-        <Wordmark size={26} className="mb-4 text-text" />
+        {/* The mark, and the way to talk to it, on one line.
+            Sticky in the content column it followed her down the page and
+            sat over the buttons on the right edge of every card. In the
+            sidebar it is always there and can never be over anything — and
+            it is where a phone already keeps it, beside the app's own
+            furniture rather than floating in the reading area. */}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <Wordmark size={26} className="text-text" />
+          <AskButton />
+        </div>
         {name && <p className="truncate text-[15px] font-semibold">{name}</p>}
         {/*
           A rank she earns by turning up, in place of the app's own name. It

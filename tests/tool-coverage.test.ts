@@ -304,3 +304,72 @@ suite("every tool dates her day in her timezone", () => {
     expect(offenders, `writes keyed by an input id with no profile scope: ${offenders.join("; ")}`).toEqual([]);
   });
 });
+
+suite("the coach and her thumb do the same thing", () => {
+  const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
+
+  it("everything the UI can do, she can ask for", () => {
+    /*
+      The premise of this app is that anything she can tap she can also ask
+      for. A tool the screens call but the model cannot see breaks that
+      quietly: she asks, it says it can't, and she stops asking. The only
+      exceptions are the four the model genuinely cannot perform, and those
+      are named with their reasons in the suite above.
+    */
+    const hiddenFromModel = new Set(
+      [...registry.values()].filter((t) => t.uiOnly).map((t) => t.name),
+    );
+    const tapButNotAskable = [...new Set(uiInvocations().map((c) => c.tool))]
+      .filter((name) => hiddenFromModel.has(name))
+      .filter((name) => !["add_progress_photo", "estimate_recipe_from_photo",
+        "save_push_device", "forget_push_device"].includes(name))
+      .sort();
+    expect(
+      tapButNotAskable,
+      "these can be tapped but not asked for — either offer them to the model or justify the uiOnly",
+    ).toEqual([]);
+  });
+
+  it("both paths run the same function, not two copies of it", () => {
+    // A tap on a set stepper and the coach saying "log that set" end in
+    // exactly the same handler. A second implementation is how the screens
+    // and the coach came to disagree about her streak once already.
+    const action = read("app/api/action/route.ts");
+    const loop = read("lib/agent/loop.ts");
+    expect(action).toMatch(/runTool\(tool, input \?\? \{\}, \{ profileId: profile\.id \}\)/);
+    expect(loop).toMatch(/runTool\(call\.name, call\.input, ctx\)/);
+    // Neither reaches past the registry into a handler directly.
+    expect(action).not.toMatch(/from "@\/lib\/tools\/(?!index)/);
+  });
+
+  it("both paths are gated the same way", () => {
+    /*
+      Same reach means the same protection. The action route had none for a
+      while, which made it the way past everything the chat route enforces —
+      it reaches every registered tool, three of which spend money.
+    */
+    const action = read("app/api/action/route.ts");
+    const chat = read("app/api/chat/route.ts");
+    for (const [name, src] of [["action", action], ["chat", chat]] as const) {
+      // The session is re-proved here, not just at the proxy: the proxy has no
+      // database, so a disabled account still holds a valid-looking token.
+      expect(src, `${name}: does not re-prove the account`).toMatch(/await currentUser\(\)/);
+      expect(src, `${name}: does not 401`).toMatch(/status: 401/);
+      // Her profile, resolved server-side. Neither route takes one from the
+      // body, or one session could write to another person's rows.
+      expect(src, `${name}: does not resolve the profile itself`).toMatch(/getProfile\(user\.id\)/);
+      expect(src, `${name}: profileId must never come from the request`).not.toMatch(/profileId\s*[:=]\s*(body|input|req)/);
+      // And a ceiling, so neither is an unlimited loop.
+      expect(src, `${name}: has no rate limit`).toMatch(/check(Action|Chat)Allowed/);
+      expect(src, `${name}: does not 429`).toMatch(/status: 429/);
+    }
+  });
+
+  it("says nothing specific when a handler throws", () => {
+    // A failed query reads "insert into meal_logs … params: <what she ate>".
+    // Database errors and stack traces are reconnaissance.
+    const action = read("app/api/action/route.ts");
+    expect(action).toMatch(/That didn't work\./);
+    expect(action).not.toMatch(/String\(err\)|err\.message/);
+  });
+});

@@ -2,21 +2,22 @@ import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 
 const button = fs.readFileSync("components/ask-button.tsx", "utf8");
-const layout = fs.readFileSync("app/layout.tsx", "utf8");
+const nav = fs.readFileSync("components/side-nav.tsx", "utf8");
 const greeting = fs.readFileSync("components/mobile-greeting.tsx", "utf8");
 
 suite("the coach, from the top of any screen", () => {
-  it("is on every page, without ten pages knowing about it", () => {
-    // Every page writes its own heading, so the control lives in the chrome
-    // and the heading floats up beside it.
-    expect(layout).toMatch(/<AskButton className="pointer-events-auto" \/>/);
+  it("is on every page, in the app's own furniture", () => {
+    // The sidebar on a desktop, the greeting bar on a phone — the same place
+    // on both, rather than one in the chrome and one floating in the page.
+    expect(nav).toMatch(/<AskButton \/>/);
     expect(greeting).toMatch(/<AskButton \/>/);
   });
 
   it("survives a scroll, which is the whole point", () => {
     // The companion at the bottom of the page was the only way in, so asking
     // about the thing she is looking at meant scrolling past all of it first.
-    expect(layout).toMatch(/sticky top-4/);
+    // The sidebar is full-height and does not scroll with the page.
+    expect(nav).toMatch(/md:h-dvh/);
     expect(greeting).toMatch(/sticky top-0/);
   });
 
@@ -27,18 +28,17 @@ suite("the coach, from the top of any screen", () => {
     expect(button).not.toMatch(/useCoachThread|streamCoach/);
   });
 
-  it("takes no clicks away from the page it sits over", () => {
-    // A full-width sticky strip across the top of every screen would swallow
-    // taps on whatever is under it; only the button itself is live.
-    expect(layout).toMatch(/pointer-events-none sticky top-4/);
-    expect(layout).toMatch(/pointer-events-auto/);
+  it("never sits over the page it is meant to be about", () => {
+    // Sticky in the content column it followed her down the page and landed
+    // on the buttons at the right edge of every card.
+    expect(fs.readFileSync("app/layout.tsx", "utf8")).not.toMatch(/AskButton/);
   });
 
   it("shows one of them at a time", () => {
-    // The greeting bar carries it on a phone and the page's own top row on a
-    // desktop; both at once would be two buttons doing one job.
+    // The sidebar carries it on a desktop and the greeting bar on a phone;
+    // both at once would be two buttons doing one job.
     expect(greeting).toMatch(/md:hidden/);
-    expect(layout).toMatch(/hidden justify-end md:flex/);
+    expect(nav).toMatch(/hidden w-56[^"]*md:flex/);
   });
 
   it("clears the notch when installed to the home screen", () => {

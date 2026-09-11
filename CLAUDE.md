@@ -474,10 +474,12 @@ thread next to a specific thing — a movement, an empty week. All of it is one
 conversation through `useCoachThread()` / `ThreadMessages` / `Composer`.
 
 **The sheet draws no button of its own.** The companion at the bottom of every
-page opens it, and so does `AskButton` at the top — the page's own heading row
-on a desktop, beside the menu on a phone, both sticky. The floating bubble that
-was retired floated *over* the page; these sit in the chrome, which is the
-difference. The companion stayed because he is somebody rather than a button,
+page opens it, and so does `AskButton` — in the sidebar on a desktop, beside
+the menu on a phone. The floating bubble that was retired floated *over* the
+page; these sit in the app's own furniture, which is the difference, and it is
+also why the first attempt at this failed: sticky in the content column it
+followed her down the page and landed on the buttons at the right edge of
+every card. The companion stayed because he is somebody rather than a button,
 and the top control exists because the bottom one meant scrolling past a whole
 screen to ask about the thing at the top of it. That
 retirement is also how the sheet came to be mounted *nowhere*: the gate was

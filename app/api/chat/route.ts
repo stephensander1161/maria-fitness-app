@@ -70,6 +70,33 @@ export async function POST(req: Request) {
     // Onboarded is what makes it a first run. An empty transcript only means
     // there is no conversation to continue.
     text = profile.onboardedAt ? RETURNING_PROMPT : FIRST_RUN_PROMPT;
+    /*
+      …and it opens on the screen she was looking at.
+
+      The greeting was written once and led with training every time, so
+      opening the chat from Eat with a question about lunch was answered with
+      "Chest day — what's left to log?". The state block carries the whole
+      app, and without being told where she is the model reasonably leads with
+      the loudest thing in it.
+
+      Same rule as every other screen context: the browser names the *path*
+      and the server reads what is on it. Skipped on a first run, which is an
+      introduction and not a screen.
+    */
+    if (profile.onboardedAt && typeof page === "string" && page.length < 200) {
+      const seen = await contextForPath(profile.id, page);
+      if (seen) {
+        text = [
+          `[She has just opened the chat from ${seen.label}. Lead with that and nothing else:`,
+          `open on what is on that screen, and do not summarise the rest of the app at her.]`,
+          ``,
+          `[What that screen shows right now:]`,
+          seen.context,
+          ``,
+          text,
+        ].join("\n");
+      }
+    }
     silent = true;
   } else if (opinion) {
     if (!["train", "plan", "progress"].includes(opinion)) {

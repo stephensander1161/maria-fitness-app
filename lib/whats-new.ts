@@ -29,7 +29,7 @@ export const WHATS_NEW: WhatsNew[] = [
     date: "2026-09-11",
     title: "Ask your coach from the top of any screen",
     blurb:
-      "A chat bubble on the page\u2019s top row, and beside the menu on a phone \u2014 both stick as you scroll, so asking about what you are looking at no longer means scrolling past all of it first.",
+      "A chat bubble in the sidebar, and beside the menu on a phone \u2014 always there, so asking about what you are looking at no longer means scrolling past all of it first. It also opens on whatever screen you are on.",
   },
   {
     id: "2026-09-11-photograph-your-food",

@@ -90,7 +90,7 @@ export type CoachEvent =
 export async function* streamCoach(
   body:
     | { message: string; page?: string }
-    | { kickoff: true }
+    | { kickoff: true; page?: string }
     | { opinion: "train" | "plan" | "progress" },
   opts: { signal?: AbortSignal } = {},
 ): AsyncGenerator<CoachEvent> {
