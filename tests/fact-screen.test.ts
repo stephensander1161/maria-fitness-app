@@ -25,9 +25,23 @@ suite("the card takes the subject of the screen it is on", () => {
     for (const f of food) expect(f.source, f.slug).toBeTruthy();
   });
 
-  it("swaps once per screen, not on every render", () => {
+  it("changes on every screen and every sub-tab, once each", () => {
+    // Walking Train → Progress → Kitchen used to show the same sentence three
+    // times, and the Plan tabs never changed it at all, because the swap only
+    // fired where the screen had a subject the fact did not match.
     const card = fs.readFileSync("components/fact-card.tsx", "utf8");
-    expect(card).toMatch(/swapped\.current === path/);
-    expect(card).toMatch(/action<[^>]*>\(\s*"get_fact", \{ category: prefer \}/);
+    // The query string is half the key: /plan?tab=food is a different screen
+    // to /plan and the path alone cannot tell them apart.
+    expect(card).toMatch(/useSearchParams\(\)/);
+    expect(card).toMatch(/const where = `\$\{path\}\?\$\{params\}`/);
+    // Once per screen, not once per render: the effect re-runs on every state
+    // change it causes, and without the guard it would fetch forever.
+    expect(card).toMatch(/if \(seenOn\.current === where\) return;/);
+    // Where the screen has a subject, it is still asked for.
+    expect(card).toMatch(/prefer \? \{ category: prefer \} : \{\}/);
+    // And it re-reads rather than spending a new fact per screen: at one new
+    // one per navigation an afternoon in the app reads the library dry and
+    // marks all of it seen, which is what the day's card was built to avoid.
+    expect(card).toMatch(/"get_fact", \{ revisit: true/);
   });
 });

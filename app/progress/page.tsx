@@ -13,7 +13,9 @@ import { kgToLb, lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
 import { BurnCard } from "@/components/burn-card";
 import { WeighIn } from "@/components/weigh-in";
-import { prettyDate, weekStart } from "@/lib/date";
+import { addDays, prettyDate, weekStart } from "@/lib/date";
+import Link from "next/link";
+import { DayStep } from "@/components/day-nav";
 import { weightTrend } from "@/lib/trend";
 import { profileToday } from "@/lib/profile";
 import { CheckIn } from "@/components/check-in";
@@ -32,12 +34,27 @@ import { formatSleep, sleepTarget, sleepTotals } from "@/lib/sleep";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProgressPage() {
+export default async function ProgressPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
   const profile = await requireOnboarded();
   const u = profile.units;
   const unit = weightLabel(u);
 
-  const her = profileToday(profile);
+  const today = profileToday(profile);
+  /*
+    The day the whole screen is read as of.
+
+    Every horizon on this page is relative to a day — today, this week, this
+    month — so moving the date moves all four together rather than leaving
+    "Today" showing Thursday above a week that still ends on Friday. Same
+    `?d=` as Train and Eat, validated the same way.
+  */
+  const { d } = await searchParams;
+  const her = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof today) : today;
+  const isToday = her === today;
   // One target for every sleep figure on the screen, hers or the default.
   const target = sleepTarget(profile);
 
@@ -117,7 +134,26 @@ export default async function ProgressPage() {
   return (
     <>
       <header className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
+        <div className="flex items-center gap-1">
+          <DayStep href={`/progress?d=${addDays(her, -1)}`} dir="left" label="The day before" />
+          <h1 className="min-w-0 flex-1 truncate text-center text-2xl font-bold tracking-tight md:text-left">
+            Progress
+          </h1>
+          {/* The way back, only when she is not on it. */}
+          {!isToday && (
+            <Link href="/progress" scroll={false} className="shrink-0 px-2 text-[12px] text-accent">
+              Today
+            </Link>
+          )}
+          <DayStep href={`/progress?d=${addDays(her, 1)}`} dir="right" label="The day after" />
+        </div>
+
+        {/* Which day the four horizons below are read as of. Stated rather
+            than implied: "Today" over Thursday's numbers is the kind of wrong
+            that is only noticed after it has been believed. */}
+        {!isToday && (
+          <p className="mt-1 text-[12px] text-accent">As of {prettyDate(her)}</p>
+        )}
 
         {/*
           The week's three numbers under the title rather than beside it. On a
@@ -151,7 +187,7 @@ export default async function ProgressPage() {
         top where it needs no scroll; the long view rewards a scroll rather
         than demanding one.
       */}
-      <ProgressSection title="Today" hint={prettyDate(her)}>
+      <ProgressSection title={isToday ? "Today" : "That day"} hint={prettyDate(her)}>
         {/*
           The trend first, because it is the question she opened the screen
           with. It used to sit fifth, under a card explaining why weighing in

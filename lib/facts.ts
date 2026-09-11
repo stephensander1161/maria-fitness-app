@@ -73,9 +73,11 @@ export async function factForDay(
   asOf: ISODate,
   /** The hour where she is. After ten, most picks are about sleep. */
   hour: number,
+  /** The subject of the screen asking, where it has one. */
+  category?: FactCategory,
 ): Promise<PickedFact | null> {
   const topic = preferredTopic(hour, Math.random());
-  if (topic) return pickUnseenFact(profileId, asOf, undefined, topic);
+  if (topic) return pickUnseenFact(profileId, asOf, category, topic);
 
   const shownToday = await db
     .select({ id: factViews.factId })
@@ -84,20 +86,33 @@ export async function factForDay(
     .limit(1);
 
   // The day's new one, drawn and recorded once.
-  if (shownToday.length === 0) return pickUnseenFact(profileId, asOf);
+  if (shownToday.length === 0) return pickUnseenFact(profileId, asOf, category);
 
   // After that, anything she has seen before — at random, and not the one
   // still on the screen she is leaving. Minus the night's subject: a few
   // late evenings mark every sleep fact as seen, and without this the
   // daytime re-reads were nearly all about sleep too — 39 of 40 in a probe.
   // Widened only if she has read nothing else.
-  const reread = (all: boolean) => db
+  const reread = (all: boolean, subject?: FactCategory) => db
     .select({ category: facts.category, text: facts.text, source: facts.source })
     .from(factViews)
     .innerJoin(facts, eq(factViews.factId, facts.id))
-    .where(all ? eq(factViews.profileId, profileId) : and(eq(factViews.profileId, profileId), isNull(facts.topic)))
+    .where(and(
+      eq(factViews.profileId, profileId),
+      ...(all ? [] : [isNull(facts.topic)]),
+      ...(subject ? [eq(facts.category, subject)] : []),
+    ))
     .orderBy(sql`random()`)
     .limit(1);
-  const [row] = (await reread(false)).length ? await reread(false) : await reread(true);
-  return row ?? null;
+
+  // Narrowest first, widening until something comes back. The screen's
+  // subject is a preference, never a condition: a card that goes blank on Eat
+  // because she has read every food fact is worse than an off-subject one.
+  for (const q of [
+    reread(false, category), reread(true, category), reread(false), reread(true),
+  ]) {
+    const [row] = await q;
+    if (row) return row;
+  }
+  return null;
 }

@@ -2,9 +2,10 @@ import { EatClient } from "@/components/eat-client";
 import { cardOpen } from "@/lib/cards";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView } from "@/lib/views";
-import { APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
+import { addDays, APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
+import Link from "next/link";
+import { DayStep } from "@/components/day-nav";
 import { profileToday } from "@/lib/profile";
-import { BurnCard } from "@/components/burn-card";
 import { burnByDay } from "@/lib/progress";
 import { foodUnitsOf } from "@/lib/food-units";
 import { slotForHour } from "@/lib/nutrition";
@@ -19,19 +20,39 @@ export const dynamic = "force-dynamic";
  * now the two things happening today — train and eat — and Plan is what those
  * distil into over a week.
  */
-export default async function EatPage() {
+export default async function EatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
   const profile = await requireOnboarded();
   // Her day, not the server's: a 7pm dinner must not land on tomorrow.
   const her = profileToday(profile);
 
+  /*
+    The day on screen, which is not always today.
+
+    It used to be today and only today, so at one minute past midnight
+    yesterday's food became unreachable — the meals were all still there, with
+    nothing in the app that could show them. Train has had arrows for months;
+    this is the same `?d=`, validated the same way, and everything logged from
+    this screen is filed against the day in the heading.
+  */
+  const { d } = await searchParams;
+  const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
+  const isToday = on === her;
+
   const [dayFood, mealWeek, saved, burnToday] = await Promise.all([
-    dayFoodView(profile.id, her),
-    mealWeekView(profile.id, foodUnitsOf(profile), weekStart(her), her),
+    dayFoodView(profile.id, on),
+    mealWeekView(profile.id, foodUnitsOf(profile), weekStart(on), on),
     savedMealsView(profile.id),
-    burnByDay(profile.id, her, her, profile.startWeightKg ?? 70),
+    burnByDay(profile.id, on, on, profile.startWeightKg ?? 70),
   ]);
 
-  const today = mealWeek.days.find((d) => d.dayOfWeek === mealWeek.todayIndex) ?? null;
+  // The planned meals for the day being read, not for today — on Thursday's
+  // page, Thursday's plan.
+  const dayIndex = (new Date(`${on}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const today = mealWeek.days.find((d2) => d2.dayOfWeek === dayIndex) ?? null;
 
   return (
     <>
@@ -41,8 +62,19 @@ export default async function EatPage() {
         told her nothing she had not just been told twice, and pushed the only
         useful line, the day, into a caption above it.
       */}
-      <header className="mb-5 flex items-baseline justify-between gap-3">
-        <h1 className="truncate text-2xl font-bold tracking-tight">{prettyDate(her)}</h1>
+      <header className="mb-5 flex items-center gap-1">
+        <DayStep href={`/eat?d=${addDays(on, -1)}`} dir="left" label="The day before" />
+        <h1 className="min-w-0 flex-1 truncate text-center text-2xl font-bold tracking-tight md:text-left">
+          {isToday ? prettyDate(her) : prettyDate(on)}
+        </h1>
+        {/* The way back, only when she is not on it — an arrow to today from
+            today is a control that does nothing. */}
+        {!isToday && (
+          <Link href="/eat" scroll={false} className="shrink-0 px-2 text-[12px] text-accent">
+            Today
+          </Link>
+        )}
+        <DayStep href={`/eat?d=${addDays(on, 1)}`} dir="right" label="The day after" />
       </header>
 
       <EatClient
@@ -54,22 +86,10 @@ export default async function EatPage() {
         foodUnits={mealWeek.foodUnits}
         plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
       defaultSlot={slotForHour(hourIn(profile.timezone ?? APP_TIMEZONE))}
+        burnKcal={burnToday.reduce((n, d) => n + d.kcal, 0)}
+        burnSessions={burnToday.length}
       />
 
-      {/*
-        Below the food, deliberately. It is information about her day, not an
-        allowance — the caveat in the card says so, because the moment a burn
-        figure sits next to an intake figure people start subtracting one from
-        the other, and this app's expenditure number already contains training.
-      */}
-      <div className="mt-3 max-w-xl">
-        <BurnCard
-          title="Training today"
-          kcal={burnToday.reduce((n, d) => n + d.kcal, 0)}
-          sub="burned"
-          sessions={burnToday.length}
-        />
-      </div>
     </>
   );
 }

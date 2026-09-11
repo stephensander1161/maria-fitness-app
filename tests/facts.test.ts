@@ -48,7 +48,12 @@ suite("sleep facts after ten at night", () => {
     // where she is — a server in UTC would call nine at night four in the
     // morning for Alberta.
     expect(fs.readFileSync("components/daily-fact.tsx", "utf8")).toMatch(/hourIn\(profile\.timezone \?\? APP_TIMEZONE\)/);
-    expect(fs.readFileSync("lib/tools/nutrition.ts", "utf8")).toMatch(/preferredTopic\(hourIn\(profile\?\.timezone \?\? APP_TIMEZONE\)/);
+    const tool = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+    expect(tool).toMatch(/const hour = hourIn\(profile\?\.timezone \?\? APP_TIMEZONE\)/);
+    expect(tool).toMatch(/preferredTopic\(hour, Math\.random\(\)\)/);
+    // Both ways through the tool get her hour: the coach's new fact and the
+    // card's re-read, which is the one that fires on every navigation.
+    expect(tool).toMatch(/factForDay\(ctx\.profileId, asOf, hour, input\.category\)/);
     const lib = fs.readFileSync("lib/facts.ts", "utf8");
     expect(lib).toMatch(/preferredTopic\(hour, Math\.random\(\)\)/);
     // A preferred topic recycles its own before widening to everything.

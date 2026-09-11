@@ -6,7 +6,7 @@ import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
 } from "@/lib/db/schema";
 import { planMeals, writeRecipe } from "@/lib/agent/planner";
 import { APP_TIMEZONE, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, hourIn, isFuture, weekStart } from "@/lib/date";
-import { pickUnseenFact } from "@/lib/facts";
+import { factForDay, pickUnseenFact } from "@/lib/facts";
 import { preferredTopic } from "@/lib/fact-timing";
 import { nutritionTrend } from "@/lib/progress";
 import { pantryStock, recentMeals } from "@/lib/views";
@@ -533,13 +533,29 @@ export const getFact = defineTool({
     category: z.enum(["sedentary_risk", "strength", "nutrition", "recovery", "motivation", "womens_health", "postpartum"])
       .optional().describe("Omit to let it pick"),
     topic: z.enum(["sleep"]).optional().describe("A subject to prefer. Late at night this is preferred anyway."),
+    revisit: z.boolean().optional()
+      .describe("Prefer something she has already been shown over spending a new one from the library. The card under each screen asks this way, so moving around the app all afternoon doesn't burn a year of material."),
   }),
   handler: async (input, ctx) => {
     const profile = await getProfileById(ctx.profileId);
-    const topic = input.topic ?? preferredTopic(hourIn(profile?.timezone ?? APP_TIMEZONE), Math.random());
-    const fact = await pickUnseenFact(
-      ctx.profileId, await todayForProfile(ctx.profileId), input.category, topic,
-    );
+    const hour = hourIn(profile?.timezone ?? APP_TIMEZONE);
+    const asOf = await todayForProfile(ctx.profileId);
+    /*
+      Two different asks wearing one name.
+
+      The coach dropping a fact into a conversation wants one she has not read
+      — that is the whole value of it. The card under a screen fires on every
+      navigation, and at one new fact per screen a busy afternoon reads the
+      library dry and marks all of it seen. `factForDay` is the version that
+      re-reads: one genuinely new one a day, and after that anything she has
+      already been shown.
+    */
+    const fact = input.revisit
+      ? await factForDay(ctx.profileId, asOf, hour, input.category)
+      : await pickUnseenFact(
+          ctx.profileId, asOf, input.category,
+          input.topic ?? preferredTopic(hour, Math.random()),
+        );
     if (!fact) return { error: "No facts seeded yet." };
     return { category: fact.category, fact: fact.text, source: fact.source };
   },

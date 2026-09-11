@@ -11,8 +11,11 @@ suite("Progress reads at four sizes, smallest first", () => {
     // morning's weigh-in, last week's missed sessions and a lifetime volume
     // total sat against each other with nothing to say which was which.
     const at = (t: string) => page.indexOf(`title="${t}"`);
-    expect(at("Today")).toBeGreaterThan(-1);
-    expect(at("This week")).toBeGreaterThan(at("Today"));
+    // The first section is named for the day being read — "Today", or the one
+    // she stepped back to — so it is matched by the expression, not a literal.
+    const today = page.indexOf('title={isToday ? "Today"');
+    expect(today).toBeGreaterThan(-1);
+    expect(at("This week")).toBeGreaterThan(today);
     expect(at("This month")).toBeGreaterThan(at("This week"));
     expect(at("This year and all time")).toBeGreaterThan(at("This month"));
   });
@@ -22,7 +25,9 @@ suite("Progress reads at four sizes, smallest first", () => {
     // rewards a scroll rather than demanding one.
     expect(section).toMatch(/Ascending rather than descending on purpose/);
     // The weigh-in is the reason she opens the screen, and it is in Today.
-    const today = page.slice(page.indexOf('title="Today"'), page.indexOf('title="This week"'));
+    const today = page.slice(
+      page.indexOf('title={isToday ? "Today"'), page.indexOf('title="This week"'),
+    );
     expect(today).toMatch(/<WeighIn/);
     expect(today).toMatch(/<MacroBars/);
   });

@@ -25,6 +25,22 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-yesterday",
+    date: "2026-09-11",
+    title: "Look back a day",
+    blurb:
+      "Eat and Progress both have arrows either side of the date now, so yesterday\u2019s food and yesterday\u2019s numbers are one tap away \u2014 and the food plan shows what you actually ate beside what was planned.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-11-five-macros",
+    date: "2026-09-11",
+    title: "All five macros on a meal idea",
+    blurb:
+      "Meal ideas show calories, protein, carbs, fat and fibre. The fibre is worked out from the ingredients \u2014 a \u201c\u2265\u201d means one of them could not be matched, so the figure is a floor.",
+    href: "/learn?t=ideas",
+  },
+  {
     id: "2026-09-11-owner-console-writes",
     date: "2026-09-11",
     title: "Give someone more allowance without a terminal",

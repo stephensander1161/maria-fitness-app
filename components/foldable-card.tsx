@@ -17,13 +17,22 @@ import type { CardId } from "@/lib/cards";
  * is the safe direction for a thing that hides content.
  */
 export function FoldableCard({
-  id, title, aside, startOpen, children,
+  id, title, aside, startOpen, alwaysOpenOnDesktop = false, children,
 }: {
   id: CardId;
   title: string;
   /** Shown beside the title, and only while open. */
   aside?: React.ReactNode;
   startOpen: boolean;
+  /**
+   * Folded on a phone, open on a desktop, whatever she chose.
+   *
+   * A fold buys back vertical space, and on a wide screen this card is in a
+   * column beside another one with room to spare — so folding it there saves
+   * nothing and only hides something. The control goes with it: a chevron
+   * that cannot close anything is a button that does nothing.
+   */
+  alwaysOpenOnDesktop?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(startOpen);
@@ -36,6 +45,16 @@ export function FoldableCard({
       .catch(() => { /* see above */ });
   }
 
+  /*
+    Open at md whatever `open` says, in CSS rather than in state.
+
+    Her choice is still hers — it is stored, and it still governs the phone —
+    so this must not write to it. A breakpoint cannot be read during a server
+    render without guessing, and guessing wrong means the card flickers shut
+    on load; `hidden md:block` has no such moment.
+  */
+  const wide = alwaysOpenOnDesktop;
+
   return (
     <section className="card p-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -43,20 +62,22 @@ export function FoldableCard({
           type="button"
           onClick={toggle}
           aria-expanded={open}
-          className="flex min-w-0 items-center gap-1.5 text-left"
+          className={`flex min-w-0 items-center gap-1.5 text-left ${wide ? "md:pointer-events-none" : ""}`}
         >
           <svg
             width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.6" strokeLinecap="round" aria-hidden
-            className={`shrink-0 text-faint transition-transform ${open ? "" : "-rotate-90"}`}
+            className={`shrink-0 text-faint transition-transform ${open ? "" : "-rotate-90"} ${
+              wide ? "md:hidden" : ""
+            }`}
           >
             <path d="M6 9l6 6 6-6" />
           </svg>
           <h2 className="truncate text-[15px] font-semibold">{title}</h2>
         </button>
-        {open && aside}
+          {aside && <span className={open ? "" : wide ? "hidden md:inline" : "hidden"}>{aside}</span>}
       </div>
-      {open && <div className="mt-3">{children}</div>}
+      <div className={`mt-3 ${open ? "" : wide ? "hidden md:block" : "hidden"}`}>{children}</div>
     </section>
   );
 }

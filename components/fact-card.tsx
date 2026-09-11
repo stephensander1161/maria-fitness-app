@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { preferredCategory } from "@/lib/fact-screen";
 import type { PickedFact } from "@/lib/facts";
@@ -31,24 +31,45 @@ export function FactCard({ first }: { first: PickedFact }) {
     subject, and only when the one it was handed is about something else.
   */
   const path = usePathname();
+  const params = useSearchParams().toString();
+  /*
+    A different fact on every screen, and on every sub-tab.
+
+    It used to swap only where the screen had a subject and the fact it was
+    handed was about something else — so walking Train → Progress → Kitchen
+    showed the same sentence three times, and the Plan tabs never changed it
+    at all because the path does not move between them.
+
+    The server draws the first one; after that this is what changes it. Free,
+    in the sense that matters: `get_fact` is a row out of the library, not a
+    model call.
+  */
+  const where = `${path}?${params}`;
+  const seenOn = useRef(where);
   const prefer = preferredCategory(path);
-  const swapped = useRef<string | null>(null);
   useEffect(() => {
-    if (!prefer || fact.category === prefer || swapped.current === path) return;
-    swapped.current = path;
+    if (seenOn.current === where) return;
+    seenOn.current = where;
     let live = true;
     void (async () => {
       try {
         const got = await action<{ category: PickedFact["category"]; fact: string; source: string | null }>(
-          "get_fact", { category: prefer },
+          // `revisit` is what makes this affordable: walking around the app
+          // re-reads what she has already been shown rather than spending a
+          // new fact per screen. The refresh button below does spend one —
+          // she asked for something new, and that is what she gets.
+          //
+          // And where the screen has a subject, keep asking for that subject:
+          // a food fact on the food screens is the better half of this.
+          "get_fact", { revisit: true, ...(prefer ? { category: prefer } : {}) },
         );
         if (live) setFact({ category: got.category, text: got.fact, source: got.source });
       } catch {
-        // The one she was given is a perfectly good fact. Say nothing.
+        // The one she has is a perfectly good fact. Say nothing.
       }
     })();
     return () => { live = false; };
-  }, [prefer, path, fact.category]);
+  }, [where, prefer]);
 
   async function another() {
     setBusy(true);

@@ -1,7 +1,7 @@
 import { PlanClient } from "@/components/plan-client";
 import { cardOpen } from "@/lib/cards";
 import { requireOnboarded } from "@/lib/session";
-import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
+import { dayFoodView, mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
 import { addDays, dayIndex, daysBetween, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { rollForward } from "@/lib/plan-rollover";
@@ -48,7 +48,7 @@ export default async function PlanPage({
   // words. Whole weeks: both are Mondays.
   const weeksApart = Math.round(daysBetween(thisWeek, shownWeek) / 7);
 
-  const [week, mealWeek, today, otherDay, pickable, targets] = await Promise.all([
+  const [week, mealWeek, today, otherDay, pickable, targets, ate] = await Promise.all([
     weekView(profile.id, profile.units, shownWeek, her),
     mealWeekView(profile.id, foodUnitsOf(profile), shownWeek, her),
     // Today's day, in full, so that selecting today on the training tab gives
@@ -59,6 +59,10 @@ export default async function PlanPage({
     todayView(profile.id, profile.units, selectedDate),
     pickableExercises(equipmentToday(profile, her).equipment),
     todayTargets(profile.id, profile.units, her),
+    // What she actually ate that day, not what was planned for it. The tab
+    // showed the plan and only the plan, so a day eaten entirely off it
+    // looked like a day she had not eaten.
+    dayFoodView(profile.id, selectedDate),
   ]);
 
   return (
@@ -102,6 +106,7 @@ export default async function PlanPage({
         pickable={pickable}
         targets={targets}
         shownWeek={shownWeek}
+        ate={ate}
         rationaleOpen={cardOpen(profile.collapsedCards, "mealRationale")}
       food={{
         dietaryRestrictions: profile.dietaryRestrictions,

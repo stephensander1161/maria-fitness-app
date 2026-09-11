@@ -37,3 +37,6 @@ yarn-error.log*
 
 # Local database backups — her data, never in git
 backups/
+
+# ── throwaway probe scripts, never part of the app ────────────────────────────
+/.scratch/

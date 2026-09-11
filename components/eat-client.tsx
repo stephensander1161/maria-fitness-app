@@ -5,6 +5,7 @@ import { CalorieCalculator } from "./calorie-calculator";
 import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { RecipeScan } from "./recipe-scan";
+import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
@@ -20,6 +21,7 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  */
 export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
+  burnKcal, burnSessions,
 }: {
   day: DayFoodView;
   /** Her regulars, for one-tap logging. */
@@ -32,6 +34,9 @@ export function EatClient({
   defaultSlot: "breakfast" | "lunch" | "dinner" | "snack";
   /** Whether she has folded the planned-meals card away — see lib/cards.ts. */
   plannedOpen: boolean;
+  /** What the day's training is estimated to have cost. Never an allowance. */
+  burnKcal: number;
+  burnSessions: number;
 }) {
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
@@ -48,6 +53,9 @@ export function EatClient({
         id="plannedFood"
         title="Planned for today"
         startOpen={plannedOpen}
+        // A column beside another one with room to spare: folding it here
+        // saves nothing and only hides something.
+        alwaysOpenOnDesktop
         aside={calorieTarget !== null ? (
           <p className="shrink-0 text-[12px] text-faint tabular">
             {calorieTarget} kcal · {proteinTargetG}g protein
@@ -69,6 +77,22 @@ export function EatClient({
       <RecipeScan defaultSlot={defaultSlot} />
 
       <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
+
+      {/*
+        Beside the calculator on a wide screen rather than alone under
+        everything — two short cards that were each taking a whole row.
+
+        Still below the food, and still never beside the intake total: the
+        moment a burn figure sits next to what she has eaten, people start
+        subtracting one from the other, and this app's expenditure number
+        already contains her training.
+      */}
+      <BurnCard
+        title="Training today"
+        kcal={burnKcal}
+        sub="burned"
+        sessions={burnSessions}
+      />
     </div>
   );
 }

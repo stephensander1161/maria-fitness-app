@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exercises, facts } from "@/lib/db/schema";
+import { exercises } from "@/lib/db/schema";
 import { Library } from "@/components/library";
 import type { MealIdea, MoveIdea } from "@/components/ideas";
 import { MovementDetail } from "@/components/movement-detail";
@@ -31,18 +31,16 @@ export default async function LearnPage({
 }) {
   const profile = await requireOnboarded();
   const { m, t } = await searchParams;
-  const TABS = ["moves", "food", "ideas", "know"] as const;
+  const TABS = ["moves", "food", "ideas"] as const;
   const active = (TABS as readonly string[]).includes(t ?? "") ? (t as (typeof TABS)[number]) : "moves";
   const her = profileToday(profile);
 
-  const [moves, allFacts, week, mealWeek, mealIdeas, moveIdeas] = await Promise.all([
+  const [moves, week, mealWeek, mealIdeas, moveIdeas] = await Promise.all([
     db.select({
       slug: exercises.slug, name: exercises.name, category: exercises.category,
       primaryMuscles: exercises.primaryMuscles, equipment: exercises.equipment,
       tags: exercises.tags,
     }).from(exercises).orderBy(asc(exercises.name)),
-    db.select({ id: facts.id, category: facts.category, text: facts.text, source: facts.source })
-      .from(facts).orderBy(asc(facts.category)),
     // Ideas moved here from the Plan screen: Plan is what she is doing, and
     // this is what she could do. Both are library reads, no model call.
     weekView(profile.id, profile.units, weekStart(her), her),
@@ -75,7 +73,6 @@ export default async function LearnPage({
         <Library
           active={active}
           exercises={moves}
-          facts={allFacts}
           selected={selected}
           week={week}
           mealWeek={mealWeek}

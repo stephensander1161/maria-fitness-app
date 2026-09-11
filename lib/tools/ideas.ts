@@ -1,10 +1,11 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { exercises, mealTemplateItems, mealTemplates, profiles } from "@/lib/db/schema";
 import { owns } from "@/lib/templates";
 import { foodUnitsFor } from "@/lib/profile";
 import { foodLines } from "@/lib/food-units";
+import { fibreForRecipe, formatFibre } from "@/lib/meal-fibre";
 import { defineTool } from "./define";
 
 /**
@@ -58,7 +59,7 @@ export const suggestMeals = defineTool({
     const limit = Math.min(12, Math.max(1, input.limit ?? 5));
     const fu = await foodUnitsFor(ctx.profileId);
     const seen = new Set<string>();
-    const ideas = rows
+    const picked = rows
       // A meal built around something she will not eat is not an idea.
       .filter((m) => !dislikes.some((d) => m.ingredients.some((i) => i.toLowerCase().includes(d))))
       .filter((m) => {
@@ -72,13 +73,38 @@ export const suggestMeals = defineTool({
           ? 0
           : Math.abs(a.calories - input.nearCalories) - Math.abs(b.calories - input.nearCalories),
       )
-      .slice(0, limit)
-      .map((m) => ({
-        title: m.title, slot: m.slot,
-        calories: m.calories, proteinG: m.proteinG,
-        carbsG: m.carbsG, fatG: m.fatG, prepMinutes: m.prepMinutes,
-        ingredients: foodLines(m.ingredients, fu), steps: foodLines(m.steps, fu),
-      }));
+      .slice(0, limit);
+
+    /*
+      Fibre, the one macro the recipe library never carried.
+
+      Worked out from the ingredient lines the first time a recipe is asked
+      for and written back onto the row, so the second shuffle — anyone's, the
+      table is global — pays nothing. Computed off the metric ingredients,
+      before they are rewritten into her units.
+    */
+    const withFibre = await Promise.all(picked.map(async (m) => {
+      if (m.fibreLines !== null) return m;
+      const f = await fibreForRecipe(m.ingredients);
+      await db.update(mealTemplateItems)
+        .set({ fibreG: f.grams, fibreLines: f.lines })
+        // Only if nobody got there first: the first answer stands, the same
+        // way a saved estimate does.
+        .where(and(eq(mealTemplateItems.id, m.id), isNull(mealTemplateItems.fibreLines)))
+        .catch(() => { /* a card without fibre beats a failed shuffle */ });
+      return { ...m, fibreG: f.grams, fibreLines: f.lines };
+    }));
+
+    const ideas = withFibre.map((m) => ({
+      title: m.title, slot: m.slot,
+      calories: m.calories, proteinG: m.proteinG,
+      carbsG: m.carbsG, fatG: m.fatG, prepMinutes: m.prepMinutes,
+      // A floor when fewer lines resolved than the recipe has — `fibre` is the
+      // one to read back, `fibreG` the one to do arithmetic on.
+      fibreG: m.fibreG, fibreLines: m.fibreLines,
+      fibre: formatFibre(m.fibreG, m.fibreLines, m.ingredients.length),
+      ingredients: foodLines(m.ingredients, fu), steps: foodLines(m.steps, fu),
+    }));
 
     return { ideas, foodUnits: fu, hint: "Pass one to swap_meal with the id of the meal it replaces." };
   },

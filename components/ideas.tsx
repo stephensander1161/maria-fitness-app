@@ -9,6 +9,8 @@ import { ExerciseFigure } from "./exercise-figure";
 export type MealIdea = {
   title: string; slot: string; calories: number; proteinG: number;
   carbsG: number | null; fatG: number | null; prepMinutes: number | null;
+  /** Already written for reading — "12g", or "≥12g" when it is a floor. */
+  fibre: string | null;
   ingredients: string[]; steps: string[];
 };
 export type MoveIdea = {
@@ -82,13 +84,20 @@ export function Ideas({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-full border border-line bg-surface p-1">
+      {/*
+        Shuffle is the whole point of the tab, so it is the one that may not be
+        pushed off the screen. The three pills were sized by their own text and
+        a flex item will not shrink below that, so on a phone the row ran past
+        the right edge and the button went with it — `min-w-0` on the group and
+        on each pill is what lets them give up the width instead.
+      */}
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 gap-1 rounded-full border border-line bg-surface p-1">
           {KINDS.map((k) => (
             <button
               key={k.key}
               onClick={() => choose(k.key)}
-              className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`min-w-0 flex-1 truncate rounded-full px-2 py-1.5 text-[12px] font-medium transition-colors sm:px-3 ${
                 kind === k.key ? "bg-accent text-on-accent" : "text-muted"
               }`}
             >
@@ -99,7 +108,7 @@ export function Ideas({
         <button
           onClick={() => void shuffle(kind)}
           disabled={busy}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[13px] text-accent active:bg-raised disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-2 text-[13px] text-accent active:bg-raised disabled:opacity-50 sm:px-3.5"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,13 +181,10 @@ function MealCard({
 
   return (
     <div className="card p-4">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-baseline justify-between gap-3 text-left">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-baseline gap-2 text-left">
         <span className="min-w-0">
           <span className="mr-2 text-[11px] uppercase tracking-wide text-accent">{idea.slot}</span>
           <span className="text-[15px]">{idea.title}</span>
-        </span>
-        <span className="shrink-0 text-[12px] tabular text-muted">
-          {idea.calories} · {idea.proteinG}g
         </span>
       </button>
 
@@ -186,6 +192,21 @@ function MealCard({
         {idea.prepMinutes ? `${idea.prepMinutes} min · ` : ""}
         {idea.ingredients.length} ingredients
       </p>
+
+      {/*
+        All five, not the two that fit on the right of the title. Deciding
+        between meals is exactly where the other three matter, and a card that
+        shows calories and protein is a card you have to open to compare.
+        A dash, never a zero: carbs and fat are nullable on the recipe and
+        fibre is a floor whenever an ingredient did not resolve.
+      */}
+      <dl className="mt-2.5 grid grid-cols-5 gap-2 border-t border-line pt-2.5 text-center">
+        <Macro label="kcal" value={String(idea.calories)} />
+        <Macro label="protein" value={`${idea.proteinG}g`} />
+        <Macro label="carbs" value={idea.carbsG === null ? null : `${idea.carbsG}g`} />
+        <Macro label="fat" value={idea.fatG === null ? null : `${idea.fatG}g`} />
+        <Macro label="fibre" value={idea.fibre} />
+      </dl>
 
       {open && (
         <div className="mt-2.5 space-y-2 text-[12px] text-muted">
@@ -239,6 +260,18 @@ function MealCard({
           {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/** One macro, labelled. A dash where the recipe does not say. */
+function Macro({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="min-w-0">
+      <dt className="truncate text-[9px] uppercase tracking-wide text-faint">{label}</dt>
+      <dd className={`tabular text-[13px] ${value === null ? "text-faint" : "text-text"}`}>
+        {value ?? "—"}
+      </dd>
     </div>
   );
 }

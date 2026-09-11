@@ -20,26 +20,15 @@ type Item = {
   /** What people call it in a gym, which is often not its name. */
   tags: string[];
 };
-type FactItem = { id: string; category: string; text: string; source: string | null };
 
 const CATEGORIES = ["all", ...LIBRARY_GROUP_ORDER] as const;
 
-const FACT_LABELS: Record<string, string> = {
-  sedentary_risk: "The cost of sitting",
-  strength: "Strength",
-  nutrition: "Nutrition",
-  recovery: "Recovery",
-  motivation: "Sticking with it",
-  womens_health: "Women's health",
-};
-
 export function Library({
-  exercises, facts, selected = null, active, week, mealWeek, mealIdeas, moveIdeas,
+  exercises, selected = null, active, week, mealWeek, mealIdeas, moveIdeas,
 }: {
   exercises: Item[];
-  facts: FactItem[];
   selected?: string | null;
-  active: "moves" | "food" | "ideas" | "know";
+  active: "moves" | "food" | "ideas";
   week: WeekView;
   mealWeek: MealWeekView;
   mealIdeas: MealIdea[];
@@ -78,19 +67,10 @@ export function Library({
     });
   }, [filtered]);
 
-  const byCategory = useMemo(() => {
-    const map = new Map<string, FactItem[]>();
-    for (const f of facts) {
-      if (!map.has(f.category)) map.set(f.category, []);
-      map.get(f.category)!.push(f);
-    }
-    return [...map.entries()];
-  }, [facts]);
-
   return (
     <>
-      <div className="mb-4 grid grid-cols-4 gap-1 rounded-full border border-line bg-surface p-1">
-        {([["moves", "Moves"], ["food", "Food"], ["ideas", "Ideas"], ["know", "Facts"]] as const).map(([k, label]) => (
+      <div className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-line bg-surface p-1">
+        {([["moves", "Moves"], ["food", "Food"], ["ideas", "Ideas"]] as const).map(([k, label]) => (
           <Link
             key={k}
             href={k === "moves" ? "/learn" : `/learn?t=${k}`}
@@ -194,31 +174,6 @@ export function Library({
             </div>
           )}
         </>
-      ) : tab === "know" ? (
-        facts.length === 0 ? (
-          <p className="card p-5 text-[13px] leading-relaxed text-muted">
-            The fact library hasn&rsquo;t been loaded on this deployment yet. Pull down on any screen
-            and your coach will still find you something worth knowing.
-          </p>
-        ) : (
-        <div className="space-y-5">
-          {byCategory.map(([cat, items]) => (
-            <section key={cat}>
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-accent">
-                {FACT_LABELS[cat] ?? cat}
-              </h2>
-              <div className="space-y-2">
-                {items.map((f) => (
-                  <article key={f.id} className="card p-4">
-                    <p className="text-[14px] leading-relaxed">{f.text}</p>
-                    {f.source && <p className="mt-2 text-[11px] text-faint">{f.source}</p>}
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-        )
       ) : null}
     </>
   );

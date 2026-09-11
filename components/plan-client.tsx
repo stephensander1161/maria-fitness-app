@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { addDays } from "@/lib/date";
-import type { MealWeekView, Pickable, TodayView, WeekView } from "@/lib/views";
+import type { DayFoodView, MealWeekView, Pickable, TodayView, WeekView } from "@/lib/views";
 import { MealRow } from "./meal-row";
 import { AskCoach } from "./ask-coach";
 import { DayTitle } from "./day-title";
@@ -26,7 +26,7 @@ import { MealPlanSetup } from "./meal-plan-setup";
  */
 export function PlanClient({
   week, mealWeek, tab, day, today, otherDay, otherDate, pickable, targets, shownWeek, thisWeek,
-  rationaleOpen, food,
+  rationaleOpen, food, ate,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   tab: "training" | "food";
@@ -40,6 +40,8 @@ export function PlanClient({
   /** The Monday on screen, and the Monday she is actually in. */
   shownWeek: string;
   thisWeek: string;
+  /** What she actually ate on the selected day, beside what was planned. */
+  ate: DayFoodView;
   /** Whether she has folded the plan's write-up away — see lib/cards.ts. */
   rationaleOpen: boolean;
   /** Her answers to the food questions, so re-running starts from them. */
@@ -247,6 +249,48 @@ export function PlanClient({
             {/* Add to the day, in the slot she picks — the other half of
                 being able to change what is planned. */}
             <AddMeal dayOfWeek={day} />
+          </section>
+
+          {/*
+            And what she actually ate, which is a different question.
+
+            This tab showed the plan and only the plan, so a day eaten
+            entirely off it read as a day she had not eaten at all — and the
+            plan is the one of the two that is a suggestion. Rendered whether
+            or not there is anything, because a card that disappears is
+            indistinguishable from one that is broken.
+          */}
+          <section className="card p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <h2 className="text-[15px] font-semibold">What you ate</h2>
+              <Link
+                href={`/eat?d=${ate.date}`}
+                className="shrink-0 text-[12px] text-accent underline underline-offset-2"
+              >
+                Log or change it
+              </Link>
+            </div>
+            {ate.logged.length > 0 ? (
+              <ul className="mt-2 space-y-0.5">
+                {ate.logged.map((l) => (
+                  <li key={l.id} className="flex items-baseline gap-2 border-b border-line/60 py-1.5 text-[13px] last:border-0">
+                    <span className="w-[62px] shrink-0 text-[11px] uppercase tracking-wide text-accent">{l.slot}</span>
+                    <span className="min-w-0 flex-1">{l.description}</span>
+                    {/* A floor says so here as everywhere else. */}
+                    <span className="shrink-0 tabular text-muted">
+                      {l.calories === null ? "—" : l.calories}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-2 text-[13px] leading-relaxed text-faint">
+                Nothing logged for this day yet.
+              </p>
+            )}
+          </section>
+
+          <section className="card p-4">
 
             {/* Mounted whether or not there are meals yet — see the training
                 tab above. The turn that writes the plan refreshes this route,

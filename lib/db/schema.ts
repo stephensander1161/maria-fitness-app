@@ -758,6 +758,17 @@ export const mealTemplateItems = pgTable(
     proteinG: integer("protein_g").notNull(),
     carbsG: integer("carbs_g"),
     fatG: integer("fat_g"),
+    /**
+     * Worked out from the ingredient lines against the food library, once,
+     * the first time anything asks for this recipe — the seed has no fibre
+     * figure and asking a model for one per card is not worth a penny of it.
+     *
+     * `fibreLines` is how many of the ingredients resolved; null means it has
+     * never been worked out. Fewer lines than the recipe has means the number
+     * is a floor, and every surface rendering it says so. Unknown is not zero.
+     */
+    fibreG: real("fibre_g"),
+    fibreLines: integer("fibre_lines"),
     ingredients: jsonb("ingredients").$type<string[]>().default([]).notNull(),
     steps: jsonb("steps").$type<string[]>().default([]).notNull(),
     prepMinutes: integer("prep_minutes"),
