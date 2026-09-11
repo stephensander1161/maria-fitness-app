@@ -78,6 +78,7 @@ export const estimateRecipeFromPhoto = defineTool({
         caloriesLow: read.caloriesLow,
         caloriesHigh: read.caloriesHigh,
         proteinG: read.proteinG,
+        fibreG: read.fibreG ?? null,
         carbsG: read.carbsG,
         fatG: read.fatG,
       },

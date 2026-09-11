@@ -6,10 +6,13 @@ import { action, actionMessage } from "@/lib/client";
 import { shrink } from "@/lib/shrink";
 
 /**
- * A photo of a recipe, turned into numbers she can log.
+ * A photo, turned into numbers she can log.
  *
  * Maria's request, from this screen: "let me add a photo of a recipe, and you
- * estimate the macros and calories for it."
+ * estimate the macros and calories for it." It has always read a plate of food
+ * or a packet as happily as a recipe page — the model is told all three — but
+ * it was called "Scan a recipe", so the person who wanted to photograph his
+ * dinner had no way to know. The name is the feature.
  *
  * Two things it deliberately does not do. It does not keep the photo — the
  * bytes go with the request and there is no row and no blob afterwards, which
@@ -26,7 +29,10 @@ type Estimate = {
   ok: true;
   title: string;
   servings: number;
-  perServing: { calories: number; caloriesLow: number; caloriesHigh: number; proteinG: number; carbsG: number; fatG: number };
+  perServing: {
+    calories: number; caloriesLow: number; caloriesHigh: number;
+    proteinG: number; carbsG: number; fatG: number; fibreG: number | null;
+  };
   assumptions: string[];
   note: string;
 };
@@ -82,12 +88,17 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
       // midpoint and keeps the bounds, the same as a restaurant meal.
       await action("log_meal", {
         slot,
-        description: `${estimate.title} (1 of ${estimate.servings}, from a photo)`,
+        description: estimate.servings > 1
+          ? `${estimate.title} (1 of ${estimate.servings}, from a photo)`
+          : `${estimate.title} (from a photo)`,
         caloriesLow: estimate.perServing.caloriesLow,
         caloriesHigh: estimate.perServing.caloriesHigh,
         proteinG: estimate.perServing.proteinG,
         carbsG: estimate.perServing.carbsG,
         fatG: estimate.perServing.fatG,
+        // Only when the read produced one — unknown is not zero, here as
+        // everywhere else.
+        ...(estimate.perServing.fibreG === null ? {} : { fibreG: estimate.perServing.fibreG }),
       });
       setLogged(true);
       router.refresh();
@@ -101,7 +112,7 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
   return (
     <section className="card p-4">
       <div className="mb-1 flex items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">Scan a recipe</h2>
+        <h2 className="text-[15px] font-semibold">Photograph your food</h2>
         <span className="shrink-0 text-[11px] text-faint">Estimate, not a lookup</span>
       </div>
       <p className="text-[13px] leading-relaxed text-muted">
@@ -162,19 +173,23 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
             )}
             <div className="min-w-0">
               <p className="text-[14px] font-medium">{estimate.title}</p>
-              <p className="text-[12px] text-muted">
-                Makes {estimate.servings}{estimate.servings === 1 ? " serving" : " servings"}
-              </p>
+              {/* A plate is not a recipe that "makes one serving". */}
+              {estimate.servings > 1 && (
+                <p className="text-[12px] text-muted">Makes {estimate.servings} servings</p>
+              )}
             </div>
           </div>
 
           <div className="rounded-xl border border-line px-3 py-2.5">
-            <p className="text-[12px] uppercase tracking-wide text-faint">Per serving</p>
+            <p className="text-[12px] uppercase tracking-wide text-faint">
+              {estimate.servings > 1 ? "Per serving" : "This plate"}
+            </p>
             <p className="mt-0.5 text-[15px] font-semibold tabular-nums">
               {estimate.perServing.caloriesLow}–{estimate.perServing.caloriesHigh} kcal
             </p>
             <p className="mt-0.5 text-[12px] tabular-nums text-muted">
               {estimate.perServing.proteinG}g protein · {estimate.perServing.carbsG}g carbs · {estimate.perServing.fatG}g fat
+              {estimate.perServing.fibreG !== null && ` · ${estimate.perServing.fibreG}g fibre`}
             </p>
           </div>
 

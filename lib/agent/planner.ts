@@ -339,6 +339,9 @@ export const recipePhotoDraft = z.object({
   proteinG: wholeGrams.describe("Per serving"),
   carbsG: wholeGrams.describe("Per serving"),
   fatG: wholeGrams.describe("Per serving"),
+  // Estimated like the other three. It was the only macro left out, so a meal
+  // logged from a photo made the day a fibre floor however good the photo was.
+  fibreG: wholeGramsOptional.describe("Per serving. Estimate it, as you do carbs and fat."),
   /**
    * What the numbers rest on, so she can correct the one that is wrong.
    *

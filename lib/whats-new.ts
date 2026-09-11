@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-photograph-your-food",
+    date: "2026-09-11",
+    title: "Photograph your dinner and log it",
+    blurb:
+      "The camera on the Eat screen reads a plate as happily as a recipe page \u2014 it was just called \u201cScan a recipe\u201d, so nobody knew. It estimates fibre now too, and a single plate reads as one plate rather than a recipe that makes one serving.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-11-fold-movements",
     date: "2026-09-11",
     title: "Finished movements fold themselves away",
