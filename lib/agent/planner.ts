@@ -263,19 +263,40 @@ export async function planWeek(
 
 export async function planMeals(
   profile: Profile,
-  intent: { calorieTarget: number; proteinTargetG: number; notes?: string; weekStart: string },
+  intent: {
+    calorieTarget: number; proteinTargetG: number; notes?: string; weekStart: string;
+    /**
+     * Which days to write, 0=Monday. Absent means the whole week.
+     *
+     * Re-planning one day is the common case once a week exists — a Thursday
+     * she is out, a Sunday she wants to cook properly — and asking the planner
+     * for seven days to keep one of them is six days of work and six days of
+     * churn in meals she was happy with.
+     */
+    days?: number[];
+  },
   source: UsageSource = "app",
 ) {
   const profileId = profile.id;
+  // Sorted and de-duplicated, because it reaches the model as prose and
+  // "Thursday, Thursday and Tuesday" is a worse instruction than it looks.
+  const only = intent.days ? [...new Set(intent.days)].filter((d) => d >= 0 && d <= 6).sort() : null;
+  const scope = only === null
+    ? `all seven days (dayOfWeek 0 = ${DAY_NAMES[0]})`
+    : `${only.map((d) => `${DAY_NAMES[d]} (dayOfWeek ${d})`).join(" and ")} only — `
+      + `emit no meals for any other day, and do not renumber them`;
+
   const result = await draft(
-    "emit_meals", "Emit the full week of meals.", mealDraft, MEAL_SYSTEM,
+    "emit_meals",
+    only === null ? "Emit the full week of meals." : "Emit the meals for the days named.",
+    mealDraft, MEAL_SYSTEM,
     [
       await profileBrief(profile),
       ``,
       `Week starting ${intent.weekStart}. Target ${intent.calorieTarget} kcal and ${intent.proteinTargetG}g protein per day.`,
       intent.notes ? `Notes: ${intent.notes}` : ``,
       ``,
-      `Produce breakfast, lunch, dinner and a snack for all seven days (dayOfWeek 0 = ${DAY_NAMES[0]}), `
+      `Produce breakfast, lunch, dinner and a snack for ${scope}, `
         + `with ingredients and short steps, and write the rationale directly to her. `
         // Stored metric like the recipe library; the app rewrites measures
         // for her kitchen on the way out, so the planner never needs to know.
@@ -285,14 +306,20 @@ export async function planMeals(
     profileId,
   );
 
+  // Anything outside the scope is dropped rather than trusted: a planner that
+  // answers with Wednesday as well would otherwise quietly replace a day she
+  // did not ask about.
+  const meals = only === null ? result.meals : result.meals.filter((m) => only.includes(m.dayOfWeek));
+
   // The failure that motivated moving this off the chat model was days landing
   // ~200 kcal under target, so verify rather than trust.
   const shortfalls = DAY_NAMES.map((name, dow) => {
-    const kcal = result.meals.filter((m) => m.dayOfWeek === dow).reduce((n, m) => n + m.calories, 0);
+    if (only !== null && !only.includes(dow)) return null;
+    const kcal = meals.filter((m) => m.dayOfWeek === dow).reduce((n, m) => n + m.calories, 0);
     return { name, kcal, off: kcal - intent.calorieTarget };
-  }).filter((d) => Math.abs(d.off) > 150);
+  }).filter((d) => d !== null && Math.abs(d.off) > 150);
 
-  return { ...result, shortfalls };
+  return { ...result, meals, days: only, shortfalls };
 }
 
 const RECIPE_SYSTEM = `You write the recipe for a single meal in someone's meal plan, to be executed by an app.

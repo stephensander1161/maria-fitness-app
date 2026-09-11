@@ -27,8 +27,8 @@ const EQUIPMENT = [
   "pull-up bar", "full gym", "bodyweight only",
 ];
 const LIMITS = ["knees", "lower back", "shoulders", "wrists", "neck", "hips"];
-const DIETS = ["vegetarian", "vegan", "gluten-free", "dairy-free", "pescatarian", "halal", "kosher"];
-const COOKING: { value: "minimal" | "comfortable" | "keen"; label: string }[] = [
+export const DIETS = ["vegetarian", "vegan", "gluten-free", "dairy-free", "pescatarian", "halal", "kosher"];
+export const COOKING: { value: "minimal" | "comfortable" | "keen"; label: string }[] = [
   { value: "minimal", label: "Barely cook" },
   { value: "comfortable", label: "Can cook" },
   { value: "keen", label: "Love cooking" },
@@ -388,14 +388,14 @@ function Building({ stage, onClose }: { stage: "training" | "meals"; onClose: ()
   );
 }
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+export const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div>
     <p className="mb-2 text-[12px] font-medium text-muted">{label}</p>
     {children}
   </div>
 );
 
-function Chips({
+export function Chips({
   options, value, onPick, multi,
 }: { options: string[]; value: string[]; onPick: (v: string) => void; multi?: boolean }) {
   return (

@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-replan-food",
+    date: "2026-09-11",
+    title: "Write the food again \u2014 a day or the week",
+    blurb:
+      "The plan\u2019s write-up folds away, and holds a way to run the food questions again and re-plan either one day or the whole week. A single day leaves every other day\u2019s meals and recipes alone.",
+    href: "/plan?tab=food",
+  },
+  {
     id: "2026-09-11-manual-macros-and-folding",
     date: "2026-09-11",
     title: "Type in every macro, and fold away what you don\u2019t use",

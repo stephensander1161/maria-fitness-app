@@ -1,4 +1,5 @@
 import { PlanClient } from "@/components/plan-client";
+import { cardOpen } from "@/lib/cards";
 import { requireOnboarded } from "@/lib/session";
 import { mealWeekView, pickableExercises, todayView, weekView } from "@/lib/views";
 import { addDays, dayIndex, daysBetween, prettyDate, weekStart } from "@/lib/date";
@@ -101,7 +102,13 @@ export default async function PlanPage({
         pickable={pickable}
         targets={targets}
         shownWeek={shownWeek}
-        thisWeek={thisWeek}
+        rationaleOpen={cardOpen(profile.collapsedCards, "mealRationale")}
+      food={{
+        dietaryRestrictions: profile.dietaryRestrictions,
+        dislikedFoods: profile.dislikedFoods,
+        cookingSkill: profile.cookingSkill,
+      }}
+      thisWeek={thisWeek}
       />
     </>
   );

@@ -12,6 +12,7 @@
  */
 export const CARDS = {
   plannedFood: "Planned for today, on the Eat screen",
+  mealRationale: "Why this plan, the write-up on the Plan screen's food tab",
 } as const;
 
 export type CardId = keyof typeof CARDS;

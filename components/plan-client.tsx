@@ -8,6 +8,8 @@ import { AskCoach } from "./ask-coach";
 import { DayTitle } from "./day-title";
 import { AddMeal } from "./add-meal";
 import { TrainClient, type NextTarget } from "./train-client";
+import { FoldableCard } from "./foldable-card";
+import { MealPlanSetup } from "./meal-plan-setup";
 
 /**
  * The week, as a week.
@@ -24,6 +26,7 @@ import { TrainClient, type NextTarget } from "./train-client";
  */
 export function PlanClient({
   week, mealWeek, tab, day, today, otherDay, otherDate, pickable, targets, shownWeek, thisWeek,
+  rationaleOpen, food,
 }: {
   week: WeekView; mealWeek: MealWeekView;
   tab: "training" | "food";
@@ -37,6 +40,14 @@ export function PlanClient({
   /** The Monday on screen, and the Monday she is actually in. */
   shownWeek: string;
   thisWeek: string;
+  /** Whether she has folded the plan's write-up away — see lib/cards.ts. */
+  rationaleOpen: boolean;
+  /** Her answers to the food questions, so re-running starts from them. */
+  food: {
+    dietaryRestrictions: string[];
+    dislikedFoods: string[];
+    cookingSkill: "minimal" | "comfortable" | "keen" | null;
+  };
 }) {
   const onThisWeek = shownWeek === thisWeek;
   // "Today" only means today on the week that contains it.
@@ -273,8 +284,29 @@ export function PlanClient({
             </div>
           )}
 
+          {/*
+            The week's write-up, folded away if she does not want it — it is a
+            paragraph she reads once and then scrolls past every day after.
+
+            The way to write the food again lives inside it, because that is
+            where the reason to usually appears: "since cooking confidence
+            wasn't specified, I've kept everything to simple assembly" is the
+            plan telling her the questionnaire has an answer it never got.
+          */}
           {mealWeek.rationale && (
-            <p className="card p-4 text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
+            <FoldableCard id="mealRationale" title="Why this plan" startOpen={rationaleOpen}>
+              <p className="text-[13px] leading-relaxed text-muted">{mealWeek.rationale}</p>
+              <MealPlanSetup
+                todayIndex={mealWeek.todayIndex}
+                defaults={{
+                  dietaryRestrictions: food.dietaryRestrictions,
+                  dislikedFoods: food.dislikedFoods,
+                  cookingSkill: food.cookingSkill,
+                  calorieTarget: mealWeek.calorieTarget || null,
+                  proteinTargetG: mealWeek.proteinTargetG || null,
+                }}
+              />
+            </FoldableCard>
           )}
         </div>
       )}

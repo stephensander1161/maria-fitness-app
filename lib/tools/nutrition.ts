@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { wholeGrams, wholeGramsNullable, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
@@ -50,13 +50,15 @@ export const createMealPlan = defineTool({
   name: "create_meal_plan",
   slow: "planner",
   description:
-    "Build the week's meal plan. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Re-running for the same week replaces it.",
+    "Builds the week's meal plan, or re-plans particular days of it. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Without `days` it replaces the whole week; with `days` it touches only those and leaves the rest alone.",
   input: z.object({
     calorieTarget: wholeGrams,
     proteinTargetG: wholeGrams,
     notes: z.string().optional()
       .describe("Anything the planner should know — a busy week, batch cooking, something she fancies"),
     weekStart: z.string().optional().describe("YYYY-MM-DD Monday; defaults to this week"),
+    days: z.array(z.number().int().min(0).max(6)).optional()
+      .describe("Re-plan only these days, 0=Monday. Leave out for the whole week. Use it when she wants one day different — the other days keep the meals she already has, and their recipes."),
   }),
   handler: async (input, ctx) => {
     const [profile] = await db.select().from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
@@ -66,10 +68,16 @@ export const createMealPlan = defineTool({
 
     let drafted;
     try {
-      drafted = await planMeals(profile, { ...input, weekStart: week });
+      drafted = await planMeals(profile, { ...input, weekStart: week, days: input.days });
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : "Meal planning failed." };
     }
+
+    const only = drafted.days;
+    // A one-day re-plan does not get to rewrite the week's write-up: that
+    // paragraph is about the week, and a rationale for Thursday standing in
+    // for it would describe a plan she is not looking at.
+    const rationale = only === null ? drafted.rationale : undefined;
 
     const [plan] = await db.insert(mealPlans).values({
       profileId: ctx.profileId, weekStart: week,
@@ -81,7 +89,7 @@ export const createMealPlan = defineTool({
       set: {
         calorieTarget: drafted.calorieTarget, proteinTargetG: drafted.proteinTargetG,
         carbTargetG: drafted.carbTargetG ?? null, fatTargetG: drafted.fatTargetG ?? null,
-        rationale: drafted.rationale,
+        ...(rationale === undefined ? {} : { rationale }),
       },
     }).returning();
 
@@ -89,7 +97,11 @@ export const createMealPlan = defineTool({
     // renders as "no meal plan" while the targets say otherwise, and the
     // error the tool returns does not put the old meals back.
     await db.transaction(async (tx) => {
-      await tx.delete(meals).where(eq(meals.mealPlanId, plan.id));
+      // Scoped to the days asked for, so the rest of the week keeps its meals
+      // and the recipes already written against them.
+      await tx.delete(meals).where(only === null
+        ? eq(meals.mealPlanId, plan.id)
+        : and(eq(meals.mealPlanId, plan.id), inArray(meals.dayOfWeek, only)));
       if (drafted.meals.length) {
         await tx.insert(meals).values(drafted.meals.map((m, i) => ({
           mealPlanId: plan.id, dayOfWeek: m.dayOfWeek, slot: m.slot, title: m.title,
@@ -104,6 +116,7 @@ export const createMealPlan = defineTool({
     return {
       ok: true,
       weekStart: week,
+      days: only,
       meals: drafted.meals.length,
       calorieTarget: drafted.calorieTarget,
       proteinTargetG: drafted.proteinTargetG,
