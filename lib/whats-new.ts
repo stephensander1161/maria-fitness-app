@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-fold-movements",
+    date: "2026-09-11",
+    title: "Fold a movement card down to its name",
+    blurb:
+      "The chevron on a movement card folds it to just the name and the target, and remembers \u2014 so the ones you have finished stop taking up the day. Tapping it to log a set opens it as normal.",
+    href: "/train",
+  },
+  {
     id: "2026-09-11-calc-macros-cached",
     date: "2026-09-11",
     title: "The calculator draws every macro the same, and remembers",

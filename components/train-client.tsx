@@ -14,6 +14,7 @@ import { countField, describeSet } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
+import { movementCard } from "@/lib/cards";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
@@ -78,6 +79,7 @@ export function TrainClient({
   focus,
   focusEntry = false,
   tone = null,
+  collapsedCards = [],
   dayLabel,
   heading,
   stepBack,
@@ -118,6 +120,8 @@ export function TrainClient({
   focusEntry?: boolean;
   /** The register she picked, for the copy this screen writes — see lib/voice.ts. */
   tone?: Tone | null;
+  /** Cards she has folded away, from her account — see lib/cards.ts. */
+  collapsedCards?: string[];
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
   /**
@@ -517,6 +521,23 @@ export function TrainClient({
   }
 
 
+  /**
+   * Which movement cards are folded.
+   *
+   * Seeded from the account so the choice survives a reload and follows her to
+   * a laptop, and kept in state as well so a tap folds on the tap rather than
+   * after a round trip. The write is best effort: a fold that fails to save is
+   * open again next time, which is the safe direction for a control that hides
+   * things.
+   */
+  const [folded, setFolded] = useState<string[]>(collapsedCards);
+  const foldMovement = useCallback((slug: string, shut: boolean) => {
+    const id = movementCard(slug);
+    setFolded((f) => (shut ? [...f.filter((x) => x !== id), id] : f.filter((x) => x !== id)));
+    void action("set_card_collapsed", { card: id, collapsed: shut })
+      .catch(() => { /* see above */ });
+  }, []);
+
   /** This screen, for anything that needs to come back to it. */
   const backHere = date ? `/train?d=${date}` : "/train";
   /** What this day trains, which is what its stretches are chosen from. */
@@ -816,6 +837,8 @@ export function TrainClient({
           }}
           onRetryPending={flush}
           onRemoved={() => router.refresh()}
+          folded={folded.includes(movementCard(ex.slug))}
+          onFold={(shut) => foldMovement(ex.slug, shut)}
           upNext={isUpNext(ex)}
           // Still until she starts. Before the clock is running there is
           // nothing happening, so a card pulsing at her while she reads the
@@ -1505,12 +1528,21 @@ export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
   onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
   offsetY = 0, offsetX = 0, dropTarget = false,
-  asPage = false, focusEntry = false, href,
+  asPage = false, focusEntry = false, href, folded = false, onFold,
   chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
   /** Caret straight into the weight — she came here to type one. */
   focusEntry?: boolean;
+  /**
+   * Folded down to its name and target, and remembered on the account.
+   *
+   * A day is four to six of these and the ones she has finished are the ones
+   * still taking the most room. Folding leaves the two things that identify
+   * it — what it is and what she is aiming for — and nothing else.
+   */
+  folded?: boolean;
+  onFold?: (folded: boolean) => void;
   pickable: Pickable;
   /** The day this card writes to. Undefined means her today. */
   date?: string;
@@ -1704,6 +1736,9 @@ export function ExerciseCard({
     || done.some((s) => s.weight !== null)
     || queued.some((s) => s.weight !== null);
 
+  // Opening the card to log a set beats a fold every time: she has asked for
+  // the thing the fold was hiding.
+  const shut = folded && !open;
   const count = countField(exercise.isHold);
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
@@ -1934,11 +1969,13 @@ export function ExerciseCard({
             day someone went looking — and it is the fastest way to tell
             whether the name on the card is the thing you are about to do.
             Small beside the name; the size of the card when it is open. */}
-        <ExerciseFigure
-          slug={exercise.slug}
-          category={exercise.category}
-          className={`shrink-0 self-start text-accent/70 ${open ? "h-16 w-14" : "h-11 w-9"}`}
-        />
+        {!shut && (
+          <ExerciseFigure
+            slug={exercise.slug}
+            category={exercise.category}
+            className={`shrink-0 self-start text-accent/70 ${open ? "h-16 w-14" : "h-11 w-9"}`}
+          />
+        )}
         <TapIn
           href={canLog && !open ? href : undefined}
           onClick={openCard}
@@ -2000,7 +2037,25 @@ export function ExerciseCard({
             target and the buttons and read as a gap rather than a row. A
             desktop has the width to keep them where they belong: on the same
             line as the name, at the far right. */}
-        <div className="order-first flex basis-full items-center justify-start gap-1.5 md:order-none md:basis-auto md:shrink-0 md:justify-end">
+        {/* The one control a folded card keeps, because without it there is no
+            way back. Everything else — the grip, the swap, the plus — is part
+            of what the fold was asked to put away. */}
+        {onFold && !open && (
+          <button
+            type="button"
+            onClick={() => onFold(!folded)}
+            aria-expanded={!shut}
+            aria-label={shut ? `Show ${exercise.name}` : `Fold ${exercise.name} away`}
+            className="order-last shrink-0 self-start p-1 text-faint active:text-muted"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" aria-hidden
+              className={`transition-transform ${shut ? "-rotate-90" : ""}`}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        )}
+        <div className={`order-first flex basis-full items-center justify-start gap-1.5 md:order-none md:basis-auto md:shrink-0 md:justify-end ${shut ? "hidden" : ""}`}>
           {/* The grip. `touch-action: none` is what stops the browser reading
               the drag as a page scroll and swallowing it — without it this
               works with a mouse and does nothing at all on a phone, which is
@@ -2090,6 +2145,8 @@ export function ExerciseCard({
         </div>
       </div>
 
+      {/* Folded: the name and the target, and that is the whole card. */}
+      {!shut && <>
       {/* Everything between the header and the entry scrolls. `min-h-0` is
           load-bearing: a flex child's default minimum is its content, so
           without it this box refuses to shrink and the entry is pushed off
@@ -2484,6 +2541,7 @@ export function ExerciseCard({
           </div>
         )}
       </div>
+      </>}
 
     </section>
   );

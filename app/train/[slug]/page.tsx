@@ -56,6 +56,7 @@ export default async function MovementPage({
   return (
     <TrainClient
       tone={profile.coachTone}
+      collapsedCards={profile.collapsedCards}
       view={view}
       pickable={pickable}
       targets={targets}
