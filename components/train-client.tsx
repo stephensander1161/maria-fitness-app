@@ -2887,27 +2887,58 @@ function SetSquare({
 function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   const [at, setAt] = useState(0);
+  const strip = useRef<HTMLDivElement>(null);
 
   const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote));
   if (pages.length === 0) return null;
+
+  /** Page n, by tap. The dots are the way through for anyone not swiping. */
+  const go = (i: number) => {
+    const el = strip.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
 
   return (
     <>
       {/* Phone: one page at a time, swiped only when there is a second. */}
       <div className="md:hidden">
         <div
+          ref={strip}
           onScroll={(e) => {
             const el = e.currentTarget;
             setAt(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
           }}
           aria-label={`How to do ${exercise.name}${pages.length > 1 ? " — swipe for more" : ""}`}
-          className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          /*
+            `py-3 -my-3` is a taller gesture, not a taller box.
+
+            The strip is four lines by measurement — five puts the Log button
+            under the tab bar on a 14 Pro — and a band that short is hard to
+            start a sideways drag in: the browser picks the axis from the first
+            few pixels, and inside 84px most drags read as vertical. The
+            padding doubles what is touchable and the negative margin gives the
+            layout back, so nothing below it moves by a pixel.
+          */
+          className="-my-3 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {pages.map((page, i) => (
             <ul key={i} // The cap is a safety net for a single pathological bullet, not the
                 // layout: cuePages already budgets to fit. Clipped rather than
-                // allowed to push the Log button behind the tab bar.
-                className="max-h-[84px] w-full shrink-0 snap-start space-y-1 overflow-hidden pr-4 text-[12px] leading-snug">
+                // allowed to push the Log button behind the tab bar. Eight
+                // lines' worth — see LINES_PER_PAGE for the measurement, which
+                // had been left behind by the layout twice before this one.
+                /*
+                  The gutters belong to the page, not to the scroller.
+
+                  With `px-4` on the strip, a `w-full` page was the padded
+                  width and the next one bled in at the right — a 40px sliver
+                  of a wrapped paragraph, clipped mid-word. That reads as
+                  broken text rather than as a peek, and it got worse the
+                  taller the box grew. Each page is now exactly one width with
+                  its own padding, and the dots carry the "there is more".
+                */
+                className="max-h-[148px] w-full shrink-0 snap-start space-y-1 overflow-hidden px-4 text-[12px] leading-snug">
               {page.map((item) => (
                 <li
                   key={item.text}
@@ -2924,13 +2955,38 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             </ul>
           ))}
         </div>
+        {/*
+          Dots you can tap, not a read-out.
+
+          They were `aria-hidden` decoration and the only way through was the
+          gesture — which on a strip this short is the thing that keeps
+          failing. Each is a real 32px target with the dot drawn inside it, so
+          the row looks the same and is now the reliable way to page.
+        */}
         {pages.length > 1 && (
-          <div className="mb-2 flex justify-center gap-1.5" aria-hidden>
+          /*
+            24px targets, not 44.
+
+            The whole card is on a height budget — four lines of cue is what
+            keeps the Log button clear of the tab bar on a 14 Pro, with about
+            24px of slack left over — and a row of proper 44px targets spends
+            all of it. 24 with space either side is a real target for a
+            secondary control, and it is 24 more than these had as decoration.
+          */
+          <div className="mt-0.5 flex justify-center">
             {pages.map((_, i) => (
-              <span
+              <button
                 key={i}
-                className={`h-1 rounded-full transition-all ${i === at ? "w-4 bg-accent" : "w-1 bg-edge"}`}
-              />
+                onClick={() => go(i)}
+                aria-label={`Page ${i + 1} of ${pages.length}`}
+                aria-current={i === at ? "true" : undefined}
+                className="grid h-6 w-6 shrink-0 place-items-center"
+              >
+                <span
+                  aria-hidden
+                  className={`h-1 rounded-full transition-all ${i === at ? "w-4 bg-accent" : "w-1.5 bg-edge"}`}
+                />
+              </button>
             ))}
           </div>
         )}

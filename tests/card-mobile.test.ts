@@ -18,8 +18,13 @@ suite("the guide is a list until it cannot be", () => {
   });
 
   it("splits into two only when it overflows", () => {
-    const pages = cuePages(cueItems([long(3), long(3)], [], null));
+    // Written against the budget rather than a number: it was two three-line
+    // bullets, which stopped overflowing the day the page got taller and made
+    // this assert the opposite of what it says.
+    const pages = cuePages(cueItems([long(LINES_PER_PAGE), long(LINES_PER_PAGE)], [], null));
     expect(pages).toHaveLength(2);
+    // …and a page's worth is still one page.
+    expect(cuePages(cueItems([long(LINES_PER_PAGE)], [], null))).toHaveLength(1);
   });
 
   it("keeps paging for as long as there is something to read", () => {
@@ -51,13 +56,20 @@ suite("the guide is a list until it cannot be", () => {
   });
 
   it("budgets to what actually fits a phone", () => {
-    // Measured, not chosen. On an iPhone 14 Pro the tab bar starts at 596px;
-    // with the tank label on its own row, four lines a page puts the bottom of
-    // the Log button at 572 for the longest entries in the library. The 84px
-    // cap in the card is the same measurement from the other side — one
-    // five-line bullet was enough to push the button 5px under the bar.
-    expect(LINES_PER_PAGE).toBe(4);
-    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/max-h-\[84px\]/);
+    /*
+      Measured, not chosen — and re-measured, because the first measurement
+      outlived the layout it was taken against. On the longest guide in the
+      library (pelvic floor activation, 22 lines) with two sets logged, the Log
+      button clears the tab bar by 228px on a 14 Pro and 136px on an SE. Eight
+      lines spends about 60 of that and takes the same entry from six pages to
+      three.
+
+      The pair has to move together: the cap in the card is the same budget
+      from the other side, and a page allowed more lines than the box can show
+      is a page that clips.
+    */
+    expect(LINES_PER_PAGE).toBe(8);
+    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/max-h-\[148px\]/);
   });
 });
 
@@ -97,5 +109,51 @@ suite("the card is one screen on a phone", () => {
     expect(tank).toMatch(/h-9 flex-1/);
     expect(tank).toMatch(/md:h-auto md:py-2\.5/);
     expect(tank).not.toMatch(/min-w-11 flex-1/);
+  });
+});
+
+suite("paging the cues is not swipe-only", () => {
+  it("gives the gesture a taller band without a taller box", () => {
+    /*
+      Four lines is the measurement that keeps the Log button clear of the tab
+      bar, and inside 84px the browser reads most drags as vertical — it picks
+      the axis from the first few pixels. The padding doubles what is
+      touchable; the negative margin hands the layout back, so nothing below
+      moves.
+    */
+    expect(cues).toMatch(/-my-3 flex snap-x snap-mandatory[^"]*py-3/);
+    // Still capped: the height budget is the reason any of this exists.
+    expect(cues).toMatch(/max-h-\[148px\]/);
+  });
+
+  it("makes the dots the reliable way through", () => {
+    // They were `aria-hidden` decoration, so the gesture was the only way to
+    // page — and the gesture is the thing that keeps failing.
+    const dots = cues.slice(cues.indexOf("pages.length > 1 &&"));
+    expect(dots).toMatch(/onClick=\{\(\) => go\(i\)\}/);
+    expect(dots).toMatch(/aria-label=\{`Page \$\{i \+ 1\} of \$\{pages\.length\}`\}/);
+    expect(dots).toMatch(/aria-current=/);
+    // A target, not a 4px dot.
+    expect(dots).toMatch(/h-6 w-6/);
+  });
+
+  it("scrolls the strip rather than re-rendering it", () => {
+    // Smooth-scrolling the real element keeps `at` coming from onScroll, so
+    // the dot and the panel can never disagree.
+    expect(cues).toMatch(/el\.scrollTo\(\{ left: i \* el\.clientWidth, behavior: "smooth" \}\)/);
+  });
+});
+
+suite("a page is exactly one page wide", () => {
+  it("puts the gutters on the page, not on the scroller", () => {
+    /*
+      With `px-4` on the strip a `w-full` page was the *padded* width, so the
+      next one bled in at the right — a sliver of a wrapped paragraph, clipped
+      mid-word, which reads as broken text rather than as a peek. It got worse
+      the taller the box grew.
+    */
+    const strip = cues.slice(cues.indexOf("ref={strip}"), cues.indexOf("pages.map"));
+    expect(strip).not.toMatch(/\bpx-4\b/);
+    expect(cues).toMatch(/max-h-\[148px\] w-full shrink-0 snap-start[^"]*px-4/);
   });
 });

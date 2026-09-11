@@ -27,14 +27,25 @@ export const CHARS_PER_LINE = 44;
 /**
  * Lines a page shows.
  *
- * Four, measured rather than chosen: on an iPhone 14 Pro the tab bar starts at
- * 596px, and four lines puts the bottom of the Log button at 572 for the
- * longest entries in the library (barbell bench press, dumbbell pullover,
- * pelvic floor activation). The card caps a page at 84px for the same reason
- * from the other side — one five-line bullet was enough on its own to push the
- * button under the bar.
+ * Eight, re-measured. It was four, and four was measured — but against a card
+ * that has since lost a row and gained a fold, and nobody went back. The
+ * figure it was protecting was 24px of clearance under the Log button; the
+ * real clearance today, on the longest guide in the library (pelvic floor
+ * activation, 22 lines) with two sets logged so the squares and the tank row
+ * are both up, is **228px on an iPhone 14 Pro and 136px on an SE**.
+ *
+ * So the window was small for a reason that had stopped being true, and a
+ * small window is the whole complaint: a sideways drag is hard to start in a
+ * band that short, because the browser picks the axis from the first few
+ * pixels of the gesture. Eight lines roughly doubles it and takes that same
+ * worst entry from six pages to three, and still leaves about 76px of
+ * clearance on the smallest phone this app supports.
+ *
+ * If the card grows a row again, measure again — the number is a measurement,
+ * not a preference, and this is the second time it has been left behind by
+ * the layout it was measured against.
  */
-export const LINES_PER_PAGE = 4;
+export const LINES_PER_PAGE = 8;
 
 export const linesOf = (text: string): number =>
   Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
