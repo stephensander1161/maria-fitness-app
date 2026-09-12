@@ -5,7 +5,6 @@ import { CalorieCalculator } from "./calorie-calculator";
 import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
 import type { MacroRow } from "@/lib/macro-progress";
 import { MealRow } from "./meal-row";
-import { RecipeScan } from "./recipe-scan";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
 import { AteThePlan } from "./ate-the-plan";
@@ -68,7 +67,7 @@ export function EatClient({
       {/* The day's log is the point of the screen and the widest thing on it —
           it takes the whole row rather than sharing one. */}
       <div className="xl:col-span-2">
-        <TodayFood day={day} saved={saved} isToday={isToday} water={water} />
+        <TodayFood day={day} saved={saved} isToday={isToday} water={water} defaultSlot={defaultSlot} />
       </div>
 
       {/* Folds away, and stays folded — on the account, so it follows her to
@@ -114,8 +113,6 @@ export function EatClient({
           </p>
         )}
       </FoldableCard>
-
-      <RecipeScan defaultSlot={defaultSlot} />
 
       <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
 

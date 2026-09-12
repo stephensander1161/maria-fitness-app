@@ -7,6 +7,7 @@ import type { DayFoodView, SavedMeal } from "@/lib/views";
 import { gramsForCalories } from "@/lib/nutrition";
 import { afterLogLine, macroBar, type MacroRow } from "@/lib/macro-progress";
 import { MacroBars } from "./macro-bars";
+import { RecipeScan } from "./recipe-scan";
 
 /**
  * What she has eaten today. Sits above the week's plan because the question
@@ -14,11 +15,14 @@ import { MacroBars } from "./macro-bars";
  * I supposed to have on Thursday".
  */
 export function TodayFood({
-  day, saved, isToday = true, water,
+  day, saved, isToday = true, water, defaultSlot,
 }: {
   day: DayFoodView;
   saved: SavedMeal[];
   isToday?: boolean;
+  /** The meal she is most likely logging right now, from the hour where she
+   *  is. The photo panel opens on it, the same as the typed form does. */
+  defaultSlot: "breakfast" | "lunch" | "dinner" | "snack";
   /** Water as the sixth bar, and the vessels that fill it. */
   water: {
     row: MacroRow;
@@ -114,7 +118,7 @@ export function TodayFood({
           </div>
         )}
 
-      <QuickAdd date={day.date} saved={saved} water={water} onDone={() => startTransition(() => router.refresh())} />
+      <QuickAdd date={day.date} saved={saved} water={water} slot={defaultSlot} onDone={() => startTransition(() => router.refresh())} />
 
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
@@ -252,7 +256,7 @@ export function TodayFood({
       {error && <p role="alert" className="mt-2 text-[13px] text-miss">{error}</p>}
 
 
-      <QuickAdd date={day.date} saved={saved} water={water} onDone={() => startTransition(() => router.refresh())} />
+      <QuickAdd date={day.date} saved={saved} water={water} slot={defaultSlot} onDone={() => startTransition(() => router.refresh())} />
     </section>
   );
 }
@@ -618,11 +622,13 @@ function FoodNumbers({
  * by making her invent one.
  */
 function QuickAdd({
-  date, saved, water, onDone,
+  date, saved, water, slot: defaultSlot, onDone,
 }: {
   date: string;
   saved: SavedMeal[];
   water: { presets: { ml: number; label: string }[]; anythingLogged: boolean };
+  /** The meal she is most likely logging now — the photo panel opens on it. */
+  slot: "breakfast" | "lunch" | "dinner" | "snack";
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -691,7 +697,12 @@ function QuickAdd({
       // bottom of the screen, past everything, which is a scroll away from
       // the moment she is actually in.
       <>
-        <div className="mt-4 flex gap-2">
+        {/* Three ways to put food on the day, and the coach. The camera was a
+            card of its own with a heading and a paragraph, two scrolls down —
+            it is a third way to add food and it belongs in the row with the
+            other two. `flex-wrap` is what lets its panel drop to its own line
+            when there is one. */}
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={() => { setOpen(true); setPouring(false); }}
             className="flex-1 rounded-xl border border-dashed border-line py-3 text-[13px] text-muted active:bg-raised"
@@ -707,6 +718,7 @@ function QuickAdd({
           >
             + Water
           </button>
+          <RecipeScan defaultSlot={defaultSlot} />
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
             aria-label="Tell your coach what you ate"

@@ -11,10 +11,22 @@ suite("photographing a plate", () => {
     // person who wanted to photograph his dinner had no way to know.
     expect(scan).toMatch(/Photograph your food/);
     expect(scan).not.toMatch(/>Scan a recipe</);
-    expect(scan).toMatch(/A recipe page, a label, or the plate itself/);
     // And the tool still offers all three to the coach.
     expect(fs.readFileSync("lib/tools/recipe-photo.ts", "utf8"))
       .toMatch(/a recipe page, a food label, or a plate of food/);
+  });
+
+  it("is a camera in the add-food row, not a card of its own", () => {
+    // It was a heading and a paragraph in a card between the day's food and
+    // the calculator. It is a third way to add food; it belongs with the two.
+    expect(scan).not.toMatch(/<section className="card/);
+    expect(scan).toMatch(/aria-label="Photograph your food"/);
+    const food = fs.readFileSync("components/today-food.tsx", "utf8");
+    expect(food).toMatch(/<RecipeScan defaultSlot=\{defaultSlot\} \/>/);
+    // The panel drops to its own line — `basis-full` inside a wrapping row.
+    expect(food).toMatch(/mt-4 flex flex-wrap gap-2/);
+    expect(scan).toMatch(/basis-full/);
+    expect(fs.readFileSync("components/eat-client.tsx", "utf8")).not.toMatch(/RecipeScan/);
   });
 
   it("reads a plate as one plate, not a recipe that makes one serving", () => {

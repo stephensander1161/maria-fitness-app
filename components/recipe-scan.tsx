@@ -10,9 +10,13 @@ import { shrink } from "@/lib/shrink";
  *
  * Maria's request, from this screen: "let me add a photo of a recipe, and you
  * estimate the macros and calories for it." It has always read a plate of food
- * or a packet as happily as a recipe page — the model is told all three — but
- * it was called "Scan a recipe", so the person who wanted to photograph his
- * dinner had no way to know. The name is the feature.
+ * or a packet as happily as a recipe page — the model is told all three.
+ *
+ * It used to be a card of its own, with a heading and a paragraph, sitting
+ * between the day's food and the calculator. It is a third way to add food and
+ * it belongs where the other two are: a camera beside "Add food", which is
+ * obvious enough in that row to need no explaining. The panel it opens is the
+ * part that was ever worth the space.
  *
  * Two things it deliberately does not do. It does not keep the photo — the
  * bytes go with the request and there is no row and no blob afterwards, which
@@ -109,17 +113,16 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
     }
   }
 
-  return (
-    <section className="card p-4">
-      <div className="mb-1 flex items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">Photograph your food</h2>
-        <span className="shrink-0 text-[11px] text-faint">Estimate, not a lookup</span>
-      </div>
-      <p className="text-[13px] leading-relaxed text-muted">
-        A recipe page, a label, or the plate itself. You get calories and macros per serving,
-        with what they assume. The photo is not kept.
-      </p>
+  /*
+    A button in the row, and everything else on the line under it.
 
+    The parent is `flex flex-wrap`, so `basis-full` is what drops the panel
+    onto its own line while the camera stays beside "Add food". No portal, no
+    state lifted out of here — the row and the panel are still one component
+    and still own their own photo.
+  */
+  return (
+    <>
       {/*
         No `capture`. The button says "take or choose", and `capture` takes the
         choice away: iOS opens the camera directly and there is no way to reach
@@ -135,37 +138,37 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); }}
       />
 
-      {!estimate && (
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-edge py-3 text-[14px] font-medium text-text active:bg-raised disabled:opacity-50"
-        >
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={busy}
+        aria-label="Photograph your food"
+        title="Photograph your food"
+        className="grid w-12 shrink-0 place-items-center rounded-xl border border-dashed border-line text-muted transition-colors hover:text-accent active:bg-raised disabled:opacity-50"
+      >
+        {busy && !estimate ? (
+          <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+        ) : (
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
             <circle cx="12" cy="13" r="3.5" />
           </svg>
-          {busy ? "Reading it…" : "Take or choose a photo"}
-        </button>
-      )}
+        )}
+      </button>
 
       {busy && !estimate && (
-        <div className="mt-3 flex items-center gap-2 text-[13px] text-muted">
-          <span className="size-1.5 animate-pulse rounded-full bg-accent" />
-          Reading the recipe…
-        </div>
+        <p className="mt-2 basis-full text-[12px] text-muted">Reading it…</p>
       )}
 
       {error && (
-        <p role="alert" className="mt-3 rounded-lg border border-miss/30 bg-miss-soft px-3 py-2 text-[12px] text-miss">
+        <p role="alert" className="mt-2 basis-full rounded-lg border border-miss/30 bg-miss-soft px-3 py-2 text-[12px] text-miss">
           {error}
         </p>
       )}
 
       {estimate && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 basis-full space-y-3 rounded-xl border border-line bg-raised p-3">
           <div className="flex gap-3">
             {preview && (
               /* eslint-disable-next-line @next/next/no-img-element -- data URI held in memory for this one screen; nothing is stored */
@@ -194,6 +197,10 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
           </div>
 
           <p className="text-[13px] leading-relaxed text-muted">{estimate.note}</p>
+          {/* Kept visible even though the card around it is gone: whether a
+              photo of her dinner is stored is a real question, and the answer
+              belongs where the photo is, not in a policy page. */}
+          <p className="text-[11px] text-faint">An estimate, not a lookup. The photo is not kept.</p>
 
           {estimate.assumptions.length > 0 && (
             /* The assumptions are the point: she can correct the one that is
@@ -251,6 +258,6 @@ export function RecipeScan({ defaultSlot }: { defaultSlot: Slot }) {
           )}
         </div>
       )}
-    </section>
+    </>
   );
 }
