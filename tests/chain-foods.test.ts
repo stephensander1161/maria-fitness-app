@@ -117,9 +117,16 @@ suite("a unit may not itself contain a count", () => {
       a number of nuggets. Any row whose unit has a count in it has the same
       trap waiting.
     */
+    /*
+      A number is fine where it is a *size* — "6 inch sub" is a length, and
+      "2 subway turkey" means two subs, which is what anybody means. What is
+      not fine is a count of the thing being named, because then the count in
+      her sentence multiplies a unit that already has one in it.
+    */
+    const counted = /\d+\s*(piece|pc|pcs|count|ct|nugget|wing|strip|timbit|donut|tender)/i;
     for (const f of CHAIN_FOODS) {
-      expect(f.unitLabel, `${f.slug}: "${f.unitLabel}" has a count in the unit`)
-        .not.toMatch(/\d/);
+      expect(f.unitLabel, `${f.slug}: "${f.unitLabel}" is a count of the thing itself`)
+        .not.toMatch(counted);
     }
   });
 });

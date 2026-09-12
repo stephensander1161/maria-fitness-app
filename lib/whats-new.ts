@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-chain-menus",
+    date: "2026-09-11",
+    title: "Fast food, from the chain's own panel",
+    blurb:
+      "McDonald's, Tim Hortons, Subway, A&W, KFC, Dairy Queen, Harvey's and Pizza Pizza are in the food library now \u2014 Canadian figures, straight off the published nutrition panels. \u201Csmall McDonald\u2019s fries\u201D is a lookup rather than a guess.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-11-chat-threads",
     date: "2026-09-11",
     title: "Chats, plural",

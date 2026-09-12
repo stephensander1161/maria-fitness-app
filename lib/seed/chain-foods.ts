@@ -81,4 +81,48 @@ export const CHAIN_FOODS: FoodSeed[] = [
   { slug: "tims-chili", name: "Tim Hortons Chili", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 290, proteinG: 18, carbsG: 15, fatG: 16, fibreG: 5, unitGrams: null, unitLabel: "bowl", aliases: ["tim hortons chili", "tims chili"] },
   { slug: "tims-blueberry-muffin", name: "Tim Hortons Wild Blueberry Muffin", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 340, proteinG: 5, carbsG: 55, fatG: 11, fibreG: 2, unitGrams: null, unitLabel: "muffin", aliases: ["tim hortons blueberry muffin", "blueberry muffin tim hortons"] },
   { slug: "tims-everything-bagel", name: "Tim Hortons Everything Bagel", category: "grain", perItem: true, brand: "Tim Hortons", kcal: 300, proteinG: 10, carbsG: 57, fatG: 3, fibreG: 3, unitGrams: null, unitLabel: "bagel", aliases: ["tim hortons bagel", "everything bagel tim hortons"] },
+  // ── Subway Canada ─────────────────────────────────────────────────────────
+  // Six-inch, which is the one people say. A footlong is close enough to two
+  // that "2 × 6 inch" is the honest way to ask for one, and inventing separate
+  // footlong rows from doubled figures would be arithmetic pretending to be a
+  // published panel.
+  { slug: "subway-turkey-breast-6", name: "Subway Turkey Breast, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 290, proteinG: 16, carbsG: 42, fatG: 4, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["subway turkey", "turkey breast sub", "subway turkey breast"] },
+  { slug: "subway-italian-bmt-6", name: "Subway Italian B.M.T., 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 410, proteinG: 19, carbsG: 42, fatG: 16, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["italian bmt", "subway bmt", "bmt sub"] },
+  { slug: "subway-chicken-bacon-ranch-6", name: "Subway Chicken & Bacon Ranch, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 530, proteinG: 32, carbsG: 42, fatG: 24, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["chicken bacon ranch sub", "subway chicken bacon ranch"] },
+  { slug: "subway-meatball-marinara-6", name: "Subway Meatball Marinara, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 480, proteinG: 21, carbsG: 52, fatG: 18, fibreG: 8, unitGrams: null, unitLabel: "6 inch sub", aliases: ["meatball sub", "subway meatball", "meatball marinara"] },
+  { slug: "subway-steak-cheese-6", name: "Subway Steak & Cheese, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 380, proteinG: 26, carbsG: 44, fatG: 10, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["steak and cheese sub", "subway steak and cheese"] },
+  { slug: "subway-tuna-6", name: "Subway Tuna, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 480, proteinG: 20, carbsG: 39, fatG: 25, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["subway tuna", "tuna sub"] },
+  { slug: "subway-veggie-delite-6", name: "Subway Veggie Delite, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 230, proteinG: 8, carbsG: 39, fatG: 3, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["veggie delite", "subway veggie"] },
+  { slug: "subway-oven-roasted-chicken-6", name: "Subway Oven Roasted Chicken, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 310, proteinG: 21, carbsG: 42, fatG: 5, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["subway chicken", "oven roasted chicken sub"] },
+  // ── A&W Canada ────────────────────────────────────────────────────────────
+  // The burgers come with and without cheese and the panels differ; each row
+  // says which it is rather than averaging two real numbers into a third that
+  // is neither.
+  { slug: "aw-teen-burger", name: "A&W Teen Burger", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 500, proteinG: 25, carbsG: 38, fatG: 26, fibreG: 1, unitGrams: null, unitLabel: "burger", aliases: ["teen burger", "a&w teen burger", "aw teen burger"] },
+  { slug: "aw-mama-burger", name: "A&W Mama Burger", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 400, proteinG: 19, carbsG: 37, fatG: 20, fibreG: 1, unitGrams: null, unitLabel: "burger", aliases: ["mama burger", "a&w mama burger", "aw mama burger"] },
+  { slug: "aw-papa-burger", name: "A&W Papa Burger with cheese", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 640, proteinG: 37, carbsG: 36, fatG: 37, fibreG: 1, unitGrams: null, unitLabel: "burger", aliases: ["papa burger", "a&w papa burger", "aw papa burger"] },
+  { slug: "aw-fries", name: "A&W Fries, regular", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 390, proteinG: 5, carbsG: 49, fatG: 18, fibreG: 5, unitGrams: 155, unitLabel: "regular fries", aliases: ["a&w fries", "aw fries"] },
+  { slug: "aw-onion-rings", name: "A&W Onion Rings", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 520, proteinG: 7, carbsG: 46, fatG: 32, fibreG: 4, unitGrams: 150, unitLabel: "portion", aliases: ["a&w onion rings", "aw onion rings", "onion rings"] },
+  // ── KFC Canada ────────────────────────────────────────────────────────────
+  // Chicken is priced per piece, because that is how it is ordered and how the
+  // panel is printed — "3 pieces" then multiplies correctly.
+  { slug: "kfc-original-thigh", name: "KFC Original Recipe Chicken Thigh", category: "prepared", perItem: true, brand: "KFC Canada", kcal: 220, proteinG: 15, carbsG: 6, fatG: 15, fibreG: 0, unitGrams: null, unitLabel: "piece", aliases: ["kfc thigh", "kfc chicken thigh", "original recipe thigh"] },
+  { slug: "kfc-original-drumstick", name: "KFC Original Recipe Chicken Drumstick", category: "prepared", perItem: true, brand: "KFC Canada", kcal: 140, proteinG: 15, carbsG: 2, fatG: 8, fibreG: 0, unitGrams: null, unitLabel: "piece", aliases: ["kfc drumstick", "kfc chicken leg", "original recipe drumstick"] },
+  { slug: "kfc-popcorn-chicken-small", name: "KFC Popcorn Chicken, small", category: "prepared", perItem: true, brand: "KFC Canada", kcal: 370, proteinG: 19, carbsG: 24, fatG: 21, fibreG: 2, unitGrams: 123, unitLabel: "small", aliases: ["kfc popcorn chicken", "popcorn chicken"] },
+  { slug: "kfc-fries", name: "KFC Fries, individual", category: "prepared", perItem: true, brand: "KFC Canada", kcal: 300, proteinG: 4, carbsG: 37, fatG: 14, fibreG: 4, unitGrams: 113, unitLabel: "individual", aliases: ["kfc fries", "kfc french fries"] },
+  { slug: "kfc-poutine", name: "KFC Poutine", category: "prepared", perItem: true, brand: "KFC Canada", kcal: 720, proteinG: 21, carbsG: 66, fatG: 40, fibreG: 6, unitGrams: 343, unitLabel: "poutine", aliases: ["kfc poutine"] },
+  // ── Dairy Queen Canada ────────────────────────────────────────────────────
+  { slug: "dq-blizzard-mint-oreo-small", name: "Dairy Queen Mint Oreo Blizzard, small", category: "snack", perItem: true, brand: "Dairy Queen Canada", kcal: 750, proteinG: 14, carbsG: 103, fatG: 23, fibreG: 1, unitGrams: null, unitLabel: "small", aliases: ["mint oreo blizzard", "dairy queen blizzard", "dq blizzard", "blizzard"] },
+  { slug: "dq-vanilla-cone-small", name: "Dairy Queen Vanilla Cone, small", category: "snack", perItem: true, brand: "Dairy Queen Canada", kcal: 230, proteinG: 7, carbsG: 38, fatG: 7, fibreG: 0, unitGrams: null, unitLabel: "small cone", aliases: ["dairy queen cone", "dq cone", "vanilla cone"] },
+  { slug: "dq-dilly-bar", name: "Dairy Queen Dilly Bar, chocolate", category: "snack", perItem: true, brand: "Dairy Queen Canada", kcal: 190, proteinG: 3, carbsG: 21, fatG: 10, fibreG: 0, unitGrams: null, unitLabel: "bar", aliases: ["dilly bar", "dq dilly bar"] },
+
+  // ── Harvey's ──────────────────────────────────────────────────────────────
+  { slug: "harveys-cheeseburger", name: "Harvey's Original Cheeseburger", category: "prepared", perItem: true, brand: "Harvey's", kcal: 420, proteinG: 22, carbsG: 35, fatG: 21, fibreG: 2, unitGrams: 162, unitLabel: "cheeseburger", aliases: ["harveys cheeseburger", "harveys burger"] },
+  { slug: "harveys-poutine", name: "Harvey's Classic Poutine", category: "prepared", perItem: true, brand: "Harvey's", kcal: 730, proteinG: 24, carbsG: 60, fatG: 41, fibreG: 5, unitGrams: null, unitLabel: "poutine", aliases: ["harveys poutine"] },
+  { slug: "harveys-fries", name: "Harvey's Fries, regular", category: "prepared", perItem: true, brand: "Harvey's", kcal: 430, proteinG: 5, carbsG: 55, fatG: 19, fibreG: 4, unitGrams: null, unitLabel: "regular fries", aliases: ["harveys fries"] },
+
+  // ── Pizza Pizza ───────────────────────────────────────────────────────────
+  // A New York slice is most of a meal, which is why it is worth a row: people
+  // log "a slice" and mean this.
+  { slug: "pizza-pizza-ny-pepperoni-slice", name: "Pizza Pizza New York Pepperoni Slice", category: "prepared", perItem: true, brand: "Pizza Pizza", kcal: 671, proteinG: 33, carbsG: 74, fatG: 25, fibreG: 4, unitGrams: null, unitLabel: "slice", aliases: ["pizza pizza slice", "new york pepperoni slice", "pizza pizza pepperoni slice"] },
 ];
