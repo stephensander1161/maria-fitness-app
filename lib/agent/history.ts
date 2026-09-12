@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { and, asc, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { messages } from "@/lib/db/schema";
+import { conversations, messages } from "@/lib/db/schema";
 
 /** At least this many messages are replayed… */
 const WINDOW = 40;
@@ -19,17 +19,28 @@ const STEP = 20;
  * identical for STEP turns in a row and shifts once, and the window is
  * between WINDOW and WINDOW + STEP long.
  */
-export async function loadHistory(profileId: string): Promise<Anthropic.MessageParam[]> {
+export async function loadHistory(
+  profileId: string,
+  /** The thread being continued. Null is a thread that has no messages yet. */
+  conversationId: string | null,
+): Promise<Anthropic.MessageParam[]> {
+  // A brand-new thread has nothing behind it, which is the whole point of
+  // starting one: the model sees this message and the state block, not last
+  // week. It also means the cache breakpoint sits at the persona, which is
+  // exactly where it should for the first turn of anything.
+  if (!conversationId) return [];
+
+  const scope = and(eq(messages.profileId, profileId), eq(messages.conversationId, conversationId));
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(messages)
-    .where(eq(messages.profileId, profileId));
+    .where(scope);
   const start = Math.max(0, Math.floor((total - WINDOW) / STEP) * STEP);
 
   const rows = await db
     .select()
     .from(messages)
-    .where(eq(messages.profileId, profileId))
+    .where(scope)
     .orderBy(asc(messages.createdAt), asc(messages.id))
     .offset(start);
 
@@ -170,8 +181,126 @@ export async function saveMessage(
   profileId: string,
   role: "user" | "assistant",
   content: Anthropic.ContentBlockParam[],
+  conversationId: string,
 ) {
-  await db.insert(messages).values({ profileId, role, content });
+  await db.insert(messages).values({ profileId, role, content, conversationId });
+  // What the list orders by. Bumped on every message rather than computed
+  // from the messages table, so the list is one query and not a join with a
+  // max() per row.
+  await db.update(conversations)
+    .set({ lastMessageAt: new Date() })
+    .where(and(eq(conversations.id, conversationId), eq(conversations.profileId, profileId)));
+}
+
+/** How much of her first message becomes the thread's name in the list. */
+export const TITLE_CHARS = 70;
+
+/**
+ * Open a thread, named after what she opened it with.
+ *
+ * Her first message trimmed, not a generated summary: a title is worth one
+ * line in a list and not worth a model call each, and the first thing somebody
+ * says is very nearly always what the thread turns out to be about.
+ *
+ * The briefing a screen prepends is deliberately not the title — she would get
+ * a list of threads all called "She is looking at today's food", which is the
+ * app's words and not hers.
+ */
+export async function startConversation(profileId: string, firstSaid: string): Promise<string> {
+  const clean = firstSaid.replace(/\s+/g, " ").trim();
+  const title = clean.length > TITLE_CHARS ? `${clean.slice(0, TITLE_CHARS - 1).trimEnd()}…` : clean;
+  const [row] = await db.insert(conversations)
+    .values({ profileId, title: title || null })
+    .returning({ id: conversations.id });
+  return row.id;
+}
+
+/**
+ * Name a thread the first time she actually says something in it.
+ *
+ * An inline "coach's read" opens a thread with nothing she typed in it — the
+ * turn is silent, so there is no title to take. If she then asks a follow-up,
+ * that thread becomes visible, and without this it would sit in her history
+ * as "Untitled chat" for ever. Only ever fills a blank: a thread already named
+ * after her opening line keeps it.
+ */
+export async function nameIfUntitled(
+  profileId: string, conversationId: string, said: string,
+): Promise<void> {
+  const clean = said.replace(/\s+/g, " ").trim();
+  if (!clean) return;
+  const title = clean.length > TITLE_CHARS ? `${clean.slice(0, TITLE_CHARS - 1).trimEnd()}…` : clean;
+  await db.update(conversations)
+    .set({ title })
+    .where(and(
+      eq(conversations.id, conversationId),
+      eq(conversations.profileId, profileId),
+      isNull(conversations.title),
+    ));
+}
+
+/**
+ * Her threads, newest first.
+ *
+ * The message count comes from a grouped subquery rather than a count per row:
+ * a list of twenty threads was twenty round trips, on a screen that opens
+ * every time she taps the coach.
+ */
+export async function listConversations(
+  profileId: string,
+  limit = 30,
+): Promise<{ id: string; title: string | null; at: Date; messages: number }[]> {
+  const counts = db
+    .select({
+      conversationId: messages.conversationId,
+      n: sql<number>`count(*)::int`.as("n"),
+    })
+    .from(messages)
+    .where(and(eq(messages.profileId, profileId), eq(messages.role, "user")))
+    .groupBy(messages.conversationId)
+    .as("counts");
+
+  const rows = await db
+    .select({
+      id: conversations.id, title: conversations.title,
+      at: conversations.lastMessageAt, n: counts.n,
+    })
+    .from(conversations)
+    .leftJoin(counts, eq(counts.conversationId, conversations.id))
+    .where(eq(conversations.profileId, profileId))
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(limit);
+
+  /*
+    A thread with nothing she said in it is not a thread.
+
+    The same rule `hasHistory` applies to the whole transcript, applied per
+    thread: a turn can fail after the assistant's reply is written, and what
+    is left is a row with no question in it. Listing those would fill the
+    history with blanks she never opened.
+  */
+  return rows
+    .filter((r) => (r.n ?? 0) > 0)
+    .map((r) => ({ id: r.id, title: r.title, at: r.at, messages: r.n ?? 0 }));
+}
+
+/** The thread she was last in, for reopening rather than starting fresh. */
+export async function latestConversation(profileId: string): Promise<string | null> {
+  const [row] = await db.select({ id: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.profileId, profileId))
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** Hers, or nothing. Every read of a thread goes through this. */
+export async function ownsConversation(profileId: string, conversationId: string): Promise<boolean> {
+  const [row] = await db.select({ id: conversations.id })
+    .from(conversations)
+    .where(and(eq(conversations.id, conversationId), eq(conversations.profileId, profileId)))
+    .limit(1);
+  return row !== undefined;
 }
 
 /**
@@ -192,6 +321,8 @@ export async function recentForDisplay(
   limit = 40,
   /** Load what came *before* this message — its id, from the oldest one shown. */
   before?: string,
+  /** The thread to show. Null means she is starting a new one: nothing yet. */
+  conversationId?: string | null,
 ): Promise<{
   messages: { id: string; role: "user" | "assistant"; text: string; at: Date }[];
   hasMore: boolean;
@@ -201,6 +332,9 @@ export async function recentForDisplay(
   // Nothing she has said means nothing to show — the same rule hasHistory
   // uses, and the reason a stranded assistant fragment no longer greets her
   // on every open.
+  // A thread she has not started has nothing in it, and asking the database
+  // is a round trip to be told so.
+  if (conversationId === null) return { messages: [], hasMore: false, oldestId: null };
   if (!(await hasHistory(profileId))) return { messages: [], hasMore: false, oldestId: null };
 
   const edge = before
@@ -216,6 +350,7 @@ export async function recentForDisplay(
     .from(messages)
     .where(and(
       eq(messages.profileId, profileId),
+      ...(conversationId ? [eq(messages.conversationId, conversationId)] : []),
       ...(edge ? [or(
         lt(messages.createdAt, edge.at),
         and(eq(messages.createdAt, edge.at), lt(messages.id, edge.id)),

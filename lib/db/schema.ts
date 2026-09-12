@@ -1242,17 +1242,63 @@ export const auditLog = pgTable(
 );
 
 /** Full conversation history — this is the agent's memory across sessions. */
+/**
+ * One thread of conversation.
+ *
+ * The app had exactly one, for ever: every message anyone had ever sent, in a
+ * single run, with the last forty replayed to the model and the rest
+ * unreachable except by scrolling. Opening the coach to ask one quick question
+ * dropped you into the middle of last week, and there was no way to put a
+ * thread down and start a clean one.
+ *
+ * Created lazily — on the first message, not on opening the sheet, or every
+ * tap that opened and closed it would leave an empty thread in the list.
+ */
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: id(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /**
+     * What it was about, for the list.
+     *
+     * Her first message, trimmed — not a generated summary. A title is worth
+     * one line in a list and not worth a model call each, and the first thing
+     * somebody says is very nearly always what the thread turned out to be
+     * about.
+     */
+    title: text("title"),
+    createdAt: createdAt(),
+    /** Ordering for the list, and what makes "continue where I was" possible. */
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("conversations_profile_last").on(t.profileId, t.lastMessageAt)],
+);
+
 export const messages = pgTable(
   "messages",
   {
     id: id(),
     profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /**
+     * The thread this belongs to.
+     *
+     * Nullable only because every message written before threads existed has
+     * no thread to point at; the backfill gives each profile one and fills
+     * them in. Nothing new is ever written without one — `saveMessage`
+     * requires it — so a null here means "older than this feature", which is
+     * a fact about the row rather than a gap in it.
+     */
+    conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["user", "assistant"] }).notNull(),
     /** Anthropic content blocks, stored verbatim so tool_use/tool_result replay exactly. */
     content: jsonb("content").$type<unknown>().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("messages_profile_created").on(t.profileId, t.createdAt)],
+  (t) => [
+    index("messages_profile_created").on(t.profileId, t.createdAt),
+    index("messages_conversation").on(t.conversationId, t.createdAt),
+  ],
 );
 
 /**

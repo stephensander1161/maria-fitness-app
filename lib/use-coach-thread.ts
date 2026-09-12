@@ -44,6 +44,15 @@ export function useCoachThread(
    * "finding it", not "Connection lost".
    */
   const [recovering, setRecovering] = useState(false);
+  /**
+   * The thread these messages are in, or null for one not started yet.
+   *
+   * Opening the coach opens a new chat: null here, no row in the database, and
+   * the first message is what creates one — so a tap that opens and closes the
+   * sheet leaves nothing behind. The server sends the id back on the turn that
+   * creates it, and every message after that carries it.
+   */
+  const [conversationId, setConversationId] = useState<string | null>(null);
   // Held in a ref so a caller can pass an inline arrow without re-creating
   // `stream` on every render — an effect that streams would run twice. Written
   // in an effect, not during render, because a render can be thrown away.
@@ -133,7 +142,8 @@ export function useCoachThread(
     try {
       for await (const event of streamCoach(body, opts)) {
         const e: CoachEvent = event;
-        if (e.type === "accepted") { accepted = true; }
+        if (e.type === "conversation") { setConversationId(e.id); body = { ...body, conversationId: e.id }; }
+        else if (e.type === "accepted") { accepted = true; }
         else if (e.type === "text") { acc += e.text; setStreaming(acc); setActivity(null); }
         else if (e.type === "tool") {
           if (e.status === "running") usedTools = true;
@@ -204,7 +214,13 @@ export function useCoachThread(
       setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text: said }]);
 
       // `page` is a path, not content: the server reads what that screen shows.
-      const delivered = await stream(page ? { message: said, page } : { message: said });
+      // `conversationId` is the thread; absent on the first message of a new
+      // one, which is what tells the server to open it.
+      const delivered = await stream({
+        message: said,
+        ...(page ? { page } : {}),
+        ...(conversationId ? { conversationId } : {}),
+      });
       if (!delivered) {
         // Nothing came back at all, so the server never heard it. Put her words
         // back in the box rather than making her remember what she typed —
@@ -213,7 +229,7 @@ export function useCoachThread(
         setInput((current) => current || said);
       }
     },
-    [stream],
+    [stream, conversationId],
   );
 
   /**
@@ -261,5 +277,6 @@ export function useCoachThread(
   return {
     messages, setMessages, streaming, activity, busy, error, setError, errorCode,
     input, setInput, stream, send, replay, stop, allowance, recovering,
+    conversationId, setConversationId,
   };
 }

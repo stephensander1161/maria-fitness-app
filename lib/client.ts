@@ -84,16 +84,19 @@ export type CoachEvent =
   | { type: "allowance"; leftPct: number }
   /** `code` says whether there is anything she can do about it — "spent" is
    *  the one she can, by asking the owner for more (components/coach-thread). */
-  | { type: "error"; message: string; code?: "spent" | "rate" | "messages" };
+  | { type: "error"; message: string; code?: "spent" | "rate" | "messages" }
+  /** Which thread the turn landed in. A new chat has no id until the first
+   *  message creates one, and the browser needs it to continue. */
+  | { type: "conversation"; id: string; title: string | null };
 
 /** Consume the coach's SSE stream as an async iterable of events. */
 export async function* streamCoach(
   body:
-    | { message: string; page?: string }
-    | { kickoff: true; page?: string }
+    | { message: string; page?: string; conversationId?: string }
+    | { kickoff: true; page?: string; conversationId?: string }
     // `page` rides along with an opinion too: the read is about the screen,
     // and on Eat, Train and Progress the screen may be showing an earlier day.
-    | { opinion: "train" | "plan" | "progress"; page?: string },
+    | { opinion: "train" | "plan" | "progress"; page?: string; conversationId?: string },
   opts: { signal?: AbortSignal } = {},
 ): AsyncGenerator<CoachEvent> {
   const res = await fetch("/api/chat", {

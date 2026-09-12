@@ -39,8 +39,11 @@ suite("the rest of the conversation", () => {
 
   it("is scoped to her transcript, so a cursor is only ever a cursor", () => {
     const route = code("app/api/messages/route.ts");
-    expect(route).toMatch(/recentForDisplay\(profile\.id, 40, before\)/);
+    expect(route).toMatch(/recentForDisplay\(profile\.id, 40, before, conversation\)/);
     expect(history).toMatch(/eq\(messages\.profileId, profileId\)/);
+    // The thread id comes from the browser too, and it is checked against her
+    // profile before a single message is read out of it.
+    expect(route).toMatch(/!\(await ownsConversation\(profile\.id, asked\)\)/);
   });
 
   it("holds the scroll position when it prepends, and offers a button too", () => {

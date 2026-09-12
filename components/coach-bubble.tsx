@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { prettyDate, type ISODate } from "@/lib/date";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { useCoachThread, type Msg } from "@/lib/use-coach-thread";
@@ -101,7 +102,11 @@ function CoachSheet({
   name, path, onClose,
 }: { name: string | null; path: string; onClose: () => void }) {
   const router = useRouter();
-  const { messages, setMessages, streaming, activity, busy, error, setError, errorCode, input, setInput, stream, send, replay, stop, allowance } = useCoachThread({
+  const {
+    messages, setMessages, streaming, activity, busy, error, setError, errorCode,
+    input, setInput, stream, send, replay, stop, allowance,
+    conversationId, setConversationId,
+  } = useCoachThread({
     // A turn that ran tools changed something the screen behind this is
     // showing — "log that set" should tick the set off underneath.
     onTurnEnd: ({ usedTools }) => { if (usedTools) router.refresh(); },
@@ -122,6 +127,24 @@ function CoachSheet({
    * thing worse than forgetting is forgetting silently.
    */
   const [clearing, setClearing] = useState(false);
+  /**
+   * Her past threads, and whether the list is showing.
+   *
+   * Fetched with the transcript rather than on its own: it is the other half
+   * of the same screen, and a second round trip on every open of the sheet is
+   * a second round trip on the commonest action in the app.
+   */
+  type Thread = { id: string; title: string | null; at: string; messages: number };
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [history, setHistory] = useState(false);
+  /**
+   * Which thread to load. `new` is a chat that does not exist yet.
+   *
+   * Opening the coach opens a new one — that is the whole point of this —
+   * and the row is created by the first message, so opening and closing the
+   * sheet leaves nothing behind.
+   */
+  const [want, setWant] = useState<string | "new">("new");
   const [feedback, setFeedback] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const kicked = useRef(false);
@@ -145,15 +168,26 @@ function CoachSheet({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/messages");
+        const res = await fetch(`/api/messages?conversation=${encodeURIComponent(want)}`);
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
         if (cancelled) return;
         setMessages(data.messages.map((m: Msg) => ({ id: m.id, role: m.role, text: m.text })));
         setOldestId(data.oldestId ?? null);
         setHasMore(Boolean(data.hasMore));
+        setThreads(data.conversations ?? []);
+        setConversationId(want === "new" ? null : want);
         setLoaded(true);
-        if (data.messages.length === 0 && !kicked.current) {
+        /*
+          The one-time greeting, still one time.
+
+          Every open is a new chat now, so "no messages on screen" is true
+          every time and can no longer mean "never used this app". The server
+          holds the real guard — `hasHistory` across her whole transcript,
+          answering 409 — and this is the cheap half of it: an account with
+          threads behind it never asks.
+        */
+        if (want === "new" && (data.conversations ?? []).length === 0 && !kicked.current) {
           kicked.current = true;
           // The screen she opened it from, so the greeting leads with what
           // is in front of her rather than with training every time.
@@ -168,7 +202,7 @@ function CoachSheet({
       }
     })();
     return () => { cancelled = true; };
-  }, [setMessages, stream, reloadKey]);
+  }, [setMessages, setConversationId, stream, reloadKey, want]);
 
   /**
    * The rest of the conversation, a page at a time.
@@ -184,7 +218,9 @@ function CoachSheet({
     const el = scroller.current;
     const heightBefore = el?.scrollHeight ?? 0;
     try {
-      const res = await fetch(`/api/messages?before=${encodeURIComponent(oldestId)}`);
+      const res = await fetch(
+        `/api/messages?before=${encodeURIComponent(oldestId)}&conversation=${encodeURIComponent(want)}`,
+      );
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       setMessages((m) => [
@@ -240,7 +276,7 @@ function CoachSheet({
         {clearing && (
           <div className="flex shrink-0 items-center gap-2 border-b border-line/60 bg-raised px-4 py-2.5">
             <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-muted">
-              Start over? Your coach forgets what has been said. Everything you have logged stays.
+              Delete every chat? Your coach forgets all of it. Everything you have logged stays.
             </p>
             <button onClick={() => setClearing(false)} className="shrink-0 px-2 py-1.5 text-[12px] text-muted">
               Keep it
@@ -251,7 +287,9 @@ function CoachSheet({
                 try {
                   await action("forget_conversation", {});
                   setMessages([]);
+                  setThreads([]);
                   kicked.current = false;
+                  setWant("new");
                   setReloadKey((k) => k + 1);
                 } catch (err) {
                   // The thread stays as it is and nothing was lost — but she
@@ -259,9 +297,9 @@ function CoachSheet({
                   setError(actionMessage(err, "Couldn't clear the conversation — try again."));
                 }
               }}
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-on-accent"
+              className="shrink-0 rounded-lg bg-miss px-3 py-1.5 text-[12px] font-semibold text-on-accent"
             >
-              Start fresh
+              Delete all
             </button>
           </div>
         )}
@@ -270,14 +308,38 @@ function CoachSheet({
             {name ? `Hey, ${name}` : "Your coach"}
           </h2>
           <div className="flex items-center gap-2">
+            {/*
+              A new chat, and a way back to the old ones.
+
+              The "+" used to *delete* the transcript — the only route to a
+              clean thread was erasing everything that had ever been said, so
+              nobody took it and every conversation ran on for months. It
+              starts a thread now and costs nothing.
+            */}
             <button
-              onClick={() => setClearing(true)}
-              aria-label="Start a new conversation"
-              className="grid size-9 place-items-center rounded-full border border-line bg-surface text-muted active:bg-raised"
+              onClick={() => { setHistory(false); kicked.current = true; setWant("new"); }}
+              disabled={want === "new" && messages.length === 0}
+              aria-label="New chat"
+              title="New chat"
+              className="grid size-9 place-items-center rounded-full border border-line bg-surface text-muted active:bg-raised disabled:opacity-40"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setHistory(!history)}
+              aria-expanded={history}
+              aria-label="Past chats"
+              title="Past chats"
+              className={`grid size-9 place-items-center rounded-full border bg-surface active:bg-raised ${
+                history ? "border-accent text-accent" : "border-line text-muted"
+              }`}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 8v4l2.5 2.5M3.5 12a8.5 8.5 0 1 0 2.2-5.7M3 4v4h4" />
               </svg>
             </button>
             <button
@@ -307,10 +369,66 @@ function CoachSheet({
           </div>
         </header>
 
+        {/*
+          Past chats, over the thread rather than beside it.
+
+          A list is a different thing to read from a conversation, and on a
+          phone there is no room for both. It closes the moment she picks one,
+          so the answer to "where was that" is two taps and never a screen she
+          has to get out of.
+        */}
+        {history && (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {threads.length === 0 ? (
+              <p className="py-8 text-center text-[13px] leading-relaxed text-faint">
+                No past chats yet. This one gets saved the moment you say something.
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {threads.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      onClick={() => { setHistory(false); kicked.current = true; setWant(t.id); }}
+                      aria-current={t.id === conversationId ? "true" : undefined}
+                      className={`flex w-full items-baseline gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors active:bg-raised ${
+                        t.id === conversationId ? "border-accent bg-accent-soft" : "border-line"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px]">
+                          {t.title ?? "Untitled chat"}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-faint">
+                          {t.messages} message{t.messages === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[11px] text-faint tabular">
+                        {prettyDate(new Date(t.at).toISOString().slice(0, 10) as ISODate)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {threads.length > 0 && (
+              /* The destructive one, where a destructive one belongs: at the
+                 bottom of the list of what it would destroy, rather than
+                 behind the "+" that people press expecting a new chat. */
+              <button
+                onClick={() => { setHistory(false); setClearing(true); }}
+                className="mt-4 w-full py-2 text-[12px] text-faint underline underline-offset-2"
+              >
+                Delete every chat
+              </button>
+            )}
+          </div>
+        )}
+
         {/* The scroll container. The composer sits outside it, which is the
             whole reason the last message is never hidden underneath. */}
         <div
           ref={scroller}
+          hidden={history}
           onScroll={(e) => { if (e.currentTarget.scrollTop < 80) void loadOlder(); }}
           className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
         >
@@ -338,6 +456,14 @@ function CoachSheet({
                   style={{ animationDelay: `${i * 120}ms` }} />
               ))}
             </div>
+          )}
+          {loaded && !loadFailed && messages.length === 0 && !busy && !streaming && (
+            // A clean box, not an empty room. This is now the commonest state
+            // in the app — every open starts here.
+            <p className="py-10 text-center text-[13px] leading-relaxed text-faint">
+              New chat. Ask anything, or tell it what to log.
+              {threads.length > 0 && <><br />Past chats are behind the clock.</>}
+            </p>
           )}
           <ThreadMessages
             messages={messages}

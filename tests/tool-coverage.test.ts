@@ -92,7 +92,12 @@ suite("tool registry", () => {
     ]);
     // Infrastructure the app maintains itself, never on her behalf.
     const INTERNAL = new Set([
-      "messages", "rateEvents", "usageDaily", "factViews", "profiles",
+      // The transcript and its threads. Written by the agent loop as it runs,
+      // never on her behalf by a tool — and `forget_conversation` and
+      // `rewind_conversation` are how the model reaches them, through
+      // `messages`, which is the row it can actually reason about.
+      "messages", "conversations",
+      "rateEvents", "usageDaily", "factViews", "profiles",
       // Written by the app about itself, never on her behalf. Exposing an
       // audit log to the model would let a prompt reach the security record.
       "auditLog",

@@ -5,7 +5,7 @@ import { relay } from "@/lib/agent/relay";
 import { getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
 import { checkChatAllowed, LIMITS } from "@/lib/limits";
-import { hasHistory } from "@/lib/agent/history";
+import { hasHistory, ownsConversation } from "@/lib/agent/history";
 import { audit } from "@/lib/audit";
 import {
   buildPageContext, contextForPath, dayInPath, OPINION_PROMPT, type OpinionPage,
@@ -42,18 +42,37 @@ export const maxDuration = 60;
  * ever sees text deltas and tool-progress labels.
  */
 export async function POST(req: Request) {
-  const { message, kickoff, opinion, page } = (await req.json().catch(() => ({}))) as {
+  const { message, kickoff, opinion, page, conversationId } = (await req.json().catch(() => ({}))) as {
     message?: string;
     kickoff?: boolean;
     opinion?: OpinionPage;
     /** The path she is on. Names a screen; never carries its contents. */
     page?: string;
+    /**
+     * The thread to continue. Omitted starts a new one — which is what
+     * opening the coach does now.
+     */
+    conversationId?: string;
   };
 
   // Middleware proved the token; this proves the account is still valid.
   const user = await currentUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const profile = await getProfile(user.id);
+
+  /*
+    Hers, or nothing.
+
+    The thread id comes from the browser, so it is checked against her profile
+    before a single message is read out of it — an id from anywhere else must
+    not be a way to read or extend somebody else's conversation. Checked here
+    rather than trusted downstream, because the transcript is the most
+    sensitive thing in this app after the photos.
+  */
+  if (typeof conversationId === "string" && !(await ownsConversation(profile.id, conversationId))) {
+    return Response.json({ error: "No such conversation" }, { status: 404 });
+  }
+  const thread = typeof conversationId === "string" ? conversationId : null;
 
   // The first-run greeting is composed here, not sent by the browser. Letting
   // the client supply text that is hidden from the transcript would hand it a
@@ -170,7 +189,7 @@ export async function POST(req: Request) {
     start(controller) { sink = controller; },
   });
 
-  const turn = relay(runCoach(profile, text, { silent, save, speakingTo }), {
+  const turn = relay(runCoach(profile, text, { silent, save, speakingTo, conversationId: thread }), {
     write: (event) => sink!.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)),
     close: () => sink!.close(),
   });

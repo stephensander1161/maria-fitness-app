@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-11-chat-threads",
+    date: "2026-09-11",
+    title: "Chats, plural",
+    blurb:
+      "Opening your coach now starts a fresh chat instead of dropping you into the middle of last week, and the clock in the header has every chat you have had. The \u201c+\u201d makes a new one and deletes nothing \u2014 it used to wipe the lot, which is why nobody pressed it.",
+  },
+  {
     id: "2026-09-11-water",
     date: "2026-09-11",
     title: "Water, one tap at a time",

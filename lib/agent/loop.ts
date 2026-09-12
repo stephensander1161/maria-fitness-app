@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { anthropicTools, registry, runTool, type ToolContext } from "@/lib/tools";
 import { MAX_TOKENS, MAX_TOOL_ITERATIONS, MODEL } from "./model";
-import { loadHistory, saveMessage } from "./history";
+import { loadHistory, nameIfUntitled, saveMessage, startConversation } from "./history";
 import { TurnGuard } from "./guard";
 import { isWriteTool } from "./tool-kind";
 import { recordError } from "@/lib/errors";
@@ -27,6 +27,10 @@ export type CoachEvent =
   /** Her message is in the transcript. Sent before the first model call, so
    *  the browser knows whether a later failure means it was lost or kept. */
   | { type: "accepted" }
+  /** The thread this turn belongs to, sent as soon as it exists. A new chat
+   *  has no id until she says something, and the browser needs the one it
+   *  just caused to be created so the next message continues it. */
+  | { type: "conversation"; id: string; title: string | null }
   | { type: "text"; text: string }
   | { type: "tool"; name: string; status: "running" | "done" }
   | { type: "done" }
@@ -81,6 +85,14 @@ export async function* runCoach(
      * person being spoken to.
      */
     speakingTo?: string | null;
+    /**
+     * The thread to continue, or null to start one.
+     *
+     * Null is the normal case now: opening the coach opens a new chat, and the
+     * thread is created by the first message rather than by the tap — every
+     * open-and-close would otherwise leave an empty row in her history.
+     */
+    conversationId?: string | null;
   } = {},
 ): AsyncGenerator<CoachEvent> {
   const ctx: ToolContext = { profileId: profile.id };
@@ -134,7 +146,7 @@ export async function* runCoach(
     opts.speakingTo ?? null,
   );
 
-  const history = await loadHistory(profile.id);
+  const history = await loadHistory(profile.id, opts.conversationId ?? null);
   const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];
   // What the model is sent and what the transcript keeps are not always the
   // same thing: a message sent from a screen carries that screen's contents,
@@ -147,10 +159,27 @@ export async function* runCoach(
     { role: "user", content: userContent },
   ];
 
+  /*
+    The thread, created by the first message rather than by the tap.
+
+    Named from what she *typed*, not from what was sent: a message from a
+    screen carries that screen's briefing, and titling the thread with it
+    would give her a history of rows all called "She is looking at today's
+    food" — the app's words, not hers.
+  */
+  const said = opts.save ?? userText;
+  const threadId = opts.conversationId ?? await startConversation(profile.id, opts.silent ? "" : said);
+  if (!opts.conversationId) {
+    yield { type: "conversation", id: threadId, title: null };
+  }
+
   // A silent turn is a system nudge (e.g. the daily check-in), not something
   // she typed — keep it out of the visible transcript but in the model's context.
   if (!opts.silent) {
-    await saveMessage(profile.id, "user", savedContent);
+    // An inline read opened this thread with nothing she typed in it. The
+    // first thing she actually says is what it should be called.
+    if (opts.conversationId) await nameIfUntitled(profile.id, threadId, said);
+    await saveMessage(profile.id, "user", savedContent, threadId);
     // Said out loud: the client used to put her words back in the box after any
     // failure, including one that happened *after* this line — so she sent it
     // again and the conversation held it twice.
@@ -206,7 +235,7 @@ export async function* runCoach(
       await recordUsage(message.usage, opts.source ?? "app", undefined, profile.id);
 
       const assistantContent = message.content as Anthropic.ContentBlockParam[];
-      await saveMessage(profile.id, "assistant", assistantContent);
+      await saveMessage(profile.id, "assistant", assistantContent, threadId);
       conversation.push({ role: "assistant", content: assistantContent });
 
       if (message.stop_reason !== "tool_use") {
@@ -279,7 +308,7 @@ export async function* runCoach(
         }),
       );
 
-      await saveMessage(profile.id, "user", results);
+      await saveMessage(profile.id, "user", results, threadId);
       conversation.push({ role: "user", content: results });
 
       for (const call of admitted) yield { type: "tool", name: call.name, status: "done" };

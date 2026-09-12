@@ -5,7 +5,7 @@ import {
   complaints, cycleEvents, factViews, feedback, friendships, goals, highFives, mealLogs, mealPlans, meals, measurements, messages,
   pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
   pushSubscriptions, savedMeals, setLogs, shoppingExtras,
-  sleepLogs, usageDaily, waterLogs, weighIns, workouts,
+  conversations, sleepLogs, usageDaily, waterLogs, weighIns, workouts,
 } from "@/lib/db/schema";
 
 /**
@@ -35,7 +35,7 @@ export const BACKUP_TABLES = {
   plans, planDays, planExercises,
   workouts, setLogs,
   mealPlans, meals, mealLogs, pantryItems, preppedPortions, shoppingExtras,
-  messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
+  conversations, messages, feedback, factViews, usageDaily, pushSubscriptions, savedMeals,
   friendships, highFives,
 } as const;
 
