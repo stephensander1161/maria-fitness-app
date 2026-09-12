@@ -217,3 +217,28 @@ export function matchScore(query: string, name: string, aliases: string[] = []):
   const byAlias = aliases.length ? Math.min(...aliases.map(rank)) + 0.5 : Infinity;
   return Math.min(byName, byAlias);
 }
+
+/**
+ * How many of a menu item a portion asks for, or null if it cannot say.
+ *
+ * A restaurant row is priced per item, so the only question is *how many* —
+ * and the honest answers are "she said a number", "she said nothing, so one",
+ * and "she asked in grams, and nobody knows what one weighs". The third is a
+ * refusal, the same one `toGrams` gives for a glass of rice.
+ *
+ * `unitGrams` is the escape hatch: where the chain did print a weight, grams
+ * convert after all.
+ */
+export function itemCount(
+  portion: Portion,
+  unitGrams: number | null,
+): number | null {
+  // Nothing said: one of it. A small fries is a small fries.
+  if (portion.assumed) return 1;
+  // "2 big macs", "3 nuggets" — a bare count is the natural reading.
+  if (portion.unit === "unit") return portion.amount;
+  // A weight, and a weight only works if the chain published one.
+  if (unitGrams === null || unitGrams <= 0) return null;
+  const grams = toGrams(portion, unitGrams, null);
+  return grams === null ? null : grams / unitGrams;
+}

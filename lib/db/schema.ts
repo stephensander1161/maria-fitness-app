@@ -1076,13 +1076,36 @@ export const foods = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     category: text("category").notNull(),
-    /** Everything is stored per 100g; portions scale from there. */
+    /**
+     * Per 100g, unless `perItem` — then per one of the thing.
+     *
+     * The table was built for food sold by weight, where per-100g is the only
+     * figure that makes sense and a portion scales from it. A restaurant item
+     * is not that: every chain publishes "1 sandwich — 520 kcal" and none of
+     * them publishes what it weighs, so a per-100g row for a Big Mac can only
+     * be built on a gram figure somebody invented. See `perItem`.
+     */
     kcal: real("kcal").notNull(),
     proteinG: real("protein_g").notNull(),
     carbsG: real("carbs_g").notNull(),
     fatG: real("fat_g").notNull(),
     fibreG: real("fibre_g"),
-    /** Grams in one natural unit — one egg, one slice, one medium banana. */
+    /**
+     * The figures above are for one of these, not for 100g of it.
+     *
+     * A menu item is a unit. "One Big Mac" is a complete published fact and
+     * "100g of Big Mac" is not a fact anybody has ever measured — deriving one
+     * needs a weight the chain does not print, and the only way to get it is
+     * to make it up. So the row says which it is, "2 big macs" multiplies, and
+     * a request in grams is refused rather than answered from an invented
+     * density. Same rule as `toGrams` returning null for "1 glass rice".
+     */
+    perItem: boolean("per_item").default(false).notNull(),
+    /** Where it came from, for a row that is somebody else's published data —
+     *  "McDonald's Canada, 2026". Null for the generic library. */
+    brand: text("brand"),
+    /** Grams in one natural unit — one egg, one slice, one medium banana.
+     *  Null on a `perItem` row unless the chain actually printed a weight. */
     unitGrams: real("unit_grams"),
     unitLabel: text("unit_label"),
     /** Alternative names, so "aubergine" finds "eggplant". */

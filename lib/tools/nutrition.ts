@@ -14,7 +14,7 @@ import { type ShoppingItem } from "@/lib/shopping";
 import { instacartConfigured } from "@/lib/instacart";
 import { foodUnitsFor, getProfileById, todayForProfile, ageFrom } from "@/lib/profile";
 import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
-import { parsePortion, toGrams } from "@/lib/portion";
+import { itemCount, parsePortion, toGrams } from "@/lib/portion";
 import { searchFoods } from "./foods";
 import {
   directionMatchesGoal, FIBRE_TARGET_G, fibreForDay, fibrePer100, nutritionTargets, targetDirection,
@@ -285,12 +285,32 @@ async function priceItems(items: string[], ctx: ToolContext): Promise<{
     if (!portion) { unpriced.push(raw); continue; }
     const [best] = await searchFoods(portion.query, 1);
     if (!best) { unpriced.push(raw); continue; }
-    const grams = portion.assumed && best.unitGrams !== null
-      ? best.unitGrams
-      : toGrams(portion, best.unitGrams, best.unitLabel);
-    if (grams === null) { unpriced.push(raw); continue; }
+    /*
+      A menu item is counted; everything else is weighed.
 
-    const at = (per100: number) => (per100 * grams) / 100;
+      Same fork as `lookup_food`: a chain row carries per-item figures, so the
+      multiplier is how many of them, and a weight nobody published is a
+      refusal rather than a guess. `at` is the one place the two meet, so the
+      lines below do not care which kind of row they got.
+    */
+    let at: (v: number) => number;
+    /** How the portion reads back to her — "2 × Big Mac", or "110 g". */
+    let label: string;
+    if (best.perItem) {
+      const n = itemCount(portion, best.unitGrams);
+      if (n === null) { unpriced.push(raw); continue; }
+      at = (v) => v * n;
+      label = n === 1
+        ? `1 ${best.unitLabel ?? "item"}`
+        : `${Math.round(n * 10) / 10} × ${best.unitLabel ?? "item"}`;
+    } else {
+      const grams = portion.assumed && best.unitGrams !== null
+        ? best.unitGrams
+        : toGrams(portion, best.unitGrams, best.unitLabel);
+      if (grams === null) { unpriced.push(raw); continue; }
+      at = (v) => (v * grams) / 100;
+      label = gramsLabel(grams, units);
+    }
     kcal += at(best.kcal);
     proteinG += at(best.proteinG);
     carbsG += at(best.carbsG);
@@ -307,7 +327,7 @@ async function priceItems(items: string[], ctx: ToolContext): Promise<{
     if (fibrePer === null) fibreKnownForAll = false;
     else fibreG += at(fibrePer);
     found.push({
-      item: raw, food: best.name, portion: gramsLabel(grams, units), kcal: Math.round(at(best.kcal)),
+      item: raw, food: best.name, portion: label, kcal: Math.round(at(best.kcal)),
     });
   }
 

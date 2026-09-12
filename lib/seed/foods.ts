@@ -42,7 +42,12 @@ export type FoodSeed = {
   unitGrams: number | null;
   unitLabel: string | null;
   aliases: string[];
+  /** The figures are for one of these, not for 100g — see `foods.per_item`. */
+  perItem?: boolean;
+  /** Whose published data it is: "McDonald's Canada, 2026". */
+  brand?: string;
 };
+
 
 export const FOODS: FoodSeed[] = [
   // ── Meat and poultry ──────────────────────────────────────────────────────

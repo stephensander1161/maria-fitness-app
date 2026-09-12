@@ -14,6 +14,7 @@ import { FACTS } from "./facts";
 import { WORKOUT_TEMPLATES } from "./workout-templates";
 import { MEAL_TEMPLATES } from "./meal-templates";
 import { FOODS } from "./foods";
+import { CHAIN_FOODS } from "./chain-foods";
 
 async function main() {
   for (const e of EXERCISES) {
@@ -41,12 +42,16 @@ async function main() {
   // Templates are replaced wholesale rather than upserted: their days and
   // exercises are children, and editing a week in source should not leave
   // orphaned rows from the previous shape behind.
-  for (const f of FOODS) {
+  for (const f of [...FOODS, ...CHAIN_FOODS]) {
     const row = {
       slug: f.slug, name: f.name, category: f.category,
       kcal: f.kcal, proteinG: f.proteinG, carbsG: f.carbsG, fatG: f.fatG,
       fibreG: f.fibreG, unitGrams: f.unitGrams, unitLabel: f.unitLabel,
       aliases: f.aliases,
+      // A restaurant row's figures are per item, not per 100g — see
+      // `foods.per_item`. Everything in the generic library is by weight.
+      perItem: f.perItem ?? false,
+      brand: f.brand ?? null,
       // Seeded rows come from a table somebody already checked, so they are
       // stamped as audited and a re-seed corrects any estimate that had taken
       // the same slug. The audit queue is then exactly the model's guesses.
@@ -57,7 +62,7 @@ async function main() {
     await db.insert(foods).values(row)
       .onConflictDoUpdate({ target: foods.slug, set: row });
   }
-  console.log(`\u2713 ${FOODS.length} foods`);
+  console.log(`\u2713 ${FOODS.length} foods, ${CHAIN_FOODS.length} restaurant items`);
 
   for (const t of WORKOUT_TEMPLATES) {
     const row = {

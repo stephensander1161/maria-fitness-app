@@ -6,7 +6,7 @@ import { foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
-import { matchScore, parsePortion, toGrams } from "@/lib/portion";
+import { itemCount, matchScore, parsePortion, toGrams } from "@/lib/portion";
 import { queryVariants } from "@/lib/search-terms";
 import { foodUnitsFor } from "@/lib/profile";
 import { foodLines, gramsLabel, quantityLabel } from "@/lib/food-units";
@@ -45,6 +45,48 @@ export const lookupFood = defineTool({
     const best = matches[0];
 
     if (best) {
+      /*
+        A menu item is counted, not weighed.
+
+        Every chain publishes "1 sandwich — 520 kcal" and none publishes what
+        it weighs, so these rows carry per-item figures and the only question
+        is how many. A weight is refused rather than answered from a density
+        nobody measured.
+      */
+      if (best.perItem) {
+        const n = itemCount(portion, best.unitGrams);
+        if (n === null) {
+          return {
+            found: true, food: best.name,
+            error: `${best.name} is a menu item, not something sold by weight — "${portion.amount} ${portion.unit}" can't be converted. Ask her how many.`,
+          };
+        }
+        if (best.estimated) {
+          void db.update(foods)
+            .set({ servedCount: sql`${foods.servedCount} + 1` })
+            .where(eq(foods.id, best.id))
+            .catch(() => { /* a counter that fails must not fail her lookup */ });
+        }
+        const each = (v: number | null) => (v === null ? null : Math.round(v * n * 10) / 10);
+        return {
+          found: true,
+          source: best.estimated ? "estimated" : "library",
+          ...(best.brand ? { brand: best.brand } : {}),
+          ...(best.estimated && best.note ? { note: best.note } : {}),
+          food: best.name,
+          category: best.category,
+          // Read this back, not a weight: "1 small fries", "2 Big Macs".
+          portion: n === 1 ? `1 ${best.unitLabel ?? "item"}` : `${round1(n)} × ${best.unitLabel ?? "item"}`,
+          assumed: portion.assumed ? `one ${best.unitLabel ?? "item"}` : null,
+          kcal: Math.round(best.kcal * n),
+          proteinG: each(best.proteinG),
+          carbsG: each(best.carbsG),
+          fatG: each(best.fatG),
+          fibreG: each(best.fibreG),
+          alternatives: matches.slice(1, 4).map((m) => m.name),
+        };
+      }
+
       /*
         No amount given means *one of it*, not 100g.
 
@@ -206,6 +248,8 @@ export const searchFoodLibrary = defineTool({
     }));
   },
 });
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Name and alias search, best match first. */
 export async function searchFoods(query: string, limit = 5) {
