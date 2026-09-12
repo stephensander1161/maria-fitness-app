@@ -87,10 +87,10 @@ export const CHAIN_FOODS: FoodSeed[] = [
   { slug: "tims-blueberry-muffin", name: "Tim Hortons Wild Blueberry Muffin", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 340, proteinG: 5, carbsG: 55, fatG: 11, fibreG: 2, unitGrams: null, unitLabel: "muffin", aliases: ["tim hortons blueberry muffin", "blueberry muffin tim hortons"] },
   { slug: "tims-everything-bagel", name: "Tim Hortons Everything Bagel", category: "grain", perItem: true, brand: "Tim Hortons", kcal: 300, proteinG: 10, carbsG: 57, fatG: 3, fibreG: 3, unitGrams: null, unitLabel: "bagel", aliases: ["tim hortons bagel", "everything bagel tim hortons"] },
   // ── Subway Canada ─────────────────────────────────────────────────────────
-  // Six-inch, which is the one people say. A footlong is close enough to two
-  // that "2 × 6 inch" is the honest way to ask for one, and inventing separate
-  // footlong rows from doubled figures would be arithmetic pretending to be a
-  // published panel.
+  // Six-inch and footlong both, because both are printed. A footlong is not
+  // quite two six-inches — 580 against 2×290 on the turkey, and further apart
+  // on the ones with more filling — so the doubling that looked obvious would
+  // have been arithmetic pretending to be a panel.
   { slug: "subway-turkey-breast-6", name: "Subway Turkey Breast, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 290, proteinG: 16, carbsG: 42, fatG: 4, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["subway turkey", "turkey breast sub", "subway turkey breast"] },
   { slug: "subway-italian-bmt-6", name: "Subway Italian B.M.T., 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 410, proteinG: 19, carbsG: 42, fatG: 16, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["italian bmt", "subway bmt", "bmt sub"] },
   { slug: "subway-chicken-bacon-ranch-6", name: "Subway Chicken & Bacon Ranch, 6\"", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 530, proteinG: 32, carbsG: 42, fatG: 24, fibreG: 5, unitGrams: null, unitLabel: "6 inch sub", aliases: ["chicken bacon ranch sub", "subway chicken bacon ranch"] },
@@ -175,4 +175,19 @@ export const CHAIN_FOODS: FoodSeed[] = [
   // ── Taco Bell ─────────────────────────────────────────────────────────────
   { slug: "taco-bell-crunchy-taco", name: "Taco Bell Crunchy Taco", category: "prepared", perItem: true, brand: "Taco Bell (US menu)", kcal: 170, proteinG: 8, carbsG: 10, fatG: 9, fibreG: 3, unitGrams: null, unitLabel: "taco", aliases: ["crunchy taco", "taco bell taco"] },
   { slug: "taco-bell-crunchwrap-supreme", name: "Taco Bell Crunchwrap Supreme", category: "prepared", perItem: true, brand: "Taco Bell (US menu)", kcal: 530, proteinG: 16, carbsG: 65, fatG: 21, fibreG: 6, unitGrams: null, unitLabel: "crunchwrap", aliases: ["crunchwrap supreme", "crunchwrap", "taco bell crunchwrap"] },
+  // ── Filling out the chains already here ───────────────────────────────────
+  { slug: "mcdonalds-hamburger", name: "McDonald's Hamburger", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 240, proteinG: 12, carbsG: 30, fatG: 8, fibreG: 2, unitGrams: null, unitLabel: "hamburger", aliases: ["mcdonalds hamburger"] },
+  { slug: "mcdonalds-junior-chicken", name: "McDonald's Junior Chicken", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 370, proteinG: 13, carbsG: 34, fatG: 20, fibreG: 2, unitGrams: null, unitLabel: "sandwich", aliases: ["junior chicken", "mcdonalds junior chicken", "jr chicken"] },
+  { slug: "mcdonalds-sausage-egg-mcmuffin", name: "Sausage 'N Egg McMuffin", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 430, proteinG: 20, carbsG: 29, fatG: 25, fibreG: 2, unitGrams: null, unitLabel: "McMuffin", aliases: ["sausage and egg mcmuffin", "sausage egg mcmuffin"] },
+  { slug: "tims-chicken-noodle-soup", name: "Tim Hortons Chicken Noodle Soup", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 120, proteinG: 5, carbsG: 20, fatG: 2, fibreG: 1, unitGrams: null, unitLabel: "bowl", aliases: ["tim hortons chicken noodle soup", "tims soup"] },
+  { slug: "tims-turkey-bacon-club-wrap", name: "Tim Hortons Turkey Bacon Club Wrap", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 420, proteinG: 30, carbsG: 35, fatG: 17, fibreG: 2, unitGrams: null, unitLabel: "wrap", aliases: ["turkey bacon club wrap", "tim hortons wrap"] },
+  { slug: "tims-hash-brown", name: "Tim Hortons Hash Brown", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 130, proteinG: 1, carbsG: 15, fatG: 7, fibreG: 1, unitGrams: null, unitLabel: "hash brown", aliases: ["tim hortons hash brown"] },
+  { slug: "aw-chubby-chicken-burger", name: "A&W Chubby Chicken Burger", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 490, proteinG: 21, carbsG: 42, fatG: 27, fibreG: 2, unitGrams: null, unitLabel: "sandwich", aliases: ["chubby chicken burger", "a&w chicken burger", "aw chubby chicken"] },
+  { slug: "aw-poutine", name: "A&W Poutine", category: "prepared", perItem: true, brand: "A&W Canada", kcal: 660, proteinG: 22, carbsG: 53, fatG: 37, fibreG: 8, unitGrams: 333, unitLabel: "poutine", aliases: ["a&w poutine", "aw poutine"] },
+
+  // ── Popeyes ───────────────────────────────────────────────────────────────
+  { slug: "popeyes-chicken-sandwich", name: "Popeyes Chicken Sandwich, classic", category: "prepared", perItem: true, brand: "Popeyes (US menu)", kcal: 699, proteinG: 28, carbsG: 48, fatG: 42, fibreG: 2, unitGrams: null, unitLabel: "sandwich", aliases: ["popeyes chicken sandwich", "popeyes sandwich"] },
+  { slug: "subway-turkey-breast-footlong", name: "Subway Turkey Breast, footlong", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 580, proteinG: 32, carbsG: 84, fatG: 8, fibreG: 10, unitGrams: null, unitLabel: "footlong sub", aliases: ["footlong turkey", "subway turkey footlong"] },
+  { slug: "subway-italian-bmt-footlong", name: "Subway Italian B.M.T., footlong", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 820, proteinG: 38, carbsG: 84, fatG: 32, fibreG: 10, unitGrams: null, unitLabel: "footlong sub", aliases: ["footlong bmt", "subway bmt footlong"] },
+  { slug: "subway-chicken-bacon-ranch-footlong", name: "Subway Chicken & Bacon Ranch, footlong", category: "prepared", perItem: true, brand: "Subway Canada", kcal: 1060, proteinG: 64, carbsG: 84, fatG: 48, fibreG: 10, unitGrams: null, unitLabel: "footlong sub", aliases: ["footlong chicken bacon ranch"] },
 ];
