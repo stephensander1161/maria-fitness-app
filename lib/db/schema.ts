@@ -691,6 +691,13 @@ export const exercises = pgTable(
     /** Regressions and progressions, by slug, for the agent to swap in. */
     easierAlternatives: jsonb("easier_alternatives").$type<string[]>().default([]).notNull(),
     harderAlternatives: jsonb("harder_alternatives").$type<string[]>().default([]).notNull(),
+    /**
+     * Done one side at a time, which is what makes the target *per side*.
+     *
+     * Seeded on 56 movements and, until her request, read by nothing: "3 × 10"
+     * on a side plank is ambiguous and was being read both ways. Her words:
+     * "specify if the target number is per side or the total for both sides".
+     */
     unilateral: boolean("unilateral").default(false).notNull(),
     /** Bodyweight moves are logged by reps only. */
     bodyweight: boolean("bodyweight").default(false).notNull(),
@@ -932,6 +939,26 @@ export const setLogs = pgTable(
     rir: integer("rir"),
     /** Null for bodyweight movements. */
     weightKg: real("weight_kg"),
+    /**
+     * Which side this set was for, on a movement done one side at a time.
+     *
+     * Null on everything else, and null on a unilateral set she did not say
+     * the side of — which is a real answer, not a missing one: plenty of
+     * people do left-then-right and count it as one set. Her ask was "keep
+     * track of which side was done last", and the honest version of that is
+     * to record it where she says it and to say nothing where she did not.
+     */
+    side: text("side", { enum: ["left", "right"] }),
+    /**
+     * How strong the band was, for a movement done with one.
+     *
+     * A band has no weight, so `weight_kg` is null and the set looked
+     * identical whether it was the light band or the extra heavy one — her
+     * words: "have a space to specify the strength of the resistance band".
+     * Kept beside weight rather than stuffed into it: several movements here
+     * take a dumbbell *or* a band, and the two are not convertible.
+     */
+    band: text("band", { enum: ["extra light", "light", "medium", "heavy", "extra heavy"] }),
     /** Rate of perceived exertion, 1–10. Optional but powers auto-progression. */
     rpe: real("rpe"),
     /**

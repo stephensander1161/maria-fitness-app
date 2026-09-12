@@ -102,6 +102,22 @@ export type TodayExercise = {
    * the movement. Her words, and she was right.
    */
   isHold: boolean;
+  /**
+   * Done one side at a time, so the target is per side.
+   *
+   * "3 × 10" on a side plank is ambiguous and was being read both ways. The
+   * flag has been on the library for 56 movements and read by nothing.
+   */
+  unilateral: boolean;
+  /**
+   * The movement can be done with a resistance band.
+   *
+   * A band has no weight, so a set done with one looked identical whether it
+   * was the light band or the extra heavy: the strength is what changed, and
+   * there was nowhere to put it. Several of these take a dumbbell *or* a
+   * band, which is why this is a second field and not a replacement for one.
+   */
+  banded: boolean;
   /** Drives the wireframe figure's fallback when the name matches no pattern. */
   category: string;
   /** What it trains, used to choose the day's warm-up and cool-down —
@@ -120,7 +136,18 @@ export type TodayExercise = {
    *  those, so anything rendering "last time" must read it or a 45-second
    *  plank comes back as "1". */
   lastTime: { date: ISODate; sets: { reps: number; weight: number | null; holdSeconds: number | null }[] } | null;
-  loggedToday: { setNumber: number; reps: number; weight: number | null; holdSeconds: number | null }[];
+  loggedToday: {
+    setNumber: number; reps: number; weight: number | null; holdSeconds: number | null;
+    /** Which side, where she said. Null is a real answer — plenty of people
+     *  do left-then-right and count it as one set. */
+    side: "left" | "right" | null;
+    band: string | null;
+  }[];
+  /** The side of the last set she put one on, today or before. Her ask:
+   *  "keep track of which side was done last". */
+  lastSide: "left" | "right" | null;
+  /** The band she reached for last time, so the picker opens on it. */
+  lastBand: string | null;
   /** Recent sessions, oldest first, for the trend shown once she finishes her
    *  target sets. Excludes today — the point is what came before. */
   trend: { date: ISODate; volume: number; topSet: number | null; reps: number }[];
@@ -139,6 +166,33 @@ export type TodayView = {
   exercises: TodayExercise[];
   completed: boolean;
 };
+
+/**
+ * The last side and band for one movement, today's sets first.
+ *
+ * Pure, because the precedence is the whole point and it is easy to get
+ * backwards: the set she did ten minutes ago beats the one she did on Tuesday,
+ * and a set logged without a side does not erase the last one that had one.
+ * Null stays null — "she did not say" is an answer here, not a gap, and
+ * guessing the other side from it would tell her to do the left twice.
+ */
+export function sideAndBand(
+  today: { side: "left" | "right" | null; band: string | null }[],
+  previousSide: "left" | "right" | null,
+  previousBand: string | null,
+): { lastSide: "left" | "right" | null; lastBand: string | null } {
+  const latest = <T,>(pick: (s: (typeof today)[number]) => T | null): T | null => {
+    for (let i = today.length - 1; i >= 0; i--) {
+      const v = pick(today[i]);
+      if (v !== null) return v;
+    }
+    return null;
+  };
+  return {
+    lastSide: latest((s) => s.side) ?? previousSide,
+    lastBand: latest((s) => s.band) ?? previousBand,
+  };
+}
 
 export async function todayView(profileId: string, units: Units, date = today()): Promise<TodayView> {
   // Her rest preferences, read once: the plan's number is a default, not a
@@ -175,7 +229,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
     bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
     commonMistakes: exercises.commonMistakes, safetyNote: exercises.safetyNote,
-    isHold: exercises.isHold,
+    isHold: exercises.isHold, unilateral: exercises.unilateral,
     equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
     targetSets: planExercises.targetSets, targetReps: planExercises.targetReps,
     targetHoldSeconds: planExercises.targetHoldSeconds,
@@ -195,6 +249,7 @@ export async function todayView(profileId: string, units: Units, date = today())
     ? await db.select({
         exerciseId: setLogs.exerciseId, setNumber: setLogs.setNumber,
         reps: setLogs.reps, holdSeconds: setLogs.holdSeconds, weightKg: setLogs.weightKg,
+        side: setLogs.side, band: setLogs.band,
       }).from(setLogs).where(eq(setLogs.workoutId, workout.id)).orderBy(asc(setLogs.setNumber))
     : [];
 
@@ -209,7 +264,7 @@ export async function todayView(profileId: string, units: Units, date = today())
         exerciseId: exercises.id, slug: exercises.slug, name: exercises.name,
         bodyweight: exercises.bodyweight, category: exercises.category, formCues: exercises.formCues,
     commonMistakes: exercises.commonMistakes, safetyNote: exercises.safetyNote,
-        isHold: exercises.isHold,
+        isHold: exercises.isHold, unilateral: exercises.unilateral,
         equipment: exercises.equipment, primaryMuscles: exercises.primaryMuscles,
       }).from(exercises).where(inArray(exercises.id, extraIds))
     : [];
@@ -226,6 +281,40 @@ export async function todayView(profileId: string, units: Units, date = today())
   ];
 
   const lastTime = await lastTimeTargets(profileId, all.map((i) => i.exerciseId), date);
+
+  /*
+    The last side and the last band, from before today.
+
+    Her ask was "keep track of which side was done last", and the useful answer
+    spans sessions: she finishes on the right on Tuesday and wants to start on
+    the left on Thursday. Today's own sets win over these — see `sideAndBand` —
+    because the last set she did is the last set she did.
+
+    One query for the pair rather than one per movement: `DISTINCT ON` takes
+    the newest row per exercise that actually carries the field, so a run of
+    sets logged without a side does not hide the one before them that had it.
+  */
+  const ids = all.map((i) => i.exerciseId);
+  const previous = ids.length
+    ? await db.select({
+        exerciseId: setLogs.exerciseId, side: setLogs.side, band: setLogs.band,
+        loggedAt: setLogs.loggedAt,
+      }).from(setLogs)
+        .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
+        .where(and(
+          eq(workouts.profileId, profileId),
+          inArray(setLogs.exerciseId, ids),
+          lte(workouts.date, date),
+        ))
+        .orderBy(desc(setLogs.loggedAt))
+        .limit(400)
+    : [];
+  const lastSides = new Map<string, "left" | "right">();
+  const lastBands = new Map<string, string>();
+  for (const r of previous) {
+    if (r.side && !lastSides.has(r.exerciseId)) lastSides.set(r.exerciseId, r.side);
+    if (r.band && !lastBands.has(r.exerciseId)) lastBands.set(r.exerciseId, r.band);
+  }
 
   // Three weeks of history per movement, so finishing a set can show her where
   // it sits against recent sessions without another round trip.
@@ -276,6 +365,8 @@ export async function todayView(profileId: string, units: Units, date = today())
         formCues: i.formCues ?? [], commonMistakes: i.commonMistakes ?? [], safetyNote: i.safetyNote ?? null,
         loadable: canHoldWeight(i.equipment),
         isHold: i.isHold ?? false,
+        unilateral: i.unilateral ?? false,
+        banded: (i.equipment ?? []).includes("resistance band"),
         category: i.category, extra: i.extra,
         targetSets: i.targetSets, targetReps: i.targetReps,
         targetHoldSeconds: i.targetHoldSeconds ?? null,
@@ -291,7 +382,15 @@ export async function todayView(profileId: string, units: Units, date = today())
           ? { date: prev.date, sets: prev.sets.map((s) => ({ reps: s.reps, holdSeconds: s.holdSeconds, weight: weightOut(s.weightKg, units) })) }
           : null,
         loggedToday: logged.filter((l) => l.exerciseId === i.exerciseId)
-          .map((l) => ({ setNumber: l.setNumber, reps: l.reps, holdSeconds: l.holdSeconds, weight: weightOut(l.weightKg, units) })),
+          .map((l) => ({
+            setNumber: l.setNumber, reps: l.reps, holdSeconds: l.holdSeconds,
+            weight: weightOut(l.weightKg, units), side: l.side, band: l.band,
+          })),
+        ...sideAndBand(
+          logged.filter((l) => l.exerciseId === i.exerciseId),
+          lastSides.get(i.exerciseId) ?? null,
+          lastBands.get(i.exerciseId) ?? null,
+        ),
         trend: trends.get(i.exerciseId) ?? [],
       };
     }),

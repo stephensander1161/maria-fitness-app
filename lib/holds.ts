@@ -11,6 +11,8 @@
  * One place decides, so the entry card, the set editor and the "last time"
  * line cannot drift apart again.
  */
+import { bandShort } from "@/lib/bands";
+
 export type CountField = {
   label: string;
   step: number;
@@ -42,11 +44,30 @@ export const formatCount = (n: number, isHold: boolean): string =>
  * they are the same fact in the same place, measured differently.
  */
 export function describeSet(
-  set: { reps: number; weight: number | null; holdSeconds?: number | null },
+  set: {
+    reps: number; weight: number | null; holdSeconds?: number | null;
+    /** Which side, on a movement done one side at a time. */
+    side?: "left" | "right" | null;
+    /** The band, where there was one. A band has no weight, so on a banded
+     *  set this is the whole of "how hard". */
+    band?: string | null;
+  },
   isHold: boolean,
 ): string {
   const count = isHold ? formatCount(set.holdSeconds ?? set.reps, true) : String(set.reps);
-  return set.weight !== null ? `${count}@${set.weight}` : count;
+  /*
+    A load, where there is one. Weight first because that is what most sets
+    carry; the band only appears where the weight does not, since a set done
+    with a dumbbell *and* a band is not a thing this app records and showing
+    both would imply it is.
+  */
+  const load = set.weight !== null ? `@${set.weight}`
+    : set.band ? `·${bandShort(set.band) ?? set.band}`
+      : "";
+  // One letter, because a set square is 44px wide and the side is the least
+  // of the three things on it.
+  const side = set.side ? ` ${set.side === "left" ? "L" : "R"}` : "";
+  return `${count}${load}${side}`;
 }
 
 /**
@@ -62,7 +83,10 @@ export function describeSet(
  * — which is the right thing to show on a movement she has not started.
  */
 export function loggedSummary(
-  sets: readonly { reps: number; weight: number | null; holdSeconds?: number | null }[],
+  sets: readonly {
+    reps: number; weight: number | null; holdSeconds?: number | null;
+    side?: "left" | "right" | null; band?: string | null;
+  }[],
   unit: string,
   isHold: boolean,
 ): string | null {
@@ -73,8 +97,25 @@ export function loggedSummary(
 
   const sameCount = sets.every((s) => count(s) === count(sets[0]));
   const sameWeight = sets.every((s) => s.weight === sets[0].weight);
-  if (sameCount && sameWeight) {
-    const load = sets[0].weight === null ? "" : ` @ ${sets[0].weight}${unit}`;
+  const sameBand = sets.every((s) => (s.band ?? null) === (sets[0].band ?? null));
+  if (sameCount && sameWeight && sameBand) {
+    // The band reads as a load here, where there is room for the word.
+    const load = sets[0].weight !== null ? ` @ ${sets[0].weight}${unit}`
+      : sets[0].band ? ` @ ${sets[0].band} band`
+        : "";
+    /*
+      "4×8, both sides" rather than four squares.
+
+      A unilateral movement logged a side at a time is twice as many sets as
+      it looks, and the folded line said "8×10" for what she thinks of as four
+      sets each side. Counted only when every set carries a side and the two
+      come out even — anything else is listed, the same rule as the weights.
+    */
+    const sided = sets.every((s) => s.side);
+    const left = sets.filter((s) => s.side === "left").length;
+    if (sided && left > 0 && left === sets.length - left) {
+      return `${left}×${count(sets[0])}${load}, both sides`;
+    }
     return `${sets.length}×${count(sets[0])}${load}`;
   }
   return sets.map((s) => describeSet(s, isHold)).join(" · ");

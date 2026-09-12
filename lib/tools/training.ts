@@ -526,6 +526,10 @@ export const logSet = defineTool({
     holdSeconds: z.number().optional()
       .describe("For a movement that is held rather than counted — a plank, a wall sit, a carry. Seconds, not reps."),
     weight: z.number().nullable().optional().describe("Her units; omit for bodyweight movements"),
+    side: z.enum(["left", "right"]).optional()
+      .describe("For a movement done one side at a time, the side this set was. Record it whenever she says which — the app shows her which side she did last so she knows where to start. Leave it out rather than guessing: doing left-then-right and calling it one set is normal, and an invented side would tell her to repeat the one she just did."),
+    band: z.enum(["extra light", "light", "medium", "heavy", "extra heavy"]).optional()
+      .describe("Which resistance band, for a movement done with one. A band has no weight, so this is the only record of how hard the set was — take it whenever she names a band or a colour she has told you maps to one."),
     rpe: z.number().nullable().optional().describe("1–10 perceived effort, if she mentions it"),
     rir: z.number().nullable().optional()
       .describe("Reps in reserve — how many more she could have done. Record it whenever she says ('two left', 'that was everything'). Leave it out rather than guessing: unknown is not zero, and zero means she went to failure."),
@@ -555,6 +559,26 @@ export const logSet = defineTool({
     if (input.reps === undefined && input.holdSeconds === undefined) {
       return { ok: false, error: "Pass reps for a counted movement, or holdSeconds for a hold." };
     }
+    /*
+      A side on a movement that has no sides is a number that means nothing.
+
+      Refused rather than dropped, the same as reps on a hold: silently
+      discarding it would leave the coach believing it recorded something it
+      did not, and the next question — "which side did I do last?" — answered
+      from nothing.
+    */
+    if (input.side && !ex.unilateral) {
+      return {
+        ok: false,
+        error: `${ex.name} is not done one side at a time, so a side would mean nothing. Log it without one.`,
+      };
+    }
+    if (input.band && !(ex.equipment ?? []).includes("resistance band")) {
+      return {
+        ok: false,
+        error: `${ex.name} is not done with a resistance band. Log the weight instead, or leave both out.`,
+      };
+    }
 
     const when = input.date ?? (await todayFor(ctx));
     if (isFuture(when, await todayFor(ctx))) return { ok: false, error: FUTURE_DATE_ERROR };
@@ -583,6 +607,8 @@ export const logSet = defineTool({
         // "That was everything" is rir 0; saying nothing is null. The
         // difference is the whole value of the field.
         rir: input.rir ?? null,
+        side: input.side ?? null,
+        band: input.band ?? null,
         clientKey: input.clientKey ?? null,
       }).onConflictDoNothing({ target: setLogs.clientKey }).returning({ id: setLogs.id });
       return { n, inserted };
@@ -616,6 +642,15 @@ export const logSet = defineTool({
       // back to her rather than "undefined reps".
       ...(ex.isHold ? { holdSeconds: input.holdSeconds } : { reps: input.reps }),
       weight: input.weight ?? null, unit: weightLabel(units),
+      ...(input.side ? { side: input.side } : {}),
+      ...(input.band ? { band: input.band } : {}),
+      // Said back only where the movement has sides, and said as the *next*
+      // thing to do rather than as a record of the last: "right next" is what
+      // she wanted out of this, not "you did left".
+      ...(ex.unilateral && input.side ? { nextSide: input.side === "left" ? "right" : "left" } : {}),
+      ...(ex.unilateral && !input.side
+        ? { note: "Done one side at a time — pass `side` if she says which, so the app can tell her where to start next time." }
+        : {}),
       vsLastTime: comparison.status,
       comparison: comparison.headline,
     };
@@ -1300,6 +1335,10 @@ export const correctSet = defineTool({
     holdSeconds: z.number().optional()
       .describe("How long she actually held it, for a plank, wall sit or dead hang."),
     weight: z.number().nullable().optional().describe("Her units. Pass null for bodyweight."),
+    side: z.enum(["left", "right"]).nullable().optional()
+      .describe("Correct which side a set was, on a movement done one side at a time. Null to say she did not record one."),
+    band: z.enum(["extra light", "light", "medium", "heavy", "extra heavy"]).nullable().optional()
+      .describe("Correct which resistance band. Null to clear it."),
     rpe: z.number().nullable().optional(),
     rir: z.number().nullable().optional().describe("Reps in reserve"),
     moveToExerciseSlug: z.string().optional()
@@ -1350,10 +1389,12 @@ export const correctSet = defineTool({
         : { weightKg: input.weight === null ? null : weightIn(input.weight, units) }),
       ...(input.rpe === undefined ? {} : { rpe: input.rpe }),
       ...(input.rir === undefined ? {} : { rir: input.rir }),
+      ...(input.side === undefined ? {} : { side: input.side }),
+      ...(input.band === undefined ? {} : { band: input.band }),
       ...(exerciseId === row.exerciseId ? {} : { exerciseId }),
     };
     if (Object.keys(patch).length === 0) {
-      return { ok: false, error: "Nothing to change — pass reps (or holdSeconds), weight, rpe or moveToExerciseSlug." };
+      return { ok: false, error: "Nothing to change — pass reps (or holdSeconds), weight, side, band, rpe or moveToExerciseSlug." };
     }
 
     const [updated] = await db.update(setLogs).set(patch)

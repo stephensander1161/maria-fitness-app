@@ -1776,7 +1776,9 @@ export const EXERCISES: Seed[] = [
   },
   {
     slug: "bird-dog", name: "Bird Dog", category: "core",
-    primaryMuscles: ["core", "glutes", "lower back"], equipment: ["bodyweight", "mat"], bodyweight: true,
+    // Opposite arm and leg, then the other pair — one side at a time, so the
+    // target is per side. The flag was missing and nothing read it until now.
+    primaryMuscles: ["core", "glutes", "lower back"], equipment: ["bodyweight", "mat"], bodyweight: true, unilateral: true,
     formCues: ["On hands and knees, back flat like a table.", "Extend the opposite arm and leg until they're level with your torso.", "Pause, then return without letting the hips rotate."],
     commonMistakes: ["Lifting the leg so high the lower back arches.", "Hips twisting open."],
     harder: ["plank"],

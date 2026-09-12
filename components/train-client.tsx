@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet, loggedSummary } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
+import { BANDS } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
 import { movementCard, movementFolded, withMovementFold } from "@/lib/cards";
@@ -949,9 +950,11 @@ export function TrainClient({
  * line reads exactly as it did before you touched it.
  */
 function TargetInline({
-  slug, sets, reps, weight, unit, isHold, holdSeconds, showWeight, dayOfWeek, onSaved,
+  slug, sets, reps, weight, unit, isHold, holdSeconds, showWeight, perSide, dayOfWeek, onSaved,
 }: {
   slug: string;
+  /** Done one side at a time, so the number is per side and must say so. */
+  perSide: boolean;
   sets: number;
   reps: number;
   weight: number | null;
@@ -1025,6 +1028,10 @@ function TargetInline({
           <span>{unit}</span>
         </>
       )}
+      {/* Her request, in three words: "specify if the target number is per
+          side or the total for both sides". Only on the movements where it
+          is a question — saying "both sides" on a squat is noise. */}
+      {perSide && <span className="text-accent">per side</span>}
       {error && <span role="alert" className="text-miss"> {error}</span>}
     </span>
   );
@@ -1784,6 +1791,20 @@ export function ExerciseCard({
    * crossed the target while she was looking, not because the card happens to
    * be complete — arriving at a finished card should say nothing.
    */
+  /*
+    Which side this set is, and which band.
+
+    The side opens on the one she did *not* do last — that is the whole of
+    "keep track of which side was done last": she does not want to be told, she
+    wants the app to start her on the right one. Null when she has never said,
+    because guessing from nothing would start her on the left every time
+    whatever she actually did.
+  */
+  const [side, setSide] = useState<"left" | "right" | null>(
+    exercise.unilateral && exercise.lastSide ? (exercise.lastSide === "left" ? "right" : "left") : null,
+  );
+  const [band, setBand] = useState<string | null>(exercise.lastBand ?? null);
+
   const [justMet, setJustMet] = useState(false);
   const wasMet = useRef(targetMet);
   useEffect(() => {
@@ -1849,6 +1870,8 @@ export function ExerciseCard({
       reps: exercise.isHold ? 1 : reps,
       holdSeconds: exercise.isHold ? reps : null,
       weight: loaded && weight > 0 ? weight : null,
+      side,
+      band,
     };
     setUnconfirmed((u) => ({
       at: landed.length,
@@ -1866,6 +1889,7 @@ export function ExerciseCard({
           loaded && weight > 0 ? weight : null,
           rir,
           date as ISODate | undefined,
+          { side, band },
         ),
       );
       // Whether that was the last set she planned for this movement.
@@ -2052,6 +2076,7 @@ export function ExerciseCard({
                 isHold={exercise.isHold}
                 holdSeconds={exercise.targetHoldSeconds}
                 showWeight={!exercise.bodyweight || exercise.targetWeight !== null}
+                perSide={exercise.unilateral}
                 dayOfWeek={dayOfWeekOf(date)}
                 onSaved={onRemoved}
               />
@@ -2065,6 +2090,9 @@ export function ExerciseCard({
                 Target {next ? next.target.sets : exercise.targetSets}×{next ? next.target.reps : exercise.targetReps}
                 {(next ? next.target.weight : exercise.targetWeight) !== null &&
                   ` @ ${next ? next.target.weight : exercise.targetWeight}${unit}`}
+                {/* The closed card has to say it too — it is the one most
+                    people read, and "3×10" alone is the ambiguity she filed. */}
+                {exercise.unilateral && <span className="text-accent"> per side</span>}
               </>
             )}
           </p>
@@ -2523,6 +2551,73 @@ export function ExerciseCard({
                 Holding a weight?
               </button>
             )}
+            {/*
+              Which side, on a movement that has them.
+
+              Her request, and the useful half of it is the default rather
+              than the display: it opens on the side she did *not* do last, so
+              the answer to "which one now" is already selected and logging is
+              still one tap. Tapping the selected one clears it, because
+              left-then-right counted as one set is a real way to train and
+              the app must not insist on a side it was not given.
+            */}
+            {exercise.unilateral && (
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
+                  Side
+                  {exercise.lastSide && (
+                    <span className="ml-1.5 normal-case tracking-normal text-muted">
+                      last was {exercise.lastSide}
+                    </span>
+                  )}
+                </p>
+                <div className="flex gap-1.5">
+                  {(["left", "right"] as const).map((sd) => (
+                    <button
+                      key={sd}
+                      onClick={() => setSide(side === sd ? null : sd)}
+                      disabled={saving}
+                      aria-pressed={side === sd}
+                      className={`h-9 flex-1 rounded-lg border text-[13px] capitalize active:bg-raised disabled:opacity-40 md:h-auto md:py-2.5 ${
+                        side === sd ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                      }`}
+                    >
+                      {sd}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/*
+              Which band. A band has no weight, so without this a set done on
+              the light one and a set done on the extra heavy are the same row.
+              Opens on the one she used last, which is nearly always the answer.
+            */}
+            {exercise.banded && (
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
+                  Band
+                </p>
+                <div className="flex gap-1.5">
+                  {BANDS.map((b) => (
+                    <button
+                      key={b.value}
+                      onClick={() => setBand(band === b.value ? null : b.value)}
+                      disabled={saving}
+                      aria-pressed={band === b.value}
+                      aria-label={`${b.value} band`}
+                      className={`h-9 flex-1 rounded-lg border text-[13px] active:bg-raised disabled:opacity-40 md:h-auto md:py-2.5 ${
+                        band === b.value ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                      }`}
+                    >
+                      {b.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* One tap, one question: how many were left in the tank. It is
                 the only fatigue signal available without a wearable, and it is
                 what turns "3×8 @ 40" into something the progression maths can

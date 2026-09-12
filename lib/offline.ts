@@ -28,6 +28,12 @@ export type PendingSetInput = {
   /** Seconds, for a movement that is held rather than counted. */
   holdSeconds?: number;
   weight: number | null;
+  /** Which side, on a movement done one side at a time. Omitted when she did
+   *  not say, which is a real answer and not a gap. */
+  side?: "left" | "right";
+  /** Which resistance band, where the movement takes one. A band has no
+   *  weight, so this is the only record of how hard the set was. */
+  band?: string;
   /** How many she had left. Omitted when she did not say — never sent as 0. */
   rir?: number;
   /** Pinned when she performed the set — a set queued at 11pm must not flush
@@ -196,10 +202,14 @@ export const setInput = (
   /** Reps in reserve. Undefined means she did not say, which is not zero. */
   rir?: number | null,
   date?: ISODate,
+  /** Side and band, where the movement has them and she said. */
+  extra?: { side?: "left" | "right" | null; band?: string | null },
 ): PendingSetInput => ({
   exerciseSlug,
   ...(typeof done === "number" ? { reps: done } : { holdSeconds: done.holdSeconds }),
   weight,
+  ...(extra?.side ? { side: extra.side } : {}),
+  ...(extra?.band ? { band: extra.band } : {}),
   ...(rir === undefined || rir === null ? {} : { rir }),
   date: date ?? today(deviceZone()),
   clientKey: crypto.randomUUID(),
