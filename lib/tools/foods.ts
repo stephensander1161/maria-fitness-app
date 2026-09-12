@@ -54,7 +54,7 @@ export const lookupFood = defineTool({
         nobody measured.
       */
       if (best.perItem) {
-        const n = itemCount(portion, best.unitGrams);
+        const n = itemCount(portion, best.unitGrams, best.unitLabel);
         if (n === null) {
           return {
             found: true, food: best.name,

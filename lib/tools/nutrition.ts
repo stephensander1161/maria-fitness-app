@@ -297,7 +297,7 @@ async function priceItems(items: string[], ctx: ToolContext): Promise<{
     /** How the portion reads back to her — "2 × Big Mac", or "110 g". */
     let label: string;
     if (best.perItem) {
-      const n = itemCount(portion, best.unitGrams);
+      const n = itemCount(portion, best.unitGrams, best.unitLabel);
       if (n === null) { unpriced.push(raw); continue; }
       at = (v) => v * n;
       label = n === 1

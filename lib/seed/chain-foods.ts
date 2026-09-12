@@ -8,9 +8,14 @@ import type { FoodSeed } from "./foods";
  * is always right." It was always right *ish* before — the model estimated it,
  * which is a guess with a range around it for a number the chain prints.
  *
- * **Canadian figures**, because that is where these people eat. It is not a
- * detail: a medium McDonald's fries is 350 kcal in Canada and 320 in the US,
- * and the menus themselves differ — Tim Hortons, A&W's burgers, poutine.
+ * **Canadian figures** wherever a chain publishes them separately, because that
+ * is where these people eat. It is not a detail: a medium McDonald's fries is
+ * 350 kcal in Canada and 320 in the US, and the menus themselves differ — Tim
+ * Hortons, A&W's burgers, poutine.
+ *
+ * A few chains are only published as one menu. `brand` says which one a row's
+ * numbers came from and is handed back by `lookup_food`, so the provenance
+ * travels with the figure rather than living in this comment.
  *
  * Three rules for anything added here.
  *
@@ -125,4 +130,49 @@ export const CHAIN_FOODS: FoodSeed[] = [
   // A New York slice is most of a meal, which is why it is worth a row: people
   // log "a slice" and mean this.
   { slug: "pizza-pizza-ny-pepperoni-slice", name: "Pizza Pizza New York Pepperoni Slice", category: "prepared", perItem: true, brand: "Pizza Pizza", kcal: 671, proteinG: 33, carbsG: 74, fatG: 25, fibreG: 4, unitGrams: null, unitLabel: "slice", aliases: ["pizza pizza slice", "new york pepperoni slice", "pizza pizza pepperoni slice"] },
+  // ── Boston Pizza ──────────────────────────────────────────────────────────
+  // Pizza is priced per slice, which is how it is eaten and how the panel is
+  // printed. "3 slices" then multiplies the way anybody would expect.
+  { slug: "boston-pizza-pepperoni-slice", name: "Boston Pizza Pepperoni Pizza slice, medium original crust", category: "prepared", perItem: true, brand: "Boston Pizza", kcal: 200, proteinG: 10, carbsG: 23, fatG: 7, fibreG: 1, unitGrams: null, unitLabel: "slice", aliases: ["boston pizza pepperoni", "boston pizza slice"] },
+  { slug: "boston-pizza-chicken-caesar", name: "Boston Pizza Chicken Caesar Salad", category: "prepared", perItem: true, brand: "Boston Pizza", kcal: 680, proteinG: 53, carbsG: 9, fatG: 49, fibreG: 4, unitGrams: null, unitLabel: "salad", aliases: ["boston pizza caesar salad", "boston pizza chicken caesar"] },
+
+  // ── Swiss Chalet ──────────────────────────────────────────────────────────
+  /*
+    The quarter chicken panel prints 0g carbohydrate and 1g fibre, which cannot
+    both be true — fibre is part of carbohydrate, and rotisserie chicken has
+    neither. That is a rounding artefact on the label, so both are stored as
+    zero rather than carried through as a negative available-carb figure.
+  */
+  { slug: "swiss-chalet-quarter-chicken-white", name: "Swiss Chalet Quarter Chicken, white meat with skin", category: "prepared", perItem: true, brand: "Swiss Chalet", kcal: 290, proteinG: 48, carbsG: 0, fatG: 11, fibreG: 0, unitGrams: null, unitLabel: "quarter chicken", aliases: ["swiss chalet quarter chicken", "quarter chicken white meat"] },
+  { slug: "swiss-chalet-fries", name: "Swiss Chalet Fresh-Cut Fries", category: "prepared", perItem: true, brand: "Swiss Chalet", kcal: 530, proteinG: 7, carbsG: 58, fatG: 27, fibreG: 6, unitGrams: null, unitLabel: "portion", aliases: ["swiss chalet fries"] },
+  { slug: "swiss-chalet-poutine", name: "Swiss Chalet Poutine", category: "prepared", perItem: true, brand: "Swiss Chalet", kcal: 910, proteinG: 21, carbsG: 85, fatG: 50, fibreG: 9, unitGrams: null, unitLabel: "poutine", aliases: ["swiss chalet poutine"] },
+  // ── Starbucks ─────────────────────────────────────────────────────────────
+  /*
+    Grande, with 2% milk — the default on both counts, and the one worth
+    having: a latte a day is 190 calories nobody logs.
+    Labelled as the US menu because that is the panel these came from. The
+    espresso drinks are the same recipe and the same sizes either side of the
+    border, which is why they are here at all; the label is so nobody has to
+    take my word for it.
+  */
+  { slug: "starbucks-latte-grande", name: "Starbucks Caffè Latte, grande, 2% milk", category: "drink", perItem: true, brand: "Starbucks (US menu)", kcal: 190, proteinG: 12, carbsG: 18, fatG: 7, fibreG: 0, unitGrams: null, unitLabel: "grande", aliases: ["starbucks latte", "grande latte", "caffe latte"] },
+  { slug: "starbucks-cappuccino-grande", name: "Starbucks Cappuccino, grande, 2% milk", category: "drink", perItem: true, brand: "Starbucks (US menu)", kcal: 120, proteinG: 8, carbsG: 12, fatG: 4, fibreG: 0, unitGrams: null, unitLabel: "grande", aliases: ["starbucks cappuccino", "grande cappuccino"] },
+  { slug: "starbucks-caramel-macchiato-grande", name: "Starbucks Caramel Macchiato, grande, 2% milk", category: "drink", perItem: true, brand: "Starbucks (US menu)", kcal: 250, proteinG: 10, carbsG: 35, fatG: 7, fibreG: 0, unitGrams: null, unitLabel: "grande", aliases: ["caramel macchiato", "starbucks caramel macchiato"] },
+  { slug: "starbucks-mocha-grande", name: "Starbucks Caffè Mocha, grande, 2% milk", category: "drink", perItem: true, brand: "Starbucks (US menu)", kcal: 290, proteinG: 13, carbsG: 38, fatG: 8, fibreG: 4, unitGrams: null, unitLabel: "grande", aliases: ["starbucks mocha", "caffe mocha", "grande mocha"] },
+  { slug: "starbucks-cold-brew-grande", name: "Starbucks Cold Brew, grande", category: "drink", perItem: true, brand: "Starbucks (US menu)", kcal: 5, proteinG: 0, carbsG: 0, fatG: 0, fibreG: 0, unitGrams: null, unitLabel: "grande", aliases: ["starbucks cold brew", "cold brew"] },
+  // ── Wendy's ───────────────────────────────────────────────────────────────
+  /*
+    Two of these panels omit fibre entirely, so `fibreG` is null rather than a
+    plausible 2. Null is the honest value and the app already knows what to do
+    with it: the day's fibre becomes a floor and says so, which is exactly
+    right, because nobody has published what is in them.
+  */
+  { slug: "wendys-daves-single", name: "Wendy's Dave's Single", category: "prepared", perItem: true, brand: "Wendy's (US menu)", kcal: 570, proteinG: 29, carbsG: 38, fatG: 34, fibreG: null, unitGrams: null, unitLabel: "burger", aliases: ["daves single", "wendys daves single", "wendys single"] },
+  { slug: "wendys-baconator", name: "Wendy's Baconator", category: "prepared", perItem: true, brand: "Wendy's (US menu)", kcal: 920, proteinG: 57, carbsG: 37, fatG: 60, fibreG: 1, unitGrams: null, unitLabel: "burger", aliases: ["baconator", "wendys baconator"] },
+  { slug: "wendys-fries-medium", name: "Wendy's Fries, medium", category: "prepared", perItem: true, brand: "Wendy's (US menu)", kcal: 350, proteinG: 5, carbsG: 43, fatG: 16, fibreG: 4, unitGrams: null, unitLabel: "medium fries", aliases: ["wendys fries", "wendys french fries"] },
+  { slug: "wendys-chili-small", name: "Wendy's Chili, small", category: "prepared", perItem: true, brand: "Wendy's (US menu)", kcal: 240, proteinG: 16, carbsG: 21, fatG: 11, fibreG: null, unitGrams: null, unitLabel: "small", aliases: ["wendys chili"] },
+
+  // ── Taco Bell ─────────────────────────────────────────────────────────────
+  { slug: "taco-bell-crunchy-taco", name: "Taco Bell Crunchy Taco", category: "prepared", perItem: true, brand: "Taco Bell (US menu)", kcal: 170, proteinG: 8, carbsG: 10, fatG: 9, fibreG: 3, unitGrams: null, unitLabel: "taco", aliases: ["crunchy taco", "taco bell taco"] },
+  { slug: "taco-bell-crunchwrap-supreme", name: "Taco Bell Crunchwrap Supreme", category: "prepared", perItem: true, brand: "Taco Bell (US menu)", kcal: 530, proteinG: 16, carbsG: 65, fatG: 21, fibreG: 6, unitGrams: null, unitLabel: "crunchwrap", aliases: ["crunchwrap supreme", "crunchwrap", "taco bell crunchwrap"] },
 ];

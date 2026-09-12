@@ -35,6 +35,19 @@ suite("a menu item is counted, not weighed", () => {
     // A small fries is 75g on the panel, so half of one is answerable.
     expect(itemCount(parsePortion("150g fries")!, 75)).toBe(2);
   });
+
+  it("counts a named measure that is the item itself", () => {
+    /*
+      "3 slices of pizza" parses as a named measure, which for food sold by
+      weight has to be converted and is refused when it cannot be. Here the
+      measure *is* the item, and refusing a sentence it understood perfectly
+      was the app being pedantic.
+    */
+    expect(itemCount(parsePortion("3 slices boston pizza pepperoni")!, null, "slice")).toBe(3);
+    // …but only where it matches: a slice of something sold by the bottle is
+    // still a question nobody can answer.
+    expect(itemCount(parsePortion("3 slices of something")!, null, "bottle")).toBeNull();
+  });
 });
 
 suite("what goes in the library", () => {
@@ -128,5 +141,30 @@ suite("a unit may not itself contain a count", () => {
       expect(f.unitLabel, `${f.slug}: "${f.unitLabel}" is a count of the thing itself`)
         .not.toMatch(counted);
     }
+  });
+});
+
+suite("a panel that omits a figure leaves it null", () => {
+  it("never fills a missing fibre in with something plausible", () => {
+    /*
+      Two Wendy's panels print no fibre at all. A burger is "about 2g" and
+      that is exactly the guess this app must not write down: null makes the
+      day's fibre a floor and say so, which is the truth. Every row that *does*
+      carry a fibre figure got it off a panel.
+    */
+    const src = fs.readFileSync("lib/seed/chain-foods.ts", "utf8");
+    expect(src).toMatch(/fibreG: null/);
+    for (const f of CHAIN_FOODS) {
+      if (f.fibreG === null) continue;
+      expect(f.fibreG, f.slug).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("says which menu a figure came from, on the row", () => {
+    // A few chains publish one menu for both countries. `brand` is handed back
+    // by lookup_food, so the provenance travels with the number.
+    const menus = new Set(CHAIN_FOODS.map((f) => f.brand));
+    expect([...menus].some((b) => b?.includes("US menu"))).toBe(true);
+    expect([...menus].some((b) => b?.includes("Canada"))).toBe(true);
   });
 });

@@ -232,11 +232,26 @@ export function matchScore(query: string, name: string, aliases: string[] = []):
 export function itemCount(
   portion: Portion,
   unitGrams: number | null,
+  /** What one of them is called — "slice", "taco", "grande". */
+  unitLabel?: string | null,
 ): number | null {
   // Nothing said: one of it. A small fries is a small fries.
   if (portion.assumed) return 1;
   // "2 big macs", "3 nuggets" — a bare count is the natural reading.
   if (portion.unit === "unit") return portion.amount;
+  /*
+    "3 slices of pizza", when a slice is exactly what one row is.
+
+    The portion parser reads "slices" as a named measure, which for food sold
+    by weight has to be converted and is refused when it cannot be. Here the
+    measure *is* the item: naming it is the same as counting it, and refusing
+    "3 slices" of a row whose unit is a slice was the app being pedantic about
+    a sentence it understood perfectly.
+  */
+  if (portion.unit === "named" && portion.namedUnit && unitLabel) {
+    const accepted = LABEL_SYNONYMS[portion.namedUnit] ?? [portion.namedUnit];
+    if (accepted.some((word) => unitLabel.toLowerCase().includes(word))) return portion.amount;
+  }
   // A weight, and a weight only works if the chain published one.
   if (unitGrams === null || unitGrams <= 0) return null;
   const grams = toGrams(portion, unitGrams, null);
