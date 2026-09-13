@@ -725,6 +725,17 @@ rules. Two that bite most often:
   commits sat on one laptop while every one of them was live in production —
   Vercel had the code and GitHub did not. A rejected push stops the ship rather
   than deploying something the repository cannot reproduce.
+- **…and it prunes the deployments after it.** The free tier's 10GB of
+  Function Storage is not a measure of this app — it is the sum of every
+  deployment ever retained, each keeping its own copy of ~14MB of traced
+  runtime across forty functions. Nothing expired them, so two hundred and
+  sixty-eight deployments filled the meter and Vercel wrote to say the next one
+  would be refused. `scripts/prune-deployments.sh` runs after every successful
+  deploy and is also `npm run prune`. `--safe` is what makes it safe: it never
+  touches a deployment with an active alias, which is the live one. What it
+  removes is the rollback history, and the history is git — `npm run ship`
+  from any commit reproduces any of them. It can never fail the ship, because
+  by then the deploy has already gone out.
 - **Probes never write to real rows.** A script that needs data creates a
   throwaway account and deletes it (`scripts/tenancy-check.ts` is the pattern).
   An overnight probe once overwrote the real profile with fake data and the

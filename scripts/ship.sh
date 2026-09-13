@@ -76,6 +76,14 @@ for attempt in 1 2 3; do
     grep -oE 'https://[a-z0-9.-]+\.vercel\.app' /tmp/ship-$$.log | tail -1
     echo "✓ deployed (attempt $attempt)"
     rm -f /tmp/ship-$$.log
+    # Every retained deployment keeps its own copy of the function bundles, and
+    # the free tier's 10GB is the sum of all of them — not a measure of this
+    # app. Unpruned, shipping several times a day fills it in a fortnight and
+    # the next deploy is refused. `--safe` never touches the one that is live;
+    # see scripts/prune-deployments.sh. It cannot fail the ship: the deploy has
+    # already gone out.
+    echo "── prune"
+    bash "$ROOT/scripts/prune-deployments.sh" || true
     exit 0
   fi
   echo "  attempt $attempt failed, retrying…" >&2
