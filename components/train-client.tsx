@@ -6,7 +6,7 @@ import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { compareSet } from "@/lib/set-compare";
 import { DayStep } from "./day-nav";
-import { SHEET_MAX } from "@/lib/viewport-cover";
+import { SCREEN_MAX, SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
@@ -1924,6 +1924,50 @@ export function ExerciseCard({
    * the only moment it is both rendered in place and about to leave.
    */
   const shell = useRef<HTMLDivElement>(null);
+  const screen = useRef<HTMLDivElement>(null);
+  /**
+   * How tall the card may be on its own screen — see the `asPage` return.
+   *
+   * `undefined` until it has been measured, which is one frame: capping it
+   * at a guess first and correcting after is a card that visibly resizes on
+   * every open.
+   */
+  const [screenCap, setScreenCap] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!asPage) return;
+    const measure = () => {
+      const el = screen.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const visible = window.visualViewport?.height ?? window.innerHeight;
+      /*
+        The bar itself, measured.
+
+        `getComputedStyle(...).getPropertyValue("--tab-bar")` hands back the
+        unresolved `calc(...)` string — a custom property is substituted, not
+        computed — so parsing it gives NaN and the card quietly took the whole
+        viewport again. The element knows its own height, and it is zero from
+        `md` up where the bar does not exist.
+      */
+      const bar = document.querySelector("nav.fixed")?.getBoundingClientRect().height ?? 0;
+      // A little air under it, so the button does not sit flush on the bar.
+      setScreenCap(`${Math.max(240, Math.round(visible - top - bar - 8))}px`);
+    };
+    measure();
+    const frame = window.requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    // The rest bar appears and disappears above this without the window
+    // changing size at all, which is the case a resize listener misses.
+    const watch = new ResizeObserver(measure);
+    if (document.body) watch.observe(document.body);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      watch.disconnect();
+    };
+  }, [asPage]);
   const [collapsedHeight, setCollapsedHeight] = useState<number | undefined>(undefined);
   /**
    * The way in. A phone goes to the movement's page; a desktop lifts the card
@@ -2181,11 +2225,17 @@ export function ExerciseCard({
       */
       } ${missedEntirely ? "border-miss/50 bg-miss-soft/40" : ""}`}
       style={{
-        // Sized to what is on screen, not to `dvh`. Chrome on iOS resolves
-        // `dvh` against the viewport with its toolbars retracted, so an 86dvh
-        // sheet came out taller than the visible strip and opened with its
-        // own title clipped away above the address bar.
-        ...(open ? { maxHeight: SHEET_MAX } : {}),
+        /*
+          Sized to what is on screen, not to `dvh`. Chrome on iOS resolves
+          `dvh` against the viewport with its toolbars retracted, so an 86dvh
+          sheet came out taller than the visible strip and opened with its own
+          title clipped away above the address bar.
+
+          And a card that *is* the screen subtracts the tab bar as well. A
+          sheet is lifted over it; this is not, so the bar sits on the last
+          inch of the card — which is where the Log button is.
+        */
+        ...(open ? { maxHeight: asPage ? (screenCap ?? SCREEN_MAX) : SHEET_MAX } : {}),
         ...(offsetY !== 0 || offsetX !== 0 || dragging
           ? {
             transform: `translate(${offsetX}px, ${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
@@ -2880,8 +2930,22 @@ export function ExerciseCard({
     </section>
   );
 
-  // Its own screen: no scrim, no placeholder, nothing lifted over anything.
-  if (asPage) return card;
+  /*
+    Its own screen: no scrim, no placeholder, nothing lifted over anything.
+
+    And measured rather than guessed. A fraction of the viewport is not the
+    space this card actually has: the greeting bar, the movement strip and —
+    the one that broke it — the rest bar, which appears the moment she logs a
+    set and pushes everything below it down. Capped at 86dvh the Log button
+    was reachable before the first set and behind the tab bar after it, which
+    is the worst possible time for the button to stop working.
+
+    So the wrapper reports where it starts and the card takes what is left.
+    Reading the wrapper's top rather than the card's own box is what keeps
+    this from feeding back on itself: the wrapper's position does not depend
+    on the height this sets.
+  */
+  if (asPage) return <div ref={screen} style={{ maxHeight: screenCap }}>{card}</div>;
 
   // Closed, it is one card among several.
   if (!open) return <div ref={shell}>{card}</div>;

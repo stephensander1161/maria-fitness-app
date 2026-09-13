@@ -40,3 +40,8 @@ backups/
 
 # ── throwaway probe scripts, never part of the app ────────────────────────────
 /.scratch/
+
+# Playwright's per-run artefacts, and the coverage report.
+/test-results
+/playwright-report
+/coverage

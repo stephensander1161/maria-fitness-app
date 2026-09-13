@@ -680,6 +680,24 @@ html {
   scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom) + var(--covered-bottom, 0px));
 }
 
+/*
+  How much of the bottom of the screen the tab bar owns.
+
+  It is `fixed` and `md:hidden`, so on a phone it sits *over* the last inch of
+  every page and on a desktop it does not exist. `html` is `overflow: hidden`
+  here — this is an app shell, not a document — so anything sized to fill the
+  screen has to subtract the bar or its last control cannot be reached at all.
+  That is what happened to the Log button on a movement's own page: 86dvh of
+  card ended twenty-eight pixels inside the bar, and with nothing to scroll
+  there was no getting it clear.
+*/
+:root {
+  --tab-bar: calc(4.5rem + max(env(safe-area-inset-bottom, 0px), 0.5rem) + var(--covered-bottom, 0px));
+}
+@media (min-width: 768px) {
+  :root { --tab-bar: 0px; }
+}
+
 .tap-only {
   -webkit-touch-callout: none;
   -webkit-user-select: none;

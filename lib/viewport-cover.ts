@@ -85,3 +85,20 @@ export function visibleHeight(v: { height: number; scale: number }): number | nu
  * which is every browser that gets `dvh` right anyway.
  */
 export const SHEET_MAX = "min(86dvh, calc(var(--visual-height, 86dvh) - 2.5rem))";
+
+/**
+ * …and the tallest a card that *is* the screen may be.
+ *
+ * A sheet is lifted over the page and the tab bar is behind it, so `SHEET_MAX`
+ * can ignore the bar. A movement's own page is not lifted over anything: the
+ * bar sits on top of its last inch, and the last inch is where the Log button
+ * is. At 86dvh the button ended twenty-eight pixels inside the bar, and
+ * because the card is the scroller rather than the page there was no
+ * scrolling it clear — the primary control of the screen simply could not be
+ * pressed at its centre.
+ *
+ * `--tab-bar` is that height, and it is zero from `md` up where the bar does
+ * not exist. See app/globals.css.
+ */
+export const SCREEN_MAX =
+  "calc(min(86dvh, var(--visual-height, 86dvh)) - var(--tab-bar, 0px))";

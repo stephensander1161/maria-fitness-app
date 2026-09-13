@@ -21,6 +21,8 @@
     "test:db": "node --env-file=.env node_modules/vitest/vitest.mjs run --project=db",
     "test:all": "node --env-file=.env node_modules/vitest/vitest.mjs run",
     "coverage": "node --env-file=.env node_modules/vitest/vitest.mjs run --coverage",
+    "test:e2e": "node --env-file=.env node_modules/@playwright/test/cli.js test",
+    "test:e2e:ui": "node --env-file=.env node_modules/@playwright/test/cli.js test --ui",
     "ship": "bash scripts/ship.sh",
     "prune": "bash scripts/prune-deployments.sh",
     "vapid": "tsx scripts/vapid.ts",
@@ -42,6 +44,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

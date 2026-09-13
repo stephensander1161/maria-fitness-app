@@ -544,7 +544,7 @@ suite("the open card shows the whole movement", () => {
     // of cues is how it ended up unreachable when it did scroll.
     expect(card).toMatch(/open \? "flex flex-col" : ""/);
     // Height from the visual viewport, not dvh — see tests/week-done.ts.
-    expect(card).toMatch(/maxHeight: SHEET_MAX/);
+    expect(card).toMatch(/maxHeight: asPage \? \(screenCap \?\? SCREEN_MAX\) : SHEET_MAX/);
     expect(card).toMatch(/open \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
     expect(card).toMatch(/open && editingSet === null \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
