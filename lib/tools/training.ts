@@ -708,6 +708,42 @@ export const finishWorkout = defineTool({
   },
 });
 
+export const reopenWorkout = defineTool({
+  name: "reopen_workout",
+  description:
+    "Reopens a session she signed off and wants to carry on with — she finished early, had a break, or tapped it by mistake. The clock picks up where it stopped and everything already logged stays. Use it rather than starting a second session on the same day, which splits one workout into two.",
+  input: z.object({
+    date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
+  }),
+  handler: async (input, ctx) => {
+    const her = await todayFor(ctx);
+    const date = input.date ?? her;
+    if (isFuture(date, her)) return { ok: false, error: FUTURE_DATE_ERROR };
+
+    const [w] = await db.select().from(workouts)
+      .where(and(eq(workouts.profileId, ctx.profileId), eq(workouts.date, date)))
+      .orderBy(desc(workouts.startedAt)).limit(1);
+    if (!w) return { ok: false, error: `No session logged on ${date} to reopen.` };
+    if (!w.completedAt) return { ok: true, alreadyOpen: true, date, note: "That session was never signed off — it is still open." };
+
+    /*
+      Her answer to "how did it go" is kept.
+
+      She gave it about the work she actually did, and she did not take it back
+      by carrying on. `finish_workout` only writes `feeling` when it is passed
+      one, so signing off a second time leaves it alone unless she says
+      something new — which is the same rule that stopped "brutal, maybe a 2"
+      being blanked by "right, I'm done".
+    */
+    await db.update(workouts).set({ completedAt: null }).where(eq(workouts.id, w.id));
+
+    return {
+      ok: true, date,
+      note: "Session reopened. The clock is running again and everything logged is still there.",
+    };
+  },
+});
+
 export const getExerciseHistory = defineTool({
   name: "get_exercise_history",
   description:

@@ -95,6 +95,7 @@ const all: Tool[] = [
   training.createWeeklyPlan,
   photos.deleteProgressPhoto,
   training.finishWorkout,
+  training.reopenWorkout,
   nutrition.getDayNutrition,
   training.getExerciseGuide,
   training.getExerciseHistory,

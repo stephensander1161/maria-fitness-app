@@ -43,7 +43,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_plan: "checking your plan", adjust_plan_day: "adjusting your plan",
   start_workout: "starting your session", log_set: "logging your set",
   delete_set: "taking that set off", correct_set: "correcting that set",
-  finish_workout: "wrapping up", get_exercise_history: "looking up your history",
+  finish_workout: "wrapping up", reopen_workout: "reopening your session", get_exercise_history: "looking up your history",
   get_week_review: "reviewing your week", create_meal_plan: "planning your meals",
   start_maintenance_phase: "setting up your break", end_maintenance_phase: "getting back to it",
   set_equipment_override: "noting what you've got with you",

@@ -504,6 +504,29 @@ export function TrainClient({
    * time is banked and taken off, because "you trained for an hour" has to be
    * true or it is worth nothing.
    */
+  /**
+   * Back into a session she signed off.
+   *
+   * Finishing early is a real thing to do — she ran out of time, the baby
+   * woke — and until now it was final: the clock stopped, the card went green,
+   * and the three movements she had left were simply gone. The session reopens
+   * with everything already logged still in it.
+   */
+  async function reopen() {
+    setPausing(true);
+    setError(null);
+    try {
+      await action("reopen_workout", date === undefined ? {} : { date });
+      setDone(false);
+      setFinishedMs(null);
+      router.refresh();
+    } catch (err) {
+      setError(actionMessage(err, "Couldn't reopen the session — check your signal and try again."));
+    } finally {
+      setPausing(false);
+    }
+  }
+
   async function togglePause() {
     setPausing(true);
     setError(null);
@@ -519,6 +542,10 @@ export function TrainClient({
 
   async function finish(feeling?: number) {
     setFinishing(true);
+    // The question is answered, so the question goes. It did not, and the
+    // "Yes, I'm done / Keep going" row sat there under a session that was
+    // already signed off, still offering to end it.
+    setFinishEarly(false);
     setError(null);
     try {
       // Anything still queued belongs in this session's summary.
@@ -657,6 +684,7 @@ export function TrainClient({
             pickable={pickable}
             date={date}
             canLog={editable}
+            sessionFinished={Boolean(view.finishedAt)}
             editable={editable}
             next={targets.find((t) => t.slug === ex.slug)}
             result={feedback[ex.slug]}
@@ -700,8 +728,11 @@ export function TrainClient({
 
     A day in the future still gets nothing. `start_workout` and the rest refuse
     a future date anyway, so the control would only be there to be turned down.
+
+    A *finished* day still gets one: it carries how long the session ran, and
+    now the way to pick it back up.
   */
-  const sessionBar = !view.finishedAt && !isFutureDay ? (
+  const sessionBar = !isFutureDay ? (
     <SessionBar
       startedAt={view.startedAt}
       finishedAt={view.finishedAt}
@@ -715,6 +746,7 @@ export function TrainClient({
       // accident in the middle of one is not.
       onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
       onPause={togglePause}
+      onReopen={reopen}
       onCorrected={() => router.refresh()}
     />
   ) : null;
@@ -865,6 +897,7 @@ export function TrainClient({
           pickable={pickable}
           date={date}
           canLog={editable}
+          sessionFinished={Boolean(view.finishedAt)}
           editable={editable}
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
@@ -1185,7 +1218,7 @@ function SessionClock({
 }
 
 function SessionBar({
-  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause, onCorrected,
+  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause, onReopen, onCorrected,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
@@ -1197,6 +1230,8 @@ function SessionBar({
   /** Starting or pausing — a different thing, and a different button. */
   clockBusy: boolean;
   onStart: () => void;
+  /** Back into a session she signed off — see `reopen` above. */
+  onReopen: () => void;
   onFinish: () => void;
   onPause: () => void;
   /** The clock was corrected — reload so every reading agrees again. */
@@ -1243,8 +1278,22 @@ function SessionBar({
 
   if (finishedAt) {
     return (
-      <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat">
-        Finished — {readableDuration(ms)}
+      <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat">
+          Finished — {readableDuration(ms)}
+        </div>
+        {/* Finishing early is a real thing to do, and until now it was final.
+            Small and beside the badge rather than in it: picking a session
+            back up is the rarer half of this row, and it must not read as the
+            thing to tap. */}
+        <button
+          onClick={onReopen}
+          disabled={clockBusy}
+          aria-label="Reopen this session"
+          className="rounded-full px-2 py-1.5 text-[12px] text-muted underline underline-offset-2 active:bg-raised disabled:opacity-40"
+        >
+          {clockBusy ? "…" : "Pick it back up"}
+        </button>
       </div>
     );
   }
@@ -1611,8 +1660,16 @@ export function ExerciseCard({
   offsetY = 0, offsetX = 0, dropTarget = false,
   asPage = false, focusEntry = false, href, folded = false, onFold,
   chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
+  sessionFinished = false,
 }: {
   exercise: TodayExercise; unit: string; next?: NextTarget;
+  /**
+   * The session for this day has been signed off.
+   *
+   * What it changes is what an empty set square *means*: the next one to do
+   * while the session runs, one she missed once it is closed.
+   */
+  sessionFinished?: boolean;
   /** Caret straight into the weight — she came here to type one. */
   focusEntry?: boolean;
   /**
@@ -1825,6 +1882,8 @@ export function ExerciseCard({
   const logged = loggedSummary(exercise.loggedToday, unit, exercise.isHold);
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
+  /** Planned, signed off, and nothing logged against it. */
+  const missedEntirely = sessionFinished && exercise.targetSets > 0 && setCount === 0;
 
   /**
    * The small version of a celebration: the moment the last planned set of a
@@ -2026,7 +2085,17 @@ export function ExerciseCard({
       } ${chainBelow ? "rounded-b-none" : ""
       } ${targetMet && !upNext ? "done-card" : ""
       } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
-      } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""}`}
+      } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""
+      /*
+        Not done at all, on a session that is closed.
+
+        The whole movement, not a square: three sets planned and none logged
+        is a different fact from two of three, and it is the one worth seeing
+        from the top of the card without opening it. Only when the session is
+        actually signed off — an untouched movement mid-session is simply one
+        she has not got to yet.
+      */
+      } ${missedEntirely ? "border-miss/50 bg-miss-soft/40" : ""}`}
       style={{
         // Sized to what is on screen, not to `dvh`. Chrome on iOS resolves
         // `dvh` against the viewport with its toolbars retracted, so an 86dvh
@@ -2389,6 +2458,18 @@ export function ExerciseCard({
           // number already says which of the two won. Nothing is marked when
           // the two cannot honestly be compared.
           const cmp = compareSet(s, prev);
+          /*
+            A set that never happened, on a session she has signed off.
+
+            An empty square on a running session is the next one to do. The
+            same square once the session is closed is a set she missed, and
+            drawing the two identically meant a finished day gave no account of
+            itself: three planned, one done, and the other two sat there
+            looking like they were still waiting. Marked rather than hidden —
+            what she did not do is part of the record, and it is the half that
+            tells her whether the plan is the right size.
+          */
+          const missed = sessionFinished && !s && !isQueued;
           const shape = `flex h-9 w-full min-w-11 items-center justify-center rounded-lg px-2 text-[12px] font-medium tabular ${
             isQueued
               ? "border border-dashed border-accent bg-accent-soft text-accent"
@@ -2396,7 +2477,9 @@ export function ExerciseCard({
                 ? cmp === "up"
                   ? "bg-beat text-on-accent"
                   : "bg-accent text-on-accent"
-                : "border border-dashed border-edge text-faint"
+                : missed
+                  ? "border border-miss/50 bg-miss-soft text-miss"
+                  : "border border-dashed border-edge text-faint"
           }`;
 
           // Past the planned sets and past what she has logged: this column

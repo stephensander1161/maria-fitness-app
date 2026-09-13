@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-12-finish-early",
+    date: "2026-09-12",
+    title: "Finishing early, without losing the rest",
+    blurb:
+      "Sign a session off with work still on it and what you missed is marked in red — the movement, or the individual sets. The session bar stays up with a “Pick it back up”, so a session you ended at lunch is one you can finish at seven rather than one you have to rebuild.",
+    href: "/",
+  },
+  {
     id: "2026-09-11-chain-menus",
     date: "2026-09-11",
     title: "Fast food, from the chain's own panel",

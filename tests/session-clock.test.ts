@@ -167,8 +167,11 @@ suite("the clock is on every day she could still be working on", () => {
       What decides is whether the day is *done* — a finished session has
       nothing left to start, pause or finish.
     */
-    expect(card).toMatch(/const sessionBar = !view\.finishedAt && !isFutureDay \?/);
+    expect(card).toMatch(/const sessionBar = !isFutureDay \?/);
     expect(card).not.toMatch(/const sessionBar = isToday \?/);
+    // A finished day keeps its bar too — it carries how long the session ran,
+    // and the way to pick it back up.
+    expect(card).toMatch(/onReopen=\{reopen\}/);
   });
 
   it("is still absent on a day that has not happened", () => {
