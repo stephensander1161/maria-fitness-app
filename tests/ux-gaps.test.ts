@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { allowanceLeftPct, ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
-import { nextAfter } from "@/components/train-client";
+import { afterSet, nextAfter, queueSet, stillInFlight } from "@/components/train-client";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
@@ -126,11 +126,131 @@ suite("the training card during a session", () => {
     // screen offered her a fifth set of something she had done four of. Both
     // card paths now ask `restAfter`, which asks the same `whatNext` the GO
     // screen asks, so the two cannot answer differently about the same set.
-    expect(card).toMatch(/const next = afterSet\(view\.exercises, ex\.slug\)/);
+    expect(card).toMatch(/const next = afterSet\(view\.exercises, ex\.slug, alreadyDone\)/);
     expect(card).toMatch(/if \(next\.kind === "next"\)/);
-    expect([...card.matchAll(/restAfter\(ex, logged\)/g)]).toHaveLength(2);
+    // Both card paths hand on the count the *card* has, not the one the
+    // server last sent — see the suite below.
+    expect([...card.matchAll(/restAfter\(ex, logged, alreadyDone\)/g)]).toHaveLength(2);
+    expect(card).toMatch(/onLogged\(\n\s*outcome\.result,\n\s*setCount,/);
     // Beating while the session runs; still, but still marked, before it.
     expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
+  });
+});
+
+suite("two sets in flight at once", () => {
+  /*
+    The root of it.
+
+    A set goes on the card the moment she taps, and `router.refresh()` — a
+    whole server render on a force-dynamic page — carries it back a beat
+    later. The first version of that reconciliation held the landed count at
+    the moment the set was queued and threw the *whole* optimistic list away
+    as soon as that number moved. Right for one set in flight; wrong for two.
+
+    Log the second and third set of a movement quickly and the refresh for the
+    second lands while the third is still going: the count moved by one, both
+    optimistic squares went, and the card showed two sets where she had done
+    three. Everything downstream read the low number — which is how the rest
+    timer came to count her back down to a movement she had finished.
+  */
+  const empty = { from: 0, sets: [] as string[] };
+
+  it("keeps a set that is still going when an earlier one lands", () => {
+    let q = queueSet(empty, 0, "a");          // nothing landed yet
+    q = queueSet(q, 0, "b");                  // still nothing landed
+    expect(stillInFlight(q, 0)).toEqual(["a", "b"]);
+    // The first one comes back. The second is still in the air.
+    expect(stillInFlight(q, 1)).toEqual(["b"]);
+    // And a third goes out while it is.
+    q = queueSet(q, 1, "c");
+    expect(stillInFlight(q, 1)).toEqual(["b", "c"]);
+    expect(stillInFlight(q, 2)).toEqual(["c"]);
+    expect(stillInFlight(q, 3)).toEqual([]);
+  });
+
+  it("counts three as three, whenever the refreshes land", () => {
+    // The count the card reports — landed plus outstanding — has to be three
+    // at every point in the sequence, because she has done three.
+    let q = empty;
+    let landed = 0;
+    const total = () => landed + stillInFlight(q, landed).length;
+    q = queueSet(q, landed, "a"); expect(total()).toBe(1);
+    q = queueSet(q, landed, "b"); expect(total()).toBe(2);
+    landed = 1;                   expect(total()).toBe(2);
+    q = queueSet(q, landed, "c"); expect(total()).toBe(3);
+    landed = 2;                   expect(total()).toBe(3);
+    landed = 3;                   expect(total()).toBe(3);
+  });
+
+  it("never shows a set twice when the server runs ahead", () => {
+    // A set corrected elsewhere, a second tab, a queue draining — the landed
+    // count can overshoot. Outstanding must bottom out at none rather than
+    // going negative and re-showing the lot.
+    const q = queueSet(empty, 0, "a");
+    expect(stillInFlight(q, 9)).toEqual([]);
+  });
+
+  it("is a no-op when nothing is in flight", () => {
+    expect(stillInFlight({ from: 4, sets: [] }, 4)).toEqual([]);
+    expect(queueSet({ from: 4, sets: [] }, 4, "a")).toEqual({ from: 4, sets: ["a"] });
+  });
+});
+
+suite("the GO screen counts what the card counts", () => {
+  /*
+    The regression this exists to stop happening a third time.
+
+    `view.exercises` carries the *server's* count and it is one refresh
+    behind — a refresh on this page is a whole server render. Log the second
+    and third set of a three-set movement in quick succession and the third
+    was judged against a view that still had one set in it: the movement did
+    not look finished, the rest counted back down to it, and the GO screen
+    offered a fourth set of something she had done three of. Meanwhile the
+    Train screen, rendering from the refresh that had landed by then, had
+    already moved its marker on to the next movement — so the two screens
+    disagreed about which movement she was on.
+
+    The card knows. `setCount` on the card is the server's rows plus anything
+    queued offline plus anything saved that has not come back yet, and it is
+    read in the same tick as the tap.
+  */
+  const ex = (slug: string, target: number, logged: number) =>
+    ({ slug, targetSets: target, loggedToday: Array.from({ length: logged }, () => ({})), supersetGroup: null });
+  // Three sets of A, then B. The server still thinks A has one set in it.
+  const stale = [ex("a", 3, 1), ex("b", 3, 0)] as never[];
+
+  it("moves on when the card says that set finished the movement", () => {
+    // Two already in, this is the third: A is done, so the rest is for B.
+    expect(afterSet(stale, "a", 2)).toEqual({ kind: "next", movement: expect.objectContaining({ slug: "b" }) });
+  });
+
+  it("still says 'more of this one' when there genuinely is", () => {
+    // One already in, this is the second of three.
+    expect(afterSet(stale, "a", 1)).toEqual({ kind: "same" });
+  });
+
+  it("ends the session when the card finishes the last movement", () => {
+    const last = [ex("a", 3, 3), ex("b", 3, 2)] as never[];
+    expect(afterSet(last, "b", 2)).toEqual({ kind: "done" });
+  });
+
+  it("falls back to the server's count when the card has none to offer", () => {
+    // Every other caller, and the old behaviour, unchanged.
+    expect(afterSet(stale, "a")).toEqual({ kind: "same" });
+  });
+
+  it("never walks the count backwards", () => {
+    // A card that somehow knows less than the server — a stale render, a
+    // movement that was corrected elsewhere — must not un-finish a movement.
+    const done = [ex("a", 3, 3), ex("b", 3, 0)] as never[];
+    expect(afterSet(done, "a", 0)).toEqual({ kind: "next", movement: expect.objectContaining({ slug: "b" }) });
+  });
+
+  it("leaves the other movements on the server's count", () => {
+    // The override is for the movement in hand only. Guessing at the others
+    // would be inventing sets she has not done.
+    const list = [ex("a", 3, 2), ex("b", 3, 3), ex("c", 3, 0)] as never[];
+    expect(afterSet(list, "a", 2)).toEqual({ kind: "next", movement: expect.objectContaining({ slug: "c" }) });
   });
 });
 

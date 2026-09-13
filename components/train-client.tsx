@@ -440,9 +440,21 @@ export function TrainClient({
    *   the GO screen was offering her a fifth set of something she had done
    *   four of.
    * - Nothing outstanding ends it. There is nothing to count down to.
+   *
+   * `alreadyDone` is the card's own count, and it is the fix for the bug that
+   * came back: `view.exercises` is the *server's* count and it is one refresh
+   * behind. Log the second and third sets of a three-set movement in quick
+   * succession and the third one was judged against a view that still had one
+   * in — so the movement did not look finished, the rest counted down to it
+   * again, and the GO screen offered a fourth set of something she had done
+   * three of while the Train screen had already moved its marker on.
    */
-  const restAfter = useCallback((ex: TodayExercise, logged: { reps: number; weight: number | null }) => {
-    const next = afterSet(view.exercises, ex.slug);
+  const restAfter = useCallback((
+    ex: TodayExercise,
+    logged: { reps: number; weight: number | null },
+    alreadyDone?: number,
+  ) => {
+    const next = afterSet(view.exercises, ex.slug, alreadyDone);
     const find = (slug: string) => view.exercises.find((e) => e.slug === slug) ?? null;
     if (next.kind === "done") { dismissRest(); return; }
     // No countdown at all between the halves of a superset. The partner does
@@ -689,9 +701,9 @@ export function TrainClient({
             next={targets.find((t) => t.slug === ex.slug)}
             result={feedback[ex.slug]}
             pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-            onLogged={(r, finishedExercise, logged) => {
+            onLogged={(r, alreadyDone, logged) => {
               if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
-              restAfter(ex, logged);
+              restAfter(ex, logged, alreadyDone);
               if (r) router.refresh();
             }}
             onRetryPending={flush}
@@ -902,13 +914,13 @@ export function TrainClient({
           next={targets.find((t) => t.slug === ex.slug)}
           result={feedback[ex.slug]}
           pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-          onLogged={(r, finishedExercise, logged) => {
+          onLogged={(r, alreadyDone, logged) => {
             if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
             // Rest runs between sets *and* between movements — finishing the
             // squats is exactly when she needs a minute before the next thing.
             // The only set with nothing to recover for is the last one of the
             // session, and that is the one that stops the timer.
-            restAfter(ex, logged);
+            restAfter(ex, logged, alreadyDone);
             // Nothing new to fetch while the set is sitting in the outbox, and
             // a refresh with no signal just hangs.
             if (r) router.refresh();
@@ -1366,12 +1378,47 @@ function SessionBar({
  * two paths cannot answer differently for the same set. `loggedToday.length`
  * is the count before the set in hand, which is exactly what `done` means.
  */
-export function afterSet(exercises: TodayExercise[], slug: string) {
+/**
+ * Sets that have saved but have not come back down the wire yet.
+ *
+ * `from` is the server's count at the moment the oldest of these was queued,
+ * so `landedNow - from` is how many of them have since arrived. Pure, and
+ * here rather than inline in the card, because the arithmetic is the whole
+ * bug: the first version compared the landed count to a snapshot and threw
+ * the entire optimistic list away the moment it moved, which is right for one
+ * set in flight and wrong for two.
+ */
+export type InFlight<T> = { from: number; sets: T[] };
+
+/** The ones the server has not sent back yet. */
+export function stillInFlight<T>(queued: InFlight<T>, landedNow: number): T[] {
+  return queued.sets.slice(Math.max(0, landedNow - queued.from));
+}
+
+/** The queue after one more set is sent. */
+export function queueSet<T>(queued: InFlight<T>, landedNow: number, set: T): InFlight<T> {
+  const arrived = Math.max(0, landedNow - queued.from);
+  return { from: queued.from + arrived, sets: [...queued.sets.slice(arrived), set] };
+}
+
+export function afterSet(exercises: TodayExercise[], slug: string, alreadyDone?: number) {
   return whatNext(
     exercises.map((e) => ({
       slug: e.slug,
       targetSets: e.targetSets,
-      done: e.loggedToday.length,
+      /*
+        The higher of the two counts, and never the lower.
+
+        `loggedToday.length` is what the server last said. `alreadyDone` is
+        what the card counts — the same rows plus anything queued offline and
+        anything saved that the refresh has not carried back yet — so it is
+        the one that is true at the moment of the tap. Taking the maximum
+        rather than simply preferring it keeps a card that somehow knows less
+        from walking the count backwards.
+      */
+      done: e.slug === slug && alreadyDone !== undefined
+        ? Math.max(e.loggedToday.length, alreadyDone)
+        : e.loggedToday.length,
       supersetGroup: e.supersetGroup,
     })),
     slug,
@@ -1691,7 +1738,15 @@ export function ExerciseCard({
   result?: LogResult; pending: PendingSet[];
   onLogged: (
     r: LogResult | null,
-    finishedExercise: boolean,
+    /**
+     * How many sets of this movement were already in before the one she just
+     * logged — the card's count, which includes what is queued offline and
+     * what has saved but not yet come back down the wire.
+     *
+     * It used to be a `finishedExercise` boolean and nothing read it, so the
+     * rest was decided from the server's count instead. See `restAfter`.
+     */
+    alreadyDone: number,
     /** The set she just logged, to seed the next one. */
     logged: { reps: number; weight: number | null },
   ) => void;
@@ -1739,22 +1794,34 @@ export function ExerciseCard({
 }) {
   const landed = exercise.loggedToday;
   /**
-   * A set that has saved but has not come back down the wire yet.
+   * Sets that have saved but have not come back down the wire yet.
    *
-   * `router.refresh()` is a server round trip and this page is
-   * force-dynamic, so between the tap and the square appearing there was
-   * half a second of nothing followed by the whole card changing at once —
-   * which reads as the page reloading rather than as a set being logged.
-   * The square goes in on the tap and the refresh reconciles behind it.
+   * `router.refresh()` is a server round trip and this page is force-dynamic,
+   * so between the tap and the square appearing there was half a second of
+   * nothing followed by the whole card changing at once — which reads as the
+   * page reloading rather than as a set being logged. The square goes in on
+   * the tap and the refresh reconciles behind it.
    *
-   * Keyed off the count the server last gave us rather than cleared in an
-   * effect: when the refresh lands, `landed.length` moves and these are
-   * dropped on the next render with nothing writing state during one.
+   * Reconciled by *counting*, not by comparing a snapshot. The first version
+   * held the landed count at the moment it was written and threw the whole
+   * optimistic list away as soon as that number moved — which is correct for
+   * one set in flight and wrong for two. Log the second and third set of a
+   * movement quickly and the refresh for the second arrives while the third
+   * is still going: the count moved by one, both optimistic squares were
+   * dropped, and the card went from three sets to two in front of her. It
+   * also told the rest timer the movement was not finished, so the GO screen
+   * counted her back down to a fourth set of something she had done three of
+   * while the Train screen had already moved its marker on.
+   *
+   * So: `from` is the landed count these were queued behind, and each time
+   * the server's count passes it one more of them has arrived. Derived at
+   * render rather than cleared in an effect — nothing writes state during a
+   * render.
    */
-  const [unconfirmed, setUnconfirmed] = useState<{ at: number; sets: { reps: number; weight: number | null; holdSeconds: number | null }[] }>(
-    { at: landed.length, sets: [] },
+  const [unconfirmed, setUnconfirmed] = useState<InFlight<{ reps: number; weight: number | null; holdSeconds: number | null }>>(
+    { from: landed.length, sets: [] },
   );
-  const justLogged = unconfirmed.at === landed.length ? unconfirmed.sets : [];
+  const justLogged = stillInFlight(unconfirmed, landed.length);
   const done = justLogged.length === 0
     ? landed
     : [...landed, ...justLogged.map((s, i) => ({ setNumber: landed.length + i + 1, ...s }))];
@@ -1973,11 +2040,8 @@ export function ExerciseCard({
       side,
       band,
     };
-    setUnconfirmed((u) => ({
-      at: landed.length,
-      sets: [...(u.at === landed.length ? u.sets : []), mine],
-    }));
-    const drop = () => setUnconfirmed((u) => ({ at: u.at, sets: u.sets.filter((x) => x !== mine) }));
+    setUnconfirmed((u) => queueSet(u, landed.length, mine));
+    const drop = () => setUnconfirmed((u) => ({ from: u.from, sets: u.sets.filter((x) => x !== mine) }));
     try {
       const outcome = await logSetOrQueue<LogResult>(
         // Zero is not a weight. An untouched field on a movement she did with
@@ -2013,7 +2077,7 @@ export function ExerciseCard({
       if (outcome.queued) drop();
       onLogged(
         outcome.result,
-        exercise.targetSets > 0 && setCount + 1 >= exercise.targetSets,
+        setCount,
         { reps, weight: loaded && weight > 0 ? weight : null },
       );
       // A good call is also the moment to drain anything stuck from earlier.
