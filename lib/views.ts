@@ -2,7 +2,8 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, sql } fro
 import { db } from "@/lib/db";
 import {
   exercises, goals, mealLogs, mealPlans, meals, pantryItems, planDays, planExercises, plans,
-  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, waterLogs, weighIns, workouts,
+  foods, preppedPortions, profiles, savedMeals, setLogs, shoppingExtras, sleepLogs, waterLogs,
+  weighIns, workouts,
 } from "@/lib/db/schema";
 import { addDays, DAY_NAMES, dayIndex, daysBetween, today, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
@@ -1254,7 +1255,7 @@ export async function whatsNewForProfile(profile: {
  */
 export async function morningWeighIn(profile: {
   id: string; timezone: string | null; units: Units; startWeightKg: number | null;
-}): Promise<{ seed: number | null; unit: string; today: ISODate } | null> {
+}): Promise<{ seed: number | null; unit: string; today: ISODate; askSleep: boolean } | null> {
   const today = profileToday(profile);
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", {
@@ -1262,12 +1263,27 @@ export async function morningWeighIn(profile: {
     }).format(new Date()),
   );
 
-  const recent = await db
-    .select({ date: weighIns.date, weightKg: weighIns.weightKg })
-    .from(weighIns)
-    .where(eq(weighIns.profileId, profile.id))
-    .orderBy(desc(weighIns.date))
-    .limit(1);
+  const [recent, sleptToday] = await Promise.all([
+    db
+      .select({ date: weighIns.date, weightKg: weighIns.weightKg })
+      .from(weighIns)
+      .where(eq(weighIns.profileId, profile.id))
+      .orderBy(desc(weighIns.date))
+      .limit(1),
+    /*
+      Last night, which is filed under the morning she woke — today.
+
+      The other thing only she can answer, asked in the one moment she is
+      certain of it. Sleep moves appetite, grip and how hard a set feels by
+      more than most of what this app already tracks, and it was behind a card
+      on Progress that she saw once she had already been through the day.
+    */
+    db
+      .select({ date: sleepLogs.date })
+      .from(sleepLogs)
+      .where(and(eq(sleepLogs.profileId, profile.id), eq(sleepLogs.date, today)))
+      .limit(1),
+  ]);
 
   const loggedToday = recent[0]?.date === today;
   if (!shouldAskToWeigh({ hour, loggedToday, dismissedOn: null, today })) return null;
@@ -1279,6 +1295,8 @@ export async function morningWeighIn(profile: {
     seed: weightOut(recent[0]?.weightKg ?? profile.startWeightKg, profile.units),
     unit: weightLabel(profile.units),
     today,
+    // Only if it is still outstanding. Asked twice is worse than not asked.
+    askSleep: sleptToday.length === 0,
   };
 }
 

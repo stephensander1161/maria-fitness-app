@@ -47,6 +47,61 @@ suite("asking for a weigh-in on the first open of the day", () => {
   });
 });
 
+suite("last night, asked in the one moment she knows the answer", () => {
+  /*
+    Sleep rides along with the weigh-in.
+
+    It is the same kind of question and the same moment: by the evening
+    "about seven, I think" is the best anybody can do, and the sleep card on
+    Progress was being answered at four in the afternoon or not at all. Sleep
+    moves appetite, grip and how hard a set feels by more than most of what
+    this app already tracks.
+  */
+  const prompt = read("components/weigh-in-prompt.tsx");
+
+  it("asks only while it is still outstanding", () => {
+    // Asked twice is worse than not asked. The gate reads today's row — a
+    // night belongs to the morning she woke, which is today's date.
+    const lib = read("lib/views.ts");
+    expect(lib).toMatch(/eq\(sleepLogs\.date, today\)/);
+    expect(lib).toMatch(/askSleep: sleptToday\.length === 0/);
+    expect(read("components/weigh-in-gate.tsx")).toMatch(/askSleep=\{ask\.askSleep\}/);
+    expect(prompt).toMatch(/\{askSleep && \(/);
+  });
+
+  it("writes nothing she did not say", () => {
+    // Unknown is not zero, and a seeded 7.5 tapped past is a night that never
+    // happened sitting in the average beside the real ones. The box starts
+    // blank and no row is written until she fills it in.
+    expect(prompt).toMatch(/useState\(0\)/);
+    expect(prompt).toMatch(/blankAtZero/);
+    expect(prompt).toMatch(/const sleepGiven = askSleep && hours > 0;/);
+    expect(prompt).toMatch(/if \(sleepGiven\) \{/);
+  });
+
+  it("keeps the rating optional, and clearable", () => {
+    // A night she did not rate is not a night she rated badly — which is why
+    // sleep_logs.quality is nullable.
+    expect(prompt).toMatch(/setQuality\(on \? null : n\)/);
+    expect(prompt).toMatch(/quality === null \? \{\} : \{ quality \}/);
+  });
+
+  it("never lets the second question cost her the first", () => {
+    // The weigh-in is what this screen is for and it is already written by the
+    // time sleep is attempted, so a sleep row that will not save cannot take
+    // it down. Both tools upsert on (profile, date), so a retry corrects.
+    const weight = prompt.indexOf('action("log_weight"');
+    const sleep = prompt.indexOf('action("log_sleep"');
+    expect(weight).toBeGreaterThan(-1);
+    expect(sleep).toBeGreaterThan(weight);
+    expect(read("lib/tools/sleep.ts")).toMatch(/onConflictDoUpdate/);
+  });
+
+  it("writes through the registry, like the weight beside it", () => {
+    expect(prompt).toMatch(/action(<[^>]*>)?\("log_sleep"/);
+  });
+});
+
 suite("the weigh-in prompt is wired to her clock, not the server's", () => {
   it("takes her local hour, in her own timezone", () => {
     const lib = read("lib/views.ts");

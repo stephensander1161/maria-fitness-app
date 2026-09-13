@@ -4,7 +4,8 @@ import { morningWeighIn } from "@/lib/views";
 import { WeighInPrompt } from "./weigh-in-prompt";
 
 /**
- * This morning's weigh-in, if it is still outstanding.
+ * This morning's weigh-in — and last night's sleep with it, if that is still
+ * outstanding too.
  *
  * Both questions are the server's — whether a row exists for her today, and
  * what time it is where she is — so they are answered here rather than by a
@@ -25,6 +26,7 @@ export async function WeighInGate() {
       seed={ask.seed}
       unit={ask.unit}
       today={ask.today}
+      askSleep={ask.askSleep}
       name={user.name ?? profile.name}
     />
   );

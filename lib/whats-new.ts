@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-13-morning-sleep",
+    date: "2026-09-13",
+    title: "Last night, asked with this morning's weight",
+    blurb:
+      "The first-thing weigh-in now asks how you slept as well — how long, and how it was. It is the one moment you actually know the answer; by the afternoon “about seven, I think” is the best anyone can manage. Leave it blank and nothing is written: a night nobody counted is not a bad night, and it will not end up in the average.",
+  },
+  {
     id: "2026-09-13-rest-day-arrows",
     date: "2026-09-13",
     title: "A rest day is no longer a dead end",
