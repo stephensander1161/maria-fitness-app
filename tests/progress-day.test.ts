@@ -21,7 +21,11 @@ suite("the day on screen is the day every card reads", () => {
   it("writes a weigh-in and a night to that day, not to today", () => {
     // Both tools have always taken a date; nothing was passing them one, so
     // logging from Thursday's page filed the reading under Friday.
-    expect(page).toMatch(/<WeighIn[\s\S]{0,220}date=\{her\}/);
+    // Bounded by the element, not by a character count: a comment added to
+    // the props once pushed `date` past the window and failed a rule that
+    // had not changed.
+    const weighIn = page.slice(page.indexOf("<WeighIn"), page.indexOf("/>", page.indexOf("<WeighIn")));
+    expect(weighIn).toMatch(/date=\{her\}/);
     expect(page).toMatch(/<SleepCard[\s\S]{0,320}date=\{her\}/);
     expect(fs.readFileSync("components/weigh-in.tsx", "utf8"))
       .toMatch(/"log_weight", \{ weight: value, \.\.\.\(date \? \{ date \} : \{\}\) \}/);

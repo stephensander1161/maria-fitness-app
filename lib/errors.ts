@@ -35,6 +35,25 @@ const CLIENT_GONE = [
 
 export const isClientGone = (message: string): boolean =>
   CLIENT_GONE.some((phrase) => message.includes(phrase));
+/**
+ * Bound parameters, cut out of a failed query.
+ *
+ * `shapeError` was written as the privacy boundary and it was checking the
+ * wrong half. Nothing Next hands it carries a cookie into the row — that part
+ * holds — but a driver error does not stop at the statement: postgres.js
+ * appends `params:` and every bound value after it. A failed `log_meal`
+ * therefore wrote "4.5 oz chicken breast, 1/2 cup quinoa" into the table the
+ * owner's console reads, and a failed message insert wrote what the coach had
+ * just said to her.
+ *
+ * /admin is operational, not personal. The statement is what makes an error
+ * diagnosable; the values are hers, and no owner needs them to see that an
+ * insert is failing.
+ */
+export function stripBoundParams(message: string): string {
+  return message.replace(/\n?params:[\s\S]*$/i, "\nparams: [redacted]");
+}
+
 const MESSAGE_MAX = 500;
 const STACK_MAX = 4000;
 
@@ -51,8 +70,10 @@ export function shapeError(
   request: { path: string; method: string },
   context: { routePath: string; routeType: string },
 ): ErrorRow {
-  const message = error instanceof Error ? error.message : String(error);
-  const stack = error instanceof Error && error.stack ? error.stack : null;
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = stripBoundParams(raw);
+  // The stack can carry them too — the driver builds one around the same text.
+  const stack = error instanceof Error && error.stack ? stripBoundParams(error.stack) : null;
   return {
     // The pattern where Next knows it, the path otherwise — and the path is
     // still only a path: no query string reaches here.
@@ -102,7 +123,16 @@ export async function recentErrors(days = 7): Promise<ErrorGroup[]> {
   const rows = await db.select({
     route: appErrors.route, method: appErrors.method, kind: appErrors.kind, message: appErrors.message, at: appErrors.at,
   }).from(appErrors).where(gte(appErrors.at, since)).orderBy(desc(appErrors.at)).limit(1000);
-  return groupErrors(rows);
+  /*
+    Stripped again on the way out.
+
+    Belt and braces, and the braces are the point: the rows written before
+    `stripBoundParams` existed are still in the table for the rest of their
+    thirty days, and every one of them is on the owner's console until they
+    age out. Redacting on read means they are gone from the screen now rather
+    than at the end of the month, and it costs one regex per row.
+  */
+  return groupErrors(rows.map((r) => ({ ...r, message: stripBoundParams(r.message) })));
 }
 
 /**

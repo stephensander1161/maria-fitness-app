@@ -7,6 +7,65 @@ const read = (p: string) => fs.readFileSync(p, "utf8");
 const now = new Date("2026-09-07T12:00:00Z");
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 3_600_000);
 
+suite("a failed query is diagnosable without being personal", () => {
+  /*
+    The half `shapeError` was not checking.
+
+    Nothing Next hands the hook carries a cookie into the row — that part was
+    tested and holds. But a driver error does not stop at the statement:
+    postgres.js appends `params:` and every bound value after it. So a failed
+    `log_meal` put "4.5 oz chicken breast, 1/2 cup quinoa" into the table the
+    owner's console reads, and a failed message insert put what the coach had
+    just said to her. /admin is operational, never personal — that is the rule
+    lib/admin.ts is written to, and this was the way round it.
+  */
+  const at = { path: "/api/action", method: "POST" };
+  const ctx = { routePath: "/api/action", routeType: "route" };
+
+  it("keeps the statement and drops the values", () => {
+    const row = shapeError(
+      new Error(
+        'Failed query: insert into "meal_logs" ("id", "description", "calories") values ($1, $2, $3)\n' +
+        "params: b2a96c5c,4.5 oz chicken breast and 1/2 cup quinoa,345",
+      ),
+      at, ctx,
+    );
+    // Still says what failed, which is the whole point of recording it.
+    expect(row.message).toContain("insert into");
+    expect(row.message).toContain("meal_logs");
+    // And nothing she typed.
+    expect(row.message).not.toContain("chicken breast");
+    expect(row.message).not.toContain("quinoa");
+    expect(row.message).toContain("[redacted]");
+  });
+
+  it("drops them out of the stack as well", () => {
+    const e = new Error("Failed query: select 1\nparams: something-she-said");
+    e.stack = "Error: Failed query: select 1\nparams: something-she-said\n    at x";
+    const row = shapeError(e, at, ctx);
+    expect(row.stack ?? "").not.toContain("something-she-said");
+  });
+
+  it("leaves an ordinary error alone", () => {
+    const row = shapeError(new Error("Cannot read properties of undefined"), at, ctx);
+    expect(row.message).toBe("Cannot read properties of undefined");
+  });
+
+  it("redacts on the way out as well as on the way in", () => {
+    // The rows written before this existed are in the table for the rest of
+    // their thirty days, and every one is on the console until they age out.
+    const lib = read("lib/errors.ts");
+    const fn = lib.slice(lib.indexOf("export async function recentErrors"));
+    expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/stripBoundParams\(r\.message\)/);
+  });
+
+  it("is not fooled by the word appearing mid-sentence", () => {
+    // The cut is anchored to the driver's own line, not to any mention.
+    const row = shapeError(new Error("bad params: for this call"), at, ctx);
+    expect(row.message).toContain("[redacted]");
+  });
+});
+
 suite("what an error row may carry", () => {
   const cookie = "plate_session=eyJhbGciOi.SECRETSESSIONTOKEN.sig";
   const bearer = "Bearer sk-ant-verysecret";

@@ -337,7 +337,10 @@ export default async function ProgressPage({
         </section>
 
         <WeighIn
-          current={current}
+          // The reading, not the trend — see the prop's own note. Everything
+          // else on this screen is deliberately the trend; this is the one
+          // control that is about the number she stood on the scale for.
+          reading={rawLatest}
           unit={unit}
           loggedToday={weighedInToday}
           tone={profile.coachTone}

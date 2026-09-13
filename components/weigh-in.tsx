@@ -39,9 +39,24 @@ type Logged = {
 };
 
 export function WeighIn({
-  current, unit, loggedToday, tone, date, dayLabel = "Today",
+  reading, unit, loggedToday, tone, date, dayLabel = "Today",
 }: {
-  current: number | null;
+  /**
+   * What the scale actually said — never the trend.
+   *
+   * This screen is full of the trend, correctly: no card here reads a single
+   * morning as progress, and the goal, the bar and the totals are all EWMA.
+   * This one control is the exception, because it is the one place she is
+   * looking at *the reading*. It was handed the trend, so a morning of 181.2
+   * was reported back to her as "Weighed in at 180.2" and tapping Update
+   * opened a stepper on a number she had never entered — which, since the
+   * stepper then saves, is a screen quietly rewriting her weigh-in.
+   *
+   * Named `reading` rather than `current` for that reason: `current` is the
+   * word the rest of this page uses for the trend, and that is how the two
+   * came to be the same variable.
+   */
+  reading: number | null;
   unit: string;
   loggedToday: boolean;
   /*
@@ -60,7 +75,7 @@ export function WeighIn({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(current ?? 150);
+  const [value, setValue] = useState(reading ?? 150);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Logged | null>(null);
@@ -133,7 +148,7 @@ export function WeighIn({
           <div className="min-w-0 flex-1">
             <p className="text-[11px] uppercase tracking-wide text-faint">{dayLabel}</p>
             <p className="text-[13px] text-muted tabular">
-              {current !== null ? `Weighed in at ${current} ${unit}` : "Weighed in"}
+              {reading !== null ? `Weighed in at ${reading} ${unit}` : "Weighed in"}
             </p>
           </div>
           <button

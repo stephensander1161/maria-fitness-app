@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-13-weigh-in-reading",
+    date: "2026-09-13",
+    title: "The weigh-in row shows what the scale said",
+    blurb:
+      "It was showing the trend instead — a morning of 181.2 read back as “Weighed in at 180.2”, and Update opened on a number you had never entered. Everything else on Progress is deliberately the trend, because one morning is not progress; that one row is about the reading, and it says the reading now.",
+    href: "/progress",
+  },
+  {
     id: "2026-09-13-morning-sleep",
     date: "2026-09-13",
     title: "Last night, asked with this morning's weight",
