@@ -186,7 +186,7 @@ export function TodayFood({
 
         There were three goes at it: a paragraph, then a line naming every
         macro and counting each one, then a button to fix it. All of that over
-        a bar that already writes `\u2265` and is already drawn hatched. The
+        a bar that already writes “≥” and is already drawn hatched. The
         `fill_macro_gaps` tool still exists and the coach can still run it —
         "fill in my macros" — it just is not furniture on the screen.
       */}

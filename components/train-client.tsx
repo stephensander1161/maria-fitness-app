@@ -3145,7 +3145,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             <p className="mb-1 text-[10px] uppercase tracking-widest text-faint">Commonly gets wrong</p>
             <ul className="space-y-1 text-faint">
               {commonMistakes.map((m) => (
-                <li key={m} className="flex gap-2"><span aria-hidden>\u00b7</span>{m}</li>
+                <li key={m} className="flex gap-2"><span aria-hidden>·</span>{m}</li>
               ))}
             </ul>
           </div>
