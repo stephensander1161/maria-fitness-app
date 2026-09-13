@@ -55,12 +55,20 @@ export async function signIn(
  * up, because the one time it matters is the time the spec threw.
  */
 export const test = base.extend<{ her: Signed }>({
-  her: async ({ context }, use, testInfo) => {
+  /*
+    `run` rather than Playwright's usual `use`.
+
+    The fixture's second argument is positional, so the name is free — and
+    `use` is not free: the React hooks lint rule reads any call to something
+    called `use()` as React's `use`, refuses it inside a try/catch, and fails
+    the build. The try/finally is the point of this fixture.
+  */
+  her: async ({ context }, run, testInfo) => {
     const slug = `e2e-${testInfo.project.name}-${testInfo.title}`
       .toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60).replace(/-+$/, "");
     const signed = await signIn(context, slug);
     try {
-      await use(signed);
+      await run(signed);
     } finally {
       await dropAccount(signed.account);
     }

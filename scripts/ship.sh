@@ -5,6 +5,13 @@
 #   npm run ship            # gates, then deploy
 #   npm run ship -- --check # gates only, no deploy
 #
+# Nothing reaches her app that has not passed the typechecker, the linter, the
+# pure suite, the database suite, the coverage ratchet, a production build and
+# the end-to-end journeys in a real browser. That is more than CI can do —
+# CI has no database and no browser budget — and it runs here because here is
+# where the credential is. A gate that only runs in CI is a gate that does not
+# cover the two things that actually break this app: a query and a screen.
+#
 # The worktree matters: `vercel --prod` uploads the working directory, so an
 # uncommitted experiment on the desk would otherwise sail into production. This
 # builds from HEAD and nothing else.
@@ -24,10 +31,24 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
+# ── the gates, in the order that fails cheapest first ───────────────────────
+#
+# Four suites rather than one, because they need different things and the
+# difference is the whole design:
+#
+#   tests      pure logic. No database, no key, no network. CI runs this one.
+#   tests/db   the tool handlers and the read models, against a real Postgres,
+#              each file on a throwaway account it drops afterwards. CI has no
+#              credential, so this only ever runs here.
+#   coverage   a ratchet on the two above. See vitest.config.ts.
+#   e2e        the journeys, in a browser, against the built app.
+#
+# The build comes before e2e because e2e serves what the build produced.
 echo "── typecheck"; npx tsc --noEmit -p .
 echo "── lint";      npx eslint .
-echo "── tests";     npx vitest run
+echo "── tests";     npm run coverage
 echo "── build";     npm run build >/dev/null
+echo "── e2e";       npm run test:e2e
 
 if [[ "${1:-}" == "--check" ]]; then
   echo "✓ gates pass (not deployed)"

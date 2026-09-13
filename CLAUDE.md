@@ -719,6 +719,20 @@ rules. Two that bite most often:
 - **CI is the only review this project has.** Typecheck, lint, tests, dependency
   audit, a build that proves nothing needs a secret at module load, and a scan
   of git history for credentials. It must pass before deploy.
+- **Four suites, and the split is the design.** `npm test` is pure logic —
+  no database, no key, no network — and CI runs it on every push, which is
+  only possible because it needs nothing; that job is what proves it stays
+  that way. `npm run test:db` is the tool handlers and the read models
+  against a real Postgres, each file on a throwaway account it drops in an
+  `afterAll` (`tests/db/account.ts`, which refuses to delete anything without
+  both the `dbtest-` prefix and the reserved `.invalid` suffix). `npm run
+  test:e2e` is the journeys in a browser against `next start`. `npm run
+  coverage` runs the first two with a per-area ratchet (`vitest.config.ts`);
+  it may be raised and must never be lowered to get a change through. All
+  four gate `npm run ship`, because the deploy happens from the machine that
+  holds the credential and CI has neither that nor a browser. The e2e suite
+  earned its place on its first run by finding a shipped bug the type
+  checker, the linter and 1884 tests had all passed.
 - **`npm run ship` pushes before it deploys**, in that order and not the other
   way round: the gates qualify a commit, the push preserves it, and the deploy
   is the only step that flakes. It used not to push at all, and twenty-seven

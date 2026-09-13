@@ -65,6 +65,29 @@ export default defineConfig({
       ],
       reporter: ["text-summary", "json-summary", "html"],
       reportsDirectory: "coverage",
+      /*
+        A ratchet, not an aspiration.
+
+        One global number would be a lie in both directions here. `components/`
+        and `app/` are React rendered in a browser; nothing in this run
+        executes them, and the suite that does — e2e/ — is a separate process
+        v8 cannot see from here. Holding those to a percentage would either be
+        set so low it means nothing or force a jsdom harness that tests the
+        render rather than the app.
+
+        So the thresholds are per area and they sit a little under where the
+        suite actually is. The point is the direction: they can be raised when
+        a wave of tests lands and they must never be lowered to get a change
+        through. That is the same rule as tests/tool-coverage.test.ts, which
+        has held for the same reason.
+      */
+      thresholds: {
+        // Everything shared: the arithmetic, the read models, the guards.
+        // (This glob contains lib/tools too, so it sits between the two.)
+        "lib/**/*.ts": { lines: 60, statements: 58, functions: 50, branches: 50 },
+        // The handlers, reached through tests/db.
+        "lib/tools/**/*.ts": { lines: 43, statements: 43, functions: 40, branches: 32 },
+      },
     },
   },
   resolve: {
