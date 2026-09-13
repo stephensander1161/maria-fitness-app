@@ -45,3 +45,29 @@ suite("the card takes the subject of the screen it is on", () => {
     expect(card).toMatch(/"get_fact", \{ revisit: true/);
   });
 });
+
+suite("and it turns over on a screen she stays on", () => {
+  const card = fs.readFileSync("components/fact-card.tsx", "utf8");
+
+  it("changes every five minutes, not only on a navigation", () => {
+    // Moving around the app covers most of the day, but Train during a session
+    // is one screen for forty minutes and the card under it went stale for all
+    // of them.
+    expect(card).toMatch(/const FACT_EVERY_MS = 5 \* 60_000;/);
+    expect(card).toMatch(/Date\.now\(\) - last < FACT_EVERY_MS/);
+  });
+
+  it("does nothing while the tab is hidden", () => {
+    // A phone in a pocket firing this every five minutes is a request an hour
+    // for a card nobody is looking at.
+    expect(card).toMatch(/document\.visibilityState !== "visible"/);
+    expect(card).toMatch(/addEventListener\("visibilitychange", tick\)/);
+    expect(card).toMatch(/removeEventListener\("visibilitychange", tick\)/);
+  });
+
+  it("still re-reads rather than spending a new fact each time", () => {
+    // Twelve an hour on a training day would read the library dry.
+    const swap = card.slice(card.indexOf("const swap = useCallback"));
+    expect(swap.slice(0, 400)).toMatch(/"get_fact", \{ revisit: true/);
+  });
+});

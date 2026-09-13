@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { preferredCategory } from "@/lib/fact-screen";
@@ -17,6 +17,9 @@ import type { PickedFact } from "@/lib/facts";
  * thing. A Back button and a "Tell me another" turned a quiet footer into a
  * wizard.
  */
+/** How long one fact stays up on a screen she does not leave. */
+const FACT_EVERY_MS = 5 * 60_000;
+
 export function FactCard({ first }: { first: PickedFact }) {
   const [fact, setFact] = useState(first);
   const [busy, setBusy] = useState(false);
@@ -47,29 +50,66 @@ export function FactCard({ first }: { first: PickedFact }) {
   const where = `${path}?${params}`;
   const seenOn = useRef(where);
   const prefer = preferredCategory(path);
+
+  /*
+    One fetch, however it was asked for.
+
+    `revisit` is what makes any of this affordable: it re-reads what she has
+    already been shown rather than spending a new fact from the library each
+    time. The refresh button does spend one — she asked for something new, and
+    that is what she gets. And where the screen has a subject, keep asking for
+    that subject: a food fact on the food screens is the better half of this.
+  */
+  const swap = useCallback(async (signal: { live: boolean }) => {
+    try {
+      const got = await action<{ category: PickedFact["category"]; fact: string; source: string | null }>(
+        "get_fact", { revisit: true, ...(prefer ? { category: prefer } : {}) },
+      );
+      if (signal.live) setFact({ category: got.category, text: got.fact, source: got.source });
+    } catch {
+      // The one she has is a perfectly good fact. Say nothing.
+    }
+  }, [prefer]);
+
   useEffect(() => {
     if (seenOn.current === where) return;
     seenOn.current = where;
-    let live = true;
-    void (async () => {
-      try {
-        const got = await action<{ category: PickedFact["category"]; fact: string; source: string | null }>(
-          // `revisit` is what makes this affordable: walking around the app
-          // re-reads what she has already been shown rather than spending a
-          // new fact per screen. The refresh button below does spend one —
-          // she asked for something new, and that is what she gets.
-          //
-          // And where the screen has a subject, keep asking for that subject:
-          // a food fact on the food screens is the better half of this.
-          "get_fact", { revisit: true, ...(prefer ? { category: prefer } : {}) },
-        );
-        if (live) setFact({ category: got.category, text: got.fact, source: got.source });
-      } catch {
-        // The one she has is a perfectly good fact. Say nothing.
-      }
-    })();
-    return () => { live = false; };
-  }, [where, prefer]);
+    const signal = { live: true };
+    void swap(signal);
+    return () => { signal.live = false; };
+  }, [where, swap]);
+
+  /*
+    …and on a timer, for the screen she stays on.
+
+    Moving around the app changes it, which covers most of the day, but the
+    Train screen during a session is one screen for forty minutes and the card
+    under it went stale for all of them. Five minutes is the turnover of
+    somebody who is reading it and not so fast that it moves while she is
+    mid-sentence.
+
+    Paused while the tab is hidden and caught up on the way back, because a
+    phone in a pocket firing this every five minutes is a request an hour for
+    a card nobody is looking at — and the first thing she wants on returning
+    is a different one anyway.
+  */
+  useEffect(() => {
+    const signal = { live: true };
+    let last = Date.now();
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - last < FACT_EVERY_MS) return;
+      last = Date.now();
+      void swap(signal);
+    };
+    const id = window.setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      signal.live = false;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [swap]);
 
   async function another() {
     setBusy(true);
