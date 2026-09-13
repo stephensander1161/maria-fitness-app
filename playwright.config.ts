@@ -41,6 +41,18 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
+  /*
+    The sign-in door is held back from the default run.
+
+    Its rate limit is per address and per source and it locks out for an hour,
+    which is correct for a door and wrong for a gate that runs on every
+    deploy: three real attempts is most of the allowance, and the second run
+    in an hour fails for the reason the door exists. So those specs are tagged
+    `@door` and excluded unless `E2E_DOOR=1` — `npm run test:e2e:door`. They
+    are worth running before anything touching lib/auth.ts or the proxy, and
+    not worth running fifteen times an afternoon.
+  */
+  grepInvert: process.env.E2E_DOOR ? undefined : /@door/,
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     // On a failure, the thing worth having is what the screen looked like.

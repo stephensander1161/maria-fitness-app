@@ -733,6 +733,14 @@ rules. Two that bite most often:
   holds the credential and CI has neither that nor a browser. The e2e suite
   earned its place on its first run by finding a shipped bug the type
   checker, the linter and 1884 tests had all passed.
+- **The sign-in door is tagged out of the default e2e run.** Its rate limit is
+  per address and per source and it locks out for an hour, which is correct
+  for a door and wrong for a gate that runs on every deploy — three real
+  attempts is most of an hour's allowance. `npm run test:e2e:door` runs them;
+  run it before anything touching `lib/auth.ts`, `lib/session.ts` or the
+  proxy. Every other spec mints its cookie from `AUTH_SECRET` and never types
+  at the door, because the dev server writes to the production audit log and a
+  burst of probe sign-ins reads there as a real incident.
 - **`npm run ship` pushes before it deploys**, in that order and not the other
   way round: the gates qualify a commit, the push preserves it, and the deploy
   is the only step that flakes. It used not to push at all, and twenty-seven
