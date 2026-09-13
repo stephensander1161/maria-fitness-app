@@ -1552,6 +1552,10 @@ export const EXERCISES: Seed[] = [
     slug: "pull-up", name: "Pull-Up", category: "compound",
     primaryMuscles: ["lats", "biceps", "upper back"], equipment: ["pull-up bar", "bodyweight"],
     requires: "pull-up bar", bodyweight: true,
+    // Every variant of this carried these and the plain one did not, which is
+    // how the library came to answer "pull up" with eight kinds of pull-up and
+    // not the pull-up.
+    tags: ["pull up", "pullup", "back", "lats"],
     formCues: [
       "Hands just outside shoulder width, palms forward, full hang to start.",
       "Pull the shoulder blades down and back before the elbows bend.",

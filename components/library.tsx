@@ -6,6 +6,7 @@ import { ExerciseFigure } from "./exercise-figure";
 import { IngredientSearch } from "./ingredient-search";
 import { Ideas, type MealIdea, type MoveIdea } from "./ideas";
 import { groupForExercise, LIBRARY_GROUP_ORDER } from "@/lib/muscle-groups";
+import { matchesQuery } from "@/lib/search-terms";
 import type { MealWeekView, WeekView } from "@/lib/views";
 
 /** The gym name she typed, when it is not the name on the row. */
@@ -43,18 +44,32 @@ export function Library({
 
   const q = query.trim().toLowerCase();
 
+  /*
+    The same matcher the picker uses, rather than a second one that drifted.
+
+    This list ran its own substring search, and a substring is not how anybody
+    types: every hyphenated name — Pull-Up, Push-Up, Step-Up — was unfindable
+    by its spoken spelling. "push up" returned *nothing at all* out of a
+    hundred and eighty-eight movements, five of which are push-ups; "pull up"
+    missed the plain Pull-Up while finding eight of its variants, because the
+    variants happen to carry a "pull up" tag and the plain one does not.
+
+    `matchesQuery` normalises the separators, drops a trailing plural per word
+    and knows "db" is a dumbbell. Equipment rides along in the tag list so
+    "dumbbell" still finds the dumbbell movements.
+  */
   const filtered = useMemo(() => {
     return exercises.filter(
       (e) =>
         (category === "all" || groupForExercise(e) === category) &&
-        (q === "" ||
-          e.name.toLowerCase().includes(q) ||
-          e.primaryMuscles.some((m) => m.includes(q)) ||
-          e.equipment.some((m) => m.includes(q)) ||
+        (q === "" || matchesQuery(query, {
+          name: e.name,
+          muscles: e.primaryMuscles,
           // "bow extension" should find the overhead triceps extension.
-          e.tags.some((t) => t.includes(q))),
+          tags: [...e.tags, ...e.equipment],
+        })),
     );
-  }, [exercises, q, category]);
+  }, [exercises, q, query, category]);
 
   // Grouped by what a movement works, not by whether a textbook calls it
   // compound — that bucket held sixty-three of a hundred and sixty, which is

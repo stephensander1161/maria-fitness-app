@@ -302,3 +302,47 @@ suite("a shrug is shoulders, not arms", () => {
     expect(p.end.head).toEqual(p.start.head);
   });
 });
+
+suite("the library is searched the way people type", () => {
+  const find = (q: string) =>
+    EXERCISES.filter((e) => matchesQuery(q, {
+      name: e.name, muscles: e.primaryMuscles, tags: [...(e.tags ?? []), ...e.equipment],
+    })).map((e) => e.name);
+
+  it("finds a hyphenated name by its spoken spelling", () => {
+    /*
+      The Learn list ran its own substring search, and a substring is not how
+      anybody types. "push up" returned *nothing at all* out of a hundred and
+      eighty-eight movements, five of which are push-ups. "pull up" found eight
+      kinds of pull-up and not the Pull-Up, because the variants happen to
+      carry a "pull up" tag and the plain one did not.
+    */
+    expect(find("pull up")).toContain("Pull-Up");
+    expect(find("pullup")).toContain("Pull-Up");
+    expect(find("push up")).toContain("Push-Up");
+    expect(find("step up")).toContain("Dumbbell Step-Up");
+  });
+
+  it("drops a trailing plural and knows the abbreviations", () => {
+    expect(find("lunges")).toContain("Walking Lunge");
+    expect(find("db curl")).toContain("Dumbbell Bicep Curl");
+  });
+
+  it("still finds by equipment", () => {
+    // Equipment rides along in the tag list, or "dumbbell" stops working.
+    expect(find("kettlebell").length).toBeGreaterThan(0);
+  });
+
+  it("uses the one matcher rather than a second that drifts", () => {
+    // The picker had the good one all along; this list had a copy that did
+    // not keep up. CLAUDE.md names this exact failure for tool labels.
+    const list = fs.readFileSync("components/library.tsx", "utf8");
+    expect(list).toMatch(/matchesQuery\(query, \{/);
+    expect(list).not.toMatch(/e\.name\.toLowerCase\(\)\.includes\(q\)/);
+  });
+
+  it("gives the plain pull-up the tags every one of its variants has", () => {
+    const plain = EXERCISES.find((e) => e.slug === "pull-up")!;
+    expect(plain.tags).toContain("pull up");
+  });
+});
