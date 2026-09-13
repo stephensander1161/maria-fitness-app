@@ -36,6 +36,18 @@ export type Pattern = {
   label: string;
   start: Joints;
   end: Joints;
+  /**
+   * The thing holding her up, where a pose is unreadable without it.
+   *
+   * Polylines in the same 100×100 space, drawn faint and behind the figure.
+   * A list of them rather than one, because a bench is a pad *and* a post and
+   * a single stroke through both draws a shape no bench has.
+   * Used sparingly and only where the apparatus *is* the movement: a
+   * chest-supported row without a bench is a bent-over row, which is the
+   * movement it exists instead of. Every other pattern carries its own meaning
+   * in the pose and gets nothing.
+   */
+  support?: [number, number][][];
 };
 
 const STAND: Joints = {
@@ -120,6 +132,50 @@ export const PATTERNS: Record<string, Pattern> = {
     end: {
       head: [50, 18], shoulder: [50, 31], elbow: [50, 18], hand: [50, 5],
       hip: [50, 56], knee: [50, 76], foot: [50, 94],
+    },
+  },
+  /**
+   * Chest down on an incline bench, arms hanging, elbows driven up and back.
+   *
+   * It was drawn as the ordinary bent-over row — a figure standing up, hinged
+   * at the hips — which is the movement this one exists *instead of*. The
+   * whole point of the chest-supported version is that the bench holds the
+   * position so the lower back does not have to, and a standing figure says
+   * the opposite.
+   *
+   * The bench is not drawn, in keeping with every other supported movement
+   * here: the pose carries it. Torso on a clear diagonal with the head high
+   * and the arms hanging straight down under the shoulder is a body lying on
+   * something, because nothing else holds that shape.
+   */
+  chestSupportedRow: {
+    label: "Chest on the bench, drive the elbows up and back",
+    /*
+      The pad and its post. Without them the pose is a bent-over row, which is
+      the movement this one exists instead of — the whole point of the
+      chest-supported version is that the bench holds the position so the
+      lower back does not have to, and a figure holding itself up says the
+      opposite.
+
+      The pad runs parallel to the torso and a little under it: close enough
+      to read as the thing she is lying on, far enough not to merge with her
+      spine into one thick line. Just the pad, no post — the ground line is
+      already there, and a second faint stroke beside her shin read as a third
+      leg rather than as furniture.
+
+      Her arms hang forward of the pad's edge, which is both where they are
+      and what stops them crossing it.
+    */
+    support: [[[16, 44], [70, 84]]],
+    start: {
+      head: [30, 38], shoulder: [40, 47], elbow: [32, 61], hand: [32, 75],
+      elbowFar: [37, 62], handFar: [37, 76],
+      hip: [64, 70], knee: [71, 82], foot: [63, 95],
+    },
+    end: {
+      head: [30, 38], shoulder: [40, 47], elbow: [52, 46], hand: [40, 56],
+      elbowFar: [55, 49], handFar: [44, 59],
+      hip: [64, 70], knee: [71, 82], foot: [63, 95],
     },
   },
   horizontalPull: {
@@ -473,6 +529,9 @@ const RULES: [RegExp, PatternKey][] = [
   // Before every "press" and "pull" rule below, and before the squat
   // catch-all it used to land on.
   [/pull-?over/, "pullover"],
+  // Before the row rule below, which draws a figure standing and hinged —
+  // the exact movement the chest-supported version exists instead of.
+  [/chest-supported|seal-row|incline.*row/, "chestSupportedRow"],
   [/leg-extension/, "legExtension"],
   [/muscle-up/, "verticalPull"],
   // Before the plank rule, which otherwise catches these through `category`.

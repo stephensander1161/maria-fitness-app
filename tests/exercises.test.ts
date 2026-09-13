@@ -1,4 +1,5 @@
 import { describe as suite, expect, it } from "vitest";
+import fs from "node:fs";
 import { EXERCISES } from "@/lib/seed/exercises";
 import { WORKOUT_TEMPLATES } from "@/lib/seed/workout-templates";
 import { matchesQuery, queryWords } from "@/lib/search-terms";
@@ -209,6 +210,40 @@ suite("the figure shows the movement it is labelled with", () => {
     expect(patternFor("palms-up-lateral-raise", "isolation")).toBe("lateral");
     expect(patternFor("front-raise", "isolation")).toBe("raise");
     expect(patternFor("palms-up-front-raise", "isolation")).toBe("raise");
+  });
+
+  it("puts the chest-supported row on the bench, not on its feet", () => {
+    /*
+      It was drawn as the ordinary bent-over row — standing, hinged at the
+      hips — which is the movement this one exists *instead of*. The whole
+      point of the chest-supported version is that the bench holds the
+      position so the lower back does not have to, and a figure holding
+      itself up says the opposite.
+    */
+    expect(patternFor("chest-supported-row", "compound")).toBe("chestSupportedRow");
+    expect(patternFor("seal-row", "compound")).toBe("chestSupportedRow");
+    // …and the plain rows are untouched: they really are done standing.
+    expect(patternFor("dumbbell-row", "compound")).toBe("horizontalPull");
+    expect(patternFor("bent-over-row", "compound")).toBe("horizontalPull");
+  });
+
+  it("draws the bench, because without it the pose is the other movement", () => {
+    // A diagonal torso with hanging arms is a bent-over row unless something
+    // is visibly underneath it.
+    const p = PATTERNS.chestSupportedRow;
+    expect(p.support?.length).toBeGreaterThan(0);
+    // Under the torso rather than through it: the pad and the spine drawn on
+    // the same line merge into one thick stroke and say nothing.
+    const [[padX1, padY1], [padX2, padY2]] = p.support![0];
+    const at = (x: number) => padY1 + ((x - padX1) / (padX2 - padX1)) * (padY2 - padY1);
+    for (const joint of [p.start.shoulder, p.start.hip]) {
+      expect(joint[1], `${joint} should sit above the pad`).toBeLessThan(at(joint[0]));
+    }
+  });
+
+  it("frames the apparatus, so it is not cropped off a thumbnail", () => {
+    const figure = fs.readFileSync("components/exercise-figure.tsx", "utf8");
+    expect(figure).toMatch(/\.\.\.\(pattern\.support \?\? \[\]\)\.flat\(\)/);
   });
 
   it("draws each kind of raise as the thing it is", () => {

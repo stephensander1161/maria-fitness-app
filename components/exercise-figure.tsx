@@ -25,6 +25,17 @@ export function ExerciseFigure({
       <svg viewBox={box} className="h-full w-full" role="img" aria-label={pattern.label}>
         {/* Ground line, so a lying-down pose reads as lying down. */}
         <line x1="0" y1="96" x2="100" y2="96" stroke="currentColor" strokeWidth="0.7" opacity="0.18" />
+        {/* And the apparatus, where the pose cannot carry the movement on its
+            own — see `Pattern.support`. Behind the figure and faint, so it
+            reads as the thing she is on rather than as part of her. */}
+        {pattern.support?.map((part, i) => (
+          <polyline
+            key={i}
+            points={part.map(([x, y]) => `${x},${y}`).join(" ")}
+            stroke="currentColor" strokeWidth="6" opacity="0.22"
+            strokeLinecap="round" strokeLinejoin="round" fill="none"
+          />
+        ))}
         <Figure joints={pattern.start} className="figure-start" opacity={0.28} />
         <Figure joints={pattern.end} className="figure-end" />
       </svg>
@@ -45,8 +56,12 @@ function frame(pattern: Pattern): string {
   // `.filter(Boolean)` because the far arm and leg are optional: a pattern
   // without them would otherwise put `undefined` through Math.min and frame
   // every figure at NaN.
-  const points = [...Object.values(pattern.start), ...Object.values(pattern.end)]
-    .filter(Boolean) as [number, number][];
+  const points = [
+    ...Object.values(pattern.start), ...Object.values(pattern.end),
+    // The apparatus is part of the picture: framed without it, the bench runs
+    // off the edge of a 36px thumbnail and reads as a stray line.
+    ...(pattern.support ?? []).flat(),
+  ].filter(Boolean) as [number, number][];
   const xs = points.map(([x]) => x);
   const ys = points.map(([, y]) => y);
 
