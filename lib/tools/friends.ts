@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { herId } from "./ids";
 import { and, eq, or, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { friendships, highFives, profiles } from "@/lib/db/schema";
@@ -131,7 +132,7 @@ export const respondToFriendRequest = defineTool({
   description:
     "Answers a friend request that is waiting on her: accept it and the two of them start sharing training, or decline and the request disappears. Declining keeps no record, so they can ask again later.",
   input: z.object({
-    friendshipId: z.string().describe("From list_friends, under waitingOnYou"),
+    friendshipId: herId("get_friends").describe("From list_friends, under waitingOnYou"),
     accept: z.boolean(),
   }),
   handler: async (input, ctx) => {
@@ -166,7 +167,7 @@ export const removeFriend = defineTool({
   description:
     "Stops sharing training with someone, in both directions at once, and cancels a request that has not been answered. She can add them again later with their code.",
   input: z.object({
-    friendshipId: z.string().describe("From list_friends"),
+    friendshipId: herId("get_friends").describe("From list_friends"),
   }),
   handler: async (input, ctx) => {
     const deleted = await db.delete(friendships)
@@ -186,7 +187,7 @@ export const sendHighFive = defineTool({
   name: "send_high_five",
   description:
     "Sends a friend a high five — a bit of encouragement, nothing else. Only works between accepted friends. Use it when she wants to cheer someone on after a good week.",
-  input: z.object({ friendshipId: z.string().describe("From list_friends") }),
+  input: z.object({ friendshipId: herId("get_friends").describe("From list_friends") }),
   handler: async (input, ctx) => {
     const [f] = await db.select().from(friendships)
       .where(and(
@@ -239,7 +240,7 @@ export const getFriendStats = defineTool({
   description:
     "Reads how her friends are training — sessions this week, their streak, hard sets and their heaviest lifts, in her units. Call it with no arguments for everyone, or with one friendshipId for a single person. Use it when she asks how someone is getting on, or wants to compare weeks. It shows training only: no weight, measurements, photos or food, hers or theirs.",
   input: z.object({
-    friendshipId: z.string().optional().describe("From list_friends; omit for all friends"),
+    friendshipId: herId("get_friends").optional().describe("From list_friends; omit for all friends"),
   }),
   handler: async (input, ctx) => {
     const units = await unitsFor(ctx.profileId);

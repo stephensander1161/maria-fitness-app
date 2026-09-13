@@ -1,5 +1,6 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
+import { herId } from "./ids";
 import { db } from "@/lib/db";
 import { mealPlans, meals, preppedPortions } from "@/lib/db/schema";
 import { addDays, daysBetween } from "@/lib/date";
@@ -32,7 +33,7 @@ export const logCookSession = defineTool({
     portions: z.number().min(1).max(30),
     caloriesPerPortion: z.number().optional(),
     proteinPerPortion: z.number().optional(),
-    mealId: z.string().optional().describe("From get_meal_plan, when she cooked something planned"),
+    mealId: herId("get_meal_plan").optional().describe("From get_meal_plan, when she cooked something planned"),
     keepsDays: z.number().optional().describe("How long it will keep. Default 4 days in the fridge."),
     cookedOn: z.string().optional(),
   }),

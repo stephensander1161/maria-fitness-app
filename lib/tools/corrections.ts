@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { herId } from "./ids";
 import { wholeGrams, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import {
@@ -92,7 +93,7 @@ export const updateGoal = defineTool({
   description:
     "Changes a milestone she has already set — the number, the title, the date — or reopens one marked hit by mistake. Editing used to mean setting a second goal, which left both on the list and neither right.",
   input: z.object({
-    goalId: z.string().describe("From list_goals"),
+    goalId: herId("get_milestones").describe("From list_goals"),
     title: z.string().optional(),
     targetValue: z.number().optional(),
     targetDate: z.string().nullable().optional().describe("Pass null to drop the deadline"),
@@ -124,7 +125,7 @@ export const removeGoal = defineTool({
   name: "remove_goal",
   description:
     "Takes a milestone off her list — one that no longer fits, or one set by mistake. Use update_goal to change it instead when she still wants it.",
-  input: z.object({ goalId: z.string() }),
+  input: z.object({ goalId: herId("get_milestones") }),
   handler: async (input, ctx) => {
     const [row] = await db.delete(goals)
       .where(and(eq(goals.id, input.goalId), eq(goals.profileId, ctx.profileId)))
@@ -260,7 +261,7 @@ export const removePlannedMeal = defineTool({
   name: "remove_planned_meal",
   description:
     "Takes a meal off her plan — she doesn't eat breakfast, or that day is a takeaway. The day's totals go down with it, which is the honest result. swap_meal replaces one instead.",
-  input: z.object({ mealId: z.string().describe("From get_meal_plan") }),
+  input: z.object({ mealId: herId("get_meal_plan").describe("From get_meal_plan") }),
   handler: async (input, ctx) => {
     const [row] = await db.select({ id: meals.id, title: meals.title, slot: meals.slot })
       .from(meals)
@@ -426,7 +427,7 @@ export const rewindConversation = defineTool({
   description:
     "Takes the conversation back to just before one of her own messages and forgets everything from there on, including that message. The app calls this when she taps replay on something she said, so the thread does not end up holding the same question twice with two answers under it. Her logged data is untouched — this is the conversation only.",
   input: z.object({
-    messageId: z.string().describe("The message to rewind to, from the transcript"),
+    messageId: herId("the transcript").describe("The message to rewind to, from the transcript"),
   }),
   handler: async (input, ctx) => {
     // Scoped to her in the lookup itself, so an id from someone else's

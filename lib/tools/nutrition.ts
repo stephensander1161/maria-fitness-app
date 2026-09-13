@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { herId } from "./ids";
 import { wholeGrams, wholeGramsNullable, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
@@ -172,7 +173,7 @@ export const swapMeal = defineTool({
   description:
     "Replace a planned meal she doesn't want. Choose the replacement yourself — you already know her restrictions, her disliked foods, her cooking confidence, and the calories and protein the slot needs — then call this and tell her what you swapped it to. Only ask her first if she named a specific craving or you have no idea what she'd eat. Keep calories and protein close so the week's targets still hold.",
   input: z.object({
-    mealId: z.string(),
+    mealId: herId("get_meal_plan"),
     title: z.string(),
     calories: wholeGrams,
     proteinG: wholeGrams,
@@ -207,7 +208,7 @@ export const getMealRecipe = defineTool({
   description:
     "The ingredients and method for one planned meal, in her measures. If the meal was planned without a recipe, this writes one to fit its calories and protein and saves it onto the meal, so asking again is free. Use it when she wants to know how to make something in her plan.",
   input: z.object({
-    mealId: z.string().describe("From get_meal_plan"),
+    mealId: herId("get_meal_plan").describe("From get_meal_plan"),
   }),
   handler: async (input, ctx) => {
     const meal = await herMeal(ctx.profileId, input.mealId);
@@ -378,7 +379,7 @@ export const logMeal = defineTool({
     caloriesLow: wholeGramsOptional
       .describe("Lower bound for a meal you cannot pin down — a restaurant plate, a friend's cooking. Pass the upper bound too."),
     caloriesHigh: wholeGramsOptional,
-    mealId: z.string().optional().describe("If she ate the planned meal, pass its id"),
+    mealId: herId("get_meal_plan").optional().describe("If she ate the planned meal, pass its id"),
     date: z.string().optional(),
     clientKey: z.string().optional().describe(
       "Supplied by the app for retry safety. Leave this out.",
@@ -779,7 +780,7 @@ export const fillMacroGaps = defineTool({
     "Fills in macros an entry was logged without, by pricing what she wrote against the food library — use it when carbs, fat or fibre are missing from a day, or when she asks why a bar is greyed out. Only ever fills blanks: a figure she or you already put in is never overwritten. Two things it leaves alone and names separately, because they need different answers: food the library cannot recognise (`couldNotPrice`) and food it recognises but has no figure for (`noFigureInLibrary`, usually fibre in a dairy or meat row). A guess is worse than a gap. Costs nothing and answers instantly.",
   input: z.object({
     date: z.string().optional().describe("YYYY-MM-DD. Defaults to today."),
-    logId: z.string().optional().describe("Just this one entry. Omit for the whole day."),
+    logId: herId("get_day_nutrition").optional().describe("Just this one entry. Omit for the whole day."),
   }),
   handler: async (input, ctx) => {
     const her = await todayForProfile(ctx.profileId);
@@ -902,7 +903,7 @@ export const removeMealLog = defineTool({
   description:
     "Delete something she logged eating — a mistake, a double entry, or food she ended up not eating. Call get_day_nutrition first if you need the id. Returns the day's totals afterwards so you can tell her where she now stands.",
   input: z.object({
-    logId: z.string().describe("From get_day_nutrition"),
+    logId: herId("get_day_nutrition").describe("From get_day_nutrition"),
   }),
   handler: async (input, ctx) => {
     // Scoped to her profile in the delete itself: an id from anywhere else
@@ -975,9 +976,13 @@ async function describeIntent(profileId: string, calorieTarget: number) {
 export const updateMealLog = defineTool({
   name: "update_meal_log",
   description:
-    "Corrects something she already logged eating — the calories, the protein, or what it was. Use it when she says a figure was off ('that curry was more like 800') rather than logging a second entry, which leaves the day wrong in a different way, and use it to fill in a macro an earlier entry went in without: one blank greys out that bar for the whole day. Call get_day_nutrition for the logId. Only the fields you pass change; leave the rest out.",
+    "Corrects something she already logged eating — the calories, the protein, or what it was. Use it when she says a figure was off ('that curry was more like 800') rather than logging a second entry, which leaves the day wrong in a different way, and use it to fill in a macro an earlier entry went in without: one blank greys out that bar for the whole day. **With no logId it corrects the most recent entry in that slot**, so \"my breakfast smoothie was closer to 460\" needs nothing but slot: breakfast. Only the fields you pass change; leave the rest out.",
   input: z.object({
-    logId: z.string().describe("From get_day_nutrition or log_meal"),
+    logId: herId("get_day_nutrition").optional()
+      .describe("From get_day_nutrition or log_meal. Omit to correct her most recent entry in `slot`."),
+    slot: slotEnum.optional()
+      .describe("Which meal to correct when you have no id. Its latest entry that day is the one she means."),
+    date: z.string().optional().describe("YYYY-MM-DD for the slot lookup. Defaults to today."),
     description: z.string().optional(),
     calories: wholeGramsNullable,
     proteinG: wholeGramsNullable,
@@ -987,10 +992,47 @@ export const updateMealLog = defineTool({
       .describe("Only when actually known. Pass null to say we do not know, which is not zero."),
   }),
   handler: async (input, ctx) => {
-    const [row] = await db.select().from(mealLogs)
-      .where(and(eq(mealLogs.id, input.logId), eq(mealLogs.profileId, ctx.profileId)))
-      .limit(1);
-    if (!row) return { ok: false, error: "No entry with that id — call get_day_nutrition for the day's ids." };
+    /*
+      An id, or the meal she just named.
+
+      It used to demand an id, and the model does not have one: it logs a meal,
+      the id goes by in a tool result it has long since stopped looking at, and
+      when she comes back an hour later with the label off the yogurt pot it
+      invents something like "breakfast-smoothie" and the correction is
+      refused. That happened for six turns straight — she read out the figures
+      for the yogurt, the milk, the cacao nibs, the chia, the flax and the
+      berries, every one of them exact, and every one of them was answered with
+      "tap it on the Eat screen" because this tool could not find the row.
+
+      `correct_set` has always worked the other way — with nothing but the
+      movement it corrects the most recent one — and this is the same sentence
+      about food. The slot is the handle she actually gives you.
+    */
+    const when = input.date ?? (await todayForProfile(ctx.profileId));
+    const [row] = input.logId
+      ? await db.select().from(mealLogs)
+        .where(and(eq(mealLogs.id, input.logId), eq(mealLogs.profileId, ctx.profileId)))
+        .limit(1)
+      : input.slot
+        ? await db.select().from(mealLogs)
+          .where(and(
+            eq(mealLogs.profileId, ctx.profileId),
+            eq(mealLogs.date, when),
+            eq(mealLogs.slot, input.slot),
+          ))
+          .orderBy(desc(mealLogs.createdAt))
+          .limit(1)
+        : [];
+    if (!row) {
+      return {
+        ok: false,
+        error: input.logId
+          ? "No entry with that id. Pass `slot` instead and it will correct her most recent entry in that meal, or call get_day_nutrition for the day's real ids."
+          : input.slot
+            ? `Nothing logged for ${input.slot} on ${when} to correct.`
+            : "Pass either a logId or the slot whose latest entry she means.",
+      };
+    }
 
     // Undefined means "leave alone"; null means "we do not know", which is a
     // value this app carries deliberately and must be writable.

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { LATEST_ID } from "@/lib/whats-new";
 import { RANKS } from "@/lib/titles";
 import { z } from "zod";
+import { herId } from "./ids";
 import { db } from "@/lib/db";
 import { goals, profiles, weighIns, pushSubscriptions,
 } from "@/lib/db/schema";
@@ -490,7 +491,7 @@ export const achieveGoal = defineTool({
   name: "achieve_goal",
   description:
     "Mark a milestone as hit, and record that she has been told. Call it the moment the data supports it — then celebrate it specifically, naming what she did. Weight milestones mark themselves as her trend passes them; calling this on one of those is how you record that you have actually said so, and it is what stops the same milestone being announced every turn.",
-  input: z.object({ goalId: z.string() }),
+  input: z.object({ goalId: herId("get_milestones") }),
   handler: async (input, ctx) => {
     const [before] = await db.select().from(goals)
       .where(and(eq(goals.id, input.goalId), eq(goals.profileId, ctx.profileId))).limit(1);

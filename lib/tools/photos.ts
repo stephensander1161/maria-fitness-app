@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { herId } from "./ids";
 import { db } from "@/lib/db";
 import { photos } from "@/lib/db/schema";
 import { FUTURE_DATE_ERROR, isFuture } from "@/lib/date";
@@ -139,7 +140,7 @@ export const deleteProgressPhoto = defineTool({
   name: "delete_progress_photo",
   description:
     "Delete one progress photo by id, from list_progress_photos. Only when she asks — deletion is permanent and there is no other copy.",
-  input: z.object({ photoId: z.string().describe("id from list_progress_photos") }),
+  input: z.object({ photoId: herId("get_photos").describe("id from list_progress_photos") }),
   handler: async (input, ctx) => {
     const [row] = await db.delete(photos)
       .where(and(eq(photos.id, input.photoId), eq(photos.profileId, ctx.profileId)))
