@@ -132,8 +132,39 @@ suite("the training card during a session", () => {
     // server last sent — see the suite below.
     expect([...card.matchAll(/restAfter\(ex, logged, alreadyDone\)/g)]).toHaveLength(2);
     expect(card).toMatch(/onLogged\(\n\s*outcome\.result,\n\s*setCount,/);
-    // Beating while the session runs; still, but still marked, before it.
-    expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
+    // Beating while the session runs, and absent the rest of the time.
+    expect(card).toMatch(/upNext && live \? "border-beat now-glow" : ""/);
+  });
+});
+
+suite("every day has a way off it", () => {
+  /*
+    A rest day was a dead end.
+
+    Train has three returns — a rest day, a day with nothing planned, and the
+    ordinary one — and the arrows, the date and the way back to today were
+    written inside the third. So a Sunday showed a card saying "Rest day" and
+    nothing else: no date, no step back to Saturday, and no step into the week
+    ahead. The week rolls forward on its own (lib/plan-rollover.ts), so the
+    movements were waiting there; there was simply no way to walk to them.
+  */
+  const card = read("components/train-client.tsx");
+
+  it("builds the day's header once, above the returns that leave early", () => {
+    expect(card).toMatch(/const dayHeader = heading \? \(/);
+    // Declared before the first early return, or the early returns cannot use it.
+    expect(card.indexOf("const dayHeader =")).toBeLessThan(card.indexOf("if (view.isRest &&"));
+  });
+
+  it("puts it on all three screens", () => {
+    expect([...card.matchAll(/\{dayHeader\}/g)]).toHaveLength(3);
+    // And each early return opens with it, rather than with the empty state.
+    for (const marker of ['<Empty title="Rest day"', '<Empty\n          title="No workout planned"']) {
+      const at = card.indexOf(marker.replace(/\\n/g, "\n"));
+      expect(at, marker).toBeGreaterThan(-1);
+      const before = card.slice(card.lastIndexOf("return (", at), at);
+      expect(before, marker).toMatch(/\{dayHeader\}/);
+    }
   });
 });
 
@@ -635,26 +666,26 @@ suite("what is left this week", () => {
 suite("the marker beats only while the session is running", () => {
   const read = (p: string) => fs.readFileSync(p, "utf8");
 
-  it("is still until she has started", () => {
-    // Before the clock is running nothing is happening, so a card pulsing at
-    // her while she reads the day is urgency about a workout that has not
-    // begun.
+  it("is not there at all until she has started", () => {
+    // Before the clock is running nothing is happening, so a movement ringed
+    // in green is the app claiming a session that has not begun — and a
+    // finished day was doing the same, because `startedAt` stays set.
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/live=\{view\.startedAt !== null\}/);
-    expect(card).toMatch(/upNext \? \(live \? "border-beat now-glow" : "border-beat now-still"\) : ""/);
+    expect(card).toMatch(/const sessionLive = view\.startedAt !== null && view\.finishedAt === null;/);
+    expect([...card.matchAll(/live=\{sessionLive\}/g)]).toHaveLength(2);
+    expect(card).not.toMatch(/live=\{view\.startedAt !== null\}/);
+    expect(card).toMatch(/upNext && live \? "border-beat now-glow" : ""/);
     // And nothing sets the tempo per card: it used to be read off the rest,
     // which on a card the size of a hand read as a sign shorting out.
     expect(card).not.toMatch(/animationDuration/);
   });
 
-  it("but still says which movement she is on", () => {
-    // Still is not absent: the question it answers is "which one am I doing".
-    const css = read("app/globals.css");
-    expect(css).toMatch(/\.now-still \{/);
-    const still = css.slice(css.indexOf(".now-still {"), css.indexOf("}", css.indexOf(".now-still {")));
-    expect(still).toMatch(/box-shadow/);
-    expect(still).toMatch(/border-color: var\(--color-beat\)/);
-    expect(still).not.toMatch(/animation/);
+  it("leaves no marker behind when nobody is training", () => {
+    // There was a second, still version of the marker for exactly this case.
+    // It is gone rather than merely unused: a class nothing sets is a class
+    // somebody re-adds by accident.
+    expect(read("app/globals.css")).not.toMatch(/now-still/);
+    expect(read("components/train-client.tsx")).not.toMatch(/now-still/);
   });
 });
 

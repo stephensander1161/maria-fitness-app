@@ -31,12 +31,13 @@ suite("the marker on the movement she is on", () => {
     expect(glow("32%")).toBeLessThan(glow("10%"));
   });
 
-  it("holds still before she starts", () => {
+  it("is not drawn at all before she starts", () => {
     // A card pulsing while she reads the day is urgency about a workout that
-    // has not begun.
-    expect(css).toMatch(/\.now-still \{/);
+    // has not begun — and a still green ring on a day nobody is training is
+    // the same claim, quieter. There is no marker outside a live session.
+    expect(css).not.toMatch(/now-still/);
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).toMatch(/live \? "border-beat now-glow" : "border-beat now-still"/);
+    expect(card).toMatch(/upNext && live \? "border-beat now-glow" : ""/);
   });
 });
 

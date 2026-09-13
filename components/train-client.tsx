@@ -366,6 +366,14 @@ export function TrainClient({
     window.addEventListener("pointercancel", end);
   }
 
+  /**
+   * A session that is actually happening: started, and not signed off.
+   *
+   * `startedAt` alone stays set after she finishes, so a finished day went on
+   * marking a movement as the one she was on.
+   */
+  const sessionLive = view.startedAt !== null && view.finishedAt === null;
+
   const stillToDo = (slug: string | undefined) => {
     const e = view.exercises.find((x) => x.slug === slug);
     return Boolean(e && e.targetSets > 0 && e.loggedToday.length < e.targetSets);
@@ -627,9 +635,133 @@ export function TrainClient({
     return slugs.flatMap((slug) => (by.has(slug) ? [{ slug, name: by.get(slug)! }] : []));
   };
 
+  // A running session takes a row of its own on a phone: the clock, the pause
+  // and Finish beside a session name left about a third of the row for the
+  // name, and the header changed shape under her the moment she pressed Start.
+  // Now it changes shape *visibly* — the controls drop onto the line below,
+  // left-aligned under the name — which is a card rearranging itself rather
+  // than a card that was suddenly different.
+  const running = Boolean(view.startedAt) && !view.finishedAt;
+  // Train gives this header the day's arrows; Plan borrows it for today's card
+  // and gives it none. The whole shape of the row turns on that.
+  const hasDayNav = Boolean(stepBack || stepOn);
+  // Whatever holds the left of the top row: the day's arrows on Train, the
+  // day's name on Plan.
+  const hasLead = hasDayNav || Boolean(lead);
+  /*
+    Any day she has not signed off, not only today.
+
+    The clock was locked to today, which is wrong in both directions: a session
+    that runs past midnight lands on yesterday and could not be finished, and a
+    Saturday session logged on Sunday morning could not be started or timed at
+    all. What actually decides is whether the day is *done* — a finished
+    session has nothing left to start, pause or finish.
+
+    A day in the future still gets nothing. `start_workout` and the rest refuse
+    a future date anyway, so the control would only be there to be turned down.
+
+    A *finished* day still gets one: it carries how long the session ran, and
+    now the way to pick it back up.
+  */
+  const sessionBar = !isFutureDay ? (
+    <SessionBar
+      startedAt={view.startedAt}
+      finishedAt={view.finishedAt}
+      pausedAt={view.pausedAt}
+      pausedMs={view.pausedMs}
+      busy={finishing}
+      clockBusy={pausing}
+      onStart={startSession}
+      // The confirmation moved up here with the button. Ending a session with
+      // movements still on the plan is a thing she may well mean; doing it by
+      // accident in the middle of one is not.
+      onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
+      onPause={togglePause}
+      onReopen={reopen}
+      onCorrected={() => router.refresh()}
+    />
+  ) : null;
+
+  // Three things wanting one row is what forces the name onto its own line.
+  // Two of them fit side by side at any width worth supporting, and a day with
+  // no clock — Friday, next week — was getting the crowded layout anyway: a
+  // row holding nothing but the arrows, and the session's name marooned in the
+  // middle of the row under it.
+  const crowdedRow = hasLead && Boolean(sessionBar);
+
+  /*
+    The day, its name and its clock — and, on Train, the arrows either side.
+
+    A declaration rather than JSX inside the one return, because there are
+    three returns: a rest day and a day with nothing planned both leave
+    early, and they were leaving this behind. That is how a Sunday became a
+    dead end — the only thing on it was a card saying "Rest day", with no
+    date, no way to the day before and no way into the week ahead.
+  */
+  const dayHeader = heading ? (
+        <section className="card p-4">
+          {/* On a phone the day's name shares its row with the controls, on
+              the left. A desktop has the width to give the session its proper
+              heading: the name centred and large across the card, with the
+              clock and Finish pinned to the top-right corner. `md:block` drops
+              the flex row so the centred text is genuinely centred on the
+              card, not on the space left over beside the controls. */}
+          {/*
+            Three cells: which day, the day's name, the session's control.
+            A wide screen has room for all three on one line, so it is a grid
+            with the name in the middle column and a 1fr either side — which is
+            what makes it centred on the *card* rather than on whatever space
+            the other two happened to leave.
+
+            A phone does not, and the name is the part that must not be
+            squeezed: "Wednesday session" in the 130px left over broke it over
+            two lines. So below `md` the two controls share the top line and
+            the name takes the whole one under it, `order-last` putting it
+            there without changing the order the grid reads above.
+
+            All of which is only true when there *are* arrows. Plan borrows
+            this header for today's card and passes none, so the first cell was
+            empty: the button sat alone on a row of its own with the day's name
+            underneath it, which is two rows for one line of content. Without
+            them it is the plain arrangement it always was — name left, control
+            right, one row.
+          */}
+          <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
+            hasLead ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
+          }`}>
+            {hasDayNav ? (
+              <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
+                {stepBack}
+                {dayLine}
+                {stepOn}
+              </div>
+            ) : lead ? (
+              <div className="min-w-0 shrink md:order-none md:justify-self-start">{lead}</div>
+            ) : null}
+            <div className={`min-w-0 ${
+              crowdedRow
+                ? "order-last basis-full text-center md:order-none md:basis-auto"
+                : hasLead
+                  ? "flex-1 basis-24 text-center"
+                  : "flex-1 basis-32"
+            }`}>
+              {heading}
+            </div>
+            {sessionBar && (
+              <div className={`ml-auto shrink-0 md:order-none md:ml-0 md:justify-self-end ${
+                justStarted && running ? "session-drop" : ""
+              }`}>
+                {sessionBar}
+              </div>
+            )}
+          </div>
+        </section>
+  ) : sessionBar;
+
   if (view.isRest && view.exercises.length === 0) {
     return (
       <div className="space-y-4">
+        {dayHeader}
         <Empty title="Rest day" body="Recovery is when the adaptation actually happens. A walk or some mobility work is plenty." />
         {/* And then it offers some. The card said "mobility work is plenty"
             and gave none, which is the app naming a thing it does not do. */}
@@ -647,6 +779,7 @@ export function TrainClient({
   if (!view.hasPlan || view.exercises.length === 0) {
     return (
       <div className="space-y-4">
+        {dayHeader}
         <Empty
           title="No workout planned"
           body="Add movements below and this becomes today's session — or ask your coach to build the whole week."
@@ -709,66 +842,12 @@ export function TrainClient({
             onRetryPending={flush}
             onRemoved={() => router.refresh()}
             upNext={currentSlug === ex.slug}
-            live={view.startedAt !== null}
+            live={sessionLive}
           />
         )}
       </MovementScreen>
     );
   }
-
-  // A running session takes a row of its own on a phone: the clock, the pause
-  // and Finish beside a session name left about a third of the row for the
-  // name, and the header changed shape under her the moment she pressed Start.
-  // Now it changes shape *visibly* — the controls drop onto the line below,
-  // left-aligned under the name — which is a card rearranging itself rather
-  // than a card that was suddenly different.
-  const running = Boolean(view.startedAt) && !view.finishedAt;
-  // Train gives this header the day's arrows; Plan borrows it for today's card
-  // and gives it none. The whole shape of the row turns on that.
-  const hasDayNav = Boolean(stepBack || stepOn);
-  // Whatever holds the left of the top row: the day's arrows on Train, the
-  // day's name on Plan.
-  const hasLead = hasDayNav || Boolean(lead);
-  /*
-    Any day she has not signed off, not only today.
-
-    The clock was locked to today, which is wrong in both directions: a session
-    that runs past midnight lands on yesterday and could not be finished, and a
-    Saturday session logged on Sunday morning could not be started or timed at
-    all. What actually decides is whether the day is *done* — a finished
-    session has nothing left to start, pause or finish.
-
-    A day in the future still gets nothing. `start_workout` and the rest refuse
-    a future date anyway, so the control would only be there to be turned down.
-
-    A *finished* day still gets one: it carries how long the session ran, and
-    now the way to pick it back up.
-  */
-  const sessionBar = !isFutureDay ? (
-    <SessionBar
-      startedAt={view.startedAt}
-      finishedAt={view.finishedAt}
-      pausedAt={view.pausedAt}
-      pausedMs={view.pausedMs}
-      busy={finishing}
-      clockBusy={pausing}
-      onStart={startSession}
-      // The confirmation moved up here with the button. Ending a session with
-      // movements still on the plan is a thing she may well mean; doing it by
-      // accident in the middle of one is not.
-      onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
-      onPause={togglePause}
-      onReopen={reopen}
-      onCorrected={() => router.refresh()}
-    />
-  ) : null;
-
-  // Three things wanting one row is what forces the name onto its own line.
-  // Two of them fit side by side at any width worth supporting, and a day with
-  // no clock — Friday, next week — was getting the crowded layout anyway: a
-  // row holding nothing but the arrows, and the session's name marooned in the
-  // middle of the row under it.
-  const crowdedRow = hasLead && Boolean(sessionBar);
 
   return (
     <div className="space-y-4">
@@ -780,65 +859,7 @@ export function TrainClient({
         onto a second line the moment she presses Start is a card that changes
         shape underneath her.
       */}
-      {heading ? (
-        <section className="card p-4">
-          {/* On a phone the day's name shares its row with the controls, on
-              the left. A desktop has the width to give the session its proper
-              heading: the name centred and large across the card, with the
-              clock and Finish pinned to the top-right corner. `md:block` drops
-              the flex row so the centred text is genuinely centred on the
-              card, not on the space left over beside the controls. */}
-          {/*
-            Three cells: which day, the day's name, the session's control.
-            A wide screen has room for all three on one line, so it is a grid
-            with the name in the middle column and a 1fr either side — which is
-            what makes it centred on the *card* rather than on whatever space
-            the other two happened to leave.
-
-            A phone does not, and the name is the part that must not be
-            squeezed: "Wednesday session" in the 130px left over broke it over
-            two lines. So below `md` the two controls share the top line and
-            the name takes the whole one under it, `order-last` putting it
-            there without changing the order the grid reads above.
-
-            All of which is only true when there *are* arrows. Plan borrows
-            this header for today's card and passes none, so the first cell was
-            empty: the button sat alone on a row of its own with the day's name
-            underneath it, which is two rows for one line of content. Without
-            them it is the plain arrangement it always was — name left, control
-            right, one row.
-          */}
-          <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
-            hasLead ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
-          }`}>
-            {hasDayNav ? (
-              <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
-                {stepBack}
-                {dayLine}
-                {stepOn}
-              </div>
-            ) : lead ? (
-              <div className="min-w-0 shrink md:order-none md:justify-self-start">{lead}</div>
-            ) : null}
-            <div className={`min-w-0 ${
-              crowdedRow
-                ? "order-last basis-full text-center md:order-none md:basis-auto"
-                : hasLead
-                  ? "flex-1 basis-24 text-center"
-                  : "flex-1 basis-32"
-            }`}>
-              {heading}
-            </div>
-            {sessionBar && (
-              <div className={`ml-auto shrink-0 md:order-none md:ml-0 md:justify-self-end ${
-                justStarted && running ? "session-drop" : ""
-              }`}>
-                {sessionBar}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : sessionBar}
+      {dayHeader}
       {finishEarly && (
         <div className="card flex flex-wrap items-center gap-2 p-3">
           <p className="min-w-0 flex-1 text-[13px] text-muted">
@@ -930,10 +951,9 @@ export function TrainClient({
           folded={isFolded(ex)}
           onFold={(shut) => foldMovement(ex.slug, shut)}
           upNext={isUpNext(ex)}
-          // Still until she starts. Before the clock is running there is
-          // nothing happening, so a card pulsing at her while she reads the
-          // day is urgency about a workout that has not begun.
-          live={view.startedAt !== null}
+          // Nothing at all until she starts. A movement ringed in green on a
+          // day nobody is training is the app claiming a session is happening.
+          live={sessionLive}
         />
         );
       })}
@@ -1757,11 +1777,11 @@ export function ExerciseCard({
   /**
    * Whether the session is actually under way.
    *
-   * The marker beats like a heart counting down a rest. Before she has
-   * started there is no rest to count down and nothing is happening, so a
-   * card sat there pulsing at her while she was reading the day — urgency
-   * about a workout that has not begun. Still, it says "you are here"; beating,
-   * it says "go now", and only one of those is true before the clock starts.
+   * The marker beats like a heart counting down a rest, and it does not exist
+   * at all outside a running session. It used to sit there, still, on any day
+   * she opened — so a Tuesday she was reading on Sunday night had a movement
+   * ringed in green as though she were mid-workout, and so did a session she
+   * had already signed off. "You are here" is only true while she is here.
    */
   live?: boolean;
   /** Being dragged to a new place in the day. */
@@ -2148,7 +2168,7 @@ export function ExerciseCard({
       } ${chainAbove ? "-mt-3 rounded-t-none" : ""
       } ${chainBelow ? "rounded-b-none" : ""
       } ${targetMet && !upNext ? "done-card" : ""
-      } ${upNext ? (live ? "border-beat now-glow" : "border-beat now-still") : ""
+      } ${upNext && live ? "border-beat now-glow" : ""
       } ${dragging ? "z-20 scale-[1.02] shadow-xl shadow-scrim/70" : ""
       /*
         Not done at all, on a session that is closed.

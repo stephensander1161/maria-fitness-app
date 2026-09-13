@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-13-rest-day-arrows",
+    date: "2026-09-13",
+    title: "A rest day is no longer a dead end",
+    blurb:
+      "The arrows either side of the date lived on the days that had movements on them, so a rest day showed a card saying “Rest day” and nothing else — no date, no way back to yesterday, no way into the week ahead. Every day carries them now, and stepping into next week brings the week's movements with it. The green ring on the movement you are on has also stopped appearing on days nobody is training.",
+    href: "/",
+  },
+  {
     id: "2026-09-13-titles-earned",
     date: "2026-09-13",
     title: "Your title is earned now, not counted",
