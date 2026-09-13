@@ -313,10 +313,17 @@ export async function trainingFor(friendProfileId: string, viewerUnits: Units): 
   const sessionsAllTime = allTime?.n ?? 0;
   return {
     name: friend.name ?? "Someone",
+    // Training only, and only the parts of it that cross. His eating is a
+    // body fact and never leaves his account, so the food inputs are zero
+    // here rather than fetched — and so is his miss count, which is a
+    // judgement about somebody who did not agree to be judged.
     title: titleFor({
       sets: setsWeek?.n ?? 0,
       sessions: sessionsAllTime,
-      daysLogged: 0,
+      missedSessions: 0,
+      daysOnTarget: 0,
+      daysOver: 0,
+      daysUncounted: 0,
       streakWeeks: streakWeeks(sessionDates.map((r) => r.date as ISODate), (d) => weekStart(d), week),
       milestones: 0,
     }).name,

@@ -20,7 +20,7 @@ import { shoppingListFor } from "@/lib/shopping-list";
 import { exerciseHistory, lastTimeTargets } from "@/lib/progress";
 import { FIBRE_TARGET_G, fibreForDay, macroSplit } from "@/lib/nutrition";
 import {
-  newRankFor, RANKS, rankNumber, streakWeeks, titleFor, type Rank, type TitleStats,
+  newRankFor, rankNumber, streakWeeks, titleFor, type Rank, type TitleStats,
 } from "@/lib/titles";
 import { dayTitle, isRestDay } from "@/lib/rest-day";
 import { workoutHappened } from "@/lib/sessions";
@@ -979,7 +979,7 @@ export async function movementView(slug: string) {
  * that could drift from these.
  */
 export async function titleStatsRaw(profileId: string, asOf: ISODate): Promise<TitleStats> {
-  const [[sets], [sessions], [days], [milestones], sessionDates] = await Promise.all([
+  const [[sets], [sessions], [food], [missed], [milestones], sessionDates] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` })
       .from(setLogs)
       .innerJoin(workouts, eq(setLogs.workoutId, workouts.id))
@@ -988,9 +988,68 @@ export async function titleStatsRaw(profileId: string, asOf: ISODate): Promise<T
     db.select({ n: sql<number>`count(*)::int` })
       .from(workouts)
       .where(and(eq(workouts.profileId, profileId), workoutHappened)),
-    db.select({ n: sql<number>`count(distinct ${mealLogs.date})::int` })
-      .from(mealLogs)
-      .where(eq(mealLogs.profileId, profileId)),
+    /*
+      Her eating, day by day, against the target that was in force that week.
+
+      Three buckets rather than one count of logged days, and the third is the
+      one that matters: a day is only judged when *every* entry on it carried a
+      figure and there was a target to judge it against. Everything else is
+      `uncounted` — the app does not know what was in "leftovers, dinner at
+      Mum's" and will not score it either way. Summing the nulls as zero would
+      hand her a perfect day for forgetting to log, which is the failure this
+      whole file is written around.
+
+      The target comes off that week's meal plan rather than today's, so a week
+      she ate to a 1900 target is not marked against a 1600 one she was set
+      later. `date_trunc('week')` is Monday in Postgres, which is this app's
+      week start.
+    */
+    db.execute(sql`
+      with by_day as (
+        select ${mealLogs.date} as d,
+               bool_and(${mealLogs.calories} is not null) as complete,
+               sum(coalesce(${mealLogs.calories}, 0))::int as kcal
+        from ${mealLogs}
+        where ${mealLogs.profileId} = ${profileId}
+        group by ${mealLogs.date}
+      ),
+      judged as (
+        select by_day.complete, by_day.kcal, mp.calorie_target as target
+        from by_day
+        left join ${mealPlans} mp
+          on mp.profile_id = ${profileId}
+         and mp.week_start = (date_trunc('week', by_day.d::timestamp))::date
+      )
+      select
+        count(*) filter (where complete and target is not null and kcal <= target)::int as on_target,
+        count(*) filter (where complete and target is not null and kcal > target)::int as over_target,
+        count(*) filter (where not complete or target is null)::int as uncounted
+      from judged
+    `),
+    /*
+      Days the plan asked her to train on that came and went with nothing on
+      them.
+
+      A rest day is not a miss — it is the plan working — and neither is a day
+      whose movements were never written, which is a planner that did not
+      finish rather than a session she skipped. Today is never a miss either:
+      it is not over yet.
+    */
+    db.select({ n: sql<number>`count(*)::int` })
+      .from(planDays)
+      .innerJoin(plans, eq(planDays.planId, plans.id))
+      .where(and(
+        eq(plans.profileId, profileId),
+        eq(planDays.isRest, false),
+        sql`exists (select 1 from ${planExercises} where ${planExercises.planDayId} = ${planDays.id})`,
+        sql`(${plans.weekStart}::date + ${planDays.dayOfWeek}) < ${asOf}::date`,
+        sql`not exists (
+          select 1 from ${workouts}
+          where ${workouts.profileId} = ${profileId}
+            and ${workouts.date} = (${plans.weekStart}::date + ${planDays.dayOfWeek})
+            and ${workoutHappened}
+        )`,
+      )),
     db.select({ n: sql<number>`count(*)::int` })
       .from(goals)
       .where(and(eq(goals.profileId, profileId), isNotNull(goals.achievedAt))),
@@ -1001,10 +1060,17 @@ export async function titleStatsRaw(profileId: string, asOf: ISODate): Promise<T
       .limit(400),
   ]);
 
+  // One row of three counts. Destructured out of the result above, like every
+  // other count here — the driver hands back an array of rows either way.
+  const eating = food as unknown as FoodDayCounts | undefined;
+
   return {
     sets: sets?.n ?? 0,
     sessions: sessions?.n ?? 0,
-    daysLogged: days?.n ?? 0,
+    missedSessions: missed?.n ?? 0,
+    daysOnTarget: Number(eating?.on_target ?? 0),
+    daysOver: Number(eating?.over_target ?? 0),
+    daysUncounted: Number(eating?.uncounted ?? 0),
     streakWeeks: streakWeeks(
       sessionDates.map((r) => r.date as ISODate),
       (d) => weekStart(d),
@@ -1014,8 +1080,19 @@ export async function titleStatsRaw(profileId: string, asOf: ISODate): Promise<T
   };
 }
 
-export async function titleStats(profileId: string, asOf: ISODate) {
-  return titleFor(await titleStatsRaw(profileId, asOf));
+type FoodDayCounts = { on_target: number; over_target: number; uncounted: number };
+
+/**
+ * Her rank, floored at the one she has already been told about.
+ *
+ * Takes the profile rather than an id because the floor lives on it — see
+ * rule 2 in lib/titles.ts. The score falls now; the name does not.
+ */
+export async function titleStats(
+  profile: { id: string; titleSeenAt: number | null },
+  asOf: ISODate,
+) {
+  return titleFor(await titleStatsRaw(profile.id, asOf), profile.titleSeenAt);
 }
 
 /**
@@ -1027,9 +1104,10 @@ export async function titleStats(profileId: string, asOf: ISODate) {
 export async function titleEarned(
   profile: { id: string; titleSeenAt: number | null },
   asOf: ISODate,
-): Promise<{ rank: Rank; number: number; of: number } | null> {
+): Promise<{ rank: Rank; number: number } | null> {
   const rank = newRankFor(await titleStatsRaw(profile.id, asOf), profile.titleSeenAt);
-  return rank ? { rank, number: rankNumber(rank), of: RANKS.length } : null;
+  // The number, never the total. See the note at the top of lib/titles.ts.
+  return rank ? { rank, number: rankNumber(rank) } : null;
 }
 
 

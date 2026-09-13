@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-13-titles-earned",
+    date: "2026-09-13",
+    title: "Your title is earned now, not counted",
+    blurb:
+      "It used to go up for logging, whatever the week looked like. It reads what actually happened now — a day inside your calorie target is worth something, a day over it costs, and a planned session that came and went costs. A day logged in words counts neither way, because nobody knows what was in it. The title itself is never taken away; only the bar moves backwards.",
+  },
+  {
     id: "2026-09-12-finish-early",
     date: "2026-09-12",
     title: "Finishing early, without losing the rest",

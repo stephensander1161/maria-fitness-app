@@ -2,17 +2,42 @@ import { describe as suite, expect, it } from "vitest";
 import { RANKS, scoreFor, streakWeeks, titleFor } from "@/lib/titles";
 import { weekStart, type ISODate } from "@/lib/date";
 
-suite("a title only ever goes up", () => {
-  it("never demotes for a bad fortnight", () => {
-    // Every input is a lifetime total, so more of anything can only raise the
-    // score. Taking a title away for missing sessions punishes exactly the
-    // moment she most needs a reason to come back.
-    const before = { sets: 400, sessions: 40, daysLogged: 100, streakWeeks: 8, milestones: 2 };
-    const after = { ...before, streakWeeks: 0 };
-    // The streak resetting is the only input that can fall, and it costs at
-    // most its own weight — it can never undo the sets and sessions banked.
-    expect(scoreFor(after)).toBeLessThan(scoreFor(before));
-    expect(scoreFor(after)).toBeGreaterThan(scoreFor({ ...before, sets: 0, sessions: 0, daysLogged: 0, streakWeeks: 0 }));
+const NOTHING = {
+  sets: 0, sessions: 0, missedSessions: 0,
+  daysOnTarget: 0, daysOver: 0, daysUncounted: 0,
+  streakWeeks: 0, milestones: 0,
+};
+
+suite("a title is earned, not accumulated", () => {
+  it("costs her a day that went over the target", () => {
+    // The whole point of the change: the score used to go up for *logging*,
+    // whatever the day looked like, so a fortnight in the red read exactly
+    // like a fortnight on plan.
+    const onPlan = { ...NOTHING, daysOnTarget: 10 };
+    const inTheRed = { ...NOTHING, daysOver: 10 };
+    expect(scoreFor(onPlan)).toBeGreaterThan(0);
+    expect(scoreFor(inTheRed)).toBeLessThan(0);
+  });
+
+  it("costs her a planned session that came and went", () => {
+    const turnedUp = { ...NOTHING, sessions: 4 };
+    const threeOfFour = { ...NOTHING, sessions: 3, missedSessions: 1 };
+    expect(scoreFor(threeOfFour)).toBeLessThan(scoreFor(turnedUp));
+    // …but three out of four is still a good week, and the number has to say
+    // so. A miss that cancels a session outright makes the bar unmovable for
+    // anyone with a life.
+    expect(scoreFor(threeOfFour)).toBeGreaterThan(0);
+  });
+
+  it("neither credits nor punishes a day nobody could count", () => {
+    // "Leftovers", "dinner at Mum's" — honest entries about meals nobody
+    // measured. Unknown is not zero and it is not a failure: the small credit
+    // for logging, and no judgement on top. Scoring it as a good day would
+    // reward vagueness; scoring it as a bad one would punish honesty.
+    const vague = scoreFor({ ...NOTHING, daysUncounted: 10 });
+    expect(vague).toBeGreaterThan(0);
+    expect(vague).toBeLessThan(scoreFor({ ...NOTHING, daysOnTarget: 10 }));
+    expect(vague).toBeGreaterThan(scoreFor({ ...NOTHING, daysOver: 10 }));
   });
 
   it("ranks by thresholds that only increase", () => {
@@ -22,11 +47,11 @@ suite("a title only ever goes up", () => {
   });
 
   it("starts everyone somewhere, and tops out", () => {
-    const first = titleFor({ sets: 0, sessions: 0, daysLogged: 0, streakWeeks: 0, milestones: 0 });
+    const first = titleFor(NOTHING);
     expect(first.name).toBe(RANKS[0].name);
     expect(first.next).toBe(RANKS[1].name);
 
-    const last = titleFor({ sets: 999_999, sessions: 0, daysLogged: 0, streakWeeks: 0, milestones: 0 });
+    const last = titleFor({ ...NOTHING, sets: 999_999 });
     expect(last.name).toBe(RANKS.at(-1)!.name);
     expect(last.next).toBeNull();
     expect(last.progress).toBe(100);
@@ -35,9 +60,37 @@ suite("a title only ever goes up", () => {
   it("weights turning up above one enormous session", () => {
     // Thirty sets in one go, against ten ordinary sessions. The month of
     // ordinary sessions is the thing that actually works, so it must win.
-    const oneBigDay = scoreFor({ sets: 30, sessions: 1, daysLogged: 1, streakWeeks: 1, milestones: 0 });
-    const tenSessions = scoreFor({ sets: 30, sessions: 10, daysLogged: 10, streakWeeks: 4, milestones: 0 });
+    const oneBigDay = scoreFor({ ...NOTHING, sets: 30, sessions: 1, daysOnTarget: 1, streakWeeks: 1 });
+    const tenSessions = scoreFor({ ...NOTHING, sets: 30, sessions: 10, daysOnTarget: 10, streakWeeks: 4 });
     expect(tenSessions).toBeGreaterThan(oneBigDay);
+  });
+});
+
+suite("a title is never taken away", () => {
+  it("holds the name at the highest rank she has been told about", () => {
+    // The score falls now — that is the point — and the name must not. Greeting
+    // her one morning with a smaller title than the one the app congratulated
+    // her on is the most demoralising thing this screen could do.
+    const collapsed = { ...NOTHING, daysOver: 40, missedSessions: 20 };
+    expect(scoreFor(collapsed)).toBeLessThan(0);
+    expect(titleFor(collapsed, RANKS[6].at).name).toBe(RANKS[6].name);
+    // Unfloored, the same numbers land at the bottom.
+    expect(titleFor(collapsed).name).toBe(RANKS[0].name);
+  });
+
+  it("walks the bar back toward the title she holds", () => {
+    // Stalled and reversing is what makes it a measurement. A bar that only
+    // ever creeps forward is measuring nothing.
+    const floor = RANKS[3].at;
+    const good = titleFor({ ...NOTHING, sets: RANKS[4].at - 1 }, floor);
+    const bad = titleFor({ ...NOTHING, sets: RANKS[3].at, daysOver: 8 }, floor);
+    expect(bad.name).toBe(good.name);
+    expect(bad.progress).toBeLessThan(good.progress);
+    expect(bad.progress).toBeGreaterThanOrEqual(0);
+  });
+
+  it("never reports a negative bar", () => {
+    expect(titleFor({ ...NOTHING, daysOver: 99 }, RANKS[5].at).progress).toBe(0);
   });
 });
 

@@ -7,16 +7,31 @@ import type { ISODate } from "@/lib/date";
  * tells her nothing. This says something about her instead, and it changes —
  * a small reason to look at it.
  *
- * Two rules, and they are the whole design:
+ * Three rules, and they are the whole design:
  *
- * 1. **It only ever goes up.** Every input is a lifetime total, so a bad
- *    fortnight can never demote her. An app that takes a title away for
- *    missing sessions is an app that punishes the exact moment she most needs
- *    a reason to come back.
- * 2. **It is never the joke.** These are meant to be funny about the *doing* —
+ * 1. **It is earned, not accumulated.** A title used to be a count of things
+ *    that had happened — every set, every logged day — so the score went up
+ *    whatever the week actually looked like. It reads the *quality* of the
+ *    inputs now: a day inside her calorie target is worth something, a day
+ *    over it costs, a planned session that came and went with nothing logged
+ *    costs, and a day logged in words carries neither because nobody knows
+ *    what was in it. See `POINTS`.
+ * 2. **A title is never taken away.** The score can fall — that is the point
+ *    of rule 1 — but the *name* is floored at the highest rank she has been
+ *    told about, so a bad fortnight stalls and reverses the bar toward the
+ *    next one and never demotes her. An app that takes a title away for
+ *    missing sessions punishes the exact moment she most needs a reason to
+ *    come back; an app whose bar never moves backwards is not measuring
+ *    anything.
+ * 3. **It is never the joke.** These are meant to be funny about the *doing* —
  *    a bar that keeps getting heavier, a routine that has become a habit —
  *    and never about her body, her weight, her speed, or how far along she is.
  *    Nothing here reads as sarcastic if you are struggling.
+ *
+ * And one thing it deliberately does not do: **say how many there are.** "7 of
+ * 30" turns a title into a progress bar with a finish line on it, and puts a
+ * number on how much of the thing she has not done. The rank has a number
+ * because being the seventh means something; the ceiling is nobody's business.
  */
 export type Rank = {
   /** Points needed. */
@@ -72,8 +87,25 @@ export type TitleStats = {
   sets: number;
   /** Every session she has finished. */
   sessions: number;
-  /** Distinct days with a meal logged. */
-  daysLogged: number;
+  /**
+   * Planned training days that came and went with nothing logged on them.
+   *
+   * Rest days and days with no movements on them are not misses — a rest day
+   * is the plan working. Only a day the plan asked her to train on.
+   */
+  missedSessions: number;
+  /** Fully-counted days that came in at or under the calorie target. */
+  daysOnTarget: number;
+  /** Fully-counted days that went over it. */
+  daysOver: number;
+  /**
+   * Days with food logged that carried no figures at all.
+   *
+   * Unknown is not zero, and it is not a failure either: "leftovers" is an
+   * honest entry about a meal nobody measured. It earns the small credit for
+   * logging and is judged no further. See the rule in CLAUDE.md.
+   */
+  daysUncounted: number;
   /** Consecutive weeks with at least one session. */
   streakWeeks: number;
   /** Milestones reached. */
@@ -81,16 +113,48 @@ export type TitleStats = {
 };
 
 /**
- * Points. Weighted so that *turning up* outscores *doing a lot in one go* —
- * a single enormous session should not outrank a month of ordinary ones,
- * because the month is the thing that actually works.
+ * What each input is worth.
+ *
+ * Weighted so that *turning up* outscores *doing a lot in one go* — a single
+ * enormous session should not outrank a month of ordinary ones, because the
+ * month is the thing that actually works.
+ *
+ * The two negatives are deliberately smaller than the positives they mirror.
+ * A miss has to cost something or the bar is not measuring anything, but three
+ * sessions and one missed one is still a good week and the number has to say
+ * so. Set them equal and a fortnight off wipes a month of work, which is the
+ * failure this app is most careful about.
+ *
+ * A day logged in words is worth `dayUncounted` whichever way it went, because
+ * nobody knows which way it went.
  */
+export const POINTS = {
+  set: 1,
+  session: 8,
+  missedSession: -5,
+  dayOnTarget: 4,
+  dayOver: -2,
+  dayUncounted: 1,
+  streakWeek: 15,
+  milestone: 25,
+} as const;
+
 export function scoreFor(s: TitleStats): number {
-  return s.sets
-    + s.sessions * 8
-    + s.daysLogged * 2
-    + s.streakWeeks * 15
-    + s.milestones * 25;
+  return s.sets * POINTS.set
+    + s.sessions * POINTS.session
+    + s.missedSessions * POINTS.missedSession
+    + s.daysOnTarget * POINTS.dayOnTarget
+    + s.daysOver * POINTS.dayOver
+    + s.daysUncounted * POINTS.dayUncounted
+    + s.streakWeeks * POINTS.streakWeek
+    + s.milestones * POINTS.milestone;
+}
+
+/** Which rank a score sits in. */
+export function rankIndexFor(score: number): number {
+  let i = 0;
+  while (i + 1 < RANKS.length && score >= RANKS[i + 1].at) i += 1;
+  return i;
 }
 
 export type Title = {
@@ -101,10 +165,19 @@ export type Title = {
   next: string | null;
 };
 
-export function titleFor(stats: TitleStats): Title {
+/**
+ * The rank to show her.
+ *
+ * `floorAt` is the threshold of the highest rank she has already been told
+ * about — `profiles.title_seen_at`. The score can now fall, and rule 2 above
+ * is that the *name* never does: a red fortnight walks the bar back toward
+ * the title she holds and stops there. Without the floor the app would greet
+ * her one morning with a smaller title than the one it congratulated her on,
+ * which is the single most demoralising thing a screen like this can do.
+ */
+export function titleFor(stats: TitleStats, floorAt: number | null = null): Title {
   const score = scoreFor(stats);
-  let i = 0;
-  while (i + 1 < RANKS.length && score >= RANKS[i + 1].at) i += 1;
+  const i = Math.max(rankIndexFor(score), floorAt === null ? 0 : rankIndexFor(floorAt));
   const here = RANKS[i];
   const next = RANKS[i + 1] ?? null;
   const progress = next
@@ -149,13 +222,15 @@ export function streakWeeks(sessionDates: ISODate[], weekStartOf: (d: ISODate) =
  * screen for a rank she is dropping into.
  */
 export function newRankFor(stats: TitleStats, seenAt: number | null): Rank | null {
-  const score = scoreFor(stats);
-  let i = 0;
-  while (i + 1 < RANKS.length && score >= RANKS[i + 1].at) i += 1;
-  const here = RANKS[i];
+  const here = RANKS[rankIndexFor(scoreFor(stats))];
   if (seenAt === null) return null;
   return here.at > seenAt ? here : null;
 }
 
-/** Where a rank sits in the list, for "12 of 30". */
+/**
+ * Where a rank sits in the list, for "your 12th title".
+ *
+ * The number without the total, on purpose — see the note at the top of this
+ * file. It used to read "12 of 30".
+ */
 export const rankNumber = (rank: Rank): number => RANKS.findIndex((r) => r.at === rank.at) + 1;

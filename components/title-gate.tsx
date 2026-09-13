@@ -33,7 +33,6 @@ export async function TitleGate() {
       name={earned.rank.name}
       blurb={earned.rank.blurb}
       number={earned.number}
-      of={earned.of}
     />
   );
 }

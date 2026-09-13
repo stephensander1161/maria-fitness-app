@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { LATEST_ID, unseen, WHATS_NEW } from "@/lib/whats-new";
-import { scoreFor, RANKS } from "@/lib/titles";
+import { rankIndexFor, scoreFor, RANKS } from "@/lib/titles";
 import { titleStatsRaw } from "@/lib/views";
 import { todayForProfile } from "@/lib/profile";
 
@@ -54,10 +54,14 @@ export const acknowledgeTitle = defineTool({
   input: z.object({}),
   handler: async (_input, ctx) => {
     const stats = await titleStatsRaw(ctx.profileId, await todayForProfile(ctx.profileId));
-    const score = scoreFor(stats);
-    let i = 0;
-    while (i + 1 < RANKS.length && score >= RANKS[i + 1].at) i += 1;
-    await db.update(profiles).set({ titleSeenAt: RANKS[i].at }).where(eq(profiles.id, ctx.profileId));
-    return { ok: true, title: RANKS[i].name };
+    const [me] = await db.select({ seen: profiles.titleSeenAt })
+      .from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    // Never downwards. The score can fall now — a red fortnight, a run of
+    // missed sessions — and this stamp is the floor that keeps the title she
+    // has already been congratulated on from being quietly taken back.
+    const at = Math.max(RANKS[rankIndexFor(scoreFor(stats))].at, me?.seen ?? 0);
+    const rank = RANKS[rankIndexFor(at)];
+    await db.update(profiles).set({ titleSeenAt: rank.at }).where(eq(profiles.id, ctx.profileId));
+    return { ok: true, title: rank.name };
   },
 });

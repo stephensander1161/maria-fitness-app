@@ -24,7 +24,7 @@ export async function MobileGreeting() {
   const profile = await getProfile(user.id);
   if (!profile.onboardedAt) return null;
 
-  const title = await titleStats(profile.id, profileToday(profile));
+  const title = await titleStats(profile, profileToday(profile));
   // Her clock, not the server's — the same rule as every date in this app.
   const greeting = greetingFor(hourIn(profile.timezone ?? APP_TIMEZONE));
   const name = user.name ?? profile.name;

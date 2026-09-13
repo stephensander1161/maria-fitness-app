@@ -2,7 +2,11 @@ import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { newRankFor, RANKS, rankNumber, scoreFor } from "@/lib/titles";
 
-const nothing = { sets: 0, sessions: 0, daysLogged: 0, streakWeeks: 0, milestones: 0 };
+const nothing = {
+  sets: 0, sessions: 0, missedSessions: 0,
+  daysOnTarget: 0, daysOver: 0, daysUncounted: 0,
+  streakWeeks: 0, milestones: 0,
+};
 /** Enough sets to land exactly on a rank's threshold. */
 const atScore = (n: number) => ({ ...nothing, sets: n });
 
@@ -37,10 +41,12 @@ suite("telling her the rank went up", () => {
   });
 
   it("only ever goes forward", () => {
-    // Every input is a lifetime total so the score cannot fall — but if that
-    // ever changes, a bad fortnight must not produce a celebration screen for
-    // a rank she is dropping *into*.
+    // The score can fall now — days in the red, sessions that came and went —
+    // so this one is load-bearing rather than defensive: a bad fortnight must
+    // never produce a "you are now Rep Counter" screen for a rank she is
+    // dropping *into*.
     expect(newRankFor(atScore(RANKS[1].at), RANKS[5].at)).toBeNull();
+    expect(newRankFor({ ...nothing, daysOver: 50 }, RANKS[5].at)).toBeNull();
   });
 
   it("holds at the top rather than repeating", () => {
@@ -54,6 +60,15 @@ suite("telling her the rank went up", () => {
     expect(scoreFor({ ...nothing, sessions: 1 })).toBe(8);
     expect(scoreFor({ ...nothing, streakWeeks: 1 })).toBe(15);
     expect(scoreFor({ ...nothing, milestones: 1 })).toBe(25);
+  });
+
+  it("tells her which title it is, and never how many there are", () => {
+    // "7 of 30" turns a rank into a completion bar with a finish line on it
+    // and puts a number on the part she has not done.
+    const screen = fs.readFileSync("components/title-earned.tsx", "utf8");
+    expect(screen).toMatch(/\{number\}/);
+    expect(screen).not.toMatch(/\{of\}|of \{/);
+    expect(fs.readFileSync("lib/views.ts", "utf8")).not.toMatch(/of: RANKS\.length/);
   });
 });
 

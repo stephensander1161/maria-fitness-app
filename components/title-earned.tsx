@@ -23,8 +23,8 @@ import { action } from "@/lib/client";
  *   ranks are written to and this only repeats what the library says.
  */
 export function TitleEarned({
-  name, blurb, number, of,
-}: { name: string; blurb: string; number: number; of: number }) {
+  name, blurb, number,
+}: { name: string; blurb: string; number: number }) {
   const router = useRouter();
   const [gone, setGone] = useState(false);
   const closed = useRef(false);
@@ -92,11 +92,14 @@ export function TitleEarned({
         </p>
         <p className="go-sub mt-4 text-[14px] leading-relaxed text-muted">{blurb}</p>
 
-        {/* Where it sits, because "rank 12 of 30" is the part that says there
+        {/* How many she has earned, and not how many there are.
+            "12 of 30" reads as a completion bar with a finish line on it, and
+            puts a number on the part she has not done — which is the opposite
+            of what this screen is for. The count on its own still says there
             is more of this and she is getting somewhere. */}
         <p className="go-sub mt-7 inline-flex items-center gap-2 rounded-full border border-line bg-surface/60 px-4 py-2 text-[12px] text-faint">
+          <span>Title</span>
           <span className="tabular text-text">{number}</span>
-          <span>of {of}</span>
         </p>
 
         <p className="go-sub mt-8 text-[12px] text-faint">Tap anywhere to clear</p>
