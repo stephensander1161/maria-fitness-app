@@ -155,3 +155,45 @@ suite("only the Finish button says it is finishing", () => {
     expect(bar.slice(0, 2600)).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
   });
 });
+
+suite("the clock is on every day she could still be working on", () => {
+  const card = fs.readFileSync("components/train-client.tsx", "utf8");
+
+  it("is not locked to today", () => {
+    /*
+      It was, and that is wrong in both directions: a session that runs past
+      midnight lands on yesterday and could not be finished, and a Saturday
+      session logged on Sunday morning could not be started or timed at all.
+      What decides is whether the day is *done* — a finished session has
+      nothing left to start, pause or finish.
+    */
+    expect(card).toMatch(/const sessionBar = !view\.finishedAt && !isFutureDay \?/);
+    expect(card).not.toMatch(/const sessionBar = isToday \?/);
+  });
+
+  it("is still absent on a day that has not happened", () => {
+    // The tools refuse a future date anyway; the control would only be there
+    // to be turned down.
+    expect(fs.readFileSync("app/train/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > her\}/);
+    expect(fs.readFileSync("app/train/[slug]/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > her\}/);
+  });
+
+  it("finishes the day on screen, not today's", () => {
+    /*
+      The one that would have gone wrong silently. Start and pause have always
+      carried the date; finish did not, so signing off yesterday would have
+      closed today's session instead — which is the reason the control was
+      locked to today rather than a reason to keep locking it.
+    */
+    const fn = card.slice(card.indexOf("async function finish("), card.indexOf("async function finish(") + 900);
+    expect(fn).toMatch(/\.\.\.\(date === undefined \? \{\} : \{ date \}\)/);
+  });
+
+  it("leaves the rest provider on today alone", () => {
+    // It is global and drives the GO screen. Somebody filling in yesterday on
+    // Sunday morning does not want a countdown, and seeding from the day she
+    // is reading would replace the session she is actually in.
+    const seed = card.slice(card.indexOf("This seeds the rest provider"));
+    expect(seed.slice(0, 600)).toMatch(/if \(!isToday\) return;/);
+  });
+});

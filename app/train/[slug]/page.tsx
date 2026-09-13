@@ -62,6 +62,7 @@ export default async function MovementPage({
       targets={targets}
       date={isToday ? undefined : on}
       isToday={isToday}
+      isFutureDay={on > her}
       focus={slug}
       // Arrived from "Log your bench set", so put the caret in the weight.
       // The reminder used to point at /train, which on the Train screen is

@@ -77,6 +77,7 @@ export function TrainClient({
   targets = [],
   date,
   isToday = true,
+  isFutureDay = false,
   focus,
   focusEntry = false,
   tone = null,
@@ -103,6 +104,16 @@ export function TrainClient({
    * a set cannot be logged into the future.
    */
   isToday?: boolean;
+  /**
+   * A day that has not happened yet.
+   *
+   * Separate from `isToday` because the two answer different questions and
+   * the clock turns on this one: yesterday's unfinished session can still be
+   * started and signed off, Thursday next week cannot. The tools refuse a
+   * future date anyway; this keeps the control from being there only to be
+   * turned down.
+   */
+  isFutureDay?: boolean;
   /**
    * Render one movement as the whole screen, rather than the day's list.
    *
@@ -216,6 +227,14 @@ export function TrainClient({
    * four of.
    */
   useEffect(() => {
+    /*
+      Today only, deliberately, even though the clock is not.
+
+      This seeds the rest provider, which is global and drives the GO screen.
+      Rest between sets is a live-session thing; somebody filling in yesterday
+      on Sunday morning does not want a countdown, and seeding from the day
+      she is *reading* would replace the session she is actually in.
+    */
     if (!isToday) return;
     setSession(view.exercises.map((e) => ({
       slug: e.slug, name: e.name, category: e.category,
@@ -504,7 +523,14 @@ export function TrainClient({
     try {
       // Anything still queued belongs in this session's summary.
       await flush();
-      await action("finish_workout", feeling === undefined ? {} : { feeling });
+      // The day on screen, not today's. Start and pause have always carried
+      // it; this did not, so finishing a session on any other day would have
+      // signed off today's — which is the whole reason these controls were
+      // locked to today rather than a reason to keep locking them.
+      await action("finish_workout", {
+        ...(feeling === undefined ? {} : { feeling }),
+        ...(date === undefined ? {} : { date }),
+      });
       window.dispatchEvent(new CustomEvent("workout:finished"));
       dismissRest();
       // Said properly, once, and only when she says she is done — a card
@@ -663,7 +689,19 @@ export function TrainClient({
   // Whatever holds the left of the top row: the day's arrows on Train, the
   // day's name on Plan.
   const hasLead = hasDayNav || Boolean(lead);
-  const sessionBar = isToday ? (
+  /*
+    Any day she has not signed off, not only today.
+
+    The clock was locked to today, which is wrong in both directions: a session
+    that runs past midnight lands on yesterday and could not be finished, and a
+    Saturday session logged on Sunday morning could not be started or timed at
+    all. What actually decides is whether the day is *done* — a finished
+    session has nothing left to start, pause or finish.
+
+    A day in the future still gets nothing. `start_workout` and the rest refuse
+    a future date anyway, so the control would only be there to be turned down.
+  */
+  const sessionBar = !view.finishedAt && !isFutureDay ? (
     <SessionBar
       startedAt={view.startedAt}
       finishedAt={view.finishedAt}
@@ -877,7 +915,10 @@ export function TrainClient({
       {/* Nothing logged and nothing finished is nothing to say — the cards
           above are the instruction, and a card whose only content is "get
           going" is furniture. */}
-      <div className={!isToday || (totalLogged === 0 && !view.completed) ? "hidden" : "card p-4"}>
+      {/* Same rule as the clock: any day she could still be working on. A
+          Saturday session logged on Sunday has a summary worth reading and a
+          sign-off worth tapping; Thursday next week has neither. */}
+      <div className={isFutureDay || (totalLogged === 0 && !view.completed) ? "hidden" : "card p-4"}>
         {view.completed && outstanding.length === 0 ? (
           <div className="text-center">
             <p className="text-[15px] font-semibold text-beat">Session done</p>

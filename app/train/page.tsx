@@ -87,6 +87,7 @@ export default async function TrainPage({
         targets={targets}
         date={on}
         isToday={isToday}
+        isFutureDay={on > her}
         // The arrows either side of the day's own name, in the card that
         // already carries it. They were a strip of their own above it, which
         // made the top of the screen two containers saying one thing.
