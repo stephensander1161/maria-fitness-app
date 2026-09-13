@@ -40,9 +40,19 @@ export const endMaintenancePhase = defineTool({
     "Ends the maintenance break and goes back to a deficit. Use it when the break is over or she wants to start again sooner. Set the target with set_nutrition_targets in the same turn, or she is left eating at maintenance with the app thinking otherwise.",
   input: z.object({}),
   handler: async (_input, ctx) => {
-    const [row] = await db.update(profiles).set({ maintenanceUntil: null })
-      .where(eq(profiles.id, ctx.profileId)).returning();
-    return { ok: true, wasUntil: row?.maintenanceUntil ?? null };
+    /*
+      Read before the write, not after it.
+
+      `returning()` on an UPDATE hands back the row as it now is, so
+      `wasUntil` was the value that had just been set to null — always null,
+      on every call. The coach could never say "you had nine days of it
+      left", which is the one thing that answer is for.
+    */
+    const [before] = await db.select({ until: profiles.maintenanceUntil })
+      .from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    await db.update(profiles).set({ maintenanceUntil: null })
+      .where(eq(profiles.id, ctx.profileId));
+    return { ok: true, wasUntil: before?.until ?? null };
   },
 });
 

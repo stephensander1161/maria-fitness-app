@@ -84,9 +84,9 @@ export default defineConfig({
       thresholds: {
         // Everything shared: the arithmetic, the read models, the guards.
         // (This glob contains lib/tools too, so it sits between the two.)
-        "lib/**/*.ts": { lines: 60, statements: 58, functions: 50, branches: 50 },
+        "lib/**/*.ts": { lines: 64, statements: 62, functions: 55, branches: 52 },
         // The handlers, reached through tests/db.
-        "lib/tools/**/*.ts": { lines: 43, statements: 43, functions: 40, branches: 32 },
+        "lib/tools/**/*.ts": { lines: 55, statements: 52, functions: 50, branches: 38 },
       },
     },
   },
