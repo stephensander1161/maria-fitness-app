@@ -164,13 +164,34 @@ suite("swapping a movement out", () => {
   });
 
   it("puts one in the plan's place", async () => {
+    // Added to the week this tool will look in, which is the week of *her*
+    // today — the earlier tests in this file move plans around, and an
+    // exercise added to a week that has since been cleared is not a swap.
+    const today = await call<{ weekStart: string }>("get_plan", {});
+    expect(today.weekStart).toBe(a.week);
     await call("add_exercise_to_day", { slug: "barbell-back-squat", sets: 3, reps: 5 });
-    const out = await call<{ ok: boolean }>("substitute_exercise", {
-      slug: "barbell-back-squat", withSlug: "goblet-squat",
+    expect(JSON.stringify(await call("get_plan", {}))).toContain("barbell-back-squat");
+
+    const out = await call<{ ok: boolean; error?: string }>("substitute_exercise", {
+      slug: "barbell-back-squat", withSlug: "leg-press",
     });
+    expect(out.error ?? "").toBe("");
     expect(out.ok).toBe(true);
     const plan = JSON.stringify(await call("get_plan", {}));
-    expect(plan).toContain("goblet-squat");
+    expect(plan).toContain("leg-press");
+    expect(plan).not.toContain("barbell-back-squat");
+  });
+
+  it("refuses to put a movement beside itself", async () => {
+    // Swapping A for B when B is already on the day is two of B, which is
+    // never what she meant — and the app says which two rather than silently
+    // merging them.
+    await call("add_exercise_to_day", { slug: "bulgarian-split-squat", sets: 3, reps: 8 });
+    const out = await call<{ ok: boolean; error?: string }>("substitute_exercise", {
+      slug: "leg-press", withSlug: "bulgarian-split-squat",
+    });
+    expect(out.ok).toBe(false);
+    expect(String(out.error)).toMatch(/already in that day/i);
   });
 });
 

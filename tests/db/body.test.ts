@@ -204,10 +204,22 @@ suite("sleep", () => {
     expect(String(out.error)).toMatch(/nothing was logged/i);
   });
 
-  it("names the nights it does not have", async () => {
-    const week = await call<{ missingNights: string[]; average: string | null }>("get_sleep_this_week", {});
-    expect(week.missingNights.length).toBeGreaterThan(0);
-    expect(week.average).toBeNull();
+  it("names the nights it does not have, rather than averaging past them", async () => {
+    /*
+      Every night of the week so far is either logged or named as missing —
+      never quietly dropped, which is how an average comes to be taken over
+      three nights and reported as the week.
+
+      Counted rather than asserted as "more than none": on a Monday the week
+      is one night old and that night may already be logged, which made the
+      cruder version of this fail on a week boundary for no reason.
+    */
+    const week = await call<{
+      missingNights: string[]; loggedNights: number; nightsSoFar: number; confidence: string;
+    }>("get_sleep_this_week", {});
+    expect(week.missingNights.length + week.loggedNights).toBe(week.nightsSoFar);
+    // And a week this thin is never presented as a week.
+    expect(week.confidence).toBe("under-logged");
   });
 
   it("takes a night back", async () => {

@@ -1,0 +1,238 @@
+import { test, expect, clearMorningPrompt } from "./session";
+
+/**
+ * The rest of the screens, asserted the way Progress is: **rendered figures
+ * against rows that were written.**
+ *
+ * That distinction is the whole point of this file. A spec that checks a
+ * component is on the page catches a deleted import; it does not catch a page
+ * handing one correct number to a component expecting a different one, which
+ * is what put the trend where the weigh-in belonged. So everything here
+ * writes a row through the registry, opens the screen, and reads the figure
+ * back off it.
+ */
+
+test.describe("Plan", () => {
+  test("puts each movement on the day it was written to", async ({ page, her }) => {
+    // Monday and Wednesday, so a day mix-up is visible rather than plausible.
+    // Plan shows the week as a strip and one day in full, so this reads both:
+    // the strip for where the work is, the card for what it is.
+    await her.as("add_exercise_to_day", { slug: "barbell-back-squat", sets: 4, reps: 5, dayOfWeek: 0 });
+    await her.as("add_exercise_to_day", { slug: "dumbbell-row", sets: 3, reps: 12, dayOfWeek: 2 });
+
+    await page.goto("/plan");
+    await clearMorningPrompt(page);
+
+    // Two days with work on them, five rest days — not seven of either.
+    /*
+      Matched on where each one goes, not on what it says.
+
+      `hasText` compares against `textContent`, which — unlike `innerText` —
+      inserts no whitespace between block elements, so "MON" and "14" arrive
+      joined and a regex written from what the screen looks like does not
+      match. The day strip's links carry `day=N`, which is the thing actually
+      being asserted anyway: seven days, each pointing at its own.
+    */
+    const dayLink = (n: number) => page.locator(`a[href*="day=${n}&"]`).first();
+    // One link per day, and each one says what is on that day. The tabs and
+    // the week arrows carry `day=` too, hence one locator per index rather
+    // than a count across all of them.
+    for (let n = 0; n < 7; n++) await expect(dayLink(n), `day ${n}`).toBeVisible();
+
+    const days = await Promise.all([0, 1, 2, 3, 4, 5, 6].map((n) => dayLink(n).innerText()));
+    // Two with work on them, five rest — not seven of either.
+    expect(days.filter((d) => /Rest/.test(d))).toHaveLength(5);
+    expect(days[0]).not.toMatch(/Rest/);
+    expect(days[2]).not.toMatch(/Rest/);
+
+    // Monday is open, with its target exactly as written.
+    await expect(page.getByText("Barbell Back Squat").first()).toBeVisible();
+    await expect(page.getByText(/Target 4\s*[×x]\s*5/).first()).toBeVisible();
+
+    // …and Wednesday's movement is on Wednesday, not on Monday with it.
+    await expect(page.getByText("Dumbbell Row")).toHaveCount(0);
+    await dayLink(2).click();
+    await expect(page.getByText("Dumbbell Row").first()).toBeVisible();
+    await expect(page.getByText(/Target 3\s*[×x]\s*12/).first()).toBeVisible();
+  });
+
+  test("counts a session as done from the work, not from a button", async ({ page, her }) => {
+    // `workoutHappened` is the one predicate: completed_at, or any set logged.
+    // Two counters disagreeing about one week is worse than either being
+    // wrong, which is why it is one predicate and not three.
+    await her.as("add_exercise_to_day", { slug: "bodyweight-squat", sets: 3, reps: 10, dayOfWeek: 0 });
+    await her.as("log_set", { exerciseSlug: "bodyweight-squat", reps: 10, date: monday(her.account.week) });
+
+    await page.goto("/plan");
+    await clearMorningPrompt(page);
+    const body = await page.locator("body").innerText();
+    // Never "0 of" while a set is logged against the week.
+    expect(body).not.toMatch(/\b0 of \d/);
+  });
+
+  test("steps to next week and the programme repeats", async ({ page, her }) => {
+    // `?w=` moves a week at a time, and the plan rolls itself forward on the
+    // first view — so next Monday is last Monday's session, not an empty page.
+    await her.as("add_exercise_to_day", { slug: "hip-thrust", sets: 3, reps: 10, dayOfWeek: 0 });
+
+    const next = shift(her.account.week, 7);
+    await page.goto(`/plan?w=${next}`);
+    await clearMorningPrompt(page);
+
+    await expect(page.getByText(/Next week/i).first()).toBeVisible();
+    await expect(page.getByText("Barbell Hip Thrust").first()).toBeVisible();
+  });
+});
+
+test.describe("Kitchen", () => {
+  test("shows an amount as an amount, and an uncounted line as 'some'", async ({ page, her }) => {
+    /*
+      Four states a boolean would flatten into two: an amount, `null` for "she
+      has some, nobody counted it", `0` for known to be out, and no row at all
+      for never bought. Only *out*, *short* and *missing* mean buy it — and
+      "some" must never read as enough.
+    */
+    await her.as("add_to_pantry", { items: [{ item: "rice", amount: 500, unit: "g" }] });
+    await her.as("add_to_pantry", { items: [{ item: "olive oil" }] });
+    await her.as("set_pantry_item", { item: "tinned tomatoes", amount: 0 });
+
+    await page.goto("/kitchen");
+    await clearMorningPrompt(page);
+    // Waited for rather than read once: the page is force-dynamic, so reading
+    // `innerText` on arrival reads whatever had painted by then.
+    await expect(page.getByText("rice").first()).toBeVisible();
+
+    const body = await page.locator("body").innerText();
+    expect(body).toMatch(/500\s*g/);
+    // The uncounted one says so in words rather than showing a number. "Some"
+    // must never read as enough, and it must never read as a quantity.
+    expect(body).toContain("olive oil");
+    expect(body.toLowerCase()).toMatch(/\bsome\b/);
+    // And out is out, never zero-of-something dressed up as an amount.
+    expect(body.toLowerCase()).toMatch(/\bout\b/);
+  });
+
+  test("adds six eggs to six rather than opening a second line", async ({ page, her }) => {
+    // "4 eggs plus 2 eggs" is six eggs, never 300g. The unit column stores ""
+    // rather than NULL because Postgres never considers two NULLs equal, and
+    // a second row is what that mistake looks like on this screen.
+    await her.as("add_to_pantry", { items: [{ item: "eggs", amount: 6 }] });
+    await her.as("add_to_pantry", { items: [{ item: "eggs", amount: 6 }] });
+
+    await page.goto("/kitchen");
+    await clearMorningPrompt(page);
+    await expect(page.getByText(/^egg$/).first()).toBeVisible();
+
+    const body = await page.locator("body").innerText();
+    expect(body).toMatch(/\b12\b/);
+    // One line, not two. A second row is what the NULL-unit mistake looks
+    // like on this screen.
+    expect(await page.getByText(/^egg$/).count()).toBe(1);
+  });
+});
+
+test.describe("the coach sheet", () => {
+  test("opens from the furniture on every screen, and draws no button of its own",
+    async ({ page, her }) => {
+      /*
+        The sheet was written, exported and never mounted: for months the
+        companion dispatched `coach:open` into an empty room and tapping him
+        did nothing on every screen in the app. Nothing caught it, because the
+        test that had asserted the mount was deleted with the button it used
+        to describe.
+      */
+      expect(her.account.profileId).toBeTruthy();
+      for (const path of ["/train", "/eat", "/progress"]) {
+        await page.goto(path);
+        await clearMorningPrompt(page);
+        const ask = page.getByRole("button", { name: /ask|coach/i }).first();
+        await expect(ask, path).toBeVisible();
+        await ask.click();
+        // A real dialog: it says it is one, and Escape closes it.
+        const sheet = page.locator('[role="dialog"]').first();
+        await expect(sheet, path).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(sheet, path).toHaveCount(0);
+      }
+    });
+
+  test("keeps the composer outside the scroller", async ({ page, her }) => {
+    // The tab version grew the page under a fixed composer and the newest
+    // message sat behind it — she had to scroll down to read the answer she
+    // had just been given.
+    expect(her.account.profileId).toBeTruthy();
+    await page.goto("/train");
+    await clearMorningPrompt(page);
+    await page.getByRole("button", { name: /ask|coach/i }).first().click();
+
+    const clear = await page.evaluate(() => {
+      // The composer is an `<input>` with a label of its own — see
+      // components/coach-thread.tsx.
+      const box = document.querySelector('[role="dialog"] [aria-label="Message your coach"]');
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!box || !dialog) return null;
+      const b = box.getBoundingClientRect();
+      const d = dialog.getBoundingClientRect();
+      // Inside the sheet, and fully on screen rather than under anything.
+      return { insideSheet: b.bottom <= d.bottom + 1, onScreen: b.bottom <= window.innerHeight + 1 };
+    });
+    expect(clear).not.toBeNull();
+    expect(clear!.insideSheet).toBe(true);
+    expect(clear!.onScreen).toBe(true);
+  });
+});
+
+test.describe("Friends", () => {
+  test("hands out a code and says what it does not grant", async ({ page, her }) => {
+    expect(her.account.profileId).toBeTruthy();
+    await page.goto("/friends");
+    await clearMorningPrompt(page);
+    await expect(page.getByText(/[0-9A-Z]{4}-[0-9A-Z]{4}/).first()).toBeVisible();
+    const body = await page.locator("body").innerText();
+    // Found by code, never by email: an email lookup would make any signed-in
+    // account an oracle for "does this address have an account", and the
+    // address lives on `users`, which is out of the model's reach entirely.
+    expect(body).not.toContain("@probe.invalid");
+    expect(body.toLowerCase()).toContain("not your email");
+  });
+
+  test("shows nothing of anybody's body, even with rows to leak", async ({ page, her }) => {
+    await her.as("log_weight", { weight: 77.7 });
+    await her.as("log_measurement", { measurements: [{ site: "waist", value: 88 }] });
+    await page.goto("/friends");
+    await clearMorningPrompt(page);
+    const body = await page.locator("body").innerText();
+    expect(body).not.toContain("77.7");
+    expect(body).not.toContain("88");
+  });
+});
+
+test.describe("Settings", () => {
+  test("changes the theme and the screen comes back in it", async ({ page, her }) => {
+    // Stamped on <html> by the server, so the first paint is already right —
+    // a script that reads localStorage after load is how a light-mode user
+    // gets a black flash on every navigation.
+    expect(her.account.profileId).toBeTruthy();
+    await page.goto("/settings");
+    await clearMorningPrompt(page);
+
+    const before = await page.getAttribute("html", "data-theme");
+    const pick = page.getByRole("button", { name: /daylight/i }).first();
+    if (await pick.count()) {
+      await pick.click();
+      await expect.poll(() => page.getAttribute("html", "data-theme")).not.toBe(before);
+      await page.reload();
+      expect(await page.getAttribute("html", "data-theme")).not.toBe(before);
+    }
+  });
+});
+
+function monday(week: string): string {
+  return week;
+}
+
+function shift(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
