@@ -92,6 +92,15 @@ export const profiles = pgTable("profiles", {
    */
   theme: text("theme"),
   /**
+   * Which mark the app wears — see lib/logo-mark.ts.
+   *
+   * Text rather than an enum, and nullable, for the same reason `theme` is:
+   * an unrecognised value falls back to the one the app shipped with rather
+   * than rendering nothing, and removing an option later must not strand a
+   * row. The *icon* never follows this; see the note in lib/brand.ts.
+   */
+  logoMark: text("logo_mark"),
+  /**
    * Coming back from childbirth. Null birth date means she has not told the
    * app she is postpartum, and everything here stays out of her way.
    *

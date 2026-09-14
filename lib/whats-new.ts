@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-shoulder-plate",
+    date: "2026-09-14",
+    title: "Wear the other plate",
+    blurb:
+      "A plate is the thing on the end of a bar and the thing dinner is on — and a pauldron is the third kind. Settings has a Mark section now: keep the barbell, or put the app in armour. Your coach can switch it too; ask for the armour one.",
+    href: "/settings",
+  },
+  {
     id: "2026-09-13-weigh-in-reading",
     date: "2026-09-13",
     title: "The weigh-in row shows what the scale said",

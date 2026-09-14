@@ -4,6 +4,8 @@ import { SignOut } from "@/components/sign-out";
 import { CoachBudget, type Usage } from "@/components/coach-budget";
 import { UnitsSettings } from "@/components/units-settings";
 import { ThemePicker } from "@/components/theme-picker";
+import { LogoPicker } from "@/components/logo-picker";
+import { logoMarkOf } from "@/lib/logo-mark";
 import { themeOf } from "@/lib/theme";
 import { CoachTone } from "@/components/coach-tone";
 import { PlanSetupButton } from "@/components/plan-setup";
@@ -59,6 +61,7 @@ export default async function SettingsPage() {
 
           <Group title="How things are shown">
             <ThemePicker current={themeOf(profile.theme).id} />
+            <LogoPicker current={logoMarkOf(profile.logoMark).id} />
             <UnitsSettings units={profile.units} foodUnits={profile.foodUnits} />
           </Group>
 

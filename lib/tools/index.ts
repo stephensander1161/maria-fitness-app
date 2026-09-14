@@ -200,6 +200,8 @@ const all: Tool[] = [
   appearance.setCardCollapsed,
   appearance.listThemes,
   appearance.setTheme,
+  appearance.listLogos,
+  appearance.setLogo,
   postpartum.setPostpartumStatus,
   postpartum.getPostpartumPlan,
   burn.getCaloriesBurned,

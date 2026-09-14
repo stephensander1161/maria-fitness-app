@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { THEMES, themeIds, themeOf } from "@/lib/theme";
+import { LOGO_MARKS, logoMarkIds, logoMarkOf } from "@/lib/logo-mark";
 import { CARDS, isCardId, withCard, withMovementFold } from "@/lib/cards";
 
 /**
@@ -46,6 +47,48 @@ export const setTheme = defineTool({
     await db.update(profiles).set({ theme: chosen.id })
       .where(eq(profiles.id, ctx.profileId));
     return { ok: true, theme: chosen.id, name: chosen.name, note: `Switched to ${chosen.name}. ${chosen.blurb}` };
+  },
+});
+
+/**
+ * Which plate the app wears.
+ *
+ * The name is the joke and the joke is the feature: a plate is the thing on
+ * the end of a bar and the thing dinner is on, and a pauldron is the third
+ * kind. Asking for it is the natural way to change it — "give me the armour
+ * one" is a sentence, and a setting nobody finds is a setting nobody has.
+ */
+const marks = () => LOGO_MARKS.map((m) => `${m.id} (${m.name}): ${m.blurb}`);
+
+export const listLogos = defineTool({
+  name: "list_logos",
+  description:
+    "Lists the marks the app can wear and says which one she is on. Use it before set_logo when she has not named one, or when she asks what the options are.",
+  input: z.object({}),
+  handler: async (_input, ctx) => {
+    const [p] = await db.select({ logoMark: profiles.logoMark }).from(profiles)
+      .where(eq(profiles.id, ctx.profileId)).limit(1);
+    const current = logoMarkOf(p?.logoMark);
+    return {
+      current: { id: current.id, name: current.name },
+      logos: LOGO_MARKS.map((m) => ({ id: m.id, name: m.name, about: m.blurb })),
+    };
+  },
+});
+
+export const setLogo = defineTool({
+  name: "set_logo",
+  description:
+    "Changes the app's mark. Takes effect on her next screen. Use it when she asks for the armour one, the shoulder plate, the barbell one, or to change the logo. Options: "
+    + marks().join("; ") + ".",
+  input: z.object({
+    logo: z.enum(logoMarkIds).describe("Which mark to wear"),
+  }),
+  handler: async (input, ctx) => {
+    const chosen = logoMarkOf(input.logo);
+    await db.update(profiles).set({ logoMark: chosen.id })
+      .where(eq(profiles.id, ctx.profileId));
+    return { ok: true, logo: chosen.id, name: chosen.name, note: `${chosen.name}. ${chosen.blurb}` };
   },
 });
 

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { TABS } from "./tab-bar";
 import { FeedbackNavItem } from "./feedback";
 import { SignOutNavItem } from "./sign-out";
-import { Wordmark } from "./logo";
+import { Wordmark, type LogoMark } from "./logo";
 import { AskButton } from "./ask-button";
 import type { Title } from "@/lib/titles";
 
@@ -20,7 +20,16 @@ import type { Title } from "@/lib/titles";
  */
 import { isChromeless } from "@/lib/chromeless";
 
-export function SideNav({ name, title, isOwner = false, recovering = false }: { name: string | null; title: Title; isOwner?: boolean; recovering?: boolean }) {
+export function SideNav({
+  name, title, mark = "arc", isOwner = false, recovering = false,
+}: {
+  name: string | null;
+  title: Title;
+  /** Which plate she picked — see lib/logo-mark.ts. */
+  mark?: LogoMark;
+  isOwner?: boolean;
+  recovering?: boolean;
+}) {
   const path = usePathname();
   if (isChromeless(path)) return null;
 
@@ -39,7 +48,7 @@ export function SideNav({ name, title, isOwner = false, recovering = false }: { 
             it is where a phone already keeps it, beside the app's own
             furniture rather than floating in the reading area. */}
         <div className="mb-4 flex items-center justify-between gap-2">
-          <Wordmark size={26} className="text-text" />
+          <Wordmark mark={mark} size={26} className="text-text" />
           <AskButton />
         </div>
         {name && <p className="truncate text-[15px] font-semibold">{name}</p>}

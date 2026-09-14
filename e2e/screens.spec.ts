@@ -208,6 +208,66 @@ test.describe("Friends", () => {
 });
 
 test.describe("Settings", () => {
+  test("changes which plate the app wears", async ({ page, her }) => {
+    /*
+      A plate is the thing on the end of a bar and the thing dinner is on —
+      that is why the app is called Plate. A pauldron is the third kind.
+
+      This also covers the bug the picker itself exposed: the gradient id was
+      derived from the mark's name on the reasoning that two instances of the
+      same mark define the same gradient, so whichever resolved first was
+      right. It is not, when the first one is inside the sidebar — which is
+      `display: none` below `md`, and a paint server in a hidden SVG resolves
+      to nothing. The barbell option rendered with no badge while the pauldron
+      beside it, the only one of its name on the page, rendered fine.
+    */
+    expect(her.account.profileId).toBeTruthy();
+    await page.goto("/settings");
+    await clearMorningPrompt(page);
+    // The card is a long way down a long page; wait for it, and bring it into
+    // view, before asking anything about it.
+    const shoulder = page.getByRole("button", { name: /Shoulder plate/i });
+    await expect(shoulder).toBeVisible();
+    await shoulder.scrollIntoViewIfNeeded();
+
+    // Both options paint their badge. `<rect>` with no resolvable fill is
+    // still in the DOM, so this asks for the fill the browser actually used.
+    const painted = await page.evaluate(() => {
+      // Scoped to the Mark card: the theme picker's swatches are
+      // `aria-pressed` buttons too, and they are not marks.
+      const card = [...document.querySelectorAll("section")]
+        .find((s) => s.querySelector("h2")?.textContent === "Mark");
+      /*
+        The *badge* rect of each option, which is the first one in its svg.
+        Some marks are drawn from rects too — the plate stack is three of them
+        — and those share the on-accent fill by design, so counting every rect
+        compares the drawing with the badge.
+      */
+      const badges = [...(card?.querySelectorAll("button[aria-pressed] svg") ?? [])]
+        .map((svg) => svg.querySelector("rect"))
+        .filter((r): r is SVGRectElement => r !== null);
+      return badges.map((r) => getComputedStyle(r).fill);
+    });
+    expect(painted.length).toBeGreaterThanOrEqual(2);
+    for (const fill of painted) expect(fill).not.toBe("none");
+    expect(new Set(painted.map((f) => f.replace(/["']/g, ""))).size).toBe(painted.length);
+
+    await shoulder.click();
+    // The tick moves on the tap; the row is written a moment later. Both
+    // matter, and only the first is instant — every option is disabled while
+    // the call is in flight, so waiting for them to come back is waiting for
+    // the write. Reloading before that is a race the test would lose
+    // sometimes and the app never would.
+    await expect(shoulder).toHaveAttribute("aria-pressed", "true");
+    await expect(shoulder).toBeEnabled();
+
+    // It follows the account, so it is still there on the next screen.
+    await page.reload();
+    await clearMorningPrompt(page);
+    await expect(page.getByRole("button", { name: /Shoulder plate/i }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
   test("changes the theme and the screen comes back in it", async ({ page, her }) => {
     // Stamped on <html> by the server, so the first paint is already right —
     // a script that reads localStorage after load is how a light-mode user

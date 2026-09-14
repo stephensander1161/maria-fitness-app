@@ -1,3 +1,6 @@
+"use client";
+
+import { useId } from "react";
 /**
  * The mark.
  *
@@ -10,9 +13,16 @@
  * would otherwise share an id and the second would render blank.
  */
 
-import { barbellFor } from "@/lib/brand";
+import { barbellFor, LAMELLAR, PAULDRON, TEMPLE_ROOF } from "@/lib/brand";
 
-export type LogoMark = "arc" | "monogram" | "stack";
+/**
+ * Which drawing goes in the badge.
+ *
+ * The same list as `LogoMarkId` in lib/logo-mark.ts, which is what a person
+ * picks from and carries the names and the one-liners. This type is the
+ * drawing half; that one is the choosing half.
+ */
+export type LogoMark = "arc" | "pauldron" | "roof" | "lamellar" | "stack" | "monogram";
 
 export function Logo({
   mark = "arc",
@@ -24,15 +34,23 @@ export function Logo({
   className?: string;
 }) {
   /*
-   * Deterministic, not a counter.
+   * Unique per instance, and it has to be.
    *
-   * Two marks on one page do share this id, and that is fine: every instance
-   * of a given mark defines the *same* gradient over the same 48-unit box, so
-   * whichever the browser resolves first is the right one. The counter this
-   * replaced incremented during render, which is a side effect React is
-   * entitled to run twice — and the lint rule was right to refuse it.
+   * This was a name derived from the mark, on the reasoning that two
+   * instances of the same mark define the *same* gradient so whichever the
+   * browser resolves first is the right one. That was wrong in one case, and
+   * the mark picker in Settings is where it showed: the page also carries the
+   * sidebar, which is `display: none` below `md`, and a paint server inside a
+   * hidden SVG resolves to nothing. The first `plate-mark-arc` in the document
+   * was the hidden one, so the barbell option rendered with no badge at all
+   * while the pauldron beside it — the only one of its name on the page —
+   * rendered fine.
+   *
+   * `useId` rather than a counter: incrementing a module variable during
+   * render is a side effect React is entitled to run twice, and the lint rule
+   * was right to refuse it. This is the hook that exists for exactly this.
    */
-  const id = `plate-mark-${mark}`;
+  const id = `plate-mark-${mark}-${useId()}`;
 
   return (
     <svg
@@ -74,6 +92,24 @@ export function Logo({
           </g>
         );
       })()}
+
+      {/*
+        The three that came out of the roof.
+
+        Six attempts at a shoulder plate were symmetrical domes, and a dome
+        reads as a bell, a hat, a burger or a bowl at every size. The line
+        that fixed it is the side of a Japanese roof — a high ridge, concave
+        sides, corners flicking out into points — and it is the same line in
+        all three. Geometry in lib/brand.ts.
+      */}
+      {mark === "pauldron" && <path d={PAULDRON.d} fill="var(--color-on-accent)" />}
+      {mark === "roof" && <path d={TEMPLE_ROOF.d} fill="var(--color-on-accent)" />}
+
+      {mark === "lamellar" && (
+        <g transform={`rotate(${LAMELLAR.rotate} 24 26)`} fill="var(--color-on-accent)">
+          {LAMELLAR.lames.map((d) => <path key={d} d={d} />)}
+        </g>
+      )}
 
       {mark === "monogram" && (
         /*

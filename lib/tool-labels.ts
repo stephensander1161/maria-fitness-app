@@ -15,6 +15,7 @@ export const TOOL_LABELS: Record<string, string> = {
   set_postpartum_status: "noting where you are in recovery",
   get_postpartum_plan: "checking what is right for your recovery",
   list_themes: "looking at the themes", set_theme: "changing how the app looks",
+  list_logos: "looking at the marks", set_logo: "changing the mark",
   get_share_code: "finding your friend code", reset_share_code: "issuing a new friend code",
   add_friend: "sending that friend request", list_friends: "checking your friends",
   respond_to_friend_request: "answering that request", remove_friend: "removing that friend",

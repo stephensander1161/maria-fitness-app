@@ -67,3 +67,54 @@ export const barbellFor = (size: number): BarbellGeometry =>
  * like a cropped screenshot, and iOS rounds the corners again on top of ours.
  */
 export const ICON_GLYPH_RATIO = 0.72;
+
+/* --------------------------------------------------------- the others --- */
+
+/**
+ * The marks that are not the barbell, as geometry.
+ *
+ * All three came out of one afternoon of drawing the same wrong thing. Six
+ * attempts at a shoulder plate were symmetrical domes, and a dome reads as a
+ * bell, a hat, a burger or a bowl — in that order, at every size. The
+ * reference that fixed it was the side of a Japanese roof: a high ridge, sides
+ * that sweep down **concave** rather than straight, and corners that flick out
+ * and up into points. That line is what makes it armour instead of a shell,
+ * and it is the same line in all three of these.
+ *
+ * They are single filled paths rather than stacked bands. Bands closed into a
+ * blob at 16px; a silhouette survives anywhere, which is the whole argument
+ * for drawing a shape instead of a picture of one.
+ *
+ * Every one keeps its corners clear of the badge's rounded edge. A sheared tip
+ * is a flat one, and the upturned corners are the only feature that makes any
+ * of these legible small — the first pauldron put them at x = 1.4 and lost
+ * both of them in the sidebar at 26px.
+ */
+export type MarkPath = { d: string };
+
+/** Half a roof: the shoulder plate. A pauldron is one eave, not two. */
+export const PAULDRON: MarkPath = {
+  d: "M34.5 12.5 C32.8 17.6 26 25 15.6 30.4 L8.6 23.6 L15.4 33.8 Q24 35.8 35.6 34 L34.5 12.5 Z",
+};
+
+/** …and the whole roof, for anyone who wants the temple rather than the armour. */
+export const TEMPLE_ROOF: MarkPath = {
+  d:
+    "M24 10.2 C25.2 15 31.6 23 39.8 29 L44.6 22.6 L39.4 32.5 " +
+    "Q24 34.5 8.6 32.5 L3.4 22.6 L8.2 29 C16.4 23 22.8 15 24 10.2 Z",
+};
+
+/**
+ * Lamellar: a narrow cap with plates fanning out under it.
+ *
+ * The cap being *narrower* than the lames is what makes it a stack rather
+ * than a dome, and the tilt is what says it sits on a shoulder.
+ */
+export const LAMELLAR: { lames: string[]; rotate: number } = {
+  lames: [
+    "M14 26.6 Q13.8 15.2 22.6 12.6 Q31.8 10 34.4 18.8 Q35.4 22.8 35 26.6 Q24 22.8 14 26.6 Z",
+    "M10.8 29.4 Q24 24.2 38 29.4 L37 33.6 Q24 28.4 11.8 33.6 Z",
+    "M7.6 36 Q24 30.4 40.4 36 L40 39.4 L8 39.4 Z",
+  ],
+  rotate: -11,
+};

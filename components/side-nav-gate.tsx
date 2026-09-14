@@ -2,6 +2,7 @@ import { currentUser } from "@/lib/session";
 import { getProfile, profileToday } from "@/lib/profile";
 import { titleStats } from "@/lib/views";
 import { SideNav } from "./side-nav";
+import { logoMarkOf } from "@/lib/logo-mark";
 
 /**
  * The account holder's name, not the profile's.
@@ -21,6 +22,10 @@ export async function SideNavGate() {
   const title = await titleStats(profile, profileToday(profile));
   return (
     <SideNav
+      // Her choice of mark, read here rather than in the component: the
+      // sidebar is a client component and this is the only place on that path
+      // that is allowed to touch the database.
+      mark={logoMarkOf(profile.logoMark).id}
       name={user.name ?? profile.name}
       title={title}
       isOwner={user.role === "owner"}
