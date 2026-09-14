@@ -1314,17 +1314,40 @@ function SessionBar({
         <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat">
           Finished — {readableDuration(ms)}
         </div>
-        {/* Finishing early is a real thing to do, and until now it was final.
-            Small and beside the badge rather than in it: picking a session
-            back up is the rarer half of this row, and it must not read as the
-            thing to tap. */}
+        {/*
+          Finishing early is a real thing to do, and until now it was final.
+
+          A pill beside a pill. It was an underlined text link next to a
+          badge, which is two visual languages on one row — the underline read
+          as body copy that had been made tappable by accident, and at full
+          width it pushed the day's own name onto a line of its own. Same
+          height and same shape as the badge now, in quieter colours, because
+          picking a session back up is the rarer half of this row and must not
+          read as the thing to tap.
+
+          Labelled at every width, and shorter where the row is tight. An
+          icon on its own is clean and cryptic — a circular arrow could as
+          easily mean refresh — and this is a control she meets once, on the
+          day she ran out of time. "Resume" on a phone, the whole sentence
+          where there is room for it.
+        */}
         <button
           onClick={onReopen}
           disabled={clockBusy}
           aria-label="Reopen this session"
-          className="rounded-full px-2 py-1.5 text-[12px] text-muted underline underline-offset-2 active:bg-raised disabled:opacity-40"
+          title="Pick it back up"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-edge px-3 py-1.5 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-40"
         >
-          {clockBusy ? "…" : "Pick it back up"}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M3 12a9 9 0 1 0 2.6-6.4M3 3v6h6" />
+          </svg>
+          {clockBusy ? "…" : (
+            <>
+              <span className="sm:hidden">Resume</span>
+              <span className="hidden sm:inline">Pick it back up</span>
+            </>
+          )}
         </button>
       </div>
     );

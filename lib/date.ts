@@ -84,6 +84,19 @@ export function dayIndex(date: ISODate = today()): number {
   return (new Date(parse(date)).getUTCDay() + 6) % 7;
 }
 
+/**
+ * The short form, for an axis: "Sep 8".
+ *
+ * No weekday and no year. An axis label is read sideways-on while the eye is
+ * on the line above it, and "Mon, Sep 8, 2026" under a 320-pixel chart is
+ * three facts where one was wanted.
+ */
+export function axisDate(date: ISODate): string {
+  return new Date(parse(date)).toLocaleDateString(undefined, {
+    timeZone: "UTC", month: "short", day: "numeric",
+  });
+}
+
 export function prettyDate(date: ISODate): string {
   // Formatted in UTC to match how the date was parsed; otherwise a date-only
   // value can render as the previous day west of Greenwich.

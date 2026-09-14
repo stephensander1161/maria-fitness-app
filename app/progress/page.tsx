@@ -332,6 +332,10 @@ export default async function ProgressPage({
               points={[...history].reverse().map((h) => weightOut(h.weightKg, u)!)}
               trend={trend.series.map((p) => weightOut(p.trend, u)!)}
               goal={goal}
+              // Oldest first, to match the points. A line with no scale draws
+              // half a pound of noise and five pounds of gain identically.
+              dates={[...history].reverse().map((h) => h.date)}
+              unit={unit}
             />
           </div>
         </section>
