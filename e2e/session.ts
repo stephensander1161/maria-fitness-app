@@ -86,7 +86,27 @@ export { expect } from "@playwright/test";
  * not call this.
  */
 export async function clearMorningPrompt(page: Page) {
+  /*
+    Waited for, not glanced at.
+
+    The prompt decides whether to show itself *after* mount — it reads what
+    this browser remembers in a `requestAnimationFrame`, so on arrival it is
+    reliably absent for a frame or two and then appears. A helper that asked
+    once and moved on therefore skipped it about one run in ten, and the
+    prompt would open a moment later.
+
+    That is not a cosmetic race. `useDialog` pins the page while a dialog is
+    open, so a spec that had already started scrolling found nothing would
+    move and failed with "element is outside of the viewport" — a report that
+    says nothing at all about the prompt that caused it.
+  */
   const notToday = page.getByRole("button", { name: "Not today" });
-  if (await notToday.count()) await notToday.first().click();
-  await page.waitForTimeout(200);
+  await notToday.first().waitFor({ state: "visible", timeout: 2_000 }).catch(() => {
+    // Genuinely not this browser's first open of the day. Nothing to clear.
+  });
+  if (await notToday.count()) {
+    await notToday.first().click();
+    // Gone, rather than going: the pin is released on unmount.
+    await notToday.first().waitFor({ state: "detached", timeout: 5_000 }).catch(() => {});
+  }
 }

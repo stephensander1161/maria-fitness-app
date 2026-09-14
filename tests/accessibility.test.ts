@@ -293,3 +293,44 @@ suite("the desktop layout is a layout", () => {
     expect(fs.existsSync("app/eat/page.tsx")).toBe(true);
   });
 });
+
+suite("a dialog pins the page and, crucially, unpins it", () => {
+  /*
+    The page behind a dialog holds still — a thumb dragging on a sheet must
+    not scroll the screen underneath, which is the same "inert" lie the focus
+    trap exists to stop, said by touch.
+
+    The half that shipped broken was the release. A hook cannot be called
+    conditionally, so a component that decides *whether* to be a dialog calls
+    `useDialog` before it knows, and it pinned on mount regardless. The
+    component then rendered `null` and nothing ever unpinned it.
+
+    `WeighInPrompt` is mounted in the root layout every day until she weighs
+    in, and renders nothing until it has read what this browser remembers. So
+    on any morning before her weigh-in the whole app could not scroll, and
+    dismissing the prompt did not help — the pin was tied to being mounted,
+    not to being on screen.
+  */
+  const hook = read("lib/use-dialog.ts");
+
+  it("takes whether it is open, and does nothing when it is not", () => {
+    expect(hook).toMatch(/export function useDialog\(onClose: \(\) => void, open = true\)/);
+    // The guard comes before anything that touches the document.
+    const effect = hook.slice(hook.indexOf("useEffect(() => {", hook.indexOf("close.current = onClose")));
+    expect(effect.indexOf("if (!open) return;")).toBeLessThan(effect.indexOf("document.body"));
+    expect(effect.indexOf("if (!open) return;")).toBeLessThan(effect.indexOf("addEventListener"));
+  });
+
+  it("re-runs when it opens or closes, or it can never pin at all", () => {
+    // `[]` was the old deps, which is what made this a mount-time decision.
+    expect(hook).toMatch(/\}, \[open\]\);/);
+  });
+
+  it("is passed the caller's own render condition, not a guess", () => {
+    const prompt = read("components/weigh-in-prompt.tsx");
+    expect(prompt).toMatch(/const showing = !gone && !isChromeless\(path\);/);
+    expect(prompt).toMatch(/useDialog\(\(\) => skip\(\), showing\)/);
+    // And the render uses the same value, so the two cannot drift.
+    expect(prompt).toMatch(/if \(!showing\) return null;/);
+  });
+});

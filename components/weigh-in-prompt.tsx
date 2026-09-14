@@ -66,7 +66,16 @@ export function WeighInPrompt({
   const [quality, setQuality] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const panel = useDialog(() => skip());
+  /*
+    The same condition the render below uses.
+
+    A hook cannot be called conditionally, so this is called before the
+    component knows whether it is a dialog at all — and `useDialog` used to
+    pin the page on mount either way. It rendered `null`, nothing unpinned it,
+    and the whole app stopped scrolling on every morning before her weigh-in.
+  */
+  const showing = !gone && !isChromeless(path);
+  const panel = useDialog(() => skip(), showing);
 
   /**
    * Whether she has already waved this away today, from this browser.
@@ -126,7 +135,7 @@ export function WeighInPrompt({
   }
 
   // Not over the sign-in door or anything else without the app's chrome.
-  if (gone || isChromeless(path)) return null;
+  if (!showing) return null;
 
   return (
     /*

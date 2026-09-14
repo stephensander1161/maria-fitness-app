@@ -25,6 +25,13 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-scroll-fix",
+    date: "2026-09-14",
+    title: "The app scrolls again before you weigh in",
+    blurb:
+      "A dialog holds the page still while it is open so a thumb on the sheet does not drag the screen underneath. It was holding it still from the moment the morning prompt loaded \u2014 whether or not the prompt was showing, and it did not let go when you dismissed it. So on any morning before your weigh-in, nothing below the fold could be reached. Settings has a bottom again.",
+  },
+  {
     id: "2026-09-14-shoulder-plate",
     date: "2026-09-14",
     title: "Wear the other plate",

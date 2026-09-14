@@ -171,6 +171,17 @@ export default async function ProgressPage({
   /*
     One horizon's three strands, built the same way each time.
 
+    **This is the only place a window's training total is stated.** The week
+    and the month each used to repeat it underneath — the same tonnage and the
+    same session count, in a second card, three inches below the first. Two
+    cards saying one thing reads as two facts, and the eye goes looking for
+    the difference between them. `WindowStats` already carries both numbers:
+    the tonnage is the figure, "lifted over 6 sessions" is the line under it.
+
+    Today is not the same case and keeps its own pair: that one is volume and
+    *sets*, which is a different number from sessions and is the one still
+    hers to change before the day is out.
+
     Training and food both refuse rather than round: a window with nothing
     logged gets a dash and "nothing logged", and a food window the trend calls
     under-logged says so instead of averaging four days into thirty. The body
@@ -412,15 +423,6 @@ export default async function ProgressPage({
               Every session this week, done.
             </p>
           )}
-          {totals.thisWeekVolumeKg > 0 && (
-            <div className="mb-1 flex items-end justify-between gap-4 border-b border-line/60 pb-3">
-              <Headline value={lb(totals.thisWeekVolumeKg)} unit={unit} label="lifted this week" tone="good" />
-              <Headline
-                value={String(totals.thisWeekSessions)}
-                label={`session${totals.thisWeekSessions === 1 ? "" : "s"}`}
-              />
-            </div>
-          )}
           {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
           {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
           {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
@@ -455,15 +457,6 @@ export default async function ProgressPage({
             monthFrom,
           )}
         />
-        {totals.thisMonthSessions > 0 && (
-          <section className="card mb-3 flex flex-wrap items-end justify-between gap-4 p-5">
-            <Headline value={lb(totals.thisMonthVolumeKg)} unit={unit} label="lifted this month" tone="good" />
-            <Headline
-              value={String(totals.thisMonthSessions)}
-              label={`session${totals.thisMonthSessions === 1 ? "" : "s"} this month`}
-            />
-          </section>
-        )}
         <Measurements sites={sites} unit={lengthLabel(u)} />
         <Progression items={progression} unit={weightLabel(u)} />
         <SleepTrend window={sleep.month} label="slept a night this month" target={target} />

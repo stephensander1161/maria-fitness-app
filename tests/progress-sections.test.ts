@@ -37,7 +37,11 @@ suite("Progress reads at four sizes, smallest first", () => {
     // mostly water.
     const month = page.slice(page.indexOf('title="This month"'), page.indexOf('title="This year'));
     expect(month).toMatch(/<Measurements/);
-    expect(month).toMatch(/lifted this month/);
+    // The month's training total comes from `strands`, which is the one place
+    // any window states it — the second card that used to repeat the same
+    // tonnage and session count underneath is gone.
+    expect(month).toMatch(/totals\.thisMonthVolumeKg/);
+    expect(month).toMatch(/totals\.thisMonthSessions/);
   });
 
   it("reads all four windows in one pass over the table", () => {

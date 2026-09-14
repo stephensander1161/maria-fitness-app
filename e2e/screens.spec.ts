@@ -207,6 +207,60 @@ test.describe("Friends", () => {
   });
 });
 
+test.describe("the page behind a dialog", () => {
+  /*
+    A dialog pins the page while it is open, so a thumb dragging on the sheet
+    does not scroll the screen underneath — the same "inert" lie the focus
+    trap exists to stop, by touch.
+
+    It has to *un*pin. `useDialog` used to pin on mount rather than on open,
+    and `WeighInPrompt` is mounted in the root layout every day until she
+    weighs in and renders nothing until it has read what this browser
+    remembers. So on any morning before her weigh-in the whole app could not
+    scroll — not the prompt, the app — and dismissing it did not help, because
+    the pin was tied to the component being mounted. Settings below the fold
+    was unreachable.
+  */
+  const pinned = (page: import("@playwright/test").Page) =>
+    page.evaluate(() => getComputedStyle(document.body).position === "fixed");
+
+  test("is pinned while the morning prompt is up and released the moment it goes",
+    async ({ page, her }) => {
+      expect(her.account.profileId).toBeTruthy();
+      await page.goto("/settings");
+      await expect(page.getByRole("button", { name: "Not today" })).toBeVisible();
+      expect(await pinned(page), "pinned while it is up").toBe(true);
+
+      await clearMorningPrompt(page);
+      expect(await pinned(page), "released on dismiss").toBe(false);
+
+      // And it stays released across a navigation, because the gate keeps
+      // rendering the component until she actually weighs in.
+      await page.goto("/train");
+      await page.waitForTimeout(500);
+      expect(await pinned(page), "still released after navigating").toBe(false);
+    });
+
+  test("never pins when there is no prompt to show", async ({ page, her }) => {
+    await her.as("log_weight", { weight: 70 });
+    await her.as("log_sleep", { howLong: "8h" });
+    await page.goto("/settings");
+    await page.waitForTimeout(800);
+    expect(await pinned(page)).toBe(false);
+  });
+
+  test("lets Settings reach its own bottom on a phone", async ({ page, her }, testInfo) => {
+    test.skip(testInfo.project.name !== "phone", "the desktop pane scrolls separately");
+    expect(her.account.profileId).toBeTruthy();
+    await page.goto("/settings");
+    await clearMorningPrompt(page);
+    // The last card on the page. Unreachable while the body was pinned.
+    const last = page.getByRole("heading", { name: /Delete your account/i }).first();
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+  });
+});
+
 test.describe("Settings", () => {
   test("changes which plate the app wears", async ({ page, her }) => {
     /*

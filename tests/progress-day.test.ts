@@ -84,3 +84,28 @@ suite("what the trend moved across a window", () => {
     expect(trendChange([series[0]], "2026-08-31", "2026-09-09")).toBeNull();
   });
 });
+
+suite("a window states its training total once", () => {
+  /*
+    The week and the month each said it twice: `WindowStats` at the top of the
+    section — the tonnage, with "lifted over 6 sessions" under it — and then a
+    second card three inches below with the same two numbers in bigger type.
+
+    Two cards saying one thing do not read as emphasis. They read as two
+    facts, and the eye goes looking for the difference between them.
+  */
+  const page = fs.readFileSync("app/progress/page.tsx", "utf8");
+
+  for (const window of ["thisWeek", "thisMonth"] as const) {
+    it(`${window} names its volume and its sessions once each`, () => {
+      expect([...page.matchAll(new RegExp(`totals\\.${window}VolumeKg`, "g"))]).toHaveLength(1);
+      expect([...page.matchAll(new RegExp(`totals\\.${window}Sessions`, "g"))]).toHaveLength(1);
+    });
+  }
+
+  it("leaves today alone, because sets are not sessions", () => {
+    // Today's pair is volume and *sets* — a different number, and the one
+    // still hers to change before the day is out.
+    expect(page).toMatch(/label=\{`set\$\{totals\.todaySets === 1 \? "" : "s"\}\ logged`\}/);
+  });
+});

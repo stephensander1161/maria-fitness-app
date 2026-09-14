@@ -142,9 +142,17 @@ owner.describe("the owner's console", () => {
     await expect(page.getByRole("heading", { name: "Admin" }).first()).toBeVisible();
     const body = await page.locator("body").innerText();
 
-    expect(body).not.toContain("77.7");
+    /*
+      The marker is the real check: a description she typed must not be here.
+
+      The figures are matched on word boundaries rather than as substrings.
+      "654" as a substring found itself inside a profile id in the audit log's
+      detail — a passing test would have been luck and a failing one was
+      noise, and neither says anything about whether her lunch leaked.
+    */
     expect(body).not.toContain("admin-leak-probe-sandwich");
-    expect(body).not.toContain("654");
+    expect(body).not.toMatch(/\b77\.7\b/);
+    expect(body).not.toMatch(/\b654\b/);
     // What it does show is operational.
     expect(body).toMatch(/Security log|Worth a look/i);
   });
@@ -179,8 +187,12 @@ test.describe("the door to the console", () => {
 });
 
 test.describe("a brand new account", () => {
-  test("is sent to onboarding rather than into an empty app", async ({ context }) => {
-    const fresh = await signIn(context, "onboard-new", { onboarded: false });
+  test("is sent to onboarding rather than into an empty app", async ({ context }, testInfo) => {
+    // The slug carries the project: `makeAccount` drops an account that
+    // already holds the address, so a fixed slug means the phone run deletes
+    // the desktop run's account mid-flight and its cookie stops resolving.
+    // The `her` fixture already does this; these two build their own.
+    const fresh = await signIn(context, `onboard-new-${testInfo.project.name}`, { onboarded: false });
     try {
       const page = await context.newPage();
       await page.goto("/train");
@@ -193,8 +205,8 @@ test.describe("a brand new account", () => {
     }
   });
 
-  test("cannot be walked past without answering", async ({ context }) => {
-    const fresh = await signIn(context, "onboard-guard", { onboarded: false });
+  test("cannot be walked past without answering", async ({ context }, testInfo) => {
+    const fresh = await signIn(context, `onboard-guard-${testInfo.project.name}`, { onboarded: false });
     try {
       const page = await context.newPage();
       await page.goto("/welcome");

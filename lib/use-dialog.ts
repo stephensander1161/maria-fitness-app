@@ -19,8 +19,24 @@ import { useEffect, useRef } from "react";
  * (`overscroll-contain`, so reaching its end does not hand the gesture on).
  *
  * Returns a ref to put on the panel itself.
+ *
+ * **`open` is not optional decoration.** A hook cannot be called
+ * conditionally, so a component that decides *whether* to be a dialog calls
+ * this before it knows — and this used to pin the page on mount regardless,
+ * then the component returned `null` and nothing ever unpinned it.
+ *
+ * That shipped, and it was not a corner: `WeighInPrompt` is mounted in the
+ * root layout every day until she weighs in, and it renders nothing until it
+ * has read what this browser remembers. So on any morning before her weigh-in
+ * the entire app could not scroll — not the prompt, the *app* — and
+ * dismissing the prompt did not help, because the pin was tied to the
+ * component being mounted rather than to the dialog being on screen. Settings
+ * below the fold was simply unreachable.
+ *
+ * So the trap, the key handler and the pin all follow `open`, and it is the
+ * caller's own render condition rather than a guess.
  */
-export function useDialog(onClose: () => void) {
+export function useDialog(onClose: () => void, open = true) {
   const panel = useRef<HTMLDivElement>(null);
   /**
    * The latest close handler, read at the moment Escape is pressed.
@@ -37,6 +53,10 @@ export function useDialog(onClose: () => void) {
   useEffect(() => { close.current = onClose; }, [onClose]);
 
   useEffect(() => {
+    // Not a dialog right now. No trap, no key handler, and — the part that
+    // mattered — no pin to leave behind.
+    if (!open) return;
+
     const opener = document.activeElement as HTMLElement | null;
     const node = panel.current;
 
@@ -113,8 +133,9 @@ export function useDialog(onClose: () => void) {
       // top of the page, and focusing it scrolled her there.
       opener?.focus?.({ preventScroll: true });
     };
-    // Once, for the life of the dialog — see `close` above.
-  }, []);
+    // Once for the life of the dialog, and again when it opens or closes —
+    // see `close` above for why `onClose` itself is deliberately not here.
+  }, [open]);
 
   return panel;
 }
