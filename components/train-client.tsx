@@ -1923,18 +1923,36 @@ export function ExerciseCard({
     holdSeconds: p.input.holdSeconds ?? null,
     weight: p.input.weight,
   }));
+  /**
+   * Last session's set in the position she is about to fill — the one to beat.
+   *
+   * Sets two onwards have always opened on what she just did, which is nearly
+   * always right. The *first* set had nothing from today to follow, so it fell
+   * back to last session's **last** set — the one she finished tired on, after
+   * the weight had come down — and then to the plan's target. So the first
+   * entry of every movement opened on a number she had to retype: "preload the
+   * to beat number from last week, preload the weight so i dont have to type
+   * 70 for example. it already carries over for the second set, so this is
+   * just helping the first set."
+   *
+   * Column for column, the same set the caption under the square shows and the
+   * same one the GO screen draws — so the number in the field is the number
+   * she is being asked to beat, rather than a different set of the same
+   * session.
+   */
+  const toBeat = exercise.lastTime?.sets[done.length + queued.length];
   // Prefill from what she did on the last set today — including one still in
-  // the outbox — else last session, else target.
+  // the outbox — then from the set she is matching last time, then the target.
   const seedWeight =
-    queued.at(-1)?.weight ?? done.at(-1)?.weight ??
+    queued.at(-1)?.weight ?? done.at(-1)?.weight ?? toBeat?.weight ??
     exercise.lastTime?.sets.at(-1)?.weight ?? exercise.targetWeight ?? 0;
   // A hold stores reps = 1 and the duration in holdSeconds, so seeding from
   // `reps` opened the second plank set on "1". The count field is seconds for
   // a hold, and so is everything that feeds it.
   const seedReps = exercise.isHold
-    ? queued.at(-1)?.reps ?? done.at(-1)?.holdSeconds
+    ? queued.at(-1)?.reps ?? done.at(-1)?.holdSeconds ?? toBeat?.holdSeconds
       ?? exercise.lastTime?.sets.at(-1)?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
-    : queued.at(-1)?.reps ?? done.at(-1)?.reps ?? exercise.targetReps;
+    : queued.at(-1)?.reps ?? done.at(-1)?.reps ?? toBeat?.reps ?? exercise.targetReps;
 
   /**
    * The entry, re-seeded whenever a set lands.

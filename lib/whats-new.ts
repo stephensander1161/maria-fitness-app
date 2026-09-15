@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-first-set-preload",
+    date: "2026-09-14",
+    title: "The first set opens on last week's",
+    blurb:
+      "Set two onwards has always opened on what you just lifted. The first set had nothing from today to follow, so it fell back to the last set of last session \u2014 the one you finished tired on, after the weight had come down \u2014 and you retyped the number every time. It now opens on last week's set for that same position: the one the caption under the square shows, and the one GO holds up as the number to beat.",
+    href: "/train",
+  },
+  {
     id: "2026-09-14-plans-carry-over",
     date: "2026-09-14",
     title: "Your food week carries over too",

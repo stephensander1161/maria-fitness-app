@@ -173,6 +173,27 @@ suite("the training card during a session", () => {
       .toHaveLength(2);
   });
 
+  it("opens the first set on the set it is asking her to beat", () => {
+    /*
+      "preload the to beat number from last week, preload the weight so i dont
+       have to type 70 for example. it already carries over for the second set,
+       so this is just helping the first set."
+
+      Sets two onwards follow what she just did. The first had nothing from
+      today, so it fell through to last session's *last* set — the one she
+      finished tired on, after the weight had come down — and then to the
+      plan's target. Column for column is the same set the caption under the
+      square shows and the same one the GO screen draws, so the number in the
+      field is the number she is being asked to beat.
+    */
+    expect(card).toMatch(/const toBeat = exercise\.lastTime\?\.sets\[done\.length \+ queued\.length\];/);
+    // Today first — that is the part that already worked and must keep working.
+    expect(card).toMatch(/queued\.at\(-1\)\?\.weight \?\? done\.at\(-1\)\?\.weight \?\? toBeat\?\.weight/);
+    expect(card).toMatch(/done\.at\(-1\)\?\.reps \?\? toBeat\?\.reps \?\? exercise\.targetReps/);
+    // A hold is seconds, not a rep count, all the way down the chain.
+    expect(card).toMatch(/done\.at\(-1\)\?\.holdSeconds \?\? toBeat\?\.holdSeconds/);
+  });
+
   it("rests into the next movement when one is finished, and marks it", () => {
     // The rest used to be for the movement she had just finished — the GO
     // screen offered her a fifth set of something she had done four of. Both
