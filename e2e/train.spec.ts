@@ -30,12 +30,21 @@ test.describe("training a day", () => {
     await page.getByRole("button", { name: /^Start/ }).click();
     await expect(page.getByRole("button", { name: /Finish/ })).toBeVisible();
 
+    /*
+      Finish finishes. It used to stop and ask when movements were still on the
+      plan — "Still to do: X. Finish anyway?" — and that question is gone: "i
+      dont think i need a 'are you sure modal' that pops up to confirm i
+      clicked it." The button is at the end of the session and it is the thing
+      she reached for; the way back is `reopen_workout`, one tap away.
+    */
     await page.getByRole("button", { name: /Finish/ }).click();
-    // Work still outstanding, so it asks before it ends the session.
-    await page.getByRole("button", { name: "Yes, I'm done" }).click();
-
-    // And the question goes once she has answered it.
     await expect(page.getByRole("button", { name: "Yes, I'm done" })).toHaveCount(0);
+
+    // The celebration takes the screen, and clearing it leaves a finished day
+    // with the way back in on it.
+    await expect(page.getByText("That’s the session")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Reopen this session" })).toBeVisible();
   });
 
   test("marks what she missed, and offers the session back", async ({ page, her }) => {
