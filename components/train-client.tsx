@@ -2550,7 +2550,18 @@ export function ExerciseCard({
           <span
             title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
             aria-label={`Volume ${volumeDelta.dir === "level" ? "level with" : `${Math.abs(volumeDelta.pct)} per cent ${volumeDelta.dir} on`} last time`}
-            className={`mt-0.5 flex h-6 shrink-0 items-center gap-0.5 self-start rounded-full px-2 text-[11px] font-semibold tabular md:hidden ${
+            /*
+              `md:hidden` only while the card is open, because that is the only
+              state the row copy exists in.
+
+              Folded, the set row is not drawn at all — so on a desktop a
+              collapsed card had no chip anywhere and the comparison vanished
+              exactly where it is most useful, on a card whose numbers are
+              already put away. "we lost volume in the closed card."
+            */
+            className={`mt-0.5 flex h-6 shrink-0 items-center gap-0.5 self-start rounded-full px-2 text-[11px] font-semibold tabular ${
+              shut ? "" : "md:hidden"
+            } ${
               volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
             }`}
           >

@@ -159,8 +159,14 @@ suite("the training card during a session", () => {
     const controls = card.indexOf('${shut ? "hidden" : ""}');
     expect(controls).toBeGreaterThan(-1);
     expect(header).toBeLessThan(controls);
-    // Phone only…
-    expect(card.slice(header, header + 700)).toMatch(/md:hidden/);
+    /*
+      Phone only *while the card is open* — `shut ? "" : "md:hidden"`.
+
+      Folded, the set row is not drawn at all, so the row copy does not exist
+      and a desktop card had the comparison nowhere. It vanished exactly where
+      it earns the most, on a card whose numbers are already put away.
+    */
+    expect(card.slice(header, header + 1400)).toMatch(/shut \? "" : "md:hidden"/);
     // …and the row copy, after the squares, is desktop only.
     const squares = card.indexOf("const cmp = compareSet(s, prev);");
     const row = card.indexOf("{volumeDelta && (", squares);
