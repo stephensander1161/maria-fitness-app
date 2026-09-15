@@ -116,17 +116,52 @@ suite("the training card during a session", () => {
     // against are one stacked column that wraps as a pair.
     expect(card).toMatch(/<div key=\{i\} className="flex min-w-11 flex-col items-stretch">/);
     expect(card).toMatch(/const cmp = compareSet\(s, prev\);/);
-    // The higher of the two is the one that gets marked, and it is marked in
-    // green: a set under last week's used to take a full red fill, which reads
-    // as the app telling her off for an ordinary day.
-    expect(card).toMatch(/cmp === "up"\n\s*\? "bg-beat text-on-accent"\n\s*: "bg-accent text-on-accent"/);
-    // And the one that was beaten is not marked on the square at all: a red
-    // ring on the accent fill was invisible, and the rule under last time's
-    // number already says which of the two won.
-    expect(card).not.toMatch(/bg-miss text-on-accent/);
-    // Last time is the small print, so its half is an underline, not a fill.
-    expect(card).toMatch(/cmp === "down"\n\s*\? "border-beat text-beat"/);
-    expect(card).toMatch(/\? "border-miss\/50 text-faint"/);
+    /*
+      The square carries the whole comparison: green up, amber level, red down,
+      and the plain accent fill only when there is nothing to compare against.
+
+      Stephen asked for all three colours outright. The file used to argue
+      against a red fill — that it turns an ordinary day into a red row — and
+      that reasoning still holds for the session verdict and the volume chip,
+      which stay quiet when she is down. One square out of four is a different
+      question: red is the fastest way to see which set to go back at.
+    */
+    expect(card).toMatch(/cmp === "up"\n\s*\? "bg-beat text-on-accent"/);
+    expect(card).toMatch(/cmp === "same"\n\s*\? "bg-hold text-on-accent"/);
+    expect(card).toMatch(/cmp === "down"\n\s*\? "bg-miss text-on-accent"/);
+    expect(card).toMatch(/: "bg-accent text-on-accent"/);
+    // Last time is the small print, so its half is an underline, not a fill —
+    // and only the green one. The red rule under a set she had *beaten* said
+    // the same thing as the green square above it, in a second colour.
+    expect(card).toMatch(/cmp === "down" \? "border-beat text-beat" : "border-transparent text-faint"/);
+    expect(card).not.toMatch(/border-miss\/50 text-faint/);
+  });
+
+  it("carries the volume comparison on the name's line, folded or not", () => {
+    /*
+      "i love the volume up down indicator, lets display it in the card even
+       when the card is collapsed" — and, the same minute, "on mobile the
+       indicator is on its own row and looks ugly, i think it will fit to the
+       right of the movement name cleanly".
+
+      One move answers both. At the end of the set row it was a fifth column
+      on a phone that four squares had already filled, so it wrapped; on the
+      name's line it never wraps, and that line is the one a folded card still
+      draws. So the assertion is *where* it is: before the controls row, which
+      is the half of the header a folded card hides.
+    */
+    const chip = card.indexOf("{volumeDelta && (");
+    expect(chip, "the chip is still drawn").toBeGreaterThan(-1);
+    // Above the controls row — the block that carries `shut ? "hidden" : ""`.
+    const controls = card.indexOf('${shut ? "hidden" : ""}');
+    expect(controls).toBeGreaterThan(-1);
+    expect(chip).toBeLessThan(controls);
+    // And out of the set-square row, which is drawn further down the file.
+    const squares = card.indexOf("const cmp = compareSet(s, prev);");
+    expect(chip).toBeLessThan(squares);
+    // Green only when she is up: a red badge for a lighter day is a verdict on
+    // the whole movement, which is what the per-square colours are not.
+    expect(card).toMatch(/volumeDelta\.dir === "up" \? "bg-beat-soft text-beat" : "bg-raised text-muted"/);
   });
 
   it("rests into the next movement when one is finished, and marks it", () => {
@@ -329,6 +364,53 @@ suite("left in the tank is answered, not committed to", () => {
       expect(read(f), f).toMatch(/rir === n \? null : n/);
       expect(read(f), f).toMatch(/useState<number \| null>\(null\)/);
     }
+  });
+});
+
+suite("the GO screen says what there is to beat", () => {
+  const read = (p: string) => fs.readFileSync(p, "utf8");
+
+  it("draws last session's set for the position she is about to fill", () => {
+    /*
+      "on the go screen lets display the set/reps to beat (from last session)
+       somewhere big and bold so that we know how hard we have to go when we
+       see the GO."
+
+      The screen only ever offered a field seeded with what she had just done,
+      which answers "what did I do", not "what do I have to do" — and standing
+      at the rack the second is the only question.
+    */
+    const go = read("components/go-screen.tsx");
+    expect(go).toMatch(/\{rest\.toBeat && \(/);
+    expect(go).toMatch(/To beat/);
+    expect(go).toMatch(/describeSet\(rest\.toBeat, held\)/);
+    // Big and bold, in the size the request asked for.
+    expect(go).toMatch(/text-\[clamp\(1\.75rem,9vw,2\.75rem\)\] font-bold/);
+  });
+
+  it("counts the position from the set in hand, not the one behind it", () => {
+    /*
+      Three routes reach a rest and each counts differently. `whatNext` means
+      by `done` the count *before* the set being logged — so the card adds one
+      to get the position she is about to fill, and the provider adds one only
+      on the branch where the movement is the same one, because the other two
+      are a different movement this set never touched.
+    */
+    const card = read("components/train-client.tsx");
+    expect(card).toMatch(/startRest\(ex, logged, \(alreadyDone \?\? ex\.loggedToday\.length\) \+ 1\)/);
+    expect(card).toMatch(/toBeat: exercise\.lastTime\?\.sets\[doneSoFar \?\? exercise\.loggedToday\.length\] \?\? null/);
+    const provider = read("components/rest-provider.tsx");
+    expect(provider).toMatch(/toBeat: mine\?\.lastTime\[mine\.done \+ 1\] \?\? null/);
+    expect(provider).toMatch(/toBeat: after\.movement\.lastTime\[after\.movement\.done\] \?\? null/);
+    expect(provider).toMatch(/toBeat: partner\.lastTime\[partner\.done\] \?\? null/);
+  });
+
+  it("says nothing rather than zero when there is no set to beat", () => {
+    // More sets than she did last time: nothing to beat is not a zero to
+    // beat, and a big bold "0" would read as the target.
+    const go = read("components/go-screen.tsx");
+    expect(go).not.toMatch(/toBeat \?\? 0|toBeat\.reps \?\? 0/);
+    expect(read("components/rest-timer.tsx")).toMatch(/toBeat\?: \{ reps: number; weight: number \| null; holdSeconds\?: number \| null \} \| null;/);
   });
 });
 

@@ -182,6 +182,34 @@ suite("food, as the Eat screen sees it", () => {
     expect(day.calories).toBe(400);
   });
 
+  it("judges a day against the latest target she set, not this week's plan alone", async () => {
+    /*
+      Stephen: "something wrong with my eat meters they are empty despite
+      having values in the totals ie 500 cals eaten but no meter progress".
+
+      The targets were read from the meal plan row for `weekStart(date)` and
+      nowhere else, so the first morning of a week nobody had planned yet had
+      no targets at all — and a null target draws no bar, only the empty
+      track. His last plan was the week before. One account had been like that
+      for a fortnight.
+    */
+    const next = addDays(a.today, 7);
+    // Before she has ever set one there is nothing to fall back to, and the
+    // answer stays null — the fallback is for a target she set, not one this
+    // can invent.
+    expect((await dayFoodView(a.profileId, next)).calorieTarget).toBeNull();
+
+    await runTool("set_nutrition_targets", { calorieTarget: 2000, proteinTargetG: 150 }, a.ctx);
+
+    expect((await dayFoodView(a.profileId, a.today)).calorieTarget).toBe(2000);
+    // The week nobody has planned: what had not been written was the plan,
+    // and the plan is meals. The target is still hers.
+    expect((await dayFoodView(a.profileId, next)).calorieTarget).toBe(2000);
+    // Never forwards. A day before she set anything is judged against nothing,
+    // because that is what was true then.
+    expect((await dayFoodView(a.profileId, addDays(a.week, -7))).calorieTarget).toBeNull();
+  });
+
   it("averages only fully counted days over a window", async () => {
     const trend = await nutritionTrend(a.profileId, 14, a.today);
     expect(trend.daysLogged).toBeGreaterThan(0);

@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { describeSet, loggedSummary } from "@/lib/holds";
-import { BANDS, bandShort } from "@/lib/bands";
+import { BANDS, asksBand, bandShort } from "@/lib/bands";
 import { sideAndBand } from "@/lib/views";
 import { registry } from "@/lib/tools";
 import { EXERCISES } from "@/lib/seed/exercises";
@@ -85,6 +85,55 @@ suite("which band", () => {
     expect(describeSet({ reps: 10, weight: null, band: "heavy" }, false)).toBe("10·H");
     expect(describeSet({ reps: 10, weight: 20, band: "heavy" }, false)).toBe("10@20");
     expect(describeSet({ reps: 10, weight: null, side: "left" }, false)).toBe("10 L");
+  });
+
+  it("is not asked once there is a weight in the field", () => {
+    /*
+      Stephen: "if weight is not 0 i think the band option should be hidden".
+
+      He is right, and the row above is the evidence: `describeSet` already
+      shows the weight and drops the band, so every set logged with both
+      recorded an answer the app would never display. Nine of the twenty-five
+      movements the library marks banded name a dumbbell, a cable or a machine
+      in the same equipment list — a hammer curl, a rear delt fly, a bicep
+      curl. They are one or the other, never both at once, and the overlap is
+      asserted below rather than taken on trust.
+    */
+    const alsoLoaded = EXERCISES.filter((e) => {
+      const kit = e.equipment ?? [];
+      return kit.includes("resistance band")
+        && kit.some((q) => ["dumbbell", "barbell", "kettlebell", "cable", "machine"].includes(q));
+    });
+    expect(alsoLoaded.map((e) => e.slug)).toContain("hammer-curl");
+    expect(alsoLoaded.length).toBeGreaterThanOrEqual(5);
+
+    expect(asksBand({ banded: true, weight: null })).toBe(true);
+    expect(asksBand({ banded: true, weight: 12 })).toBe(false);
+    // Zero is not a weight — the same rule the set itself follows, so an
+    // untouched field still gets the question.
+    expect(asksBand({ banded: true, weight: 0 })).toBe(true);
+    // And a movement that takes no band is never asked, weight or no weight.
+    expect(asksBand({ banded: false, weight: null })).toBe(false);
+    expect(asksBand({ banded: false, weight: 12 })).toBe(false);
+  });
+
+  it("does not send the band it stopped showing", () => {
+    /*
+      The picker opens on the band she used last, so hiding it alone would
+      leave a movement she has switched to dumbbells for filing every set
+      under "heavy" with nothing on screen saying so. A control she cannot see
+      must never still be sending a value — so the log reads `bandForSet`,
+      which is `null` whenever the question was not asked.
+    */
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/const askBand = asksBand\(\{ banded: exercise\.banded, weight: loaded \? weight : null \}\)/);
+    expect(card).toMatch(/const bandForSet = askBand \? band : null/);
+    expect(card).toMatch(/\{askBand && \(/);
+    // Both the optimistic square and the row that is actually saved.
+    expect(card).toMatch(/band: bandForSet,/);
+    expect(card).toMatch(/\{ side, band: bandForSet \}/);
+    // …and nowhere does either of them reach the raw picker state.
+    expect(card).not.toMatch(/\{ side, band \}/);
   });
 
   it("collapses a day of sided sets into what she thinks she did", () => {

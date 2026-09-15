@@ -6,8 +6,9 @@ import { db } from "@/lib/db";
 import { mealLogs, mealPlans, meals, profiles, weighIns, savedMeals,
 } from "@/lib/db/schema";
 import { planMeals, writeRecipe } from "@/lib/agent/planner";
-import { APP_TIMEZONE, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, hourIn, isFuture, weekStart } from "@/lib/date";
+import { APP_TIMEZONE, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, hourIn, isFuture, weekStart, type ISODate } from "@/lib/date";
 import { factForDay, pickUnseenFact } from "@/lib/facts";
+import { targetsForDate } from "@/lib/day-targets";
 import { preferredTopic } from "@/lib/fact-timing";
 import { nutritionTrend } from "@/lib/progress";
 import { pantryStock, recentMeals } from "@/lib/views";
@@ -490,8 +491,8 @@ export const logMeal = defineTool({
     };
     const fibre = fibreForDay(dayRows);
 
-    const [plan] = await db.select().from(mealPlans)
-      .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
+    // The latest plan at or before this day — see targetsForDate.
+    const plan = await targetsForDate(ctx.profileId, date as ISODate);
 
     /*
       Which of the five the row landed without.
@@ -556,8 +557,10 @@ export const getDayNutrition = defineTool({
     const rows = await db.select().from(mealLogs)
       .where(and(eq(mealLogs.profileId, ctx.profileId), eq(mealLogs.date, date)))
       .orderBy(mealLogs.createdAt);
-    const [plan] = await db.select().from(mealPlans)
-      .where(and(eq(mealPlans.profileId, ctx.profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
+    // The latest plan at or before this day — see targetsForDate. Pinned to
+    // the exact week, the coach reported her day against no target at all on
+    // any week a plan had not been written for.
+    const plan = await targetsForDate(ctx.profileId, date as ISODate);
     const counted = rows.filter((r) => r.calories !== null);
     const calories = counted.reduce((n, r) => n + (r.calories ?? 0), 0);
     const protein = rows.reduce((n, r) => n + (r.proteinG ?? 0), 0);

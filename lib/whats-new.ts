@@ -25,6 +25,38 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-empty-meters",
+    date: "2026-09-14",
+    title: "The meters had your targets back",
+    blurb:
+      "On the first morning of a week nobody had planned yet, Eat showed the day's totals over six empty bars — the targets were read from that week's meal plan and nowhere else, so with no plan written there was nothing to draw against. A target you set a week ago is still your target; the day is now judged against the most recent one you set. Progress and the coach were reading it the same wrong way and are fixed with it.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-14-set-colours",
+    date: "2026-09-14",
+    title: "Green, amber, red — one square at a time",
+    blurb:
+      "Each set square is now coloured against the same set last time: green if you beat it, amber if you matched it, red if it came in under. And the comparison itself was wrong — it weighed total tonnage, which called 9@45 a better set than 8@50. It reads estimated one-rep max now, so five pounds more on the bar for one rep fewer counts as the step up it is. The volume chip moved up beside the movement's name, where it fits on a phone and shows even when the card is folded.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-14-go-to-beat",
+    date: "2026-09-14",
+    title: "GO tells you what to beat",
+    blurb:
+      "The rest-over screen now draws last session's set for the one you are about to do, big and bold: 10@45, and you know what you are walking back to the rack for. It only ever showed a field seeded with what you had just finished, which answers the wrong question. Nothing is drawn when last time has no set in that position — you are doing more than you did, and there is nothing to beat.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-14-side-and-band",
+    date: "2026-09-14",
+    title: "Which side, and which band",
+    blurb:
+      "A movement done one side at a time now says whether the target is per side, and the card opens on the side you did not do last. A movement done on a resistance band asks which band \u2014 extra light through extra heavy \u2014 because a set on the light one and a set on the extra heavy were the same row until now. The band is only asked when there is no weight in the field: a curl is a dumbbell curl or a band curl, never both.",
+    href: "/train",
+  },
+  {
     id: "2026-09-14-volume-chip",
     date: "2026-09-14",
     title: "Last time, in one place and honest about it",

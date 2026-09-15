@@ -150,7 +150,9 @@ suite("contrast", () => {
       // This is why `on-accent` exists instead of reusing `ink`: a light theme
       // needs an accent dark enough to read on white *and* a label readable on
       // the accent, and no one colour does both.
-      for (const solid of ["accent", "beat", "miss"]) {
+      // `hold` joined the list when the set square started using all four: a
+      // square level with last week is amber, and it carries the same label.
+      for (const solid of ["accent", "beat", "hold", "miss"]) {
         expect(ratio(t["on-accent"], t[solid]), `on-accent on ${solid}`).toBeGreaterThanOrEqual(4.5);
       }
     });

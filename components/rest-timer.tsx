@@ -36,6 +36,18 @@ export type Rest = {
   /** What to seed the entry with: her last set of this movement. */
   reps: number;
   weight: number | null;
+  /**
+   * Last session's set in the position she is about to fill — the number to
+   * beat, drawn big on the GO screen.
+   *
+   * His request: "on the go screen lets display the set/reps to beat (from
+   * last session) somewhere big and bold so that we know how hard we have to
+   * go when we see the GO". It is carried on the rest for the same reason
+   * everything else here is: the timer outlives the screen that knew it.
+   * Null when there is no set in that position last time, which is the honest
+   * answer and not a zero.
+   */
+  toBeat?: { reps: number; weight: number | null; holdSeconds?: number | null } | null;
   /** Whether this movement can hold a weight at all. */
   loadable: boolean;
   /** The day the set belongs to. Undefined means her today. */

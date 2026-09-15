@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet, loggedSummary } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
-import { BANDS } from "@/lib/bands";
+import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
 import { movementCard, movementFolded, withMovementFold } from "@/lib/cards";
@@ -242,6 +242,9 @@ export function TrainClient({
       targetSets: e.targetSets, done: e.loggedToday.length,
       targetReps: e.targetReps, targetHoldSeconds: e.targetHoldSeconds, targetWeight: e.targetWeight,
       restSeconds: e.restSeconds,
+      // Last session's sets, so the GO screen can draw the one she is about to
+      // go at. The provider outlives this screen, so it cannot go and look.
+      lastTime: e.lastTime?.sets ?? [],
       // Without this the provider cannot tell a superset from two movements
       // that happen to be next to each other, and rests in the middle of one.
       supersetGroup: e.supersetGroup,
@@ -406,7 +409,12 @@ export function TrainClient({
     } catch { setError("Couldn't unchain that."); }
   }
 
-  const startRest = useCallback((exercise: TodayExercise, last?: { reps: number; weight: number | null; holdSeconds?: number | null }) => {
+  const startRest = useCallback((
+    exercise: TodayExercise,
+    last?: { reps: number; weight: number | null; holdSeconds?: number | null },
+    /** How many sets of it are in, so the rest knows which one comes next. */
+    doneSoFar?: number,
+  ) => {
     beginRest({
       slug: exercise.slug,
       name: exercise.name,
@@ -425,6 +433,18 @@ export function TrainClient({
         ? last?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
         : last?.reps ?? exercise.targetReps,
       weight: last?.weight ?? exercise.targetWeight,
+      /*
+        The set she is about to be asked for, last time round — drawn big on
+        the GO screen, because standing at the rack the useful question is
+        "what do I have to beat", not "what did I just do".
+
+        `doneSoFar` counts the sets that are in, so it is already the index of
+        the one she is about to do. The card's own count, not the server's:
+        `view.exercises` is one refresh behind, and two sets logged quickly
+        would have the GO screen holding up a set she had already beaten.
+        Same reason `restAfter` takes `alreadyDone`.
+      */
+      toBeat: exercise.lastTime?.sets[doneSoFar ?? exercise.loggedToday.length] ?? null,
       loadable: !exercise.bodyweight || exercise.loadable,
       date,
       // An absolute end time, so a throttled or sleeping tab cannot drift it.
@@ -471,9 +491,13 @@ export function TrainClient({
     if (next.kind === "straight-on") { dismissRest(); return; }
     if (next.kind === "next") {
       const on = find(next.movement.slug);
-      if (on) { startRest(on); return; }
+      // A movement she has not started this set on — the server's count for it
+      // is not stale, because nothing she just did touched it.
+      if (on) { startRest(on, undefined, on.loggedToday.length); return; }
     }
-    startRest(ex, logged);
+    // `alreadyDone` is the count *before* the set in hand — that is what
+    // `whatNext` means by `done` — so the next position along is one past it.
+    startRest(ex, logged, (alreadyDone ?? ex.loggedToday.length) + 1);
   }, [view.exercises, dismissRest, startRest]);
 
 
@@ -2058,6 +2082,23 @@ export function ExerciseCard({
     exercise.unilateral && exercise.lastSide ? (exercise.lastSide === "left" ? "right" : "left") : null,
   );
   const [band, setBand] = useState<string | null>(exercise.lastBand ?? null);
+  /*
+    A band is an alternative to a weight, not an addition to one.
+
+    Half the movements the library marks banded name a dumbbell in the same
+    equipment list — a hammer curl, a rear delt fly, an overhead extension —
+    because you can do them with either. So the card asked both questions at
+    once: a weight field and a band strength, one of which was always a lie
+    about the set she did. Once there is a weight in the field, the band
+    question goes.
+
+    And `bandForSet` rather than reading `band` at the log: a control she
+    cannot see must never still be sending a value. The picker opens on the
+    band she used last, so a movement she has switched to dumbbells for would
+    otherwise file every set under "heavy" with nothing on screen saying so.
+  */
+  const askBand = asksBand({ banded: exercise.banded, weight: loaded ? weight : null });
+  const bandForSet = askBand ? band : null;
 
   const [justMet, setJustMet] = useState(false);
   const wasMet = useRef(targetMet);
@@ -2156,7 +2197,7 @@ export function ExerciseCard({
       holdSeconds: exercise.isHold ? reps : null,
       weight: loaded && weight > 0 ? weight : null,
       side,
-      band,
+      band: bandForSet,
     };
     setUnconfirmed((u) => queueSet(u, landed.length, mine));
     const drop = () => setUnconfirmed((u) => ({ from: u.from, sets: u.sets.filter((x) => x !== mine) }));
@@ -2171,7 +2212,7 @@ export function ExerciseCard({
           loaded && weight > 0 ? weight : null,
           rir,
           date as ISODate | undefined,
-          { side, band },
+          { side, band: bandForSet },
         ),
       );
       // Whether that was the last set she planned for this movement.
@@ -2398,6 +2439,37 @@ export function ExerciseCard({
             <p className="mt-1 text-[12px] text-beat">Target up from last time</p>
           )}
         </TapIn>
+        {/*
+          Today against last time, beside the name.
+
+          It lived at the end of the set row, where on a phone it wrapped onto
+          a line of its own — four squares already fill the width. Here it sits
+          in the space a movement name leaves, it never wraps, and it is on the
+          one line a *folded* card still draws, so a collapsed card carries the
+          comparison too. Both were asked for in the same breath.
+
+          Quiet when she is down. Green is a celebration; a red badge for a
+          lighter day is the app telling her off for one. The set squares are
+          where down is marked, one square at a time, because there the colour
+          says which set to go back at rather than passing a verdict on the day.
+        */}
+        {volumeDelta && (
+          <span
+            title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
+            aria-label={`Volume ${volumeDelta.dir === "level" ? "level with" : `${Math.abs(volumeDelta.pct)} per cent ${volumeDelta.dir} on`} last time`}
+            className={`mt-0.5 flex h-6 shrink-0 items-center gap-0.5 self-start rounded-full px-2 text-[11px] font-semibold tabular ${
+              volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
+            }`}
+          >
+            {volumeDelta.dir !== "level" && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d={volumeDelta.dir === "up" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
+              </svg>
+            )}
+            {volumeDelta.dir === "level" ? "level" : `${Math.abs(volumeDelta.pct)}%`}
+          </span>
+        )}
         {/* Above the name on a phone, hard left. They were a right-aligned row
             *under* the name, which put a strip of empty card between the
             target and the buttons and read as a gap rather than a row. A
@@ -2636,15 +2708,24 @@ export function ExerciseCard({
           // moment later, when the refresh lands.
           const isUnconfirmed = i >= landed.length && i < done.length;
           const label = s ? describeSet(s, exercise.isHold) : "—";
-          // Against the same set last time, where there is one to compare
-          // against. **The higher of the two is the one that gets marked**, in
-          // green, and it is a celebration rather than a verdict: a set that
-          // came in under last week used to take a full red fill, which turns
-          // an ordinary day into a red row and reads as the app telling her
-          // off. The lower one is not marked at all — a red ring on the accent
-          // fill was invisible anyway, and the green rule under last time's
-          // number already says which of the two won. Nothing is marked when
-          // the two cannot honestly be compared.
+          /*
+            Against the same set last time, where there is one to compare
+            against — and the square is the whole of that signal now.
+
+            Green up, amber level, red down, and the accent fill only when
+            there is nothing to compare it with. Stephen asked for the three
+            colours outright: "the green current set square is good indicator,
+            but lets make the current set square red if its less than last
+            week… if both are same make current set square yellow."
+
+            An earlier version of this file argued against a red fill — that it
+            turns an ordinary day into a red row and reads as the app telling
+            her off. That reasoning stands for the *session* verdict and for
+            the volume chip, both of which stay quiet when she is down. It does
+            not hold for one square out of four: here red is the fastest way to
+            see which set to go back at, and the row tells the truth in one
+            glance rather than making her read four pairs of numbers.
+          */
           const cmp = compareSet(s, prev);
           /*
             A set that never happened, on a session she has signed off.
@@ -2664,7 +2745,11 @@ export function ExerciseCard({
               : s
                 ? cmp === "up"
                   ? "bg-beat text-on-accent"
-                  : "bg-accent text-on-accent"
+                  : cmp === "same"
+                    ? "bg-hold text-on-accent"
+                    : cmp === "down"
+                      ? "bg-miss text-on-accent"
+                      : "bg-accent text-on-accent"
                 : missed
                   ? "border border-miss/50 bg-miss-soft text-miss"
                   : "border border-dashed border-edge text-faint"
@@ -2711,17 +2796,20 @@ export function ExerciseCard({
             <div key={i} className="flex min-w-11 flex-col items-stretch">
               {square}
               {exercise.lastTime && (
-                // Last time is the small print and stays that way, so its half
-                // of the signal is an underline rather than a fill: green and a
-                // shade brighter when it is the higher of the two, a quiet red
-                // rule when it is the one that has been beaten.
+                /*
+                  Last time is the small print and stays that way: one green
+                  rule, under the one she has not beaten yet.
+
+                  There used to be a red rule under it when she *had* beaten
+                  it, which said the same thing as the green square above it
+                  in a second colour — "lets lose the red underlining on the
+                  prev set if its less, the green current set square is good
+                  indicator". Two marks for one fact is one too many, and the
+                  one that survives is the one pointing at work still to do.
+                */
                 <span
                   className={`mx-auto mt-1 block h-5 border-b-2 px-1 text-center text-[11px] font-medium tabular ${
-                    cmp === "down"
-                      ? "border-beat text-beat"
-                      : cmp === "up"
-                        ? "border-miss/50 text-faint"
-                        : "border-transparent text-faint"
+                    cmp === "down" ? "border-beat text-beat" : "border-transparent text-faint"
                   }`}
                 >
                   {prev ? `${prev.reps}${prev.weight !== null ? `@${prev.weight}` : ""}` : ""}
@@ -2732,45 +2820,14 @@ export function ExerciseCard({
         })}
 
         {/*
-          The comparison, at the end of the row rather than under it.
-
-          `ml-auto` puts it at the far end on a wide card and lets it wrap onto
-          the next line with the squares on a narrow one — it is a column of
-          the same shape as they are, so nothing jumps when it appears.
-
-          Quiet when she is down. Green is a celebration; a red badge for a
-          lighter day is the app telling her off for one, which is the rule the
-          squares already follow — the higher of the two is marked and the
-          lower is left alone.
+          No comparison at the end of this row any more — it is on the name's
+          line, beside the movement. On a phone four squares fill the width, so
+          a fifth column wrapped onto a line of its own and sat there looking
+          like something had gone wrong: "on mobile the indicator is on its own
+          row and looks ugly, i think it will fit to the right of the movement
+          name cleanly". It does — and that line is the one a folded card still
+          draws, which is the other half of the request.
         */}
-        {volumeDelta && (
-          <div className="ml-auto flex min-w-11 flex-col items-stretch">
-            <span
-              title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
-              // A pill in every state, so it reads as one control rather than a
-              // word that floated loose beside the squares. Green only when it
-              // is up: down in red would make a lighter day a verdict.
-              className={`flex h-9 items-center justify-center gap-0.5 rounded-lg px-2 text-[11px] font-semibold tabular ${
-                volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
-              }`}
-            >
-              {volumeDelta.dir !== "level" && (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d={volumeDelta.dir === "up" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
-                </svg>
-              )}
-              {volumeDelta.dir === "level" ? "level" : `${Math.abs(volumeDelta.pct)}%`}
-            </span>
-            {exercise.lastTime && (
-              // The same spacer the columns carry, so the row keeps one
-              // baseline whether or not last time is on screen.
-              <span className="mx-auto mt-1 block h-5 px-1 text-center text-[10px] leading-5 text-faint">
-                volume
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* A remove/edit failure has to be visible where she is looking — the
@@ -2921,8 +2978,12 @@ export function ExerciseCard({
               Which band. A band has no weight, so without this a set done on
               the light one and a set done on the extra heavy are the same row.
               Opens on the one she used last, which is nearly always the answer.
+
+              Asked only while there is no weight in the field. See `askBand`:
+              the two are alternatives, and the library marks a hammer curl as
+              both because it is one or the other, never both at once.
             */}
-            {exercise.banded && (
+            {askBand && (
               <div>
                 <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
                   Band

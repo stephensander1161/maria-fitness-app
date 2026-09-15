@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExerciseFigure } from "./exercise-figure";
 import { NumberField } from "./number-field";
 import { actionMessage } from "@/lib/client";
+import { describeSet } from "@/lib/holds";
 import type { Rest } from "./rest-timer";
 
 /**
@@ -103,6 +104,34 @@ export function GoScreen({
           GO
         </p>
         <p className="go-sub mt-2 text-[15px] font-medium text-text">{name}</p>
+
+        {/*
+          What she has to beat, in the size it deserves.
+
+          "on the go screen lets display the set/reps to beat (from last
+          session) somewhere big and bold so that we know how hard we have to
+          go when we see the GO." It is the one number that decides how the
+          next ninety seconds go, and until now the screen only offered a field
+          seeded with what she had just done — which answers "what did I do",
+          not "what do I have to do".
+
+          Nothing at all when last session has no set in this position: she is
+          doing more sets than she did before, and an empty space says that
+          honestly where a "0" would read as a target.
+        */}
+        {rest.toBeat && (
+          <p className="go-sub mt-4">
+            <span className="block text-[11px] font-medium uppercase tracking-[0.12em] text-faint">
+              To beat
+            </span>
+            <span className="mt-0.5 block text-[clamp(1.75rem,9vw,2.75rem)] font-bold leading-none tabular text-text">
+              {describeSet(rest.toBeat, held)}
+              {rest.loadable && rest.toBeat.weight !== null && (
+                <span className="ml-1 align-baseline text-[0.5em] font-semibold text-faint">{rest.unit}</span>
+              )}
+            </span>
+          </p>
+        )}
 
         {/*
           The set goes in here, not in a panel she has to find afterwards.

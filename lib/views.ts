@@ -8,6 +8,7 @@ import {
 import { addDays, DAY_NAMES, dayIndex, daysBetween, today, weekStart, type ISODate } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { shouldAskToWeigh } from "@/lib/morning-weigh-in";
+import { targetsForDate } from "@/lib/day-targets";
 import { goalDirection } from "@/lib/nutrition";
 import type { BuddyState, Tone as BuddyTone } from "@/lib/buddy";
 import { kgToLb, weightLabel, weightOut, type Units } from "@/lib/units";
@@ -734,8 +735,10 @@ export async function dayFoodView(profileId: string, date: ISODate = today()): P
     .where(and(eq(mealLogs.profileId, profileId), eq(mealLogs.date, date)))
     .orderBy(asc(mealLogs.createdAt));
 
-  const [plan] = await db.select().from(mealPlans)
-    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(date)))).limit(1);
+  // The latest plan at or before this day, not this week's alone — see
+  // targetsForDate. A week nobody had planned yet had no targets at all, and
+  // a null target draws an empty meter under a total that plainly is not.
+  const plan = await targetsForDate(profileId, date);
 
   // Her weight, for the fat floor: the latest reading, or what she started at.
   const [weighed] = await db.select({ kg: weighIns.weightKg }).from(weighIns)

@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  exercises, goals, mealLogs, mealPlans, measurements, planDays, plans, profiles, setLogs, weighIns, workouts,
+  exercises, goals, mealLogs, measurements, planDays, plans, profiles, setLogs, weighIns, workouts,
 } from "@/lib/db/schema";
 import { addDays, dayIndex, daysBetween, type ISODate, today, toISODate, weekStart } from "@/lib/date";
 import { kgToLb, lengthLabel, lengthOut, weightLabel, weightOut, type Units } from "@/lib/units";
@@ -11,13 +11,11 @@ import { SITES } from "@/lib/measurements";
 import { trendSeries, weightTrend } from "@/lib/trend";
 import { splitWeek } from "@/lib/week-done";
 import { workoutHappened } from "@/lib/sessions";
+// One copy of Epley, in the module the card can also import — see set-compare.
+import { e1rm } from "@/lib/set-compare";
+import { targetsForDate } from "@/lib/day-targets";
+export { e1rm };
 
-/** Epley estimated one-rep max — the fairest single number for comparing
- *  3×10@40 against 4×6@50. Bodyweight sets fall back to total reps. */
-export function e1rm(weightKg: number | null, reps: number): number {
-  if (weightKg === null || weightKg === 0) return reps;
-  return weightKg * (1 + reps / 30);
-}
 
 export type SetSummary = {
   setNumber: number; reps: number; weightKg: number | null; rpe: number | null;
@@ -1160,8 +1158,10 @@ export async function nutritionTrend(
   }).from(mealLogs)
     .where(and(eq(mealLogs.profileId, profileId), gte(mealLogs.date, start), lte(mealLogs.date, end)));
 
-  const [plan] = await db.select().from(mealPlans)
-    .where(and(eq(mealPlans.profileId, profileId), eq(mealPlans.weekStart, weekStart(end)))).limit(1);
+  // The latest plan at or before the window's end — see targetsForDate. Pinned
+  // to the exact week, every day of an unplanned one was judged against no
+  // target at all and reported as if she had none.
+  const plan = await targetsForDate(profileId, end);
   const calorieTarget = plan?.calorieTarget ?? null;
   const proteinTargetG = plan?.proteinTargetG ?? null;
 

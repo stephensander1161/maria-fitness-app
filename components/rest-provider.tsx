@@ -118,6 +118,12 @@ export type SessionMovement = {
   restSeconds: number;
   /** Chained to another movement: they alternate, and only the pair rests. */
   supersetGroup: string | null;
+  /**
+   * Last session's sets, in order, so the GO screen can draw the one she is
+   * about to go at. The provider is the only thing that knows which position
+   * comes next once a rest has outlived the card.
+   */
+  lastTime: { reps: number; weight: number | null; holdSeconds: number | null }[];
 };
 
 type RestContext = {
@@ -302,6 +308,9 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
                 isHold: partner.isHold, loadable: partner.loadable,
                 reps: partner.isHold ? partner.targetHoldSeconds ?? 30 : partner.targetReps,
                 weight: partner.targetWeight,
+                // The partner's next position, not this movement's — `toBeat`
+                // rides on `go` and would otherwise follow her across.
+                toBeat: partner.lastTime[partner.done] ?? null,
                 seconds: partner.restSeconds,
                 endsAt: Date.now(),
               });
@@ -311,6 +320,21 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
               startTransition(() => router.refresh());
               return;
             }
+            /*
+              The set she is about to be asked for, last time round.
+
+              `session.current` is not updated with this set until a few lines
+              below, so `done` here is still the count *before* it — the index
+              of the set she has just finished. The one she is about to be
+              asked for is the next one along. The other two branches are a
+              different movement, whose count this set never touched, so they
+              read `done` as it stands.
+
+              Undefined past the end of last session's list: a movement she is
+              doing more sets of than she did before has nothing to beat, and
+              nothing to beat is not a zero to beat.
+            */
+            const mine = session.current.find((m) => m.slug === go.slug);
             write(after.kind === "done" ? null : nextRest(after.kind === "next"
               ? {
                 ...go,
@@ -320,12 +344,14 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
                   ? after.movement.targetHoldSeconds ?? 30
                   : after.movement.targetReps,
                 weight: after.movement.targetWeight,
+                toBeat: after.movement.lastTime[after.movement.done] ?? null,
                 seconds: after.movement.restSeconds,
               }
               : {
                 ...go,
                 reps: set.holdSeconds ?? set.reps ?? go.reps,
                 weight: set.weight,
+                toBeat: mine?.lastTime[mine.done + 1] ?? null,
               }, Date.now()));
             // Whatever the rest is for is what the Train screen highlights.
             session.current = session.current.map((m) =>
