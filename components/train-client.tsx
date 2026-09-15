@@ -2076,6 +2076,37 @@ export function ExerciseCard({
     [...done, ...queued].reduce((n, s) => n + (s.weight ?? 0) * (s.reps ?? 0), 0),
   );
 
+  /*
+    Today against last time, as one figure at the end of the set row.
+
+    It replaces a bar chart that appeared under the squares once the movement
+    was finished — two bars, three captions and a legend, to say one thing,
+    and it grew the card by an inch to do it. This says the same thing in the
+    space already on the row.
+
+    Like for like, the same rule `compareToPrevious` follows: while she has
+    fewer sets in than last time, only that many of last time's count. An
+    unfinished movement is not a worse one, and a chart that compared one set
+    against four said it was.
+  */
+  const volumeDelta = (() => {
+    const mine = [...done, ...queued];
+    const theirs = exercise.lastTime?.sets ?? [];
+    if (mine.length === 0 || theirs.length === 0) return null;
+    // Bodyweight on either side has no tonnage to compare — the same refusal
+    // `compareSet` makes, for the same reason.
+    const loaded = (xs: { weight: number | null }[]) => xs.some((x) => x.weight !== null);
+    if (!loaded(mine) || !loaded(theirs)) return null;
+
+    const upTo = theirs.slice(0, Math.max(1, Math.min(mine.length, theirs.length)));
+    const before = upTo.reduce((n, x) => n + (x.weight ?? 0) * x.reps, 0);
+    if (before <= 0) return null;
+    const pct = Math.round(((todayVolume - before) / before) * 100);
+    // Two per cent either way is plate rounding, not a change — the same band
+    // `classify` uses on the session verdict.
+    return { pct, dir: pct > 2 ? "up" : pct < -2 ? "down" : "level" as const };
+  })();
+
   async function removeFromToday() {
     setRemoving(true);
     setError(null);
@@ -2699,6 +2730,47 @@ export function ExerciseCard({
             </div>
           );
         })}
+
+        {/*
+          The comparison, at the end of the row rather than under it.
+
+          `ml-auto` puts it at the far end on a wide card and lets it wrap onto
+          the next line with the squares on a narrow one — it is a column of
+          the same shape as they are, so nothing jumps when it appears.
+
+          Quiet when she is down. Green is a celebration; a red badge for a
+          lighter day is the app telling her off for one, which is the rule the
+          squares already follow — the higher of the two is marked and the
+          lower is left alone.
+        */}
+        {volumeDelta && (
+          <div className="ml-auto flex min-w-11 flex-col items-stretch">
+            <span
+              title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
+              // A pill in every state, so it reads as one control rather than a
+              // word that floated loose beside the squares. Green only when it
+              // is up: down in red would make a lighter day a verdict.
+              className={`flex h-9 items-center justify-center gap-0.5 rounded-lg px-2 text-[11px] font-semibold tabular ${
+                volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
+              }`}
+            >
+              {volumeDelta.dir !== "level" && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={volumeDelta.dir === "up" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
+                </svg>
+              )}
+              {volumeDelta.dir === "level" ? "level" : `${Math.abs(volumeDelta.pct)}%`}
+            </span>
+            {exercise.lastTime && (
+              // The same spacer the columns carry, so the row keeps one
+              // baseline whether or not last time is on screen.
+              <span className="mx-auto mt-1 block h-5 px-1 text-center text-[10px] leading-5 text-faint">
+                volume
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* A remove/edit failure has to be visible where she is looking — the
@@ -2730,39 +2802,16 @@ export function ExerciseCard({
         </p>
       )}
 
-      {/* Earned, not always-on: the last few sessions appear once she has done
-          the work, so finishing a movement shows her the shape of her progress
-          rather than another number to read mid-set. */}
-      {targetMet && exercise.trend.length > 0 && (
-        <div className="boost-rise mx-4 mb-3 rounded-xl border border-line bg-raised/60 p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-faint">
-            Last {exercise.trend.length} session{exercise.trend.length === 1 ? "" : "s"}
-          </p>
-          <div className="flex items-end gap-2">
-            {[...exercise.trend, { date: "today", volume: todayVolume, topSet: null, reps: 0 }].map(
-              (session, i, arr) => {
-                const peak = Math.max(...arr.map((x) => x.volume), 1);
-                const isToday = i === arr.length - 1;
-                return (
-                  <div key={session.date} className="flex flex-1 flex-col items-center gap-1.5">
-                    <span className={`text-[11px] tabular ${isToday ? "text-accent" : "text-faint"}`}>
-                      {session.volume}
-                    </span>
-                    <div
-                      className={`w-full rounded-t transition-all duration-500 ${isToday ? "bg-accent" : "bg-line"}`}
-                      style={{ height: `${Math.max(6, (session.volume / peak) * 40)}px` }}
-                    />
-                    <span className="text-[10px] text-faint">
-                      {isToday ? "today" : session.date.slice(5)}
-                    </span>
-                  </div>
-                );
-              },
-            )}
-          </div>
-          <p className="mt-2 text-center text-[11px] text-faint">volume, {unit}</p>
-        </div>
-      )}
+      {/*
+        The bar chart that used to sit here is gone.
+
+        Two bars, three captions and a legend to say "1685 last time, 1770
+        today" — and it appeared only once the movement was finished, which is
+        after the moment it could have been useful. The figure it was drawing
+        is now one chip at the end of the set row, where it costs no height at
+        all. `exercise.trend` is still read for Progress, which is where a
+        shape over several sessions belongs.
+      */}
 
       </div>
 
@@ -2772,18 +2821,16 @@ export function ExerciseCard({
       <div className={open && editingSet === null ? "shrink-0 border-t border-line bg-ink/40 p-3" : "hidden"}>
         {!open || editingSet !== null ? null : (
           <div className="space-y-3">
-            {/* Last time, set by set, right where this set is being typed.
-                The summary on the header line collapses "12, 12, 10" into
-                "3×12" and loses exactly the comparison she is making — the
-                deeper read is Progress; this is the glance. */}
-            {exercise.lastTime && (
-              <p className="text-[11px] text-faint tabular">
-                Last time ({exercise.lastTime.date.slice(5)}):{" "}
-                {exercise.lastTime.sets
-                  .map((s) => describeSet(s, exercise.isHold))
-                  .join(" · ")}
-              </p>
-            )}
+            {/*
+              Last time is under the squares, and only there.
+
+              It was in both places: a caption under each square — column for
+              column, which is the whole point, because that is the comparison
+              she is making — and the same four figures again as a sentence
+              above the weight field. One of them was a second copy of a thing
+              she was already looking at, two inches away. The captions are the
+              ones that carry the comparison, so the sentence went.
+            */}
             <div className="grid grid-cols-2 gap-3">
                 {loaded && (
                   <NumberField

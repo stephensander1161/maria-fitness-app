@@ -25,6 +25,22 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-volume-chip",
+    date: "2026-09-14",
+    title: "Last time, in one place and honest about it",
+    blurb:
+      "A movement card said \u201cdown from last time\u201d after one set of four, because it was comparing your first set against a whole finished session \u2014 and it called 9@45 a step up on 5@50 when the total weight moved says otherwise. It now compares set for set, at the point you have reached, and weighs the tonnage. The bar chart underneath is gone; the comparison is a small chip at the end of the set row, so the card no longer grows to hold it.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-14-timbits",
+    date: "2026-09-14",
+    title: "Timbits, by flavour",
+    blurb:
+      "A Timbit was one row at 80 calories, which was wrong for nearly everybody \u2014 Honey Dip is 50 and Sour Cream Glazed is 90. The flavours are in the library now, so naming one gets the real figure and a plain \u201ctimbit\u201d gets the middle of the range rather than either end. The Big Mac, large fries and the McChicken were off too and have been corrected against the published panels.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-14-scroll-fix",
     date: "2026-09-14",
     title: "The app scrolls again before you weigh in",

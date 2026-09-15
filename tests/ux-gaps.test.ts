@@ -95,11 +95,19 @@ suite("the training card during a session", () => {
     expect(card.indexOf("!s && canLog ?")).toBeLessThan(card.indexOf("!s || isQueued || isUnconfirmed ?"));
   });
 
-  it("shows last time set by set where this set is being entered", () => {
-    // The header line summarised "12, 12, 10" as "3×12", which loses exactly
-    // the comparison she is making.
-    expect(card).toMatch(/Last time \(\{exercise\.lastTime\.date\.slice\(5\)\}\)/);
-    expect(card).toMatch(/\.join\(" · "\)/);
+  it("shows last time set by set, in exactly one place", () => {
+    /*
+      The header line summarised "12, 12, 10" as "3×12", which loses exactly
+      the comparison she is making — so it moved under the squares, column for
+      column. It then existed twice: the captions, and the same four figures
+      again as a sentence two inches away above the weight field. The captions
+      carry the comparison; the sentence was a second copy of something she
+      was already looking at.
+    */
+    expect(card).not.toMatch(/Last time \(\{exercise\.lastTime\.date\.slice\(5\)\}\)/);
+    // Still under the squares, one per column — see the test below.
+    expect(card).toMatch(/const prev = exercise\.lastTime\?\.sets\[i\];/);
+    expect(card).toMatch(/\$\{prev\.reps\}\$\{prev\.weight !== null \? `@\$\{prev\.weight\}` : ""\}/);
   });
 
   it("puts last time under today's sets, one column per set", () => {

@@ -44,13 +44,13 @@ export const CHAIN_FOODS: FoodSeed[] = [
   // invented for them.
   { slug: "mcdonalds-fries-small", name: "McDonald's Fries, small", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 240, proteinG: 3, carbsG: 28, fatG: 11, fibreG: 3, unitGrams: 75, unitLabel: "small fries", aliases: ["mcdonalds small fries", "small fries mcdonalds", "mcdonalds french fries small", "small mcdonalds fries"] },
   { slug: "mcdonalds-fries-medium", name: "McDonald's Fries, medium", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 350, proteinG: 4, carbsG: 42, fatG: 17, fibreG: 4, unitGrams: 110, unitLabel: "medium fries", aliases: ["mcdonalds medium fries", "mcdonalds fries", "medium mcdonalds fries", "mcdonalds french fries"] },
-  { slug: "mcdonalds-fries-large", name: "McDonald's Fries, large", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 560, proteinG: 6, carbsG: 68, fatG: 27, fibreG: 6, unitGrams: 178, unitLabel: "large fries", aliases: ["mcdonalds large fries", "large mcdonalds fries", "mcdonalds french fries large"] },
+  { slug: "mcdonalds-fries-large", name: "McDonald's Fries, large", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 480, proteinG: 6, carbsG: 63, fatG: 23, fibreG: 5, unitGrams: 178, unitLabel: "large fries", aliases: ["mcdonalds large fries", "large mcdonalds fries", "mcdonalds french fries large"] },
   { slug: "mcdonalds-poutine", name: "McDonald's Poutine", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 510, proteinG: 17, carbsG: 41, fatG: 30, fibreG: 3, unitGrams: 225, unitLabel: "poutine", aliases: ["mcdonalds poutine", "mcpoutine"] },
-  { slug: "mcdonalds-big-mac", name: "Big Mac", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 520, proteinG: 24, carbsG: 42, fatG: 28, fibreG: 3, unitGrams: null, unitLabel: "Big Mac", aliases: ["mcdonalds big mac", "bigmac"] },
+  { slug: "mcdonalds-big-mac", name: "Big Mac", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 560, proteinG: 30, carbsG: 45, fatG: 30, fibreG: 3, unitGrams: null, unitLabel: "Big Mac", aliases: ["mcdonalds big mac", "bigmac"] },
   { slug: "mcdonalds-quarter-pounder-cheese", name: "Quarter Pounder with Cheese", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 520, proteinG: 30, carbsG: 38, fatG: 26, fibreG: 3, unitGrams: null, unitLabel: "burger", aliases: ["mcdonalds quarter pounder", "quarter pounder", "qpc"] },
   { slug: "mcdonalds-mcdouble", name: "McDouble", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 370, proteinG: 21, carbsG: 32, fatG: 17, fibreG: 2, unitGrams: null, unitLabel: "burger", aliases: ["mcdonalds mcdouble"] },
   { slug: "mcdonalds-cheeseburger", name: "McDonald's Cheeseburger", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 290, proteinG: 15, carbsG: 31, fatG: 11, fibreG: 2, unitGrams: null, unitLabel: "cheeseburger", aliases: ["mcdonalds cheeseburger"] },
-  { slug: "mcdonalds-mcchicken", name: "McChicken", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 470, proteinG: 16, carbsG: 41, fatG: 27, fibreG: 3, unitGrams: null, unitLabel: "sandwich", aliases: ["mcdonalds mcchicken", "mc chicken"] },
+  { slug: "mcdonalds-mcchicken", name: "McChicken", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 490, proteinG: 16, carbsG: 43, fatG: 26, fibreG: 3, unitGrams: null, unitLabel: "sandwich", aliases: ["mcdonalds mcchicken", "mc chicken"] },
   { slug: "mcdonalds-filet-o-fish", name: "Filet-O-Fish", category: "prepared", perItem: true, brand: "McDonald's Canada", kcal: 400, proteinG: 14, carbsG: 39, fatG: 21, fibreG: 1, unitGrams: null, unitLabel: "sandwich", aliases: ["mcdonalds filet o fish", "fillet o fish", "filet o fish"] },
   /*
     Per nugget, not per box — and this one is worth the note.
@@ -78,9 +78,26 @@ export const CHAIN_FOODS: FoodSeed[] = [
   { slug: "tims-honey-dip", name: "Tim Hortons Honey Dip Donut", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 220, proteinG: 4, carbsG: 38, fatG: 6, fibreG: 1, unitGrams: null, unitLabel: "donut", aliases: ["honey dip donut", "honey dip"] },
   { slug: "tims-chocolate-dip", name: "Tim Hortons Chocolate Dip Donut", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 200, proteinG: 4, carbsG: 33, fatG: 6, fibreG: 1, unitGrams: null, unitLabel: "donut", aliases: ["chocolate dip donut", "chocolate dip"] },
   { slug: "tims-apple-fritter", name: "Tim Hortons Apple Fritter", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 310, proteinG: 7, carbsG: 51, fatG: 8, fibreG: 2, unitGrams: null, unitLabel: "fritter", aliases: ["apple fritter", "tim hortons apple fritter"] },
-  // One Timbit, not a box: the panel is printed per Timbit, so "10 timbits"
-  // multiplies the way anyone would expect.
-  { slug: "tims-timbit-old-fashion-glazed", name: "Tim Hortons Timbit, old fashion glazed", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 80, proteinG: 1, carbsG: 14, fatG: 3, fibreG: 0, unitGrams: null, unitLabel: "Timbit", aliases: ["timbit", "timbits", "tim hortons timbit"] },
+  /*
+    One Timbit, not a box: the panel is printed per Timbit, so "10 timbits"
+    multiplies cleanly and a box does not have to be a unit.
+
+    And one row per flavour, because the flavours are not close. Honey Dip is
+    50 and Sour Cream Glazed is 90 — nearly double — so a single row was
+    wrong for almost everybody who asked. It was also wrong in the direction
+    that matters: it carried 80, which over-stated the light ones by 60%.
+
+    `timbit` on its own resolves to the assorted row, at the middle of the
+    published range rather than either end. Naming the flavour gets the exact
+    figure. Guessing low would be worse than guessing high here — an
+    under-counted day is an invented deficit, which is the failure this whole
+    file is careful about.
+  */
+  { slug: "tims-timbit-assorted", name: "Tim Hortons Timbit, assorted (50\u201390 by flavour)", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 70, proteinG: 1, carbsG: 11, fatG: 3, fibreG: 0, unitGrams: null, unitLabel: "Timbit", aliases: ["timbit", "timbits", "tim hortons timbit", "tim bits", "timbit assorted"] },
+  { slug: "tims-timbit-honey-dip", name: "Tim Hortons Timbit, honey dip", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 50, proteinG: 1, carbsG: 8, fatG: 2, fibreG: 0, unitGrams: null, unitLabel: "Timbit", aliases: ["honey dip timbit", "honey dip timbits"] },
+  { slug: "tims-timbit-old-fashion-plain", name: "Tim Hortons Timbit, old fashion plain", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 50, proteinG: 1, carbsG: 7, fatG: 2.5, fibreG: 0, unitGrams: null, unitLabel: "Timbit", aliases: ["old fashion plain timbit", "old fashioned plain timbit", "plain timbit"] },
+  { slug: "tims-timbit-chocolate-glazed", name: "Tim Hortons Timbit, chocolate glazed", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 90, proteinG: 1, carbsG: 14, fatG: 3, fibreG: 1, unitGrams: null, unitLabel: "Timbit", aliases: ["chocolate glazed timbit", "chocolate timbit"] },
+  { slug: "tims-timbit-sour-cream-glazed", name: "Tim Hortons Timbit, sour cream glazed", category: "snack", perItem: true, brand: "Tim Hortons", kcal: 90, proteinG: 1, carbsG: 12, fatG: 4.5, fibreG: 0, unitGrams: null, unitLabel: "Timbit", aliases: ["sour cream glazed timbit", "sour cream timbit"] },
   { slug: "tims-farmers-breakfast", name: "Tim Hortons Farmer's Breakfast Sandwich", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 660, proteinG: 21, carbsG: 46, fatG: 42, fibreG: 3, unitGrams: null, unitLabel: "sandwich", aliases: ["farmers breakfast sandwich", "tim hortons farmers breakfast"] },
   { slug: "tims-belt", name: "Tim Hortons Bagel B.E.L.T.", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 530, proteinG: 24, carbsG: 54, fatG: 24, fibreG: 7, unitGrams: null, unitLabel: "sandwich", aliases: ["belt bagel", "bagel belt", "tim hortons belt"] },
   { slug: "tims-chili", name: "Tim Hortons Chili", category: "prepared", perItem: true, brand: "Tim Hortons", kcal: 290, proteinG: 18, carbsG: 15, fatG: 16, fibreG: 5, unitGrams: null, unitLabel: "bowl", aliases: ["tim hortons chili", "tims chili"] },

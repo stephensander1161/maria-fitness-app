@@ -3,7 +3,7 @@
  * slug so re-running after editing the libraries updates rows in place.
  * Run with: npm run db:seed
  */
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, facts, foods, mealTemplateItems, mealTemplates,
@@ -62,7 +62,27 @@ async function main() {
     await db.insert(foods).values(row)
       .onConflictDoUpdate({ target: foods.slug, set: row });
   }
-  console.log(`\u2713 ${FOODS.length} foods, ${CHAIN_FOODS.length} restaurant items`);
+
+  /*
+    A row the seed no longer knows about is a row the seed takes away.
+
+    Upserting alone leaves ghosts, and a ghost in this table is not inert: it
+    keeps its aliases. One Timbit row at 80 kcal was split into the flavours
+    the chain actually prints, and until this existed the old slug sat there
+    still answering to "timbit" — so the correction shipped and the wrong
+    number kept being found.
+
+    Only `estimated: false` rows, which is exactly the set the seed writes.
+    The model's cached guesses are the other half of this table and are not
+    the seed's to delete — `remember()` in lib/tools/foods.ts puts them there,
+    and a figure she has already logged a meal against must not vanish.
+  */
+  const seeded = [...FOODS, ...CHAIN_FOODS].map((f) => f.slug);
+  const stale = await db.delete(foods)
+    .where(and(eq(foods.estimated, false), notInArray(foods.slug, seeded)))
+    .returning({ slug: foods.slug });
+  console.log(`\u2713 ${FOODS.length} foods, ${CHAIN_FOODS.length} restaurant items`
+    + (stale.length ? `, ${stale.length} retired (${stale.map((r) => r.slug).join(", ")})` : ""));
 
   for (const t of WORKOUT_TEMPLATES) {
     const row = {

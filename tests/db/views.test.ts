@@ -7,8 +7,8 @@ import {
   todayView, waterTotals, weekView, whatsNewForProfile,
 } from "@/lib/views";
 import {
-  currentStreak, exerciseHistory, goalProgress, lastTimeTargets, measurementProgress,
-  nutritionTrend, todaySnapshot, trainingTotals, weekReview,
+  compareToPrevious, currentStreak, exerciseHistory, goalProgress, lastTimeTargets,
+  measurementProgress, nutritionTrend, todaySnapshot, trainingTotals, weekReview,
 } from "@/lib/progress";
 import { db } from "@/lib/db";
 import { exercises, profiles } from "@/lib/db/schema";
@@ -298,5 +298,82 @@ suite("the rest of the screens", () => {
   it("says where she is against her goal, in words", async () => {
     const said = await goalProgress(a.profileId, "metric");
     expect(typeof said).toBe("string");
+  });
+});
+
+suite("an unfinished session is not a worse session", () => {
+  /*
+    The verdict is recomputed after every set, and it used to compare
+    *everything logged today* against *everything logged last time*. So the
+    first set of a four-set movement was judged against four sets and came
+    back "down from 12@40, 10@45, 9@45, 7@50 last time" — when she had matched
+    her opening set exactly. The card's own squares said so, in green,
+    directly above a red line saying the opposite.
+
+    While she has fewer sets in than last time, the comparison is against the
+    same number of last time's sets. That is the same question the squares
+    answer, column for column, so the two can no longer contradict each other.
+  */
+  const idFor = async (slug: string) => {
+    const [row] = await db.select({ id: exercises.id }).from(exercises).where(eq(exercises.slug, slug));
+    return row.id;
+  };
+
+  it("matches the opening set against the opening set, not against the session", async () => {
+    const b = await makeAccount("views-partial");
+    try {
+      const last = addDays(b.today, -7);
+      for (const [reps, weight] of [[12, 18], [10, 20], [9, 20], [7, 22]] as const) {
+        await runTool("log_set", { exerciseSlug: "bicep-curl", reps, weight, date: last }, b.ctx);
+      }
+      // Today: the same opening set, and nothing else yet.
+      await runTool("log_set", { exerciseSlug: "bicep-curl", reps: 12, weight: 18 }, b.ctx);
+
+      const out = await compareToPrevious(b.profileId, await idFor("bicep-curl"), "metric");
+      expect(out.status).toBe("matched");
+      expect(out.headline).not.toMatch(/down from/);
+      // And it says the comparison is only as far as she has got, so a good
+      // first set does not read as the movement being finished and won.
+      expect(out.headline).toMatch(/by this point/);
+    } finally {
+      await dropAccount(b);
+    }
+  });
+
+  it("judges the whole thing once she is level on count", async () => {
+    const b = await makeAccount("views-complete");
+    try {
+      const last = addDays(b.today, -7);
+      for (const [reps, weight] of [[10, 20], [10, 20]] as const) {
+        await runTool("log_set", { exerciseSlug: "bicep-curl", reps, weight, date: last }, b.ctx);
+      }
+      for (const [reps, weight] of [[10, 22], [10, 22]] as const) {
+        await runTool("log_set", { exerciseSlug: "bicep-curl", reps, weight }, b.ctx);
+      }
+      const out = await compareToPrevious(b.profileId, await idFor("bicep-curl"), "metric");
+      expect(out.status).toBe("beat");
+      // The whole session, so no hedge on the end of it.
+      expect(out.headline).toMatch(/last time\.$/);
+      expect(out.headline).not.toMatch(/by this point/);
+    } finally {
+      await dropAccount(b);
+    }
+  });
+
+  it("still calls a genuinely worse opening set worse", async () => {
+    // The fix must not turn into "never say down". Same count, less work.
+    const b = await makeAccount("views-worse");
+    try {
+      const last = addDays(b.today, -7);
+      for (const [reps, weight] of [[12, 20], [12, 20]] as const) {
+        await runTool("log_set", { exerciseSlug: "bicep-curl", reps, weight, date: last }, b.ctx);
+      }
+      await runTool("log_set", { exerciseSlug: "bicep-curl", reps: 6, weight: 12 }, b.ctx);
+      const out = await compareToPrevious(b.profileId, await idFor("bicep-curl"), "metric");
+      expect(out.status).toBe("missed");
+      expect(out.headline).toMatch(/down from/);
+    } finally {
+      await dropAccount(b);
+    }
   });
 });

@@ -168,3 +168,131 @@ suite("a panel that omits a figure leaves it null", () => {
     expect([...menus].some((b) => b?.includes("Canada"))).toBe(true);
   });
 });
+
+suite("a restaurant row has to agree with itself", () => {
+  /*
+    The audit that does not need the internet.
+
+    A chain's figures cannot be re-derived from anything — they are whatever
+    the chain printed — so the only check available at build time is internal:
+    protein, carbohydrate and fat at 4/4/9, plus fibre at 2, has to land near
+    the stated calories. A row where those disagree is *definitely* wrong,
+    whichever half of it is.
+
+    It does not catch a row that is coherent and simply not the real product,
+    and that is worth saying plainly: the Big Mac sat at 520 against a
+    published 560 and reconciled perfectly all the way. This is a floor, not a
+    guarantee, and the only real check is somebody reading the panel.
+
+    Twelve per cent, because these are per-item rows rounded to the nearest
+    whole gram by the chain itself: a 170-kcal taco whose macros are printed
+    as 8/13/10 reconciles to 174 and nothing is wrong.
+  */
+  const ATWATER = { protein: 4, carbs: 4, fat: 9, fibre: 2 };
+  const TOLERANCE = 0.12;
+
+  for (const food of CHAIN_FOODS) {
+    it(`${food.name} reconciles`, () => {
+      // Unknown is not zero anywhere else in this app, and it is not here
+      // either — but a restaurant panel prints all four, so a null is a row
+      // somebody left half-filled and the check should still run on it.
+      const from = (food.proteinG ?? 0) * ATWATER.protein
+        + (food.carbsG ?? 0) * ATWATER.carbs
+        + (food.fatG ?? 0) * ATWATER.fat
+        + (food.fibreG ?? 0) * ATWATER.fibre;
+      // Black coffee and the like: a handful of trace calories with no macros
+      // to account for them is honest, not broken.
+      if (food.kcal <= 15) return;
+      const off = Math.abs(food.kcal - from) / food.kcal;
+      expect(off, `${food.name}: states ${food.kcal}, macros give ${Math.round(from)}`)
+        .toBeLessThan(TOLERANCE);
+    });
+  }
+});
+
+suite("the Timbit is a range, not a number", () => {
+  /*
+    It was one row at 80 kcal, and it was wrong for almost everybody: Honey
+    Dip is 50 and Sour Cream Glazed is 90. The chat quoted 120, which was the
+    model estimating rather than reading the library at all — but the library
+    it would have read was overstating the light ones by sixty per cent.
+  */
+  const timbits = CHAIN_FOODS.filter((f) => f.slug.startsWith("tims-timbit"));
+
+  it("carries the flavours, because they are nearly double each other", () => {
+    expect(timbits.length).toBeGreaterThanOrEqual(4);
+    const kcal = timbits.map((t) => t.kcal);
+    expect(Math.min(...kcal)).toBe(50);
+    expect(Math.max(...kcal)).toBe(90);
+  });
+
+  it("sends a bare 'timbit' to the assorted row, and says so in the name", () => {
+    const generic = timbits.find((t) => t.aliases.includes("timbit"));
+    expect(generic?.slug).toBe("tims-timbit-assorted");
+    // Named for what it is, so the coach quotes it as a range rather than as
+    // a fact about the one she ate.
+    expect(generic?.name).toMatch(/assorted/i);
+    expect(generic?.name).toMatch(/50/);
+  });
+
+  it("guesses the middle rather than the low end", () => {
+    /*
+      Not the cheapest number. An under-counted day is an invented deficit —
+      the failure this whole file is careful about — so where the app has to
+      guess between 50 and 90 it guesses 70, never 50.
+    */
+    const generic = timbits.find((t) => t.slug === "tims-timbit-assorted")!;
+    const others = timbits.filter((t) => t !== generic).map((t) => t.kcal);
+    expect(generic.kcal).toBeGreaterThan(Math.min(...others));
+    expect(generic.kcal).toBeLessThan(Math.max(...others));
+  });
+});
+
+suite("a corrected row does not leave the old one answering", () => {
+  /*
+    The seed upserted and never deleted, and a ghost in this table is not
+    inert — it keeps its aliases. Three were found the day this was written:
+    the single Timbit row that the flavours replaced, and both McNugget *box*
+    rows that the per-nugget row replaced when "6 mcnuggets" was returning
+    1500 kcal. That fix had shipped; the boxes were still there answering to
+    "mcnuggets" the whole time.
+
+    So the seed retires what it no longer knows — and only its own rows. The
+    model's cached estimates are the other half of this table, and a figure
+    she has already logged a meal against must not vanish underneath her.
+  */
+  const run = fs.readFileSync("lib/seed/run.ts", "utf8");
+
+  it("deletes seeded rows the seed has dropped", () => {
+    expect(run).toMatch(/notInArray\(foods\.slug, seeded\)/);
+  });
+
+  it("never touches the model's cached guesses", () => {
+    expect(run).toMatch(/eq\(foods\.estimated, false\)/);
+    const clause = run.slice(run.indexOf("db.delete(foods)"), run.indexOf("returning({ slug"));
+    expect(clause).toMatch(/and\(/);
+  });
+
+  it("says what it retired, rather than doing it quietly", () => {
+    // A silent delete in a seed script is how you find out months later.
+    expect(run).toMatch(/retired/);
+  });
+
+  it("gives every slug to exactly one row", () => {
+    const slugs = CHAIN_FOODS.map((f) => f.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("gives every alias to exactly one row", () => {
+    // Two rows claiming "timbit" is the ghost problem in its other form: the
+    // lookup picks one and nobody can say which.
+    const seen = new Map<string, string>();
+    for (const f of CHAIN_FOODS) {
+      for (const alias of f.aliases) {
+        const already = seen.get(alias);
+        expect(already, `"${alias}" is claimed by ${already} and ${f.slug}`).toBeUndefined();
+        seen.set(alias, f.slug);
+      }
+    }
+  });
+});

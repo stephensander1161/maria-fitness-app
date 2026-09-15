@@ -264,14 +264,39 @@ export async function compareToPrevious(
       headline: `First time logging ${name}: ${describe(current.sets, units)}. That's the baseline to beat.` };
   }
 
-  const { status, e1rmDeltaPct, volumeDeltaPct } = classify(previous, current);
+  /*
+    Like for like, set for set.
 
+    This used to compare *everything logged today* against *everything logged
+    last time*, and it is called after every set — so the first set of a
+    four-set movement was judged against four sets and came back "down from
+    12@40, 10@45, 9@45, 7@50 last time". She had matched her first set
+    exactly. The card's own squares said so, in green, directly above a red
+    line saying the opposite.
+
+    An unfinished session is not a worse session. So while she has logged
+    fewer sets than last time, the comparison is against the same number of
+    last time's sets — which is the same question the squares answer, column
+    for column, and now they cannot disagree. Once she is level on count or
+    past it, the whole sessions are compared, which is the verdict that
+    matters.
+  */
+  const sofar = current.sets.length < previous.sets.length
+    ? summarise(previous.date, previous.sets.slice(0, current.sets.length))
+    : previous;
+  const partial = sofar !== previous;
+
+  const { status, e1rmDeltaPct, volumeDeltaPct } = classify(sofar, current);
+
+  // "so far" where it is still only part of the story, so a green line after
+  // one good set is not read as the movement being finished and won.
+  const when = partial ? "last time by this point" : "last time";
   const headline =
     status === "beat"
-      ? `${name}: ${describe(current.sets, units)} — up from ${describe(previous.sets, units)} last time.`
+      ? `${name}: ${describe(current.sets, units)} — up from ${describe(sofar.sets, units)} ${when}.`
       : status === "matched"
-        ? `${name}: ${describe(current.sets, units)} — held level with last time.`
-        : `${name}: ${describe(current.sets, units)} — down from ${describe(previous.sets, units)} last time.`;
+        ? `${name}: ${describe(current.sets, units)} — held level with ${when}.`
+        : `${name}: ${describe(current.sets, units)} — down from ${describe(sofar.sets, units)} ${when}.`;
 
   return { exerciseId, exerciseName: name, previous, current, status, e1rmDeltaPct, volumeDeltaPct, headline };
 }
