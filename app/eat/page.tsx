@@ -3,6 +3,7 @@ import { cardOpen } from "@/lib/cards";
 import { waterPresets, waterRow, waterTarget } from "@/lib/water";
 import { requireOnboarded } from "@/lib/session";
 import { dayFoodView, mealWeekView, savedMealsView, waterTotals } from "@/lib/views";
+import { rollMealsForward } from "@/lib/meal-rollover";
 import { addDays, APP_TIMEZONE, hourIn, prettyDate, weekStart } from "@/lib/date";
 import Link from "next/link";
 import { DayStep } from "@/components/day-nav";
@@ -42,6 +43,17 @@ export default async function EatPage({
   const { d } = await searchParams;
   const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
   const isToday = on === her;
+
+  /*
+    A food week is a shape you repeat too, so a week with no plan inherits the
+    last one — the same rule the training plan has had for months, and the half
+    that was missing. "the plans should just carry over week to week, unless
+    explicitly changed."
+
+    Before the reads, or the screen draws an empty week and fills it in on the
+    next navigation.
+  */
+  await rollMealsForward(profile.id, weekStart(on));
 
   const [dayFood, mealWeek, saved, burnToday, water] = await Promise.all([
     dayFoodView(profile.id, on),

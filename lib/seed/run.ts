@@ -3,7 +3,7 @@
  * slug so re-running after editing the libraries updates rows in place.
  * Run with: npm run db:seed
  */
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   exercises, facts, foods, mealTemplateItems, mealTemplates,
@@ -81,8 +81,36 @@ async function main() {
   const stale = await db.delete(foods)
     .where(and(eq(foods.estimated, false), notInArray(foods.slug, seeded)))
     .returning({ slug: foods.slug });
+  /*
+    And a guess the library can now answer itself.
+
+    "A seeded row always wins, because the slug collides" is only true when the
+    model named the food the way the seed did. It called one "pork chop"; the
+    seed calls that `pork-loin-chop-cooked` and carries "pork chop" as an alias.
+    No collision — so a guess at 210 kcal/100g with no per-item weight sat down
+    beside the real row (231 kcal/100g, and it knows a chop is 120g) and
+    *outranked* it, because an exact name match beats an exact alias match.
+
+    Only an exact hit on a seeded name or alias. A guess for something the
+    library genuinely does not have is the whole point of the cache and stays.
+
+    `lib/tools/foods.ts` now refuses to write these in the first place; this is
+    for the ones already there.
+  */
+  const known = new Set(
+    [...FOODS, ...CHAIN_FOODS].flatMap((f) => [f.name, ...(f.aliases ?? [])])
+      .map((n) => n.toLowerCase().trim()),
+  );
+  const guesses = await db.select({ id: foods.id, name: foods.name })
+    .from(foods).where(eq(foods.estimated, true));
+  const shadowing = guesses.filter((g) => known.has(g.name.toLowerCase().trim()));
+  if (shadowing.length > 0) {
+    await db.delete(foods).where(inArray(foods.id, shadowing.map((g) => g.id)));
+  }
+
   console.log(`\u2713 ${FOODS.length} foods, ${CHAIN_FOODS.length} restaurant items`
-    + (stale.length ? `, ${stale.length} retired (${stale.map((r) => r.slug).join(", ")})` : ""));
+    + (stale.length ? `, ${stale.length} retired (${stale.map((r) => r.slug).join(", ")})` : "")
+    + (shadowing.length ? `, ${shadowing.length} shadowing guess(es) dropped (${shadowing.map((g) => g.name).join(", ")})` : ""));
 
   for (const t of WORKOUT_TEMPLATES) {
     const row = {

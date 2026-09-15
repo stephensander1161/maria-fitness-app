@@ -1245,6 +1245,62 @@ export const appErrors = pgTable(
   (t) => [index("app_errors_at").on(t.at)],
 );
 
+/**
+ * Every nutrition estimate the app has served, and what she did with it.
+ *
+ * His request, the afternoon "2x pork chops with rice and green beans" came
+ * back as 420 calories and zero carbohydrate: "you better start recording the
+ * result every time someone clicks calculate so that we can audit the
+ * predictions and improve them."
+ *
+ * That answer was wrong in two separable ways and only a record can tell them
+ * apart — the model dropped two of the three foods named, while the number it
+ * gave for the third was fine. `foods.served_count` says which guesses are
+ * *relied on*; this says which ones were *right*, which is the question that
+ * actually improves the library.
+ *
+ * `loggedKcal` and its siblings are filled in afterwards by `log_meal`, when
+ * she logs the thing she had just asked about. The estimate said 420, she
+ * typed 650, and the gap between those two is the whole point of the table.
+ * Null where she never logged it — which is not a zero, and is not agreement.
+ *
+ * Scoped to a profile and cascaded with it: it is a record of what she asked.
+ */
+export const foodEstimates = pgTable(
+  "food_estimates",
+  {
+    id: id(),
+    at: createdAt(),
+    profileId: uuid("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    /** Exactly what she typed, before the portion parser touched it. */
+    query: text("query").notNull(),
+    /** Which of the three answered her. */
+    source: text("source", { enum: ["library", "estimated", "none"] }).notNull(),
+    /** The library row that answered, when one did. */
+    foodSlug: text("food_slug"),
+    /**
+     * How many separate foods the estimator said it had counted.
+     *
+     * One on a bare ingredient. The number that matters is the plate that came
+     * back as 1 when three things were named — that is the failure this table
+     * was built the day of, and it is visible here without reading the macros.
+     */
+    components: integer("components"),
+    grams: real("grams"),
+    kcal: real("kcal"),
+    proteinG: real("protein_g"),
+    carbsG: real("carbs_g"),
+    fatG: real("fat_g"),
+    fibreG: real("fibre_g"),
+    /** What she logged afterwards, if she logged it. See above. */
+    loggedKcal: integer("logged_kcal"),
+    loggedProteinG: integer("logged_protein_g"),
+    loggedCarbsG: integer("logged_carbs_g"),
+    loggedFatG: integer("logged_fat_g"),
+  },
+  (t) => [index("food_estimates_at").on(t.at), index("food_estimates_profile").on(t.profileId, t.at)],
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {

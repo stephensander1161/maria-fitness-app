@@ -45,6 +45,16 @@ suite("the week carries forward", () => {
     const plan = code("app/plan/page.tsx");
     expect(plan).toMatch(/await rollForward\(profile\.id, shownWeek\)/);
     expect(plan.indexOf("rollForward")).toBeLessThan(plan.indexOf("weekView("));
+    /*
+      And the food week with it — "the plans should just carry over week to
+      week, unless explicitly changed". Eat is where it shows first, because
+      the calorie and protein targets live on the meal plan row: a week nobody
+      had planned had no target at all, and a null target draws no bar.
+    */
+    expect(plan).toMatch(/await rollMealsForward\(profile\.id, shownWeek\)/);
+    const eat = code("app/eat/page.tsx");
+    expect(eat).toMatch(/await rollMealsForward\(profile\.id, weekStart\(on\)\)/);
+    expect(eat.indexOf("rollMealsForward")).toBeLessThan(eat.indexOf("dayFoodView("));
   });
 });
 

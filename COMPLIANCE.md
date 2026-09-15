@@ -126,6 +126,15 @@ See APP-STORE.md for what the store would additionally require.
 - Deliberately narrow: **no credentials, and no record of passphrase attempts
   even hashed** — a log of near-misses is a wordlist. No body or training data.
 - Append-only by convention, and it survives `db:reset`.
+- `food_estimates` is separate and is **her data, not a security record**: the
+  food she asked the calculator about in her own words, what the app answered,
+  and — filled in afterwards — what she actually logged against it. It exists
+  because a plate came back at 420 calories with the rice and the beans
+  uncounted, and nothing in the app could have found that after the fact. It
+  is scoped to her profile, cascades with it, and is in the nightly backup and
+  the export like every other table of hers. It is read by `npm run estimates`
+  from the owner's machine and **not** by `/admin`: a meal described in words
+  is exactly the kind of personal detail that console is built not to show.
 - Application errors are logged server-side; clients receive generic messages,
   because stack traces and database errors are reconnaissance.
 - **Unhandled errors are recorded and read back.** `instrumentation.ts`

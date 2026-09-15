@@ -101,6 +101,26 @@ the test. The only current entry is `add_progress_photo`, because the model
 cannot produce a resized JPEG. "The UI does it" is not a reason — that is true
 of nearly every tool here.
 
+**A plate is not a food, and an estimate is not a fact.** `lookup_food` falls
+back to the model when the library has nothing, and it was asked for "standard
+reference values for the food and portion described" — a request for *one*
+food. "2x pork chops with rice and green beans" came back as 420 kcal and zero
+carbohydrate: it answered for the chops and dropped the rest without saying so,
+which is the worst kind of wrong because the figure looks reasonable. The
+schema now makes it enumerate every component and sum them, and `remember()`
+refuses two things it used to write — a multi-component answer (a plate is not
+an ingredient) and a guess for a food the library already answers by name or
+alias. That second one mattered: "a seeded row always wins because the slug
+collides" only holds when the model names the food the way the seed did, and a
+row called `pork chop` at 210 kcal/100g sat beside `pork-loin-chop-cooked` and
+outranked it. `lib/seed/run.ts` retires those on every seed.
+
+`food_estimates` records every answer the tool gives, and `log_meal` writes
+back what she actually logged against it — the gap between the two is the only
+signal there is about whether a guess was any good. Read it with `npm run
+estimates`, from the owner's machine and deliberately not from `/admin`: a meal
+described in her own words is exactly what that console is built not to show.
+
 ## Unknown is not zero
 
 The most repeated bug class in this app is a missing value summed as if it
@@ -279,6 +299,24 @@ copies under new slugs — `pelvic-floor-lift` beside `pelvic-floor-activation`.
 `tests/exercises.test.ts` caught the duplicates. Reach for existing slugs; the
 stage lists in `lib/tools/postpartum.ts` are checked against the seed.
 
+## The plans carry over
+
+`lib/plan-rollover.ts` for training and `lib/meal-rollover.ts` for food: a week
+with no plan inherits the last one that existed *before* it, copied rather than
+pointed at, and idempotent so only the first view of a week ever writes. A
+programme is a shape you repeat, and Monday morning was an empty app.
+
+Food came second and it is the half people notice, because **the calorie and
+protein targets live on the meal plan row**. A week nobody had planned had no
+targets, and a null target draws no bar at all — the Eat screen printed the
+day's totals over six empty meters with nothing on screen saying why. One
+account had been like that for a fortnight. `targetsForDate` in
+`lib/day-targets.ts` is the second half of that fix: every place that reads a
+*target* walks back to the most recent plan rather than pinning the exact week.
+Never forwards, and still null with no plan at all — the fallback is for a
+target she set, not one the app can invent. The week's *meals* are a different
+question and stay pinned: last week's dinners are not on tonight's plan.
+
 ## Which way she is going
 
 This app was written weight-loss-first, and for a long time that was not a
@@ -339,12 +377,23 @@ silently moves the number she eats to is one she stops trusting.
 
 ## Weight is a trend, not a reading
 
-`lib/trend.ts`. Everything that talks about her weight over time talks about
-the EWMA, ten-day half-life, α derived from the *gap* between weigh-ins so a
-fortnight away does not let a stale reading keep its full weight. Raw numbers
-are still hers and still shown — dots behind the line on the sparkline, "last
-weigh-in" under the trend — but no screen and no sentence reads a single
-morning as progress.
+`lib/trend.ts`. Everything that *judges* her weight over time judges the EWMA,
+ten-day half-life, α derived from the *gap* between weigh-ins so a fortnight
+away does not let a stale reading keep its full weight. No screen and no
+sentence reads a single morning as progress.
+
+**But what she weighs is a different question from how she is doing, and the
+screen answers it with the scale.** Progress used to print the trend in every
+place either question was asked — the headline, the goal card's "now", the
+weigh-in row — so a morning of 181.2 came back as 182.4 in 36px, which reads
+as the app arguing with the scale she has just stepped off. The reading is the
+headline and the trend sits under it, named; the goal card says "now" with the
+reading and fills its bar against the trend; `WeighIn` takes `reading` and the
+name `current` is gone from that component so the next caller cannot pass the
+trend by accident. The distinction to hold is **which number is shown**, not
+which number the app believes: every rate, every projection, every milestone
+and every target is still EWMA. `tests/weigh-in-card.test.ts` holds both
+halves.
 
 The second half is refusing to answer. `weeklyChangeKg` is **null** unless
 there are five weigh-ins in the last fortnight and one in the last three days;

@@ -700,11 +700,15 @@ export const EXERCISES: Seed[] = [
     // The same hinged position as a bent-over row, which is exactly how
     // people describe it when they are looking for it.
     tags: ["bent over", "kickback", "arms"],
-    unilateral: true,
+    // Both arms at once, which is how it is nearly always done with a pair of
+    // dumbbells — his report: "dumbbell tricep kickback has left/right but its
+    // both hands at once not one at a time". It was the only movement in the
+    // library marked unilateral whose name does not say single-arm, and the
+    // flag put a left/right question on every set of it.
     formCues: [
-      "Hinge at the hips like a bent-over row — flat back, chest down, one hand on a bench or your thigh for support.",
-      "Pin the upper arm against your side, elbow bent to about 90 degrees. It does not move again.",
-      "Straighten the elbow behind you until the arm is in line with your body, and squeeze.",
+      "Hinge at the hips like a bent-over row — flat back, chest down, a dumbbell in each hand.",
+      "Pin both upper arms against your sides, elbows bent to about 90 degrees. They do not move again.",
+      "Straighten the elbows behind you until the arms are in line with your body, and squeeze.",
       "Lower under control back to 90 degrees. Light weight: the arm is at its weakest here.",
     ],
     commonMistakes: [

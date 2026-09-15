@@ -28,7 +28,15 @@ suite("a movement done one side at a time says so", () => {
     // …and not on the ones that are not: a banded lateral walk is both ways
     // and a squat has no sides, which is why this is a flag and not a regex
     // over the name.
-    for (const slug of ["goblet-squat", "band-lateral-walk", "farmer-carry"]) {
+    for (const slug of ["goblet-squat", "band-lateral-walk", "farmer-carry",
+      /*
+        A kickback is a dumbbell in each hand, both arms at once — his report:
+        "dumbbell tricep kickback has left/right but its both hands at once not
+        one at a time". It was the only movement in the library marked
+        unilateral whose own name does not say single-arm or single-leg, which
+        is as close to a rule as this column has.
+      */
+      "tricep-kickback"]) {
       expect(byName.get(slug)?.unilateral ?? false, slug).toBe(false);
     }
   });

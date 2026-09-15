@@ -5,6 +5,7 @@ import { dayFoodView, mealWeekView, pickableExercises, todayView, weekView } fro
 import { addDays, dayIndex, daysBetween, prettyDate, weekStart } from "@/lib/date";
 import { profileToday } from "@/lib/profile";
 import { rollForward } from "@/lib/plan-rollover";
+import { rollMealsForward } from "@/lib/meal-rollover";
 import type { ISODate } from "@/lib/date";
 import { foodUnitsOf } from "@/lib/food-units";
 import { todayTargets } from "@/lib/tools/progression-targets";
@@ -43,6 +44,8 @@ export default async function PlanPage({
   // last one. Before the reads, or the screen shows an empty week and then
   // fills in on the next navigation.
   await rollForward(profile.id, shownWeek);
+  // And the food week with it, for the same reason and by the same rule.
+  await rollMealsForward(profile.id, shownWeek);
 
   // How far from today the week on screen is, so the header can say so in
   // words. Whole weeks: both are Mondays.

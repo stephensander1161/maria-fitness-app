@@ -25,6 +25,38 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-plans-carry-over",
+    date: "2026-09-14",
+    title: "Your food week carries over too",
+    blurb:
+      "The training plan has inherited last week's shape for months. Food did not — so a week nobody had planned was an empty one, and because the calorie and protein targets live on the meal plan, the targets went with it. A week with no plan now starts as a copy of the last one, recipes and all: the same meals on the same days, nothing logged. Editing it changes that week only, and asking for a new plan still replaces it.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-14-calculator-plates",
+    date: "2026-09-14",
+    title: "The calculator counts the whole plate",
+    blurb:
+      "\u201c2x pork chops with rice and green beans\u201d came back as 420 calories and no carbohydrate at all: the estimator had been asked for \u201cthe food described\u201d, answered for the chops, and dropped the rice and the beans without saying so. It now has to list every food it counted and add them up \u2014 and it can no longer file a whole meal in the food library as if it were an ingredient. Every answer is written down now, along with what you logged afterwards, so a wrong one can be found instead of guessed at.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-14-quantities",
+    date: "2026-09-14",
+    title: "Two, 2x, x2, a couple, \u00bd",
+    blurb:
+      "The food box only ever understood a number at the front. \u201ctwo pork chops\u201d, \u201cpork chops x2\u201d, \u201ca couple of eggs\u201d, \u201chalf a chicken breast\u201d, \u201c\u00bd cup rice\u201d and \u201c2-3 eggs\u201d were each read as a hundred grams of a food with a number in its name. All of them are read as counts now, and a range takes the middle rather than picking a side.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-14-kickback-sides",
+    date: "2026-09-14",
+    title: "A kickback is both arms",
+    blurb:
+      "Dumbbell Triceps Kickback was marked as a one-side-at-a-time movement, so every set asked which arm. It is a dumbbell in each hand, and the library says so now.",
+    href: "/train",
+  },
+  {
     id: "2026-09-14-empty-meters",
     date: "2026-09-14",
     title: "The meters had your targets back",

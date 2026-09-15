@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe as suite, expect, it } from "vitest";
 import { runTool } from "@/lib/tools";
 import { rollForward } from "@/lib/plan-rollover";
+import { rollMealsForward } from "@/lib/meal-rollover";
+import { db } from "@/lib/db";
+import { mealPlans } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import { addDays } from "@/lib/date";
 import { makeAccount, dropAccount, type TestAccount } from "./account";
 
@@ -42,6 +46,40 @@ suite("the programme repeats", () => {
 
   it("does nothing for a week that already has one", async () => {
     expect(await rollForward(a.profileId, a.week)).toBe(false);
+  });
+
+  it("carries the food week too, targets and meals", async () => {
+    /*
+      "the plans should just carry over week to week, unless explicitly
+       changed."
+
+      Training has done this for months; food was the half left behind, and it
+      is the half people notice first — the targets live on the meal plan row,
+      so a week nobody had planned had no calorie target at all and Eat drew
+      the day's totals over six empty bars.
+    */
+    await call("set_nutrition_targets", { calorieTarget: 2100, proteinTargetG: 150 });
+
+    const nextWeek = addDays(a.week, 7);
+    expect(await rollMealsForward(a.profileId, nextWeek)).toBe(true);
+    // Called twice is called once — every view after the first.
+    expect(await rollMealsForward(a.profileId, nextWeek)).toBe(false);
+    // …and it does nothing for a week that already has one.
+    expect(await rollMealsForward(a.profileId, a.week)).toBe(false);
+
+    const [copied] = await db.select().from(mealPlans)
+      .where(and(eq(mealPlans.profileId, a.profileId), eq(mealPlans.weekStart, nextWeek)));
+    expect(copied.calorieTarget).toBe(2100);
+    expect(copied.proteinTargetG).toBe(150);
+    // The rationale described a week that has been and gone. Nothing beats
+    // stale — the same rule the training rollover follows.
+    expect(copied.rationale).toBeNull();
+  });
+
+  it("never carries a week backwards into one before it", async () => {
+    // Stepping back to an empty week in the past should show what she was
+    // eating then, which is nothing, rather than what she is eating now.
+    expect(await rollMealsForward(a.profileId, addDays(a.week, -14))).toBe(false);
   });
 });
 

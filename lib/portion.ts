@@ -6,6 +6,8 @@
  * portion is a wrong calorie number presented with total confidence.
  */
 
+import { normaliseQuantity } from "@/lib/quantities";
+
 export type Portion = {
   /** Amount in the unit she typed. */
   amount: number;
@@ -68,6 +70,14 @@ const NAMED_UNITS: Record<string, string> = {
   egg: "egg", eggs: "egg",
   tin: "tin", tins: "tin", can: "tin", cans: "tin",
   glass: "glass", glasses: "glass",
+  /*
+    A cup is a measure people genuinely use for rice, oats and flour, and one
+    the library almost never carries — so naming it here is what lets `toGrams`
+    *refuse* it honestly and fall through to an estimate. Without the entry,
+    "½ cup rice" parsed as half of a food called "cup rice": no match, and the
+    portion silently became a hundred grams of something.
+  */
+  cup: "cup", cups: "cup",
   handful: "handful", handfuls: "handful",
   fillet: "fillet", fillets: "fillet",
   steak: "steak", steaks: "steak",
@@ -131,7 +141,16 @@ const LABEL_SYNONYMS: Record<string, string[]> = {
 const NOISE = /^(of|a|an|the|some)$/i;
 
 export function parsePortion(input: string): Portion | null {
-  const text = input.trim().toLowerCase();
+  /*
+    Every way of writing a count, turned into a leading decimal first.
+
+    This function only ever understood a leading digit, so "two pork chops",
+    "pork chops x2", "a couple of eggs" and "½ cup rice" were each read as a
+    hundred grams of a food with a number in its name. See lib/quantities.ts —
+    it is separate because normalising the wording and parsing the portion are
+    two jobs, and the first one has a lot of cases.
+  */
+  const text = normaliseQuantity(input);
   if (!text) return null;
 
   // "100g chicken", "100 g chicken", "2 eggs", "1.5 lb mince", "chicken".

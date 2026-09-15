@@ -31,10 +31,20 @@ export type LadderRung = {
  * cannot fix.
  */
 export function GoalCard({
-  goal, current, start, unit, rungs, goalDate, direction,
+  goal, current, reading, start, unit, rungs, goalDate, direction,
 }: {
   goal: number | null;
   current: number | null;
+  /**
+   * What the scale actually said, for the line that reads as "what I weigh".
+   *
+   * `current` is the trend and stays the trend: it is what the bar is filled
+   * against and what the rungs are judged on, because a single morning cannot
+   * answer "am I making progress". But "Started 190 · now 182.4" is not a
+   * judgement, it is a statement about her — and putting the trend there read
+   * as the app arguing with the scale she had just stepped off.
+   */
+  reading: number | null;
   start: number | null;
   unit: string;
   rungs: LadderRung[];
@@ -243,9 +253,9 @@ export function GoalCard({
       </div>
 
       {error && <p role="alert" className="mt-2 text-[12px] text-miss">{error}</p>}
-      {start !== null && current !== null && goal !== null && (
+      {start !== null && (reading ?? current) !== null && goal !== null && (
         <p className="mt-3 text-[11px] text-faint tabular">
-          Started {start} {unit} · now {current} {unit} · goal {goal} {unit}
+          Started {start} {unit} · now {reading ?? current} {unit} · goal {goal} {unit}
         </p>
       )}
     </section>

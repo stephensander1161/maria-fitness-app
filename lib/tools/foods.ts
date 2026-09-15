@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
+import { foodEstimates, foods, mealPlans, mealTemplateItems, meals } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { MODEL, PRICING } from "@/lib/agent/model";
 import { checkSpendAllowed, recordUsage } from "@/lib/limits";
@@ -68,6 +68,12 @@ export const lookupFood = defineTool({
             .catch(() => { /* a counter that fails must not fail her lookup */ });
         }
         const each = (v: number | null) => (v === null ? null : Math.round(v * n * 10) / 10);
+        record(ctx.profileId, input.query, {
+          source: best.estimated ? "estimated" : "library",
+          foodSlug: best.slug, components: 1, grams: best.unitGrams === null ? null : best.unitGrams * n,
+          kcal: Math.round(best.kcal * n), proteinG: each(best.proteinG),
+          carbsG: each(best.carbsG), fatG: each(best.fatG), fibreG: each(best.fibreG),
+        });
         return {
           found: true,
           source: best.estimated ? "estimated" : "library",
@@ -122,6 +128,13 @@ export const lookupFood = defineTool({
           .catch(() => { /* see above */ });
       }
 
+      record(ctx.profileId, input.query, {
+        source: best.estimated ? "estimated" : "library",
+        foodSlug: best.slug, components: 1, grams: Math.round(grams),
+        kcal: Math.round(scale(best.kcal, grams)), proteinG: scale(best.proteinG, grams),
+        carbsG: scale(best.carbsG, grams), fatG: scale(best.fatG, grams),
+        fibreG: best.fibreG === null ? null : scale(best.fibreG, grams),
+      });
       return {
         found: true,
         // A saved estimate is still an estimate. It is in this table so the
@@ -149,6 +162,7 @@ export const lookupFood = defineTool({
     }
 
     if (input.allowEstimate === false) {
+      record(ctx.profileId, input.query, { source: "none" });
       return { found: false, error: `Nothing in the library matches "${portion.query}".` };
     }
     // The food without the amount, so the alias is the thing and not the
@@ -293,9 +307,34 @@ export async function searchFoods(query: string, limit = 5) {
 }
 
 const Estimate = z.object({
-  food: z.string(),
-  grams: z.number().describe("Grams the estimate is for"),
-  kcal: z.number(),
+  food: z.string().describe("What this is, as she would name it"),
+  /*
+    Every food named, one entry each — and the reason the estimator was
+    rewritten.
+
+    "2x pork chops with rice and green beans" came back as 420 calories and
+    *zero carbohydrate*: the model answered for the chops, dropped the rice and
+    the beans, and nothing in the shape of the request made that impossible. A
+    plate missing two of its three components is the worst kind of wrong,
+    because the figure it produces looks perfectly reasonable.
+
+    Making it enumerate is what fixes it, and it makes the answer auditable
+    besides: the count is recorded with the estimate, so a guess can be read
+    back against what she actually logged.
+  */
+  components: z.array(z.object({
+    name: z.string(),
+    grams: z.number(),
+    kcal: z.number(),
+    proteinG: z.number(),
+    carbsG: z.number(),
+    fatG: z.number(),
+  })).describe(
+    "Every separate food named, one entry each. A plate of three things has three entries; "
+    + "a single ingredient has one.",
+  ),
+  grams: z.number().describe("Total grams — the sum of the components"),
+  kcal: z.number().describe("Total calories — the sum of the components"),
   proteinG: z.number(),
   carbsG: z.number(),
   fatG: z.number(),
@@ -303,9 +342,38 @@ const Estimate = z.object({
   category: z.enum([
     "meat", "fish", "dairy", "eggs", "grain", "legume", "vegetable",
     "fruit", "nut", "fat", "sauce", "drink", "snack", "prepared",
-  ]).describe("Closest category"),
+  ]).describe("Closest category for the whole thing"),
   note: z.string().optional(),
 });
+
+/**
+ * What the estimator is told, and why each paragraph is there.
+ *
+ * It used to be three lines about "the food and portion described", which is
+ * a request for one food — so a plate got answered as its most salient
+ * ingredient and the rest went unmentioned. Everything below is a failure
+ * somebody hit.
+ */
+const ESTIMATOR_SYSTEM = [
+  "You estimate nutrition.",
+  "",
+  "What you are given may be one ingredient — '150g cooked rice' — or a whole plate:",
+  "'2 pork chops with rice and green beans'. Count EVERY food named. Put each one in",
+  "`components` with its own weight and macros, then make the totals the sum of them.",
+  "A plate you have answered one component of is worse than no answer at all: the figure",
+  "looks reasonable and is a third of what she ate.",
+  "",
+  "No macro may come back as zero when something named plainly carries it. Rice, bread,",
+  "pasta and potatoes are carbohydrate; oil and butter are fat; meat, fish and dairy are",
+  "protein. A zero there is a component you dropped.",
+  "",
+  "Portions: an amount she gave is exactly what she gave. '2 pork chops' is a normal chop,",
+  "twice — not 200g. Where no amount is stated, assume one normal serving of each component",
+  "for a meal, and 100g for a bare ingredient sold by weight.",
+  "",
+  "Be honest in the note when a food varies a lot by preparation or brand. A confident",
+  "number for something that ranges 2x is worse than a caveat.",
+].join("\n");
 
 /** The fallback. Cheap, and only reached when the library has nothing. */
 /**
@@ -359,7 +427,80 @@ export function estimateRow(e: z.infer<typeof Estimate>, asked: string) {
  */
 async function remember(e: z.infer<typeof Estimate>, asked: string): Promise<void> {
   const row = estimateRow(e, asked);
-  if (row) await db.insert(foods).values(row).onConflictDoNothing({ target: foods.slug });
+  if (!row) return;
+
+  /*
+    A plate is not a food.
+
+    "2x pork chops with rice and green beans" was stored as a row called *pork
+    chop*, per 100g, from a figure that had counted only the chops — so a
+    one-off bad answer became a library entry, and the next lookup of "pork
+    chop" found it. Anything with more than one component is an answer to a
+    question, not an ingredient, and answers are not cached.
+  */
+  if (e.components.length > 1) return;
+
+  /*
+    And never a guess for a food the library already knows.
+
+    CLAUDE.md says a seeded row always wins because the slug collides — but
+    that only holds when the model names the food the way the seed did. It
+    named this one "pork chop"; the seed calls it `pork-loin-chop-cooked` and
+    carries "pork chop" as an alias. No collision, so the guess (210 kcal/100g,
+    no per-item weight) sat down beside the real row (231 kcal/100g, and it
+    knows a chop is 120g) and outranked it on an exact name match.
+
+    A score of 0.5 or better is an exact hit on the name or on an alias — see
+    `matchScore`. Anything looser is a different food and worth keeping.
+  */
+  const [known] = await searchFoods(e.food, 1);
+  if (known && !known.estimated && matchScore(e.food, known.name, known.aliases) <= 0.5) return;
+
+  await db.insert(foods).values(row).onConflictDoNothing({ target: foods.slug });
+}
+
+/**
+ * Every answer this tool gives, written down.
+ *
+ * "you better start recording the result every time someone clicks calculate
+ * so that we can audit the predictions and improve them." `foods.served_count`
+ * already says which guesses are leaned on; this says what each one actually
+ * *said*, so a wrong one can be found after the fact rather than by somebody
+ * noticing a plate came back at 420 calories.
+ *
+ * Best effort and never awaited, the same rule the serve counter follows: a
+ * record that fails to write must not fail the lookup she is waiting on.
+ */
+function record(
+  profileId: string,
+  query: string,
+  row: {
+    source: "library" | "estimated" | "none";
+    foodSlug?: string | null;
+    components?: number | null;
+    grams?: number | null;
+    kcal?: number | null;
+    proteinG?: number | null;
+    carbsG?: number | null;
+    fatG?: number | null;
+    fibreG?: number | null;
+  },
+): void {
+  void db.insert(foodEstimates).values({
+    profileId,
+    // Her wording, before the portion parser touched it. The parse is half of
+    // what goes wrong, so a record of the tidied version would hide it.
+    query: query.slice(0, 500),
+    source: row.source,
+    foodSlug: row.foodSlug ?? null,
+    components: row.components ?? null,
+    grams: row.grams ?? null,
+    kcal: row.kcal ?? null,
+    proteinG: row.proteinG ?? null,
+    carbsG: row.carbsG ?? null,
+    fatG: row.fatG ?? null,
+    fibreG: row.fibreG ?? null,
+  }).catch(() => { /* see above */ });
 }
 
 /** Lower-case, hyphenated, the same shape the seed uses. */
@@ -377,10 +518,7 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     const response = await anthropic().messages.create({
       model: MODEL,
       max_tokens: 512,
-      system:
-        "You estimate nutrition. Give standard reference values for the food and portion described. " +
-        "If the portion is unstated assume 100g. Be honest in the note when a food varies a lot by " +
-        "preparation or brand — a confident number for something that ranges 2x is worse than a caveat.",
+      system: ESTIMATOR_SYSTEM,
       tools: [{
         name: "emit_estimate",
         description: "Emit the estimate.",
@@ -410,6 +548,13 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     // has already paid for.
     void remember(parsed.data, portionQuery).catch(() => { /* see above */ });
 
+    record(ctx.profileId, query, {
+      source: "estimated",
+      components: parsed.data.components.length,
+      grams: parsed.data.grams, kcal: parsed.data.kcal,
+      proteinG: parsed.data.proteinG, carbsG: parsed.data.carbsG,
+      fatG: parsed.data.fatG, fibreG: parsed.data.fibreG ?? null,
+    });
     return {
       found: true, source: "estimated", ...parsed.data,
       portion: gramsLabel(parsed.data.grams, await foodUnitsFor(ctx.profileId)),

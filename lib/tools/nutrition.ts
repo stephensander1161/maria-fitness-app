@@ -9,6 +9,7 @@ import { planMeals, writeRecipe } from "@/lib/agent/planner";
 import { APP_TIMEZONE, DAY_NAMES, dayIndex, FUTURE_DATE_ERROR, hourIn, isFuture, weekStart, type ISODate } from "@/lib/date";
 import { factForDay, pickUnseenFact } from "@/lib/facts";
 import { targetsForDate } from "@/lib/day-targets";
+import { noteWhatWasLogged } from "@/lib/food-estimates";
 import { preferredTopic } from "@/lib/fact-timing";
 import { nutritionTrend } from "@/lib/progress";
 import { pantryStock, recentMeals } from "@/lib/views";
@@ -454,6 +455,23 @@ export const logMeal = defineTool({
       caloriesHigh: input.caloriesHigh ?? null,
       clientKey: input.clientKey ?? null,
     }).onConflictDoNothing({ target: mealLogs.clientKey }).returning();
+
+    /*
+      The other half of the estimate record — see lib/food-estimates.ts.
+
+      She types the meal, taps calculate, edits the number the app filled in,
+      and logs it. The gap between what was predicted and what she filed is the
+      only signal there is about whether the prediction was any good, and it
+      exists for exactly one moment: this one.
+
+      Never awaited. A record that fails to write must not fail her meal.
+    */
+    if (row) {
+      void noteWhatWasLogged(ctx.profileId, input.description, {
+        kcal: row.calories, proteinG: row.proteinG,
+        carbsG: row.carbsG, fatG: row.fatG,
+      }).catch(() => { /* see above */ });
+    }
 
     if (!row) {
       // Her own retry landing twice. Report the day as it stands rather than

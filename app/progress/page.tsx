@@ -293,15 +293,32 @@ export default async function ProgressPage({
         <section className="card mb-3 p-5">
           <div className="flex items-end justify-between">
             <div>
+              {/*
+                What she weighed, in the big type — and the trend underneath it.
+
+                They were the other way round, and he was right that it reads
+                as the app disagreeing with the scale: "at top it highlights
+                the weight trend which is misleading, should have todays weight
+                as the big bold headline". She stepped on it this morning and
+                saw 181.2; the screen said 182.4 in 36px with the real figure
+                in grey underneath.
+
+                Nothing else moves. Every *judgement* on this screen — how much
+                is off, this week's rate, the distance to goal, the milestones
+                — still comes off the trend, because that is the half a single
+                morning genuinely cannot answer. See lib/trend.ts. The change
+                is which number is the headline, not which number the app
+                believes.
+              */}
               <p className="text-[11px] uppercase tracking-wide text-faint">
-                {trend.confidence === "none" ? "Current" : "Trend"}
+                {rawLatest === null ? "Current" : weighedInToday ? "Today" : "Last weigh-in"}
               </p>
               <p className="text-4xl font-bold tabular">
-                {current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
+                {rawLatest ?? current ?? "—"}<span className="ml-1 text-lg font-medium text-faint">{unit}</span>
               </p>
-              {rawLatest !== null && trend.confidence !== "none" && (
+              {current !== null && trend.confidence !== "none" && (
                 <p className="mt-0.5 text-[12px] text-faint tabular">
-                  last weigh-in {rawLatest} {unit}
+                  trend {current} {unit}
                 </p>
               )}
             </div>
@@ -501,6 +518,10 @@ export default async function ProgressPage({
         <GoalCard
           goal={goal}
           current={current}
+          // The trend is what the bar and the rungs are measured against; this
+          // is what she actually weighed. "Started 190 · now 182.4" read as a
+          // second opinion on the scale — see the headline above.
+          reading={rawLatest}
           start={start}
           unit={unit}
           goalDate={profile.goalDate}

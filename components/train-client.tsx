@@ -2440,13 +2440,19 @@ export function ExerciseCard({
           )}
         </TapIn>
         {/*
-          Today against last time, beside the name.
+          Today against last time — beside the name **on a phone only**.
 
-          It lived at the end of the set row, where on a phone it wrapped onto
-          a line of its own — four squares already fill the width. Here it sits
-          in the space a movement name leaves, it never wraps, and it is on the
-          one line a *folded* card still draws, so a collapsed card carries the
-          comparison too. Both were asked for in the same breath.
+          At the end of the set row it was a fifth column on a screen four
+          squares had already filled, so it wrapped onto a line of its own and
+          sat there looking like something had gone wrong. A desktop card has
+          the width and no such problem, and moving it there cost the row the
+          one thing that made it read: the chip lines up with the squares it is
+          summarising. So it is drawn twice and only one is ever visible —
+          `md:hidden` here, `hidden md:flex` on the row.
+
+          It is also on the one line a *folded* card still draws, so a
+          collapsed card carries the comparison. That was the other half of the
+          same request and it holds on both.
 
           Quiet when she is down. Green is a celebration; a red badge for a
           lighter day is the app telling her off for one. The set squares are
@@ -2457,7 +2463,7 @@ export function ExerciseCard({
           <span
             title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
             aria-label={`Volume ${volumeDelta.dir === "level" ? "level with" : `${Math.abs(volumeDelta.pct)} per cent ${volumeDelta.dir} on`} last time`}
-            className={`mt-0.5 flex h-6 shrink-0 items-center gap-0.5 self-start rounded-full px-2 text-[11px] font-semibold tabular ${
+            className={`mt-0.5 flex h-6 shrink-0 items-center gap-0.5 self-start rounded-full px-2 text-[11px] font-semibold tabular md:hidden ${
               volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
             }`}
           >
@@ -2820,14 +2826,43 @@ export function ExerciseCard({
         })}
 
         {/*
-          No comparison at the end of this row any more — it is on the name's
-          line, beside the movement. On a phone four squares fill the width, so
-          a fifth column wrapped onto a line of its own and sat there looking
-          like something had gone wrong: "on mobile the indicator is on its own
-          row and looks ugly, i think it will fit to the right of the movement
-          name cleanly". It does — and that line is the one a folded card still
-          draws, which is the other half of the request.
+          The comparison at the end of the row, on a screen with room for it.
+
+          `ml-auto` puts it at the far end; it is a column of the same shape as
+          the squares, so nothing jumps when it appears. On a phone this is
+          hidden and the copy beside the movement's name is shown instead —
+          there, a fifth column wraps onto a line of its own and sits there
+          looking like a mistake. Same figure, same rules, drawn where each
+          screen has space for it.
         */}
+        {volumeDelta && (
+          <div className="ml-auto hidden min-w-11 flex-col items-stretch md:flex">
+            <span
+              title={`Volume today against the same sets last time (${exercise.lastTime?.date.slice(5)})`}
+              // A pill in every state, so it reads as one control rather than a
+              // word that floated loose beside the squares. Green only when it
+              // is up: down in red would make a lighter day a verdict.
+              className={`flex h-9 items-center justify-center gap-0.5 rounded-lg px-2 text-[11px] font-semibold tabular ${
+                volumeDelta.dir === "up" ? "bg-beat-soft text-beat" : "bg-raised text-muted"
+              }`}
+            >
+              {volumeDelta.dir !== "level" && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={volumeDelta.dir === "up" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
+                </svg>
+              )}
+              {volumeDelta.dir === "level" ? "level" : `${Math.abs(volumeDelta.pct)}%`}
+            </span>
+            {exercise.lastTime && (
+              // The same spacer the columns carry, so the row keeps one
+              // baseline whether or not last time is on screen.
+              <span className="mx-auto mt-1 block h-5 px-1 text-center text-[10px] leading-5 text-faint">
+                volume
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* A remove/edit failure has to be visible where she is looking — the

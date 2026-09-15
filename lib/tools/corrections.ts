@@ -4,7 +4,7 @@ import { herId } from "./ids";
 import { wholeGrams, wholeGramsOptional } from "@/lib/whole-grams";
 import { db } from "@/lib/db";
 import {
-  complaints, cycleEvents, factViews, feedback, goals, mealLogs, mealPlans, meals, measurements,
+  complaints, cycleEvents, factViews, feedback, foodEstimates, goals, mealLogs, mealPlans, meals, measurements,
   messages, pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
   setLogs, shoppingExtras, sleepLogs, weighIns, workouts,
 } from "@/lib/db/schema";
@@ -492,6 +492,10 @@ const OWNED = [
   { table: plans, via: "profile" as const },
   { table: mealPlans, via: "profile" as const },
   { table: mealLogs, via: "profile" as const },
+  // The food she asked the calculator about, in her own words. It is hers, so
+  // "erase everything" has to take it — a wipe that leaves her meals written
+  // down somewhere she was not told about is not a wipe.
+  { table: foodEstimates, via: "profile" as const },
   { table: weighIns, via: "profile" as const },
   { table: sleepLogs, via: "profile" as const },
   { table: measurements, via: "profile" as const },

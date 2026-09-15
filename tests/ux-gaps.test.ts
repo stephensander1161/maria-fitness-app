@@ -137,31 +137,40 @@ suite("the training card during a session", () => {
     expect(card).not.toMatch(/border-miss\/50 text-faint/);
   });
 
-  it("carries the volume comparison on the name's line, folded or not", () => {
+  it("puts the volume comparison where each screen has room for it", () => {
     /*
-      "i love the volume up down indicator, lets display it in the card even
-       when the card is collapsed" — and, the same minute, "on mobile the
-       indicator is on its own row and looks ugly, i think it will fit to the
-       right of the movement name cleanly".
+      Three requests, one answer. "i love the volume up down indicator, lets
+      display it in the card even when the card is collapsed"; "on mobile the
+      indicator is on its own row and looks ugly, i think it will fit to the
+      right of the movement name cleanly"; and then "should only move to be
+      beside the movement title if im on mobile, not desktop".
 
-      One move answers both. At the end of the set row it was a fifth column
-      on a phone that four squares had already filled, so it wrapped; on the
-      name's line it never wraps, and that line is the one a folded card still
-      draws. So the assertion is *where* it is: before the controls row, which
-      is the half of the header a folded card hides.
+      At the end of the set row it is a fifth column, which on a phone four
+      squares have already filled — so it wrapped onto a line of its own. A
+      desktop card has the width, and there the row is the better place: the
+      chip lines up with the squares it is summarising. So it is drawn twice,
+      one of them always hidden.
     */
-    const chip = card.indexOf("{volumeDelta && (");
-    expect(chip, "the chip is still drawn").toBeGreaterThan(-1);
-    // Above the controls row — the block that carries `shut ? "hidden" : ""`.
+    const header = card.indexOf("{volumeDelta && (");
+    expect(header, "the chip is still drawn").toBeGreaterThan(-1);
+    // The header copy comes before the controls row — the block that carries
+    // `shut ? "hidden" : ""` — which is the half a folded card hides. That is
+    // what makes it visible on a collapsed card.
     const controls = card.indexOf('${shut ? "hidden" : ""}');
     expect(controls).toBeGreaterThan(-1);
-    expect(chip).toBeLessThan(controls);
-    // And out of the set-square row, which is drawn further down the file.
+    expect(header).toBeLessThan(controls);
+    // Phone only…
+    expect(card.slice(header, header + 700)).toMatch(/md:hidden/);
+    // …and the row copy, after the squares, is desktop only.
     const squares = card.indexOf("const cmp = compareSet(s, prev);");
-    expect(chip).toBeLessThan(squares);
-    // Green only when she is up: a red badge for a lighter day is a verdict on
-    // the whole movement, which is what the per-square colours are not.
-    expect(card).toMatch(/volumeDelta\.dir === "up" \? "bg-beat-soft text-beat" : "bg-raised text-muted"/);
+    const row = card.indexOf("{volumeDelta && (", squares);
+    expect(row, "the row copy is still drawn").toBeGreaterThan(-1);
+    expect(card.slice(row, row + 300)).toMatch(/hidden min-w-11 flex-col items-stretch md:flex/);
+    // Green only when she is up, on both: a red badge for a lighter day is a
+    // verdict on the whole movement, which is what the per-square colours are
+    // not.
+    expect(card.match(/volumeDelta\.dir === "up" \? "bg-beat-soft text-beat" : "bg-raised text-muted"/g))
+      .toHaveLength(2);
   });
 
   it("rests into the next movement when one is finished, and marks it", () => {

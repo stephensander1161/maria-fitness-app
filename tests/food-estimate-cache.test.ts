@@ -5,7 +5,11 @@ import { estimateRow } from "@/lib/tools/foods";
 const guess = (over: Record<string, unknown> = {}) => ({
   food: "Cheese Quesadilla", grams: 200, kcal: 520, proteinG: 18,
   carbsG: 42, fatG: 28, fibreG: 2, category: "prepared" as const,
-  note: "Varies by cheese and oil.", ...over,
+  note: "Varies by cheese and oil.",
+  // One food, so this one is cacheable. A plate with three entries is not —
+  // see the suite below.
+  components: [{ name: "cheese quesadilla", grams: 200, kcal: 520, proteinG: 18, carbsG: 42, fatG: 28 }],
+  ...over,
 });
 
 suite("an estimate is kept so it is not paid for twice", () => {
@@ -66,6 +70,65 @@ suite("an estimate is kept so it is not paid for twice", () => {
   it("does not fail the lookup she has already paid for", () => {
     const src = fs.readFileSync("lib/tools/foods.ts", "utf8");
     expect(src).toMatch(/void remember\(parsed\.data, portionQuery\)\.catch\(/);
+  });
+});
+
+suite("what the estimator is asked for, and what it is allowed to keep", () => {
+  const src = fs.readFileSync("lib/tools/foods.ts", "utf8");
+
+  it("has to count every food named, not the most obvious one", () => {
+    /*
+      "2x pork chops with rice and green beans" came back as 420 calories and
+      zero carbohydrate. The model answered for the chops and dropped the rice
+      and the beans, and nothing in the shape of the request made that
+      impossible — it was asked for "the food and portion described", which is
+      a request for one food.
+
+      A plate with two of its three components missing is the worst kind of
+      wrong: the figure looks perfectly reasonable.
+    */
+    expect(src).toMatch(/components: z\.array\(/);
+    expect(src).toMatch(/Count EVERY food named/);
+    expect(src).toMatch(/A plate you have answered one component of is worse than no answer/);
+    // And the zero that gave it away.
+    expect(src).toMatch(/No macro may come back as zero when something named plainly carries it/);
+    // An amount she gave is the amount, not 100g of the plate.
+    expect(src).toMatch(/'2 pork chops' is a normal chop,/);
+  });
+
+  it("does not file a plate in the food library", () => {
+    // The bad answer became a row called "pork chop", per 100g, from a figure
+    // that had only counted the chops — so a one-off went into the shared
+    // table and the next lookup found it.
+    expect(src).toMatch(/if \(e\.components\.length > 1\) return;/);
+  });
+
+  it("does not file a guess for a food the library already has", () => {
+    /*
+      "A seeded row always wins, because the slug collides" only holds when the
+      model names the food the way the seed did. It said "pork chop"; the seed
+      calls it `pork-loin-chop-cooked` with "pork chop" as an alias. No
+      collision — so the guess sat beside the real row and outranked it on an
+      exact name match.
+    */
+    expect(src).toMatch(/matchScore\(e\.food, known\.name, known\.aliases\) <= 0\.5/);
+    expect(src).toMatch(/known && !known\.estimated/);
+  });
+
+  it("writes down every answer it gives, and what she logged against it", () => {
+    // "you better start recording the result every time someone clicks
+    // calculate so that we can audit the predictions and improve them."
+    expect(src).toMatch(/db\.insert\(foodEstimates\)/);
+    // All three outcomes, not only the interesting one.
+    expect(src).toMatch(/source: "none"/);
+    expect(src).toMatch(/components: parsed\.data\.components\.length/);
+    // Her wording, before the parser tidied it — the parse is half of what
+    // goes wrong, so the tidied version would hide it.
+    expect(src).toMatch(/query: query\.slice\(0, 500\)/);
+    const meals = fs.readFileSync("lib/tools/nutrition.ts", "utf8");
+    expect(meals).toMatch(/void noteWhatWasLogged\(ctx\.profileId, input\.description/);
+    // Never awaited: a record that fails must not fail her meal.
+    expect(meals).toMatch(/\}\)\.catch\(\(\) => \{ \/\* see above \*\/ \}\);/);
   });
 });
 

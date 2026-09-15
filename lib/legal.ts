@@ -56,7 +56,7 @@ export const COLLECTED = [
   { group: "Your account", items: ["email address", "name", "a hashed password if you set one", "a Google account identifier if you use Google sign-in", "your theme and unit preferences"] },
   { group: "About your body", items: ["birth year", "sex", "height", "weigh-ins", "sleep you log", "water you log", "tape measurements", "progress photos you choose to add", "menstrual cycle events you choose to log", "recovery after childbirth, if you tell the app", "whether you are breastfeeding, if you tell the app"] },
   { group: "Your training", items: ["your weekly plan", "every set you log", "how sessions felt", "injuries and niggles you report", "equipment you have"] },
-  { group: "Your food", items: ["meal plans", "meals you log", "foods you dislike and dietary restrictions", "what is in your kitchen", "saved meals and batches"] },
+  { group: "Your food", items: ["meal plans", "meals you log", "foods you dislike and dietary restrictions", "what is in your kitchen", "saved meals and batches", "the food you ask the calculator about, and what the app estimated"] },
   { group: "The coach", items: ["your full conversation with the coach", "what the coach spent, so the app can cap it"] },
   { group: "Friends", items: ["who you are sharing training with", "a share code you can reset"] },
   { group: "Security", items: ["sign-in attempts, with the address they came from and an approximate location", "a truncated browser identifier", "what you asked the app for and whether it shipped"] },
