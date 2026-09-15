@@ -15,7 +15,7 @@ import { cueItems, cuePages } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
-import { movementCard, movementFolded, withMovementFold } from "@/lib/cards";
+import { cardOpen, movementCard, movementFolded, withCard, withMovementFold, type CardId } from "@/lib/cards";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
@@ -171,10 +171,19 @@ export function TrainClient({
   // True only between her tap on Start and leaving the page: the drop is a
   // transition, so it must not replay on a reload mid-session.
   const [justStarted, setJustStarted] = useState(false);
-  const [finishEarly, setFinishEarly] = useState(false);
   const [done, setDone] = useState(false);
   /** How long the session ran, taken once when she finishes it. */
   const [finishedMs, setFinishedMs] = useState<number | null>(null);
+  /**
+   * What `finish_workout` said, kept for the summary screen.
+   *
+   * The totals used to be recomputed from `view.exercises` — the server's
+   * list as of the last render — so a session whose final set was still
+   * optimistic was celebrated one set short. The tool counts rows after the
+   * flush and already worked out how the session compared with the last one;
+   * none of that was being read.
+   */
+  const [summary, setSummary] = useState<FinishResult | null>(null);
   /**
    * Every day is editable, including the ones behind her.
    *
@@ -245,6 +254,8 @@ export function TrainClient({
       // Last session's sets, so the GO screen can draw the one she is about to
       // go at. The provider outlives this screen, so it cannot go and look.
       lastTime: e.lastTime?.sets ?? [],
+      // The same implicit target the card uses — see lib/rest-alarm.ts.
+      lastSets: e.lastTime?.sets.length ?? null,
       // Without this the provider cannot tell a superset from two movements
       // that happen to be next to each other, and rests in the middle of one.
       supersetGroup: e.supersetGroup,
@@ -586,10 +597,6 @@ export function TrainClient({
 
   async function finish(feeling?: number) {
     setFinishing(true);
-    // The question is answered, so the question goes. It did not, and the
-    // "Yes, I'm done / Keep going" row sat there under a session that was
-    // already signed off, still offering to end it.
-    setFinishEarly(false);
     setError(null);
     try {
       // Anything still queued belongs in this session's summary.
@@ -598,10 +605,21 @@ export function TrainClient({
       // it; this did not, so finishing a session on any other day would have
       // signed off today's — which is the whole reason these controls were
       // locked to today rather than a reason to keep locking them.
-      await action("finish_workout", {
+      /*
+        The summary comes back with the answer; it used to be recomputed.
+
+        `totalLogged` counts `view.exercises`, which is the server's list at
+        the moment of the last *render* — and the last set of the session is
+        logged optimistically a second before Finish is tapped. So a session
+        of twenty sets was celebrated as nineteen, every time the last set was
+        the one that had not come back down the wire yet. The tool counts rows
+        after the flush, which is the only count that cannot be behind.
+      */
+      const out = await action<FinishResult>("finish_workout", {
         ...(feeling === undefined ? {} : { feeling }),
         ...(date === undefined ? {} : { date }),
       });
+      setSummary(out.ok === false ? null : out);
       window.dispatchEvent(new CustomEvent("workout:finished"));
       dismissRest();
       // Said properly, once, and only when she says she is done — a card
@@ -629,6 +647,20 @@ export function TrainClient({
    * things.
    */
   const [folded, setFolded] = useState<string[]>(collapsedCards);
+  /**
+   * Put the warm-up or the cool-down away, from the block itself.
+   *
+   * Same list, same write, same optimism as a movement card: it goes on the
+   * tap and the save is best effort, because a hide that fails to save is
+   * visible again next time — the safe direction for a control that removes
+   * things. Settings is the way back, and the icon's own label says so.
+   */
+  const hideCard = useCallback((card: CardId) => {
+    setFolded((f) => withCard(f, card, false));
+    void action("set_card_collapsed", { card, collapsed: true })
+      .catch(() => { /* see above */ });
+  }, []);
+  const showing = useCallback((card: CardId) => cardOpen(folded, card), [folded]);
   const foldMovement = useCallback((slug: string, shut: boolean) => {
     setFolded((f) => withMovementFold(f, slug, shut));
     void action("set_card_collapsed", { card: movementCard(slug), collapsed: shut })
@@ -696,10 +728,18 @@ export function TrainClient({
       busy={finishing}
       clockBusy={pausing}
       onStart={startSession}
-      // The confirmation moved up here with the button. Ending a session with
-      // movements still on the plan is a thing she may well mean; doing it by
-      // accident in the middle of one is not.
-      onFinish={() => (outstanding.length > 0 ? setFinishEarly(true) : void finish())}
+      /*
+        Finish finishes.
+
+        It used to stop and ask when movements were still on the plan — "Still
+        to do: X. Finish anyway?" — on the theory that ending a session by
+        accident is worse than ending it deliberately. It is not: "i dont think
+        i need a 'are you sure modal' that pops up to confirm i clicked it."
+        The button is at the end of the session, it is the thing she reached
+        for, and `reopen_workout` is one tap away if she did not mean it. What
+        she left undone is on the screen behind and in the summary.
+      */
+      onFinish={() => void finish()}
       onPause={togglePause}
       onReopen={reopen}
       onCorrected={() => router.refresh()}
@@ -884,21 +924,6 @@ export function TrainClient({
         shape underneath her.
       */}
       {dayHeader}
-      {finishEarly && (
-        <div className="card flex flex-wrap items-center gap-2 p-3">
-          <p className="min-w-0 flex-1 text-[13px] text-muted">
-            Still to do: {outstanding.join(", ")}. Finish anyway?
-          </p>
-          <button onClick={() => void finish()} disabled={finishing}
-            className="shrink-0 rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent disabled:opacity-50">
-            {finishing ? "Finishing…" : "Yes, I'm done"}
-          </button>
-          <button onClick={() => setFinishEarly(false)}
-            className="shrink-0 rounded-xl border border-line px-3 py-2 text-[13px] text-muted">
-            Keep going
-          </button>
-        </div>
-      )}
       {pending.length > 0 && <PendingBanner count={pending.length} onRetry={flush} />}
 
       {/*
@@ -912,12 +937,15 @@ export function TrainClient({
         Both are closed by one line: a warm-up she has to scroll past to reach
         the first set makes the app worse for the person who does not want one.
       */}
-      <StretchBlock
-        title="Warm up"
-        hint="a few reps each, nothing held"
-        items={stretchNames(warmUpFor(dayMuscles))}
-        from={backHere}
-      />
+      {showing("warmUp") && (
+        <StretchBlock
+          title="Warm up"
+          hint="a few reps each, nothing held"
+          items={stretchNames(warmUpFor(dayMuscles))}
+          from={backHere}
+          onHide={() => hideCard("warmUp")}
+        />
+      )}
 
       <div
         ref={listRef}
@@ -985,12 +1013,15 @@ export function TrainClient({
 
       {/* Holds, here: it is after the lifting that a long stretch costs
           nothing. Before it, the same hold measurably lowers force output. */}
-      <StretchBlock
-        title="Cool down"
-        hint="about 30 seconds each"
-        items={stretchNames(coolDownFor(dayMuscles))}
-        from={backHere}
-      />
+      {showing("coolDown") && (
+        <StretchBlock
+          title="Cool down"
+          hint="about 30 seconds each"
+          items={stretchNames(coolDownFor(dayMuscles))}
+          from={backHere}
+          onHide={() => hideCard("coolDown")}
+        />
+      )}
 
       {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
 
@@ -1042,10 +1073,13 @@ export function TrainClient({
 
       {done && (
         <SessionDone
-          sets={totalLogged}
+          // The tool's count, which was taken after the flush, over the one
+          // this screen can compute from a list that may be a render behind.
+          sets={summary?.totalSets ?? totalLogged}
           movements={movementsWorked}
-          volume={totalVolume}
+          volume={summary?.totalVolume ?? totalVolume}
           unit={view.unit}
+          vs={summary?.vsLastTime ?? null}
           // The session's own length, and a line chosen from it so it does
           // not change while she is reading it.
           // Frozen when the session ended, not read from the clock during a
@@ -1468,6 +1502,18 @@ export function queueSet<T>(queued: InFlight<T>, landedNow: number, set: T): InF
   return { from: queued.from + arrived, sets: [...queued.sets.slice(arrived), set] };
 }
 
+/** What `finish_workout` hands back — see lib/tools/training.ts. */
+export type FinishResult = {
+  ok?: boolean;
+  totalSets?: number;
+  totalVolume?: number;
+  unit?: string;
+  vsLastTime?: {
+    movements: number; up: number; level: number; down: number;
+    volumePct: number; verdict: "up" | "level" | "down";
+  } | null;
+};
+
 export function afterSet(exercises: TodayExercise[], slug: string, alreadyDone?: number) {
   return whatNext(
     exercises.map((e) => ({
@@ -1486,6 +1532,11 @@ export function afterSet(exercises: TodayExercise[], slug: string, alreadyDone?:
       done: e.slug === slug && alreadyDone !== undefined
         ? Math.max(e.loggedToday.length, alreadyDone)
         : e.loggedToday.length,
+      // How many she did last time, for a movement the plan names no number
+      // for — see `lastSets` in lib/rest-alarm.ts. Without it an added
+      // movement could never be finished, so the countdown started again
+      // after its last set and every set after that.
+      lastSets: e.lastTime?.sets.length ?? null,
       supersetGroup: e.supersetGroup,
     })),
     slug,
@@ -2040,6 +2091,24 @@ export function ExerciseCard({
    */
   function openCard(e?: { preventDefault: () => void }) {
     if (!canLog) return;
+    /*
+      A folded card opens. It does not jump straight into logging a set.
+
+      On a desktop this lifted the card and put the caret in the weight field,
+      so a tap meant to see what the movement was landed her in a form — "on
+      desktop if i click a closed card it doesnt open it focuses like im
+      entering a set. i think thats wrong, should just open the card if its
+      closed". Two taps, two meanings: show me, then log one.
+
+      Before the phone check, deliberately, because a folded card on a phone
+      has the same problem and the fix is the same — unfolding is cheaper than
+      a navigation for a card she may only want to glance at.
+    */
+    if (shut && onFold) {
+      e?.preventDefault();
+      onFold(false);
+      return;
+    }
     if (href && onAPhone()) return;  // let the link do its job
     e?.preventDefault();
     setCollapsedHeight(shell.current?.offsetHeight);
@@ -2906,7 +2975,22 @@ export function ExerciseCard({
         />
       )}
 
-      {result && (
+      {/*
+        The sentence, and only when there is something in it.
+
+        It appeared after every set, including the ones that changed nothing:
+        "Dumbbell Triceps Kickback: 16@60, 15@60, 18@60, 15@60, 16@60 — held
+        level with last time", in amber, on a movement that was going exactly
+        as planned. "why sometimes does this yellow pop up occur on a movement?
+        not sure its needed" — it is not. Level is the ordinary case and it is
+        already on the screen twice over: every square is amber and the chip by
+        the name says so.
+
+        Up and down stay. One is worth saying out loud and the other is the
+        only way she finds out mid-session, while there is still time to do
+        something about it.
+      */}
+      {result && result.vsLastTime !== "matched" && (
         <p className={`mx-4 mb-3 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
           {result.comparison}
         </p>

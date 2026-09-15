@@ -28,12 +28,13 @@ suite("a paused clock restarts when she does", () => {
     expect(src).toMatch(/minutes: z\.number\(\)\.int\(\)\.min\(0\)\.max\(600\)/);
   });
 
-  it("the clock is the control, and Finish still is not", () => {
+  it("the clock is a control, and Finish is the one beside it", () => {
     // The clock was deliberately not a tap target once, and the reasoning was
-    // about ending a session by accident. That is the button beside it, and
-    // it is still not a stray tap away.
+    // about ending a session by accident. Finish no longer asks a second time
+    // — his call — so the way back is what carries that weight instead.
     expect(card).toMatch(/title="Tap to correct the session time"/);
     expect(card).toMatch(/aria-label="Finish workout"/);
-    expect(card).toMatch(/onFinish=\{\(\) => \(outstanding\.length > 0 \? setFinishEarly\(true\) : void finish\(\)\)\}/);
+    expect(card).toMatch(/onFinish=\{\(\) => void finish\(\)\}/);
+    expect(card).toMatch(/"reopen_workout"/);
   });
 });

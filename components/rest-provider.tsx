@@ -124,6 +124,9 @@ export type SessionMovement = {
    * comes next once a rest has outlived the card.
    */
   lastTime: { reps: number; weight: number | null; holdSeconds: number | null }[];
+  /** How many she did last time — the implicit target for a movement the plan
+   *  names no number for. See lib/rest-alarm.ts. */
+  lastSets: number | null;
 };
 
 type RestContext = {

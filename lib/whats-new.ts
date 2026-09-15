@@ -25,6 +25,30 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-14-hide-stretches",
+    date: "2026-09-14",
+    title: "The warm-up and cool-down can go",
+    blurb:
+      "Both blocks now carry a hide icon, and Settings \u2192 Training has a switch for each to bring them back. Your coach can do it too \u2014 \u201chide the warm-up\u201d works. The choice lives on your account, so it follows you between your phone and a laptop.",
+    href: "/settings",
+  },
+  {
+    id: "2026-09-14-finish-and-summary",
+    date: "2026-09-14",
+    title: "Finish finishes, and the summary adds up",
+    blurb:
+      "Finish no longer stops to ask whether you meant it \u2014 if you did not, reopening the session is one tap. The set count came from the screen's own list, which is a moment behind, so a session of twenty sets was celebrated as nineteen whenever the last set was still in flight; it comes from the server now. And the summary says how the whole session went against the last one: the tonnage across every movement with something to compare against, and how many went up, held level or came down.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-14-quieter-cards",
+    date: "2026-09-14",
+    title: "Less shouting on the movement card",
+    blurb:
+      "The amber \u201cheld level with last time\u201d line is gone. Level is the ordinary case and the card already says it twice over \u2014 every square is amber and the chip by the name says so. Up and down still get a sentence. A folded card now opens when you click it instead of dropping you straight into logging a set, every button shows a hand on a desktop, and a movement you added on the fly stops counting down once you have matched the number of sets you did last time.",
+    href: "/train",
+  },
+  {
     id: "2026-09-14-first-set-preload",
     date: "2026-09-14",
     title: "The first set opens on last week's",

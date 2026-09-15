@@ -475,6 +475,24 @@ body {
 /* Inputs should never zoom the viewport on iOS — 16px minimum. */
 input, textarea, select, button { font-size: 16px; font-family: inherit; }
 
+/*
+  A control says it is one, on a device with a pointer.
+
+  Browsers give a <button> the default arrow, and this app is almost entirely
+  buttons — the fold chevron he noticed, every square, every pill, every tab.
+  "the chevron doesnt cause the cursor pointer? i think the hand, to appear."
+  It did not, and neither did anything else.
+
+  In `@layer base` rather than at the top level on purpose: an unlayered rule
+  beats every Tailwind utility whatever its specificity, so `cursor-grab` on
+  the reorder handle would have lost to it and the one control in the app that
+  had got this right would have been the one this broke.
+*/
+@layer base {
+  button, summary, [role="button"], [role="switch"] { cursor: pointer; }
+  button:disabled, [aria-disabled="true"] { cursor: default; }
+}
+
 /* ── Boost ──────────────────────────────────────────────────────────────────
    Staggered reveal: glow blooms, then each line rises in turn, so it reads as
    a moment rather than a wall of text appearing at once. */

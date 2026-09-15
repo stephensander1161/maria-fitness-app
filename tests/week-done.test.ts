@@ -357,11 +357,25 @@ suite("one Finish workout, not two", () => {
     expect(card()).not.toMatch(/Finishing…" : "Finish workout"/);
   });
 
-  it("and it still asks first when there is work left", () => {
-    // Ending a session with movements still on the plan is a thing she may
-    // well mean; doing it by accident mid-session is not.
-    expect(card()).toMatch(/onFinish=\{\(\) => \(outstanding\.length > 0 \? setFinishEarly\(true\) : void finish\(\)\)\}/);
-    expect(card()).toMatch(/Finish anyway\?/);
+  it("and it does not ask again once she has pressed it", () => {
+    /*
+      It used to stop and ask when movements were still on the plan — "Still
+      to do: X. Finish anyway?" — on the theory that ending a session by
+      accident is worse than ending one deliberately. "i dont think i need a
+      'are you sure modal' that pops up to confirm i clicked it."
+
+      The button is at the end of the session and it is the thing she reached
+      for. What she left undone is still on the screen behind it, and
+      `reopen_workout` is one tap away if she did not mean it.
+    */
+    expect(card()).toMatch(/onFinish=\{\(\) => void finish\(\)\}/);
+    // Stripped of comments: the note explaining why the confirm went names it,
+    // and a test that reads a comment is a test of the comment.
+    const code = card().replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).not.toMatch(/Finish anyway\?/);
+    expect(code).not.toMatch(/setFinishEarly/);
+    // The way back is what makes that safe, so it has to still be there.
+    expect(card()).toMatch(/"reopen_workout"/);
   });
 
   it("the target's numbers are the inputs — no pencil, no fold, no Save", () => {

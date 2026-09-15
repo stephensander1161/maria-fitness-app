@@ -18,12 +18,28 @@ import type { Tone } from "@/lib/buddy";
  * and nothing behind it that needs blocking.
  */
 export function SessionDone({
-  sets, volume, unit, movements, durationMs = null, seed = "", tone = null, onClose,
+  sets, volume, unit, movements, vs = null, durationMs = null, seed = "", tone = null, onClose,
 }: {
   sets: number;
   volume: number;
   unit: string;
   movements: number;
+  /**
+   * The session against the last one, as a whole — see `finish_workout`.
+   *
+   * His request: "in the finished summary, lets display whether we did better
+   * or worse than the previous week, as a whole". The per-movement verdicts
+   * already existed and the screen showed none of them, so a day where the
+   * squats went up and the rows came down said nothing at all.
+   *
+   * Null when there is nothing honest to say: a session of movements she has
+   * never done before has no last time, and a new movement counted as zero
+   * would read as a session that got heavier.
+   */
+  vs?: {
+    movements: number; up: number; level: number; down: number;
+    volumePct: number; verdict: "up" | "level" | "down";
+  } | null;
   /** How long she was at it, when the session had a start and a finish. */
   durationMs?: number | null;
   /** Chosen from this, so the line does not change while she reads it. */
@@ -85,6 +101,37 @@ export function SessionDone({
           <Stat label={volume > 0 ? `${unit} lifted` : "logged"} value={volume > 0 ? String(volume) : "✓"} />
           {durationMs !== null && <Stat label="on your feet" value={readableDuration(durationMs)} />}
         </dl>
+
+        {/*
+          How the whole session went against the last one.
+
+          Tonnage across every movement with a previous session to compare
+          against, and the count of movements either side of it — so a day
+          where the squats went up and the rows came down gets one answer
+          rather than five. Two per cent either way is level, the same band
+          the card puts on a single set.
+
+          Green when it is up and quiet otherwise. A red banner on the
+          celebration screen for a session that came in lighter is the app
+          taking the win away at the exact moment it should not — and a lighter
+          day is often the right day. The figure is still there, said plainly.
+        */}
+        {vs && (
+          <p className={`go-sub mt-5 text-[13px] ${vs.verdict === "up" ? "text-beat" : "text-muted"}`}>
+            {vs.verdict === "level"
+              ? "Level with last time overall"
+              : `${Math.abs(vs.volumePct)}% ${vs.verdict === "up" ? "up on" : "down on"} last time overall`}
+            <span className="text-faint">
+              {" · "}
+              {[
+                vs.up > 0 ? `${vs.up} up` : null,
+                vs.level > 0 ? `${vs.level} level` : null,
+                vs.down > 0 ? `${vs.down} down` : null,
+              ].filter(Boolean).join(", ")}
+              {` of ${vs.movements} movement${vs.movements === 1 ? "" : "s"}`}
+            </span>
+          </p>
+        )}
 
         <p className="go-sub mt-8 text-[12px] text-faint">Tap anywhere to clear</p>
       </div>

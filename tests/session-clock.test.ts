@@ -188,7 +188,7 @@ suite("the clock is on every day she could still be working on", () => {
       closed today's session instead — which is the reason the control was
       locked to today rather than a reason to keep locking it.
     */
-    const fn = card.slice(card.indexOf("async function finish("), card.indexOf("async function finish(") + 900);
+    const fn = card.slice(card.indexOf("async function finish("), card.indexOf("async function finish(") + 2000);
     expect(fn).toMatch(/\.\.\.\(date === undefined \? \{\} : \{ date \}\)/);
   });
 

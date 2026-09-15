@@ -13,6 +13,16 @@
 export const CARDS = {
   plannedFood: "Planned for today, on the Eat screen",
   mealRationale: "Why this plan, the write-up on the Plan screen's food tab",
+  /*
+    The two on Train that fold all the way to nothing.
+
+    Both already open closed, at one line each, which is exactly why they had
+    no way out: nothing that cheap looks worth a setting until you are the
+    person scrolling past both of them four times a week. For these two,
+    "folded" means not drawn at all — there is no smaller state left to reach.
+  */
+  warmUp: "The warm-up block on the Train screen",
+  coolDown: "The cool-down block on the Train screen",
 } as const;
 
 /**

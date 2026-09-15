@@ -60,7 +60,28 @@ export type Movement = {
   slug: string; targetSets: number; done: number;
   /** Chained to another movement: they alternate, and only the pair rests. */
   supersetGroup?: string | null;
+  /**
+   * How many sets of it she did last time, where the plan names no number.
+   *
+   * A movement she added on the fly has `targetSets: 0`, and a movement with
+   * no target could never be *finished* — so every set of one started another
+   * countdown, including the last: "the countdown still kicks off when i
+   * finish my last set". The app cannot know she is done, but it is not
+   * guessing from nothing either. She did five of these last week; five is the
+   * number the card shows under every square and the number the GO screen
+   * holds up. Matching it is the one honest signal there is.
+   *
+   * Undefined where there is no last time — a movement done for the first
+   * time genuinely has no end the app can see, and it keeps resting, which is
+   * the safe direction: an extra countdown is a nuisance and a missing one
+   * loses her the rest.
+   */
+  lastSets?: number | null;
 };
+
+/** What counts as "all of it" — the plan's number, or last time's. */
+const targetFor = (m: Movement): number =>
+  m.targetSets > 0 ? m.targetSets : (m.lastSets ?? 0);
 
 /**
  * What happens after she logs a set of `slug`.
@@ -119,10 +140,22 @@ export function whatNext<T extends Movement>(session: T[], slug: string): WhatNe
     const partner = group.find((m) => m.done < current.done + 1 && (m.targetSets === 0 || m.done < m.targetSets));
     if (partner) return { kind: "straight-on", movement: partner };
   }
-  // `done` is the count before this set, so this set is the one that finishes it.
-  const finished = current.targetSets > 0 && current.done + 1 >= current.targetSets;
+  // `done` is the count before this set, so this set is the one that finishes
+  // it. `targetFor` is the plan's number, or last time's on a movement she
+  // added — see `lastSets`.
+  const target = targetFor(current);
+  const finished = target > 0 && current.done + 1 >= target;
   if (!finished) return { kind: "same" };
 
+  /*
+    What is still owed — and only what the *plan* asked for.
+
+    `targetFor` is deliberately not used here. Last time's count is enough to
+    say a movement she added is finished; it is not enough to say the session
+    is not, or a movement she did once last week would hold today's session
+    open and the app would rest into something she never meant to do. It can
+    end a countdown. It cannot start one.
+  */
   const order = [...session.slice(at + 1), ...session.slice(0, at)];
   const owed = order.find((m) => m.targetSets > 0 && m.done < m.targetSets);
   return owed ? { kind: "next", movement: owed } : { kind: "done" };

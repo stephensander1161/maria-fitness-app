@@ -696,6 +696,25 @@ export const finishWorkout = defineTool({
     const ids = [...new Set(logged.map((l) => l.exerciseId))];
     const comparisons = await Promise.all(ids.map((id) => compareToPrevious(ctx.profileId, id, units)));
 
+    /*
+      The session against the last one, as a whole.
+
+      The per-movement headlines were already here and the screen showed none
+      of them — "lets display whether we did better or worse than the previous
+      week, as a whole". Tonnage across every movement that has a previous
+      session to compare against, so a day where the squats went up and the
+      rows came down has one answer rather than five.
+
+      Movements she has never done before are left out of both sides rather
+      than counted as zero: a new movement is not a session that got heavier.
+      Two per cent either way is level, the same band `classify` uses on one
+      movement and the card uses on one set.
+    */
+    const compared = comparisons.filter((c) => c.previous !== null && c.current !== null);
+    const before = compared.reduce((n, c) => n + (c.previous?.volumeKg ?? 0), 0);
+    const after = compared.reduce((n, c) => n + (c.current?.volumeKg ?? 0), 0);
+    const volumePct = before > 0 ? Math.round(((after - before) / before) * 100) : null;
+
     return {
       ok: true, date, title: w.title,
       totalSets: logged.length,
@@ -704,6 +723,14 @@ export const finishWorkout = defineTool({
       beat: comparisons.filter((c) => c.status === "beat").map((c) => c.headline),
       matched: comparisons.filter((c) => c.status === "matched").map((c) => c.headline),
       missed: comparisons.filter((c) => c.status === "missed").map((c) => c.headline),
+      vsLastTime: compared.length === 0 || volumePct === null ? null : {
+        movements: compared.length,
+        up: compared.filter((c) => c.status === "beat").length,
+        level: compared.filter((c) => c.status === "matched").length,
+        down: compared.filter((c) => c.status === "missed").length,
+        volumePct,
+        verdict: volumePct > 2 ? "up" : volumePct < -2 ? "down" : "level",
+      },
     };
   },
 });

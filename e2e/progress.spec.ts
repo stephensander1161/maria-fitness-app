@@ -41,15 +41,20 @@ test.describe("the reading and the trend, side by side", () => {
     */
     await expect(page.getByText(/^Weighed in at /)).toHaveText(/82\.2/);
 
-    // The headline is the trend, and it is a different number — that is the
-    // whole design, and it is also what made the bug invisible.
-    const headline = page.getByText(/last weigh-in/).first();
-    await expect(headline).toContainText("82.2");
-    const trendText = await page.locator("section", { hasText: /TREND|Trend/ }).first().innerText();
-    expect(trendText).toContain("82.2");
+    /*
+      The headline is what she weighed and the trend is the line under it —
+      they are different numbers, and that is what made the bug invisible.
+
+      They were the other way round until "at top it highlights the weight
+      trend which is misleading, should have todays weight as the big bold
+      headline". The assertion is the same either way: two distinct figures on
+      that card. If the page ever hands both slots the same source they
+      collapse into one.
+    */
+    const card = page.locator("section", { hasText: /trend \d/ }).first();
+    await expect(card).toContainText("82.2");
+    const trendText = await card.innerText();
     const trendNumbers = [...trendText.matchAll(/\d+\.\d/g)].map((m) => m[0]);
-    // At least two distinct figures on that card: the trend, and the reading
-    // under it. If the page ever hands the row the trend again, they collapse.
     expect(new Set(trendNumbers).size).toBeGreaterThan(1);
   });
 
@@ -74,7 +79,12 @@ test.describe("the reading and the trend, side by side", () => {
     await her.as("log_weight", { weight: 80 });
     await page.goto("/progress");
     await clearMorningPrompt(page);
-    const card = await page.locator("section", { hasText: /last weigh-in/ }).first().innerText();
+    /*
+      One weigh-in: no trend line at all, so the card is found by the heading
+      it always carries rather than by a line that only appears once the trend
+      can speak. `Today`/`Last weigh-in` is that heading.
+    */
+    const card = await page.locator("section", { hasText: /Today|Last weigh-in/ }).last().innerText();
     expect(card).not.toMatch(/this week/i);
   });
 });

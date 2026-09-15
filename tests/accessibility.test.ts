@@ -336,3 +336,36 @@ suite("a dialog pins the page and, crucially, unpins it", () => {
     expect(prompt).toMatch(/if \(!showing\) return null;/);
   });
 });
+
+suite("a control looks like one under a pointer", () => {
+  const css = fs.readFileSync("app/globals.css", "utf8");
+
+  it("gives every button the hand", () => {
+    /*
+      "the chevron doesnt cause the cursor pointer? i think the hand, to
+       appear."
+
+      It did not, and neither did anything else: a browser gives <button> the
+      default arrow, and this app is almost entirely buttons — the fold
+      chevron, every set square, every pill, every tab.
+    */
+    expect(css).toMatch(/button, summary, \[role="button"\], \[role="switch"\] \{ cursor: pointer; \}/);
+    // A disabled control is not something to invite a click on.
+    expect(css).toMatch(/button:disabled, \[aria-disabled="true"\] \{ cursor: default; \}/);
+  });
+
+  it("puts it in a layer, so a utility can still win", () => {
+    /*
+      Unlayered CSS beats every Tailwind utility whatever the specificity, so
+      at the top level this rule would have overridden `cursor-grab` on the
+      reorder handle — breaking the one control in the app that already had a
+      cursor of its own.
+    */
+    const at = css.indexOf('button, summary, [role="button"]');
+    const layer = css.lastIndexOf("@layer base {", at);
+    expect(layer, "the cursor rule is not inside @layer base").toBeGreaterThan(-1);
+    expect(css.slice(layer, at)).not.toContain("}");
+    // And the handle still asks for a grab.
+    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/cursor-grab/);
+  });
+});

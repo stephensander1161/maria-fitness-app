@@ -13,6 +13,7 @@ import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
 import { DeleteAccount } from "@/components/delete-account";
 import { RestSettings } from "@/components/rest-settings";
+import { StretchVisibility } from "@/components/stretch-visibility";
 import { WeighInReminder } from "@/components/weigh-in-reminder";
 import { vapidPublicKey } from "@/lib/push";
 import { currentUser } from "@/lib/session";
@@ -76,6 +77,7 @@ export default async function SettingsPage() {
               defaultRestSeconds={profile.defaultRestSeconds}
               restByGroup={profile.restByGroup}
             />
+            <StretchVisibility collapsedCards={profile.collapsedCards} />
           </Group>
 
           <Group title="Your plan">

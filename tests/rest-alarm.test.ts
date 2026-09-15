@@ -185,6 +185,48 @@ suite("the session ending is not another rest", () => {
     expect(whatNext([m("a", 3, 2), m("extra", 0, 1)], "a")).toEqual({ kind: "done" });
   });
 
+  it("finishes a movement she added on the number she did last time", () => {
+    /*
+      "the countdown still kicks off when i finish my last set."
+
+      A movement with no target could never be *finished*, so every set of one
+      started another countdown — including the last, and every set after it.
+      The app cannot know she is done, but it is not guessing from nothing: she
+      did five of these last week, and five is the number the card prints under
+      every square and the GO screen holds up as the one to beat.
+    */
+    const extra = (done: number, lastSets?: number) =>
+      ({ slug: "kickback", targetSets: 0, done, supersetGroup: null, lastSets });
+    const planned = m("a", 3, 3);
+    // `done` is the count before this set, so 4 means this is the fifth.
+    expect(whatNext([planned, extra(4, 5)], "kickback")).toEqual({ kind: "done" });
+    expect(whatNext([planned, extra(2, 5)], "kickback")).toEqual({ kind: "same" });
+
+    /*
+      And a movement she has never done before keeps resting. There is no end
+      the app can see, and that is the safe direction to be wrong in: a spare
+      countdown is a nuisance, a missing one costs her the rest.
+    */
+    expect(whatNext([planned, extra(4)], "kickback")).toEqual({ kind: "same" });
+
+    /*
+      And it can end a countdown without ever starting one. Last time's count
+      is enough to say a movement she added is finished; it is not enough to
+      say the *session* is not, or something she did once last week would hold
+      today's open and the app would rest into a movement she never meant to
+      do.
+    */
+    expect(whatNext([m("a", 3, 2), extra(0, 5)], "a")).toEqual({ kind: "done" });
+  });
+
+  it("is handed last time's count by both paths that ask", () => {
+    // The card counts for itself and the provider keeps its own session list,
+    // so the implicit target has to reach both or the GO screen disagrees with
+    // the screen behind it.
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card.match(/lastSets: e\.lastTime\?\.sets\.length \?\? null/g)).toHaveLength(2);
+  });
+
   it("is what the GO screen actually asks", () => {
     const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
     expect(provider).toMatch(/whatNext\(session\.current, go\.slug\)/);
