@@ -1,4 +1,4 @@
-import { test, expect, clearMorningPrompt } from "./session";
+import { test, expect, clearMorningPrompt, daytimeZone } from "./session";
 
 /**
  * The rest of the screens, asserted the way Progress is: **rendered figures
@@ -12,6 +12,8 @@ import { test, expect, clearMorningPrompt } from "./session";
  * back off it.
  */
 
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
 test.describe("Plan", () => {
   test("puts each movement on the day it was written to", async ({ page, her }) => {
     // Monday and Wednesday, so a day mix-up is visible rather than plausible.
@@ -20,7 +22,10 @@ test.describe("Plan", () => {
     await her.as("add_exercise_to_day", { slug: "barbell-back-squat", sets: 4, reps: 5, dayOfWeek: 0 });
     await her.as("add_exercise_to_day", { slug: "dumbbell-row", sets: 3, reps: 12, dayOfWeek: 2 });
 
-    await page.goto("/plan");
+    // `day=0` explicitly. Plan opens on today, so "Monday is open" was only
+    // true on a Monday, and the two assertions below it read whichever day
+    // the run happened to land on.
+    await page.goto("/plan?day=0");
     await clearMorningPrompt(page);
 
     // Two days with work on them, five rest days — not seven of either.
@@ -33,10 +38,14 @@ test.describe("Plan", () => {
       match. The day strip's links carry `day=N`, which is the thing actually
       being asserted anyway: seven days, each pointing at its own.
     */
-    const dayLink = (n: number) => page.locator(`a[href*="day=${n}&"]`).first();
-    // One link per day, and each one says what is on that day. The tabs and
-    // the week arrows carry `day=` too, hence one locator per index rather
-    // than a count across all of them.
+    const dayLink = (n: number) =>
+      page.getByRole("link", { name: new RegExp(`^${WEEKDAYS[n]} the \\d+`) });
+    // One link per day, and each one says what is on that day. Matched on the
+    // accessible name rather than the href, because the tabs and all three
+    // week arrows carry `day=` as well — and the arrows carry *today's*
+    // index, so `a[href*="day=1&"]` picked the next-week arrow instead of
+    // Tuesday on any run that happened on a Tuesday. That is the kind of gate
+    // that passes six days in seven.
     for (let n = 0; n < 7; n++) await expect(dayLink(n), `day ${n}`).toBeVisible();
 
     const days = await Promise.all([0, 1, 2, 3, 4, 5, 6].map((n) => dayLink(n).innerText()));
@@ -76,7 +85,9 @@ test.describe("Plan", () => {
     await her.as("add_exercise_to_day", { slug: "hip-thrust", sets: 3, reps: 10, dayOfWeek: 0 });
 
     const next = shift(her.account.week, 7);
-    await page.goto(`/plan?w=${next}`);
+    // `day=0` explicitly: without it Plan opens on today's index, and on any
+    // day but Monday that is a rest day with no movement on it to find.
+    await page.goto(`/plan?w=${next}&day=0`);
     await clearMorningPrompt(page);
 
     await expect(page.getByText(/Next week/i).first()).toBeVisible();
@@ -208,6 +219,16 @@ test.describe("Friends", () => {
 });
 
 test.describe("the page behind a dialog", () => {
+  /*
+    An account for whom it is mid-morning, whatever time it is here.
+
+    The morning weigh-in is offered from 05:00 in *her* timezone and every
+    test account is UTC, so between midnight and five UTC there was no prompt
+    to pin anything — and this spec passed by finding a page that had never
+    been pinned. See `daytimeZone`.
+  */
+  test.use({ accountOptions: { timezone: daytimeZone() } });
+
   /*
     A dialog pins the page while it is open, so a thumb dragging on the sheet
     does not scroll the screen underneath — the same "inert" lie the focus

@@ -54,7 +54,13 @@ export async function signIn(
  * `use` is wrapped in a try/finally rather than relying on the spec to tidy
  * up, because the one time it matters is the time the spec threw.
  */
-export const test = base.extend<{ her: Signed }>({
+export const test = base.extend<{ her: Signed; accountOptions: AccountOptions }>({
+  /*
+    What the account is made with, overridable per file or per describe block
+    with `test.use({ accountOptions: { … } })`. The default is deliberately
+    empty: UTC, metric, onboarded, which is what nearly every spec wants.
+  */
+  accountOptions: [{}, { option: true }],
   /*
     `run` rather than Playwright's usual `use`.
 
@@ -63,10 +69,10 @@ export const test = base.extend<{ her: Signed }>({
     called `use()` as React's `use`, refuses it inside a try/catch, and fails
     the build. The try/finally is the point of this fixture.
   */
-  her: async ({ context }, run, testInfo) => {
+  her: async ({ context, accountOptions }, run, testInfo) => {
     const slug = `e2e-${testInfo.project.name}-${testInfo.title}`
       .toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60).replace(/-+$/, "");
-    const signed = await signIn(context, slug);
+    const signed = await signIn(context, slug, accountOptions);
     try {
       await run(signed);
     } finally {
@@ -76,6 +82,27 @@ export const test = base.extend<{ her: Signed }>({
 });
 
 export { expect } from "@playwright/test";
+
+/**
+ * A timezone in which it is, right now, the middle of her day.
+ *
+ * The morning weigh-in is offered from 05:00 until midnight **in her own
+ * timezone**, and every test account is UTC. So a run that started between
+ * midnight and five UTC rendered no prompt at all, and the three specs about
+ * it passed while asserting nothing — one of them by finding `position:
+ * fixed` absent on a page that was never pinned. A gate that runs before
+ * every deploy cannot be a gate that only works in the afternoon.
+ *
+ * `Etc/GMT±N` are whole-hour offsets with no DST and no politics, so the hour
+ * this picks is the hour the server will compute for the same instant. The
+ * sign is POSIX's, which is inverted: `Etc/GMT+5` is UTC−5.
+ */
+export function daytimeZone(hour = 10): string {
+  const utc = new Date().getUTCHours();
+  const offset = ((hour - utc + 12 + 24) % 24) - 12; // −11…+12
+  if (offset === 0) return "UTC";
+  return `Etc/GMT${offset > 0 ? "-" : "+"}${Math.abs(offset)}`;
+}
 
 /**
  * Put the full-screen prompts away.
