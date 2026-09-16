@@ -69,12 +69,18 @@ suite("which side was done last", () => {
     expect(sideAndBand([{ side: null, band: null }], null, null).lastSide).toBeNull();
   });
 
-  it("opens the card on the side she did not do", () => {
-    // The useful half of the request is the default, not the display: she
-    // does not want to be told which side she did, she wants the app to start
-    // her on the other one.
+  it("no longer asks which side on the card", () => {
+    /*
+      The picker is gone from every movement — "remove the left/right side
+      crap from all exercises, in what universe does someone log diff weight
+      per side". Nobody does. The column stays on the row, for the coach and
+      for anything already logged with one; the card never sends it.
+    */
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).toMatch(/exercise\.lastSide === "left" \? "right" : "left"/);
+    expect(card).not.toMatch(/exercise\.lastSide === "left" \? "right" : "left"/);
+    expect(card).not.toMatch(/setSide\(/);
+    expect(card).toMatch(/side: null,\n\s*band: bandForSet,/);
+    expect(card).toMatch(/\{ side: null, band: bandForSet \}/);
   });
 });
 
@@ -139,7 +145,7 @@ suite("which band", () => {
     expect(card).toMatch(/\{askBand && \(/);
     // Both the optimistic square and the row that is actually saved.
     expect(card).toMatch(/band: bandForSet,/);
-    expect(card).toMatch(/\{ side, band: bandForSet \}/);
+    expect(card).toMatch(/\{ side: null, band: bandForSet \}/);
     // …and nowhere does either of them reach the raw picker state.
     expect(card).not.toMatch(/\{ side, band \}/);
   });

@@ -25,27 +25,17 @@ export type CueItem = { kind: "cue" | "safety" | "miss" | "heading"; text: strin
  */
 export const CHARS_PER_LINE = 44;
 /**
- * Lines a page shows.
+ * Lines a page shows on a phone.
  *
- * Eight, re-measured. It was four, and four was measured — but against a card
- * that has since lost a row and gained a fold, and nobody went back. The
- * figure it was protecting was 24px of clearance under the Log button; the
- * real clearance today, on the longest guide in the library (pelvic floor
- * activation, 22 lines) with two sets logged so the squares and the tank row
- * are both up, is **228px on an iPhone 14 Pro and 136px on an SE**.
- *
- * So the window was small for a reason that had stopped being true, and a
- * small window is the whole complaint: a sideways drag is hard to start in a
- * band that short, because the browser picks the axis from the first few
- * pixels of the gesture. Eight lines roughly doubles it and takes that same
- * worst entry from six pages to three, and still leaves about 76px of
- * clearance on the smallest phone this app supports.
- *
- * If the card grows a row again, measure again — the number is a measurement,
- * not a preference, and this is the second time it has been left behind by
- * the layout it was measured against.
+ * Five. It was measured — eight, then four, then eight again — against a
+ * card that was being squeezed into the screen, and every measurement was
+ * left behind by the next layout. The card is as tall as its content now and
+ * the page scrolls, so this is not a budget any more, it is a reading size:
+ * a page she takes in at a glance, with the dots to move through the rest.
+ * Five puts the set squares on screen without a scroll on a 14 Pro with the
+ * header up, and takes the longest guide in the library to five pages.
  */
-export const LINES_PER_PAGE = 8;
+export const LINES_PER_PAGE = 5;
 
 /**
  * What one of those lines costs, in pixels: 12px text at `leading-snug`

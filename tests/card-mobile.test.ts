@@ -1,6 +1,6 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
-import { CUE_LINE_PX, cueItems, cuePages, LINES_PER_PAGE, MISTAKES_HEADING } from "@/lib/cue-pages";
+import { cueItems, cuePages, LINES_PER_PAGE, MISTAKES_HEADING } from "@/lib/cue-pages";
 
 const card = fs.readFileSync("components/train-client.tsx", "utf8");
 const cues = card.slice(card.indexOf("function FullCues"));
@@ -77,35 +77,20 @@ suite("the guide is a list until it cannot be", () => {
     expect(pages[0][0].text).toHaveLength(30 * 44);
   });
 
-  it("budgets to the room it actually has, not to a constant", () => {
+  it("shows a fixed, readable page and lets the page scroll", () => {
     /*
-      The budget was a number in a file, and the comment on it said — twice —
-      that it had been left behind by the layout it was measured against. A
-      constant cannot know this is an SE, that two sets are logged so the
-      squares and the tank row are both up, or that the keyboard is open. So
-      the strip measures what the column left it and divides by a line.
-
-      "Should be dynamic to fit and any overflow goes on the next horizontal
-      scroll page."
-
-      `LINES_PER_PAGE` survives as the value before the first measurement
-      lands, which is one frame.
+      The page size was measured against the room the card had left, and the
+      room kept changing — with the URL bar, with the scroll position, with a
+      set landing. Every measurement moved the set form under his thumb.
+      "There needs to be a clean way to do this." There is: the card is as
+      tall as its content, nothing inside it scrolls, and the guide's page is
+      a reading size rather than a budget.
     */
+    expect(LINES_PER_PAGE).toBe(5);
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).toMatch(/setPerPage\(Math\.max\(2, Math\.floor\(room \/ CUE_LINE_PX\)\)\)/);
-    // The box clips and the wrapper keeps two lines plus the dots, so a
-    // squeezed column can never again draw the guide over the set squares.
-    expect(cues).toMatch(/min-h-0 flex-1 overflow-hidden/);
-    expect(cues).toMatch(/flex min-h-\[74px\] flex-1 flex-col md:hidden/);
-    // No viewport listener here: the bar collapsing fires one on every
-    // scroll, and the box's own observer already sees every real change.
-    expect(cues).not.toMatch(/visualViewport/);
-    expect(card).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\), \{ perPage \}\)/);
-    expect(card).toMatch(/new ResizeObserver\(measure\)/);
-    // And no fixed cap left to clip a page the measurement says fits.
+    expect(card).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\)\)/);
+    expect(card).not.toMatch(/setPerPage|ResizeObserver\(measure\)|CUE_LINE_PX/);
     expect(card).not.toMatch(/max-h-\[148px\]/);
-    expect(LINES_PER_PAGE).toBe(8);
-    expect(CUE_LINE_PX).toBeGreaterThan(12);
   });
 });
 
@@ -135,7 +120,7 @@ suite("the card is one screen on a phone", () => {
     expect(cues).toMatch(/hidden space-y-3[^"]*md:block/);
     // The phone half is a flex child now, so it can be handed what the column
     // left over — see the budget test above.
-    expect(cues).toMatch(/flex min-h-\[74px\] flex-1 flex-col md:hidden/);
+    expect(cues).toMatch(/className="md:hidden"/);
   });
 
   it("keeps the tank row to one tidy line on a phone", () => {
@@ -160,9 +145,8 @@ suite("paging the cues is not swipe-only", () => {
       moves.
     */
     expect(cues).toMatch(/-my-3 flex snap-x snap-mandatory[^"]*py-3/);
-    // The cap moved from a class to a measurement — the box takes what the
-    // column leaves and tells `cuePages` how many lines that is.
-    expect(cues).toMatch(/const \[perPage, setPerPage\] = useState\(LINES_PER_PAGE\)/);
+    // A fixed page — see "shows a fixed, readable page" above.
+    expect(cues).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\)\)/);
   });
 
   it("makes the dots the reliable way through", () => {

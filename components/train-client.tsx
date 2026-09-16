@@ -6,12 +6,12 @@ import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
 import { compareSet } from "@/lib/set-compare";
 import { DayStep } from "./day-nav";
-import { SCREEN_MAX, SHEET_MAX } from "@/lib/viewport-cover";
+import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet, loggedSummary } from "@/lib/holds";
-import { CUE_LINE_PX, cueItems, cuePages, LINES_PER_PAGE } from "@/lib/cue-pages";
+import { cueItems, cuePages } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
@@ -51,22 +51,6 @@ type LogResult = { vsLastTime: "first" | "beat" | "matched" | "missed"; comparis
 const PHONE = "(max-width: 767px)";
 function onAPhone(): boolean {
   return typeof window !== "undefined" && window.matchMedia(PHONE).matches;
-}
-
-/**
- * The height of the small viewport — `100svh`, the screen with the browser's
- * bar expanded. JavaScript has no property for it: `innerHeight` and the
- * visual viewport both grow when the bar collapses. A throwaway element sized
- * in svh and measured is the one honest way to read it.
- */
-function smallViewport(): number {
-  if (typeof document === "undefined") return 0;
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
-  document.body.appendChild(probe);
-  const h = probe.getBoundingClientRect().height;
-  probe.remove();
-  return h || window.innerHeight;
 }
 
 const TONE = {
@@ -2070,82 +2054,23 @@ export function ExerciseCard({
    * the only moment it is both rendered in place and about to leave.
    */
   const shell = useRef<HTMLDivElement>(null);
-  const screen = useRef<HTMLDivElement>(null);
-  /**
-   * How tall the card may be on its own screen — see the `asPage` return.
-   *
-   * `undefined` until it has been measured, which is one frame: capping it
-   * at a guess first and correcting after is a card that visibly resizes on
-   * every open.
-   */
-  const [screenCap, setScreenCap] = useState<string | undefined>(undefined);
-  /**
-   * Where the card sits with the page unscrolled, and how wide the screen was
-   * when that was measured. Rotating the phone re-measures; scrolling does
-   * not. See `measure`.
-   */
-  const rest = useRef<{ top: number; width: number } | null>(null);
-  useEffect(() => {
-    if (!asPage) return;
-    const measure = () => {
-      const el = screen.current;
-      if (!el) return;
-      /*
-        Two numbers that must not move when she scrolls, and both used to.
+  /*
+    No cap on the card's own screen, and no measuring.
 
-        `top` was the card's position relative to the viewport, which is a
-        different number at every scroll position. And `visible` was the
-        visual viewport, which grows when Safari's URL bar collapses — and it
-        collapses on the first downward scroll. So a scroll outside the card
-        fired a resize, the resize re-measured at the new position, and the
-        card grew or shrank under her thumb; the guide inside it re-paginated
-        to match. "When I scroll outside the card that's what triggers the
-        overlap." His before-and-after screenshots were the same card at two
-        scroll positions.
+    Three versions of this measured the viewport and squeezed the card into it
+    — first with a fixed line budget, then a measured one, then one anchored
+    to the card's resting position — and every one of them moved the set form
+    under his thumb or cut the squares off, because on a 14 Pro with the
+    sticky header the card's furniture simply does not fit the screen with a
+    readable guide in it. "The set form moves up." "There needs to be a clean
+    way to do this."
 
-        `top` is the resting position now — document offset, taken once per
-        screen width. `visible` is the *small* viewport, the height with the
-        bar expanded, read off a `100svh` probe because JavaScript has no
-        direct name for it; the bar collapsing is not room to use, it comes
-        back. The visual viewport is still consulted but only ever *shrinks*
-        the result, which is the keyboard, and that is the one case where the
-        card should give.
-      */
-      const width = window.innerWidth;
-      if (!rest.current || rest.current.width !== width) {
-        rest.current = { top: el.getBoundingClientRect().top + window.scrollY, width };
-      }
-      const top = rest.current.top;
-      const small = smallViewport();
-      const visible = Math.min(window.visualViewport?.height ?? small, small);
-      /*
-        The bar itself, measured.
-
-        `getComputedStyle(...).getPropertyValue("--tab-bar")` hands back the
-        unresolved `calc(...)` string — a custom property is substituted, not
-        computed — so parsing it gives NaN and the card quietly took the whole
-        viewport again. The element knows its own height, and it is zero from
-        `md` up where the bar does not exist.
-      */
-      const bar = document.querySelector("nav.fixed")?.getBoundingClientRect().height ?? 0;
-      // A little air under it, so the button does not sit flush on the bar.
-      setScreenCap(`${Math.max(240, Math.round(visible - top - bar - 8))}px`);
-    };
-    measure();
-    const frame = window.requestAnimationFrame(measure);
-    window.addEventListener("resize", measure);
-    window.visualViewport?.addEventListener("resize", measure);
-    // The rest bar appears and disappears above this without the window
-    // changing size at all, which is the case a resize listener misses.
-    const watch = new ResizeObserver(measure);
-    if (document.body) watch.observe(document.body);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", measure);
-      window.visualViewport?.removeEventListener("resize", measure);
-      watch.disconnect();
-    };
-  }, [asPage]);
+    There is. The card is as tall as what is in it, nothing inside it ever
+    scrolls or clips, and the *page* scrolls — which is what she was doing
+    anyway. The guide's sideways pager keeps a fixed, readable page and the
+    dots take her through it. The lifted card on a desktop keeps its sheet
+    cap, because a sheet over a page has to stop somewhere.
+  */
   const [collapsedHeight, setCollapsedHeight] = useState<number | undefined>(undefined);
   /**
    * The way in. A phone goes to the movement's page; a desktop lifts the card
@@ -2219,17 +2144,14 @@ export function ExerciseCard({
    * be complete — arriving at a finished card should say nothing.
    */
   /*
-    Which side this set is, and which band.
+    Which band — and no longer which side.
 
-    The side opens on the one she did *not* do last — that is the whole of
-    "keep track of which side was done last": she does not want to be told, she
-    wants the app to start her on the right one. Null when she has never said,
-    because guessing from nothing would start her on the left every time
-    whatever she actually did.
+    The left/right picker is gone from every movement: "remove the left/right
+    side crap from all exercises, in what universe does someone log diff
+    weight per side". Nobody does. The `side` column stays on the row for the
+    coach and for anything already logged with one; the card simply never
+    sends it.
   */
-  const [side, setSide] = useState<"left" | "right" | null>(
-    exercise.unilateral && exercise.lastSide ? (exercise.lastSide === "left" ? "right" : "left") : null,
-  );
   const [band, setBand] = useState<string | null>(exercise.lastBand ?? null);
   /*
     A band is an alternative to a weight, not an addition to one.
@@ -2345,7 +2267,7 @@ export function ExerciseCard({
       reps: exercise.isHold ? 1 : reps,
       holdSeconds: exercise.isHold ? reps : null,
       weight: loaded && weight > 0 ? weight : null,
-      side,
+      side: null,
       band: bandForSet,
     };
     setUnconfirmed((u) => queueSet(u, landed.length, mine));
@@ -2361,7 +2283,7 @@ export function ExerciseCard({
           loaded && weight > 0 ? weight : null,
           rir,
           date as ISODate | undefined,
-          { side, band: bandForSet },
+          { side: null, band: bandForSet },
         ),
       );
       // Whether that was the last set she planned for this movement.
@@ -2479,7 +2401,7 @@ export function ExerciseCard({
           sheet is lifted over it; this is not, so the bar sits on the last
           inch of the card — which is where the Log button is.
         */
-        ...(open ? { maxHeight: asPage ? (screenCap ?? SCREEN_MAX) : SHEET_MAX } : {}),
+        ...(open && !asPage ? { maxHeight: SHEET_MAX } : {}),
         ...(offsetY !== 0 || offsetX !== 0 || dragging
           ? {
             transform: `translate(${offsetX}px, ${offsetY}px)${dragging ? " scale(1.02)" : ""}`,
@@ -2752,24 +2674,13 @@ export function ExerciseCard({
           movement, so the card fits a screen and this never scrolls. It stays
           because a long enough safety note on a small enough phone still can. */}
       {/*
-        A column that fits, and scrolls only when it cannot.
-
-        This was a plain scroller, so on a phone the guide and the set squares
-        shared it and the squares were routinely cut in half by the entry
-        below them — "still getting some scroll jank in focused movement card
-        on mobile. Should be dynamic to fit and any overflow goes on the next
-        horizontal scroll page."
-
-        So it is a flex column: the squares and the banner keep their height
-        (`shrink-0`), the guide takes what is left, and what does not fit in
-        what is left becomes another page of the horizontal strip — the one
-        thing on this card already built to hold overflow. `overflow-y-auto`
-        is the last resort and not the design: it only engages when even a
-        two-line guide plus the squares will not fit, which is the case where
-        the alternative was text drawn over text. On a desktop the card is not
-        height-constrained, so it is simply a scroller.
+        On the movement's own screen this is plain flow: the card is as tall
+        as its content and the page scrolls. Only the lifted card on a desktop
+        — a sheet with a cap — needs a scroller here, and it contains its own
+        overscroll so reaching the end does not hand the gesture to the page
+        pinned behind the scrim.
       */}
-      <div className={open ? "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block" : ""}>
+      <div className={open && !asPage ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""}>
 
       {justMet && (
         <p className="go-sub mx-4 mb-3 rounded-xl border border-beat/40 bg-beat-soft px-3 py-2 text-center text-[13px] font-medium text-beat">
@@ -2878,10 +2789,7 @@ export function ExerciseCard({
         are obviously the previous session. Opening the card to log a set
         still says the date in full, which is where it is actually asked.
       */}
-      {/* `shrink-0`: in the phone's flex column the guide is the only thing
-          that gives. A row of squares that shrank would be the jank this
-          layout exists to remove, on the row she looks at most. */}
-      <div className="flex shrink-0 flex-wrap items-end gap-1.5 px-4 pb-3">
+      <div className="flex flex-wrap items-end gap-1.5 px-4 pb-3">
         {Array.from({
           length: Math.max(exercise.targetSets, setCount, exercise.lastTime?.sets.length ?? 0),
         }).map((_, i) => {
@@ -3085,7 +2993,7 @@ export function ExerciseCard({
         something about it.
       */}
       {result && result.vsLastTime !== "matched" && (
-        <p className={`mx-4 mb-3 shrink-0 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
+        <p className={`mx-4 mb-3 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
           {result.comparison}
         </p>
       )}
@@ -3167,44 +3075,6 @@ export function ExerciseCard({
                 Holding a weight?
               </button>
             )}
-            {/*
-              Which side, on a movement that has them.
-
-              Her request, and the useful half of it is the default rather
-              than the display: it opens on the side she did *not* do last, so
-              the answer to "which one now" is already selected and logging is
-              still one tap. Tapping the selected one clears it, because
-              left-then-right counted as one set is a real way to train and
-              the app must not insist on a side it was not given.
-            */}
-            {exercise.unilateral && (
-              <div>
-                <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
-                  Side
-                  {exercise.lastSide && (
-                    <span className="ml-1.5 normal-case tracking-normal text-muted">
-                      last was {exercise.lastSide}
-                    </span>
-                  )}
-                </p>
-                <div className="flex gap-1.5">
-                  {(["left", "right"] as const).map((sd) => (
-                    <button
-                      key={sd}
-                      onClick={() => setSide(side === sd ? null : sd)}
-                      disabled={saving}
-                      aria-pressed={side === sd}
-                      className={`h-9 flex-1 rounded-lg border text-[13px] capitalize active:bg-raised disabled:opacity-40 md:h-auto md:py-2.5 ${
-                        side === sd ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
-                      }`}
-                    >
-                      {sd}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/*
               Which band. A band has no weight, so without this a set done on
               the light one and a set done on the extra heavy are the same row.
@@ -3307,7 +3177,7 @@ export function ExerciseCard({
     this from feeding back on itself: the wrapper's position does not depend
     on the height this sets.
   */
-  if (asPage) return <div ref={screen} style={{ maxHeight: screenCap }}>{card}</div>;
+  if (asPage) return card;
 
   // Closed, it is one card among several.
   if (!open) return <div ref={shell}>{card}</div>;
@@ -3617,43 +3487,11 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   const [at, setAt] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
-  const box = useRef<HTMLDivElement>(null);
 
-  /**
-   * How many lines actually fit, measured, rather than a constant.
-   *
-   * `LINES_PER_PAGE` is a measurement — and the comment on it says, twice
-   * over, that it had been left behind by the layout it was measured against.
-   * A number in a file cannot know that this phone is an SE, that two sets are
-   * logged so the squares and the tank row are both up, or that the keyboard
-   * is open. So the box takes the space the column has left and says how many
-   * lines that is; anything past it becomes another page.
-   *
-   * Three lines is the floor. Below that the strip is too short to start a
-   * sideways drag in, which is the complaint that produced the pager in the
-   * first place, and at that point a clipped page is the better failure.
-   */
-  const [perPage, setPerPage] = useState(LINES_PER_PAGE);
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const measure = () => {
-      const room = el.clientHeight;
-      if (room <= 0) return;
-      setPerPage(Math.max(2, Math.floor(room / CUE_LINE_PX)));
-    };
-    measure();
-    // The box itself is what to watch: it changes when a set lands and the
-    // squares grow a row, when the keyboard opens, when she rotates the
-    // phone — every case, through the card's own cap. A viewport listener
-    // here as well re-paginated on every scroll, because the bar collapsing
-    // fires one.
-    const watch = new ResizeObserver(measure);
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, []);
-
-  const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote), { perPage });
+  // A fixed page. It was measured against the room the card had left, and
+  // the room kept changing — see the note on the card's cap. A page she can
+  // read is worth more than a page that fits, and the card no longer has to.
+  const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote));
   if (pages.length === 0) return null;
 
   /** Page n, by tap. The dots are the way through for anyone not swiping. */
@@ -3669,22 +3507,8 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
           outer wrapper is what the flex column leaves over; the box inside it
           is what a page may fill, and what it measures decides how many lines
           a page holds — see `perPage`. */}
-      {/*
-        `overflow-hidden` on the box and a floor on the wrapper, both
-        load-bearing.
-
-        The column squeezed this to nothing on a phone where the result banner
-        was up as well, and the strip inside — taller than its box by design,
-        see `-my-3` — drew its page straight over the set squares. Nothing
-        clipped it. So the box clips now, and the wrapper keeps 74px however
-        tight the column is: two lines of guide and the row of dots under
-        them. Below that a page cannot be read or paged, and the column scrolls
-        instead rather than drawing text on top of text. The floor is on the
-        wrapper and not the box because the dots are the wrapper's other child,
-        and a floor on the box alone pushed them out underneath the squares.
-      */}
-      <div className="flex min-h-[74px] flex-1 flex-col md:hidden">
-      <div ref={box} className="min-h-0 flex-1 overflow-hidden">
+      <div className="md:hidden">
+      <div>
         <div
           ref={strip}
           onScroll={(e) => {
@@ -3778,15 +3602,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             all of it. 24 with space either side is a real target for a
             secondary control, and it is 24 more than these had as decoration.
           */
-          /*
-            `shrink-0` and a gap under it.
-
-            The strip is a flex child now and the dots are its sibling, so
-            without this the column squeezed the dots rather than the strip and
-            they came to rest on top of the set squares — two rows of small
-            round things touching, which reads as one broken row.
-          */
-          <div className="mt-0.5 mb-1.5 flex shrink-0 justify-center">
+          <div className="mt-0.5 mb-1.5 flex justify-center">
             {pages.map((_, i) => (
               <button
                 key={i}

@@ -503,7 +503,7 @@ suite("the movement she is working on comes forward", () => {
     // does not hand the gesture to the page pinned behind the scrim. On a
     // phone nothing scrolls at all: the middle is a column that fits, and the
     // guide's own pager holds whatever does not.
-    expect(card).toMatch(/flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block/);
+    expect(card).toMatch(/open && !asPage \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
   });
 
   it("holds its place in the grid so nothing jumps", () => {
@@ -685,32 +685,21 @@ suite("the open card shows the whole movement", () => {
     // sheet ended up unscrollable on a phone; the Log button below a screenful
     // of cues is how it ended up unreachable when it did scroll.
     expect(card).toMatch(/open \? "flex flex-col" : ""/);
-    // Height from the visual viewport, not dvh — see tests/week-done.ts.
-    expect(card).toMatch(/maxHeight: asPage \? \(screenCap \?\? SCREEN_MAX\) : SHEET_MAX/);
     /*
-      A column that fits on a phone, a scroller on a desktop.
+      The sheet has a cap; the movement's own screen has none.
 
-      It was `overflow-y-auto` at every width, so the guide and the set squares
-      shared one scroller and the squares were routinely cut in half by the
-      entry below them — "still getting some scroll jank in focused movement
-      card on mobile. Should be dynamic to fit and any overflow goes on the
-      next horizontal scroll page." The guide's pager is the one thing on this
-      card already built to hold overflow, so it holds it.
+      Three versions squeezed the card into the viewport — a fixed line
+      budget, a measured one, one anchored to the resting position — and each
+      moved the set form under his thumb or cut the squares off, because on a
+      14 Pro with the sticky header the card's furniture does not fit the
+      screen with a readable guide in it. "No vertical scroll within the
+      card." So: content height, the page scrolls, nothing inside the card
+      ever does. Only the lifted card on a desktop keeps its cap, and it is
+      the only thing that gets the scroller.
     */
-    expect(card).toMatch(/open \? "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block" : ""/);
-    /*
-      And the cap the column lives under does not move when she scrolls.
-
-      It was measured from the card's position relative to the viewport and
-      from the visual viewport's height — one changes with every scroll, the
-      other grows when Safari's bar collapses on the first one. So a scroll
-      outside the card resized it under her thumb, and the guide inside
-      re-paginated to match. Resting position, once per screen width; and the
-      small viewport, which the visual viewport may only ever shrink.
-    */
-    expect(card).toMatch(/rest\.current = \{ top: el\.getBoundingClientRect\(\)\.top \+ window\.scrollY, width \}/);
-    expect(card).toMatch(/const visible = Math\.min\(window\.visualViewport\?\.height \?\? small, small\)/);
-    expect(card).toMatch(/height:100svh/);
+    expect(card).toMatch(/open && !asPage \? \{ maxHeight: SHEET_MAX \} : \{\}/);
+    expect(card).not.toMatch(/screenCap|smallViewport|visualViewport/);
+    expect(card).toMatch(/if \(asPage\) return card;/);
     expect(card).toMatch(/open && editingSet === null \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);

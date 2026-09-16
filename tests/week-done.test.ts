@@ -132,7 +132,9 @@ suite("a sheet is as tall as the screen actually is", () => {
     // A sheet is lifted over the page and may ignore the tab bar. A card that
     // *is* the screen may not: it takes a cap measured from where it actually
     // starts, because the rest bar appears above it mid-session and moves it.
-    expect(card).toMatch(/maxHeight: asPage \? \(screenCap \?\? SCREEN_MAX\) : SHEET_MAX/);
+    // The cap is the sheet's alone now; the movement's own screen has none
+    // and the page scrolls — see tests/ux-gaps.
+    expect(card).toMatch(/open && !asPage \? \{ maxHeight: SHEET_MAX \} : \{\}/);
     expect(card).not.toMatch(/max-h-\[86dvh\]/);
   });
 });
@@ -207,7 +209,7 @@ suite("a movement is a page on a phone, a sheet on a desktop", () => {
     // of which was between her and typing a number.
     // Wrapped only in the div that measures how much screen is left for it —
     // never in a dialog, and never before the CardModal branch.
-    expect(card()).toMatch(/if \(asPage\) return <div ref=\{screen\}/);
+    expect(card()).toMatch(/if \(asPage\) return card;/);
     const bare = card().indexOf("if (asPage) return <div ref={screen}");
     expect(bare).toBeLessThan(card().indexOf("<CardModal"));
     expect(card()).toMatch(/const open = asPage \|\| lifted;/);
