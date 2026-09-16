@@ -2333,6 +2333,8 @@ export function ExerciseCard({
        breathing, because the question it answers is "which one am I doing"
        and she is asking it mid-set with a dumbbell in her hand. */
     <section
+      // The guide finds the card by this to page from a swipe anywhere on it.
+      data-card=""
       // A long press anywhere on the card starts a drag as well.
       //
       // The grip is eight pixels of circle among four other round buttons,
@@ -3491,6 +3493,48 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
   // A fixed page. It was measured against the room the card had left, and
   // the room kept changing — see the note on the card's cap. A page she can
   // read is worth more than a page that fits, and the card no longer has to.
+
+  /*
+    A sideways swipe anywhere on the card pages the guide.
+
+    The strip pages itself when the finger starts inside it, and it is two
+    lines tall — "to swipe right I need to be directly in the help section
+    but should work if I swipe right within the card anywhere". So the card
+    listens too. Only a clearly sideways gesture counts — 48px, and twice as
+    far across as down — so a page scroll is never mistaken for one; and a
+    touch that began inside the strip is left to the strip, which is already
+    handling it. Passive listeners, nothing prevented: the browser keeps every
+    gesture it had.
+  */
+  useEffect(() => {
+    const el = strip.current?.closest("[data-card]") as HTMLElement | null;
+    const s = strip.current;
+    if (!el || !s) return;
+    let start: { x: number; y: number; inStrip: boolean } | null = null;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY, inStrip: s.contains(e.target as Node) };
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!start || start.inStrip) { start = null; return; }
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 2) return;
+      const width = Math.max(1, s.clientWidth);
+      const current = Math.round(s.scrollLeft / width);
+      const pageCount = s.children.length;
+      const next = Math.max(0, Math.min(pageCount - 1, current + (dx < 0 ? 1 : -1)));
+      if (next !== current) s.scrollTo({ left: next * width, behavior: "smooth" });
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, []);
   const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote));
   if (pages.length === 0) return null;
 

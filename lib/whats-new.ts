@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-16-swipe-anywhere",
+    date: "2026-09-16",
+    title: "Swipe the guide from anywhere on the card",
+    blurb:
+      "A sideways swipe anywhere on a movement card pages its guide now \u2014 you no longer have to land the finger on the two lines of text. An up-or-down swipe still scrolls the page as it always did.",
+    href: "/train",
+  },
+  {
     id: "2026-09-15-superset-go",
     date: "2026-09-15",
     title: "A superset is one GO screen",

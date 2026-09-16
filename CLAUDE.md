@@ -276,6 +276,19 @@ a row of pills at the end of every page put half the app below the fold.
 event carrying the percentage left, computed after that turn's usage is
 recorded; both coach surfaces show a line under 25%.
 
+## Reading the conversations for bugs, without reading them
+
+`npm run convo-scan` (`scripts/convo-scan.ts`) walks every conversation and
+reports what the *app* did wrong — tool results that errored or refused,
+assistant turns that said they could not, app text saved into a person's own
+message, and the server errors on the chat routes — with counts and ids and
+never a word anyone typed. Same line `/admin` holds to. Its first run found a
+cache marker being saved into user messages (every replayed turn added one and
+Anthropic refuses at five), a race that logged 142 "server errors" for a
+deleted account's page still polling, and a tool telling the coach that
+"2 named" could not be converted. Run it after anything that touches
+`lib/agent/`.
+
 ## Closing the loop on a request
 
 Shipping something and never telling the person who asked is how they stop

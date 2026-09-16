@@ -46,7 +46,22 @@ export async function loadHistory(
 
   const ordered = rows.map((r) => ({
     role: r.role,
-    content: r.content as Anthropic.ContentBlockParam[],
+    /*
+      Stripped of any `cache_control` on the way back in.
+
+      The breakpoints are the loop's to place — one on the persona, one at the
+      end of this history, one on her turn — and Anthropic allows four. A
+      saved copy of a turn once carried the loop's marker, so every replayed
+      message added one more, and the fourth message in a conversation was
+      refused with "A maximum of 4 blocks with cache_control may be provided."
+      Whatever is stored, the transcript replays clean.
+    */
+    content: (r.content as Anthropic.ContentBlockParam[]).map((b) => {
+      if (typeof b !== "object" || b === null || !("cache_control" in b)) return b;
+      const clean = { ...(b as unknown as Record<string, unknown>) };
+      delete clean.cache_control;
+      return clean as unknown as Anthropic.ContentBlockParam;
+    }),
   })) satisfies Anthropic.MessageParam[];
 
   return trimToValidEnd(answerOrphans(trimToValidStart(elidePayloads(ordered))));

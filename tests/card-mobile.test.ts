@@ -149,6 +149,31 @@ suite("paging the cues is not swipe-only", () => {
     expect(cues).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\)\)/);
   });
 
+  it("pages from a sideways swipe anywhere on the card", () => {
+    /*
+      "to swipe right I need to be directly in the help section but should
+       work if I swipe right within the card anywhere." The strip is two
+       lines tall, and a gesture has to start inside it to page it. So the
+       card listens too — a clearly sideways touch, 48px and twice as far
+       across as down, so a page scroll is never read as one; a touch that
+       began inside the strip is left to the strip; passive, nothing
+       prevented.
+    */
+    expect(cues).toMatch(/strip\.current\?\.closest\("\[data-card\]"\)/);
+    // On the open card's root — the element that carries the sheet cap — and
+    // not on the closed-in-grid wrapper, which the guide is never inside.
+    expect(card.match(/data-card=""/g)).toHaveLength(1);
+    expect(card).toMatch(/<section\n\s*\/\/[^\n]*\n\s*data-card=""/);
+    // …which is the element that carries the sheet cap, further down its
+    // own (long) attribute list.
+    expect(card.indexOf('data-card=""')).toBeLessThan(card.indexOf("open && !asPage ? { maxHeight: SHEET_MAX }"));
+    expect(card).toMatch(/if \(!open\) return <div ref=\{shell\}>\{card\}<\/div>/);
+    expect(cues).toMatch(/if \(Math\.abs\(dx\) < 48 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 2\) return;/);
+    expect(cues).toMatch(/inStrip: s\.contains\(e\.target as Node\)/);
+    expect(cues).toMatch(/addEventListener\("touchstart", onStart, \{ passive: true \}\)/);
+    expect(cues).not.toMatch(/preventDefault/);
+  });
+
   it("makes the dots the reliable way through", () => {
     // They were `aria-hidden` decoration, so the gesture was the only way to
     // page — and the gesture is the thing that keeps failing.

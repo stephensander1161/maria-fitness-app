@@ -1,5 +1,5 @@
 import { runTool } from "@/lib/tools";
-import { getProfile } from "@/lib/profile";
+import { AccountGoneError, getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
 import { checkActionAllowed } from "@/lib/limits";
 
@@ -22,7 +22,14 @@ export async function POST(req: Request) {
   // Middleware proved the token; this proves the account is still valid.
   const user = await currentUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const profile = await getProfile(user.id);
+  let profile;
+  try {
+    profile = await getProfile(user.id);
+  } catch (err) {
+    // Valid a moment ago, gone now: the same door as no session at all.
+    if (err instanceof AccountGoneError) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    throw err;
+  }
 
   // This route reaches every registered tool, so it needs its own ceiling —
   // it had none. Per profile, because a shared bucket would make one person's

@@ -36,7 +36,8 @@
     "user": "tsx --env-file=.env scripts/users.ts",
     "tenancy": "tsx --env-file=.env scripts/tenancy-check.ts",
     "requests": "tsx --env-file=.env scripts/pending-requests.ts",
-    "estimates": "tsx --env-file=.env scripts/estimates.ts"
+    "estimates": "tsx --env-file=.env scripts/estimates.ts",
+    "convo-scan": "tsx --env-file=.env scripts/convo-scan.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

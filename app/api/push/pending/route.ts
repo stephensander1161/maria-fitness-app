@@ -2,7 +2,7 @@ import { and, eq, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { profiles, users } from "@/lib/db/schema";
-import { getProfile } from "@/lib/profile";
+import { AccountGoneError, getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
 import { today } from "@/lib/date";
 
@@ -42,7 +42,14 @@ export async function GET() {
     }
   }
 
-  const profile = await getProfile(user.id);
+  let profile;
+  try {
+    profile = await getProfile(user.id);
+  } catch (err) {
+    // Valid a moment ago, gone now: the same door as no session at all.
+    if (err instanceof AccountGoneError) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    throw err;
+  }
   return Response.json({
     title: "Time to weigh in",
     body: "Ten seconds on the scale. No single reading is judged.",

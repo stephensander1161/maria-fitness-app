@@ -182,8 +182,13 @@ export async function* runCoach(
   // same thing: a message sent from a screen carries that screen's contents,
   // and she should see her own sentence in the conversation, not the briefing
   // wrapped around it.
-  const savedContent: Anthropic.ContentBlockParam[] =
-    opts.save === undefined ? userContent : [{ type: "text", text: opts.save }];
+  /*
+    Never the briefing. It was `userContent` when nothing was overriding it,
+    and `userContent` now carries the `<current_state>` block — so the app's
+    own state dump was saved into her message and rendered in her bubble,
+    ids and all. What is kept is her sentence, always.
+  */
+  const savedContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: opts.save ?? userText }];
   const conversation: Anthropic.MessageParam[] = [
     ...markCachePoint(history),
     { role: "user", content: userContent },

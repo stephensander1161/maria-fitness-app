@@ -159,6 +159,24 @@ suite("who she is is asked once a page", () => {
   });
 });
 
+suite("a vanished account is a 401, not a server error", () => {
+  it("getProfile never creates a profile for a user that no longer exists", () => {
+    /*
+      142 server errors in a month, every one the same: a request passed
+      `currentUser()`, the account was deleted mid-flight — a page still
+      polling, or the test suites dropping theirs while the browser was open —
+      and `getProfile` reached its first-request insert and hit the foreign
+      key. Nothing on the server went wrong, and the log said something had.
+    */
+    const profile = read("lib/profile.ts");
+    expect(profile).toMatch(/if \(!account\) throw new AccountGoneError\(\);/);
+    expect(profile.indexOf("throw new AccountGoneError")).toBeLessThan(profile.indexOf("db.insert(profiles).values({ userId })"));
+    for (const route of ["app/api/messages/route.ts", "app/api/action/route.ts", "app/api/push/pending/route.ts"]) {
+      expect(read(route), route).toMatch(/if \(err instanceof AccountGoneError\) return Response\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\);/);
+    }
+  });
+});
+
 suite("the model cannot reach accounts", () => {
   it("no registered tool touches the users table", () => {
     // CLAUDE.md and COMPLIANCE.md both claimed this was asserted. It was not:
@@ -282,6 +300,25 @@ suite("the persona stays cacheable", () => {
     const marks = loop.match(/cache_control: \{ type: "ephemeral" \}/g) ?? [];
     expect(marks.length).toBe(2);
     expect(marks.length + 1).toBeLessThanOrEqual(4);
+  });
+
+  it("keeps the briefing and the markers out of the transcript", () => {
+    /*
+      Both leaked at once, from one line. The saved copy of her message was
+      built from the same blocks that go to the model, so the <current_state>
+      briefing was rendered in her bubble — ids and all — and its cache marker
+      was stored with it. Every replayed turn then added a marker, and the
+      fourth message in a conversation was refused: "A maximum of 4 blocks
+      with cache_control may be provided. Found 6." Five rows had it before it
+      was caught by a screenshot.
+    */
+    const loop = read("lib/agent/loop.ts");
+    expect(loop).toMatch(/const savedContent: Anthropic\.ContentBlockParam\[\] = \[\{ type: "text", text: opts\.save \?\? userText \}\];/);
+    expect(loop).not.toMatch(/opts\.save === undefined \? userContent/);
+    // And history replays clean whatever is stored, so a row that slipped
+    // through can never count against the four again.
+    const history = read("lib/agent/history.ts");
+    expect(history).toMatch(/"cache_control" in b/);
   });
 });
 

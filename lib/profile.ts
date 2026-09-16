@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { profiles, type Profile } from "@/lib/db/schema";
+import { profiles, type Profile, users } from "@/lib/db/schema";
 import { APP_TIMEZONE, today, type ISODate } from "@/lib/date";
 import { foodUnitsOf } from "@/lib/food-units";
 import type { Units } from "@/lib/units";
@@ -25,9 +25,32 @@ export const getProfile = cache(async (userId: string): Promise<Profile> => {
     .limit(1);
   if (existing) return existing;
 
+  /*
+    The account has to still exist before a profile is made for it.
+
+    This is the first-request path — once per account, ever — so the extra
+    read costs nothing. Without it, a request that had already passed
+    `currentUser()` and then lost its account mid-flight (a deleted account
+    with a page still polling; the test suites dropping theirs while the
+    browser was still open) reached this insert, hit the foreign key, and was
+    logged as a server error: 142 of them in a month, all the same one.
+  */
+  const [account] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!account) throw new AccountGoneError();
+
   const [created] = await db.insert(profiles).values({ userId }).returning();
   return created;
 });
+
+/**
+ * The session was valid a moment ago and the account is gone now. Routes
+ * answer it as 401 — the same door as no session at all — rather than
+ * letting it surface as a server error, because nothing on the server went
+ * wrong.
+ */
+export class AccountGoneError extends Error {
+  constructor() { super("The account no longer exists."); this.name = "AccountGoneError"; }
+}
 
 export async function getProfileById(id: string): Promise<Profile | null> {
   const [p] = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);

@@ -354,7 +354,7 @@ export const logMeal = defineTool({
     slot: slotEnum,
     description: z.string(),
     items: z.array(z.string()).optional().describe(
-      "Each food as she said it, with the amount if she gave one: ['pulled pork', '4 cheese cubes', 'pickles', 'bbq sauce']. Priced here against the library — no amount means one of the thing. Anything it cannot find comes back in `unpriced` and is not counted, so the total is a floor and you must say so.",
+      "Each food as she said it, with the amount if she gave one: ['pulled pork', '4 cheese cubes', 'pickles', 'bbq sauce']. Priced here against the library — no amount means one of the thing. If any item cannot be priced, NOTHING is logged: the row would carry a calorie figure that silently understates the plate, which is the one lie this app refuses to tell. The reply names the unpriced items — look those up with lookup_food (one call takes a whole list), then call this again with `calories` and `proteinG` filled in for the plate.",
     ),
     calories: wholeGramsOptional,
     proteinG: wholeGramsOptional,

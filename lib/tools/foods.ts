@@ -58,7 +58,7 @@ export const lookupFood = defineTool({
         if (n === null) {
           return {
             found: true, food: best.name,
-            error: `${best.name} is a menu item, not something sold by weight — "${portion.amount} ${portion.unit}" can't be converted. Ask her how many.`,
+            error: `${best.name} is a menu item, not something sold by weight — "${portion.amount} ${portion.namedUnit ?? portion.unit}" can't be converted. Ask her how many.`,
           };
         }
         if (best.estimated) {
@@ -110,7 +110,9 @@ export const lookupFood = defineTool({
       if (grams === null) {
         return {
           found: true, food: best.name,
-          error: `${best.name} has no per-item weight, so "${portion.amount} ${portion.unit}" can't be converted. Ask her for it in grams or ounces.`,
+          // The measure she named, not the parser's word for it: the coach was
+          // being told "2 named" can't be converted and repeating it to her.
+          error: `${best.name} has no per-item weight, so "${portion.amount} ${portion.namedUnit ?? portion.unit}" can't be converted. Ask her for it in grams or ounces.`,
           per100g: {
           kcal: best.kcal, proteinG: best.proteinG,
           carbsG: best.carbsG, fatG: best.fatG, fibreG: best.fibreG,
