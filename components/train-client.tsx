@@ -53,6 +53,22 @@ function onAPhone(): boolean {
   return typeof window !== "undefined" && window.matchMedia(PHONE).matches;
 }
 
+/**
+ * The height of the small viewport — `100svh`, the screen with the browser's
+ * bar expanded. JavaScript has no property for it: `innerHeight` and the
+ * visual viewport both grow when the bar collapses. A throwaway element sized
+ * in svh and measured is the one honest way to read it.
+ */
+function smallViewport(): number {
+  if (typeof document === "undefined") return 0;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const h = probe.getBoundingClientRect().height;
+  probe.remove();
+  return h || window.innerHeight;
+}
+
 const TONE = {
   beat: "border-beat/40 bg-beat-soft text-beat",
   matched: "border-hold/40 bg-hold-soft text-hold",
@@ -2063,13 +2079,45 @@ export function ExerciseCard({
    * every open.
    */
   const [screenCap, setScreenCap] = useState<string | undefined>(undefined);
+  /**
+   * Where the card sits with the page unscrolled, and how wide the screen was
+   * when that was measured. Rotating the phone re-measures; scrolling does
+   * not. See `measure`.
+   */
+  const rest = useRef<{ top: number; width: number } | null>(null);
   useEffect(() => {
     if (!asPage) return;
     const measure = () => {
       const el = screen.current;
       if (!el) return;
-      const top = el.getBoundingClientRect().top;
-      const visible = window.visualViewport?.height ?? window.innerHeight;
+      /*
+        Two numbers that must not move when she scrolls, and both used to.
+
+        `top` was the card's position relative to the viewport, which is a
+        different number at every scroll position. And `visible` was the
+        visual viewport, which grows when Safari's URL bar collapses — and it
+        collapses on the first downward scroll. So a scroll outside the card
+        fired a resize, the resize re-measured at the new position, and the
+        card grew or shrank under her thumb; the guide inside it re-paginated
+        to match. "When I scroll outside the card that's what triggers the
+        overlap." His before-and-after screenshots were the same card at two
+        scroll positions.
+
+        `top` is the resting position now — document offset, taken once per
+        screen width. `visible` is the *small* viewport, the height with the
+        bar expanded, read off a `100svh` probe because JavaScript has no
+        direct name for it; the bar collapsing is not room to use, it comes
+        back. The visual viewport is still consulted but only ever *shrinks*
+        the result, which is the keyboard, and that is the one case where the
+        card should give.
+      */
+      const width = window.innerWidth;
+      if (!rest.current || rest.current.width !== width) {
+        rest.current = { top: el.getBoundingClientRect().top + window.scrollY, width };
+      }
+      const top = rest.current.top;
+      const small = smallViewport();
+      const visible = Math.min(window.visualViewport?.height ?? small, small);
       /*
         The bar itself, measured.
 
@@ -2704,22 +2752,24 @@ export function ExerciseCard({
           movement, so the card fits a screen and this never scrolls. It stays
           because a long enough safety note on a small enough phone still can. */}
       {/*
-        A column that fits, rather than a box that scrolls.
+        A column that fits, and scrolls only when it cannot.
 
-        This was `overflow-y-auto`, so on a phone the guide and the set squares
-        shared one scroller and the squares were routinely cut in half by the
-        entry below them — "still getting some scroll jank in focused movement
-        card on mobile. Should be dynamic to fit and any overflow goes on the
-        next horizontal scroll page."
+        This was a plain scroller, so on a phone the guide and the set squares
+        shared it and the squares were routinely cut in half by the entry
+        below them — "still getting some scroll jank in focused movement card
+        on mobile. Should be dynamic to fit and any overflow goes on the next
+        horizontal scroll page."
 
-        So it is a flex column: everything that is not the guide keeps its
-        height, the guide takes what is left, and what does not fit in what is
-        left becomes another page of the horizontal strip — which is the one
-        thing on this card that was already built to hold the overflow. The
-        scroller stays on a desktop, where the card is not height-constrained
-        and a long guide is better read in one column than paged.
+        So it is a flex column: the squares and the banner keep their height
+        (`shrink-0`), the guide takes what is left, and what does not fit in
+        what is left becomes another page of the horizontal strip — the one
+        thing on this card already built to hold overflow. `overflow-y-auto`
+        is the last resort and not the design: it only engages when even a
+        two-line guide plus the squares will not fit, which is the case where
+        the alternative was text drawn over text. On a desktop the card is not
+        height-constrained, so it is simply a scroller.
       */}
-      <div className={open ? "flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto" : ""}>
+      <div className={open ? "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block" : ""}>
 
       {justMet && (
         <p className="go-sub mx-4 mb-3 rounded-xl border border-beat/40 bg-beat-soft px-3 py-2 text-center text-[13px] font-medium text-beat">
@@ -2828,7 +2878,10 @@ export function ExerciseCard({
         are obviously the previous session. Opening the card to log a set
         still says the date in full, which is where it is actually asked.
       */}
-      <div className="flex flex-wrap items-end gap-1.5 px-4 pb-3">
+      {/* `shrink-0`: in the phone's flex column the guide is the only thing
+          that gives. A row of squares that shrank would be the jank this
+          layout exists to remove, on the row she looks at most. */}
+      <div className="flex shrink-0 flex-wrap items-end gap-1.5 px-4 pb-3">
         {Array.from({
           length: Math.max(exercise.targetSets, setCount, exercise.lastTime?.sets.length ?? 0),
         }).map((_, i) => {
@@ -3032,7 +3085,7 @@ export function ExerciseCard({
         something about it.
       */}
       {result && result.vsLastTime !== "matched" && (
-        <p className={`mx-4 mb-3 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
+        <p className={`mx-4 mb-3 shrink-0 rounded-xl border px-3 py-2 text-[13px] ${TONE[result.vsLastTime]}`}>
           {result.comparison}
         </p>
       )}
@@ -3587,18 +3640,17 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
     const measure = () => {
       const room = el.clientHeight;
       if (room <= 0) return;
-      setPerPage(Math.max(3, Math.floor(room / CUE_LINE_PX)));
+      setPerPage(Math.max(2, Math.floor(room / CUE_LINE_PX)));
     };
     measure();
-    // The column moves under it constantly — a set lands and the squares grow
-    // a row, the keyboard opens, she rotates the phone.
+    // The box itself is what to watch: it changes when a set lands and the
+    // squares grow a row, when the keyboard opens, when she rotates the
+    // phone — every case, through the card's own cap. A viewport listener
+    // here as well re-paginated on every scroll, because the bar collapsing
+    // fires one.
     const watch = new ResizeObserver(measure);
     watch.observe(el);
-    window.visualViewport?.addEventListener("resize", measure);
-    return () => {
-      watch.disconnect();
-      window.visualViewport?.removeEventListener("resize", measure);
-    };
+    return () => watch.disconnect();
   }, []);
 
   const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote), { perPage });
@@ -3617,8 +3669,22 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
           outer wrapper is what the flex column leaves over; the box inside it
           is what a page may fill, and what it measures decides how many lines
           a page holds — see `perPage`. */}
-      <div className="flex min-h-0 flex-1 flex-col md:hidden">
-      <div ref={box} className="min-h-0 flex-1">
+      {/*
+        `overflow-hidden` on the box and a floor on the wrapper, both
+        load-bearing.
+
+        The column squeezed this to nothing on a phone where the result banner
+        was up as well, and the strip inside — taller than its box by design,
+        see `-my-3` — drew its page straight over the set squares. Nothing
+        clipped it. So the box clips now, and the wrapper keeps 74px however
+        tight the column is: two lines of guide and the row of dots under
+        them. Below that a page cannot be read or paged, and the column scrolls
+        instead rather than drawing text on top of text. The floor is on the
+        wrapper and not the box because the dots are the wrapper's other child,
+        and a floor on the box alone pushed them out underneath the squares.
+      */}
+      <div className="flex min-h-[74px] flex-1 flex-col md:hidden">
+      <div ref={box} className="min-h-0 flex-1 overflow-hidden">
         <div
           ref={strip}
           onScroll={(e) => {
@@ -3693,6 +3759,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             </ul>
           ))}
         </div>
+      </div>
         {/*
           Dots you can tap, not a read-out.
 
@@ -3736,7 +3803,6 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             ))}
           </div>
         )}
-      </div>
       </div>
 
       {/* Desktop: all of it, as before. There was never a problem here. */}

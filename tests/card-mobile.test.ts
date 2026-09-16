@@ -92,7 +92,14 @@ suite("the guide is a list until it cannot be", () => {
       lands, which is one frame.
     */
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).toMatch(/setPerPage\(Math\.max\(3, Math\.floor\(room \/ CUE_LINE_PX\)\)\)/);
+    expect(card).toMatch(/setPerPage\(Math\.max\(2, Math\.floor\(room \/ CUE_LINE_PX\)\)\)/);
+    // The box clips and the wrapper keeps two lines plus the dots, so a
+    // squeezed column can never again draw the guide over the set squares.
+    expect(cues).toMatch(/min-h-0 flex-1 overflow-hidden/);
+    expect(cues).toMatch(/flex min-h-\[74px\] flex-1 flex-col md:hidden/);
+    // No viewport listener here: the bar collapsing fires one on every
+    // scroll, and the box's own observer already sees every real change.
+    expect(cues).not.toMatch(/visualViewport/);
     expect(card).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\), \{ perPage \}\)/);
     expect(card).toMatch(/new ResizeObserver\(measure\)/);
     // And no fixed cap left to clip a page the measurement says fits.
@@ -128,7 +135,7 @@ suite("the card is one screen on a phone", () => {
     expect(cues).toMatch(/hidden space-y-3[^"]*md:block/);
     // The phone half is a flex child now, so it can be handed what the column
     // left over — see the budget test above.
-    expect(cues).toMatch(/flex min-h-0 flex-1 flex-col md:hidden/);
+    expect(cues).toMatch(/flex min-h-\[74px\] flex-1 flex-col md:hidden/);
   });
 
   it("keeps the tank row to one tidy line on a phone", () => {

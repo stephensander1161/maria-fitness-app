@@ -503,7 +503,7 @@ suite("the movement she is working on comes forward", () => {
     // does not hand the gesture to the page pinned behind the scrim. On a
     // phone nothing scrolls at all: the middle is a column that fits, and the
     // guide's own pager holds whatever does not.
-    expect(card).toMatch(/flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto/);
+    expect(card).toMatch(/flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block/);
   });
 
   it("holds its place in the grid so nothing jumps", () => {
@@ -697,7 +697,20 @@ suite("the open card shows the whole movement", () => {
       next horizontal scroll page." The guide's pager is the one thing on this
       card already built to hold overflow, so it holds it.
     */
-    expect(card).toMatch(/open \? "flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto" : ""/);
+    expect(card).toMatch(/open \? "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain md:block" : ""/);
+    /*
+      And the cap the column lives under does not move when she scrolls.
+
+      It was measured from the card's position relative to the viewport and
+      from the visual viewport's height — one changes with every scroll, the
+      other grows when Safari's bar collapses on the first one. So a scroll
+      outside the card resized it under her thumb, and the guide inside
+      re-paginated to match. Resting position, once per screen width; and the
+      small viewport, which the visual viewport may only ever shrink.
+    */
+    expect(card).toMatch(/rest\.current = \{ top: el\.getBoundingClientRect\(\)\.top \+ window\.scrollY, width \}/);
+    expect(card).toMatch(/const visible = Math\.min\(window\.visualViewport\?\.height \?\? small, small\)/);
+    expect(card).toMatch(/height:100svh/);
     expect(card).toMatch(/open && editingSet === null \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);
