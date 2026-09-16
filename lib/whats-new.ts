@@ -25,6 +25,46 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-15-macro-hit",
+    date: "2026-09-15",
+    title: "A target hit gets the screen",
+    blurb:
+      "Filling a macro meter now gets the same treatment as finishing a session \u2014 the screen, the figure, and a line about it. If one meal carries two or three over at once they arrive together rather than queuing up, because three takeovers for one tap is a queue and not a celebration. It only fires on the entry that crossed the line, so arriving at a day already met says nothing.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-15-card-fits",
+    date: "2026-09-15",
+    title: "The movement card fits the screen",
+    blurb:
+      "On a phone the guide and the set squares shared one scroller, so the squares were routinely cut in half by the entry below them. Nothing scrolls now: the card is a column that fits, and whatever the guide cannot show goes onto the next page of its own sideways strip \u2014 which is measured against the room your phone actually has rather than a number fixed years ago. \u201cCommon mistakes\u201d has its heading back too; without it, a mistake and an instruction read identically.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-15-go-prefill",
+    date: "2026-09-15",
+    title: "GO opens on the weight it is asking for",
+    blurb:
+      "On the first set of a movement there was nothing lifted yet, so the entry fell through to the plan\u2019s number \u2014 and on a movement the plan never put a load on, that is nothing. The screen held up \u201cTO BEAT 8@50\u201d over a weight field reading 0. It opens on the set it is asking you to beat now.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-15-ate-all",
+    date: "2026-09-15",
+    title: "One fewer button on Eat",
+    blurb:
+      "The \u201cAte all 4\u201d link is gone. Each planned meal has its own \u201cAte it\u201d, which is the tap most people were making anyway \u2014 and your coach can still do the lot if you say you ate the plan.",
+    href: "/eat",
+  },
+  {
+    id: "2026-09-15-cheaper-coach",
+    date: "2026-09-15",
+    title: "The coach costs a tenth of what it did",
+    blurb:
+      "Everything the coach is told that does not change \u2014 who it is, how it speaks, the tools it can reach, the conversation so far \u2014 is now cached between messages instead of being re-sent in full every time. The part that does change rides on your message at the end, where it costs nothing. Same answers, a fraction of the bill, which means your daily allowance goes a great deal further.",
+    href: "/settings",
+  },
+  {
     id: "2026-09-14-hide-stretches",
     date: "2026-09-14",
     title: "The warm-up and cool-down can go",

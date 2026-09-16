@@ -21,11 +21,52 @@ import type { Tone } from "@/lib/buddy";
  */
 
 /** A moment the app says something about, in each of the three registers. */
-export type Moment = "sessionDone" | "weighedIn" | "sleepLogged" | "restOver";
+export type Moment = "macroHit" | "sessionDone" | "weighedIn" | "sleepLogged" | "restOver";
 
 type Lines = Record<Tone, readonly string[]>;
 
 const LINES: Record<Moment, Lines> = {
+  /*
+    A macro target reached, said once, on the entry that reached it.
+
+    The rule every one of these is written to: it is about the eating, never
+    about her body and never about the days she did not hit it. "Finally" and
+    "about time" are the two words that would turn this into a scold, and a
+    target she is congratulated for hitting once is a target she stops
+    reporting honestly the rest of the week.
+  */
+  macroHit: {
+    plain: [
+      "That's the target.",
+      "Hit it. Nothing to add.",
+      "Target met for the day.",
+      "There it is.",
+      "Done — that's the number.",
+      "On target.",
+      "That's the day's mark.",
+      "Logged, and that's it reached.",
+    ],
+    encouraging: [
+      "That's your target, met properly.",
+      "Lovely — that's the one that matters.",
+      "There it is, and you got there by logging honestly.",
+      "Target hit. That is a good day's eating.",
+      "You got there. That counts.",
+      "Nicely done — that's the mark.",
+      "That's it reached, and it will show.",
+      "Hit it. Keep that going.",
+    ],
+    hype: [
+      "TARGET. Hit.",
+      "That's the number. Banked.",
+      "Boom. Target met.",
+      "Done. On the board.",
+      "That's the mark, smashed.",
+      "Hit it. Next.",
+      "Target down.",
+      "In the bank.",
+    ],
+  },
   sessionDone: {
     plain: [
       "That's the whole session. Nice.",

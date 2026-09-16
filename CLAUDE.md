@@ -43,10 +43,26 @@ go through tools, so it gets the same numbers she sees.
 
 ## Prompt caching
 
-`lib/agent/system.ts` splits the system prompt: frozen persona (with the
-`cache_control` breakpoint) then volatile state. `lib/tools/index.ts` keeps the
+`lib/agent/system.ts` splits the system prompt: the frozen persona, with the
+`cache_control` breakpoint, and nothing else. `lib/tools/index.ts` keeps the
 tool array in a fixed order. Both are load-bearing — reordering tools or putting
 a timestamp in the persona silently kills the cache.
+
+**Anything that changes turn to turn goes after the conversation, never before
+it.** The volatile block used to be a second *system* block, which put it
+between the breakpoint and every message. A cache lookup walks the prefix, so
+that made everything downstream permanently uncacheable: the breakpoint at the
+end of the replayed history could never hit, the whole conversation was re-read
+at full price every turn, and the app paid the 25% write surcharge for an entry
+nothing would read. Nothing errored; it was a bill, and Anthropic's own usage
+email is what noticed. `buildState` now returns it as a `<current_state>` block
+on her turn, after the cached prefix.
+
+Three breakpoints, of a possible four: tools + persona, the end of the replayed
+history, and her turn. The third is not decoration — a turn is not one request,
+and each lap of the tool loop re-sends everything before it. Measured against
+the live API, a second turn with *different* state reads 37,496 of 37,728
+prefix tokens from cache and writes 232.
 
 ## Model
 

@@ -6,7 +6,7 @@ import { loadHistory, nameIfUntitled, saveMessage, startConversation } from "./h
 import { TurnGuard } from "./guard";
 import { isWriteTool } from "./tool-kind";
 import { recordError } from "@/lib/errors";
-import { buildSystem } from "./system";
+import { buildState, buildSystem } from "./system";
 import { goalDirectionSignal, goalProgress, recompositionSignal, todaySnapshot, weightSignal } from "@/lib/progress";
 import { postpartumSignal, type PostpartumSymptom } from "@/lib/postpartum";
 import { profileToday } from "@/lib/profile";
@@ -135,7 +135,11 @@ export async function* runCoach(
     breastfeeding: profile.breastfeeding,
     symptoms: (profile.postpartumSymptoms ?? []) as PostpartumSymptom[],
   }, her);
-  const system = buildSystem(
+  // The persona, and nothing that changes turn to turn — everything after the
+  // breakpoint inside it would be uncacheable, and so would everything after
+  // *that*. See buildSystem.
+  const system = buildSystem(profile);
+  const state = buildState(
     profile,
     // Her direction sits with the weight, because that is where getting it
     // backwards does the damage: the app was weight-loss-first everywhere, and
@@ -147,7 +151,33 @@ export async function* runCoach(
   );
 
   const history = await loadHistory(profile.id, opts.conversationId ?? null);
-  const userContent: Anthropic.ContentBlockParam[] = [{ type: "text", text: userText }];
+  /*
+    What is true right now, in front of what she said.
+
+    It used to be a second system block, which put it *before* the whole
+    conversation and made every token after it uncacheable — see buildSystem.
+    Here it is the last thing in the request, so the cached prefix ends with
+    the history and this costs nothing but its own tokens.
+
+    Before her sentence rather than after it, and labelled, because the model
+    has to be able to tell the app's briefing from her words — the same shape
+    `contextForPath()` already uses for a message sent from a screen. It is
+    not saved to the transcript: `savedContent` is what she sees.
+  */
+  const userContent: Anthropic.ContentBlockParam[] = [
+    { type: "text", text: `<current_state>\n${state}\n</current_state>` },
+    /*
+      A third breakpoint, on her turn.
+
+      A turn is not one request: the tool loop runs up to MAX_TOOL_ITERATIONS
+      times, and each iteration re-sends everything before it. Without this,
+      only the history was cached and the state block and her message were
+      re-read at full price on every lap. The write costs 25% of a few hundred
+      tokens once; the reads save the same tokens on every iteration after the
+      first, and most turns here call at least one tool.
+    */
+    { type: "text", text: userText, cache_control: { type: "ephemeral" } },
+  ];
   // What the model is sent and what the transcript keeps are not always the
   // same thing: a message sent from a screen carries that screen's contents,
   // and she should see her own sentence in the conversation, not the briefing

@@ -25,10 +25,16 @@ suite("logging the day she ate the plan", () => {
     expect(handler).toMatch(/select\(\{ slot: mealLogs\.slot \}\)/);
     expect(handler).toMatch(/const taken = new Set\(already\.map\(\(r\) => r\.slot\)\)/);
     expect(handler).toMatch(/rows\.filter\(\(m\) => !taken\.has\(m\.slot\)/);
-    // And the same rule in the browser, or the button offers to log a meal
-    // the tool is about to refuse.
-    expect(fs.readFileSync("components/eat-client.tsx", "utf8"))
-      .toMatch(/takenSlots\.has\(m\.slot\)/);
+    /*
+      The rule used to be asserted in the browser too, because the "Ate all 4"
+      link had to offer the same count the tool would accept. That link is
+      gone — "remove the ate all 4 option from plan that's dumb" — and each
+      planned row has always had its own "Ate it", which is the tap anybody
+      was making anyway. The tool stays: "I ate everything on the plan" is a
+      sentence, and the coach can still answer it.
+    */
+    expect(fs.existsSync("components/ate-the-plan.tsx")).toBe(false);
+    expect(registry.get("log_planned_day")).toBeDefined();
   });
 
   it("logs one named meal even into a slot that already has something in it", () => {

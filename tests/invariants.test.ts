@@ -1,5 +1,6 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
+import { buildSystem } from "@/lib/agent/system";
 import path from "node:path";
 import { MODEL, PLANNER_MODEL, PRICING, PLANNER_PRICING, ratesFor } from "@/lib/agent/model";
 import { registry } from "@/lib/tools";
@@ -240,6 +241,47 @@ suite("the persona stays cacheable", () => {
     const src = read("lib/agent/system.ts");
     const persona = src.slice(src.indexOf("const PERSONA"), src.indexOf("export function buildSystem"));
     expect(persona).not.toMatch(/new Date\(|Date\.now\(|\$\{/);
+  });
+
+  it("nothing volatile sits between the breakpoint and the conversation", () => {
+    /*
+      The one that was actually costing money, and it never threw.
+
+      A cache lookup walks the prefix. The volatile block — today's logged
+      sets, this week's plan — was a second *system* block, so it sat after
+      the persona's breakpoint and before every message. It changed on every
+      turn, so everything downstream was permanently uncacheable: the second
+      breakpoint at the end of the replayed history could never hit, the whole
+      conversation was re-read at full price, and the app paid the 25% write
+      surcharge for an entry nothing would read. Anthropic's billing noticed
+      before we did.
+
+      So the system prompt is exactly one block, and the state rides with the
+      turn.
+    */
+    const profile = { coachTone: "plain" } as Parameters<typeof buildSystem>[0];
+    const blocks = buildSystem(profile);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+
+    const loop = read("lib/agent/loop.ts");
+    // Attached to her turn, after the cached history, and labelled so the
+    // model can tell the app's briefing from her words.
+    expect(loop).toMatch(/const state = buildState\(/);
+    expect(loop).toMatch(/<current_state>/);
+    // …and the breakpoint at the end of the history is still there, which is
+    // the thing this makes reachable at all.
+    expect(loop).toMatch(/markCachePoint\(history\)/);
+    /*
+      Three breakpoints, and the third is not decoration: a turn is not one
+      request. The tool loop runs up to MAX_TOOL_ITERATIONS times and each lap
+      re-sends everything before it, so without a breakpoint on her turn the
+      state block and her message were re-read at full price every iteration.
+      Four is the ceiling; this uses three.
+    */
+    const marks = loop.match(/cache_control: \{ type: "ephemeral" \}/g) ?? [];
+    expect(marks.length).toBe(2);
+    expect(marks.length + 1).toBeLessThanOrEqual(4);
   });
 });
 

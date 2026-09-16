@@ -1,6 +1,6 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
-import { cueItems, cuePages, LINES_PER_PAGE } from "@/lib/cue-pages";
+import { CUE_LINE_PX, cueItems, cuePages, LINES_PER_PAGE, MISTAKES_HEADING } from "@/lib/cue-pages";
 
 const card = fs.readFileSync("components/train-client.tsx", "utf8");
 const cues = card.slice(card.indexOf("function FullCues"));
@@ -44,9 +44,31 @@ suite("the guide is a list until it cannot be", () => {
     expect(kept).toHaveLength(items.length);
   });
 
-  it("still puts the warning before the ways to get it wrong", () => {
+  it("still puts the warning before the ways to get it wrong, and names them", () => {
+    // The heading the phone had lost: a mistake was marked only by a middle
+    // dot and a paler grey, so "go above shoulder height" arrived looking like
+    // an instruction. See MISTAKES_HEADING.
     const items = cueItems(["cue"], ["mistake"], "SAFETY");
-    expect(items.map((i) => i.kind)).toEqual(["cue", "safety", "miss"]);
+    expect(items.map((i) => i.kind)).toEqual(["cue", "safety", "heading", "miss"]);
+    expect(items[2].text).toBe(MISTAKES_HEADING);
+    // No mistakes, no heading for them.
+    expect(cueItems(["cue"], [], "SAFETY").map((i) => i.kind)).toEqual(["cue", "safety"]);
+  });
+
+  it("never leaves a heading at the bottom of a page", () => {
+    /*
+      Dangling, it is worse than absent: "Common mistakes" as the last line of
+      one page with the mistakes on the next reads as a heading for nothing,
+      and she has to swipe to find out it was not. It takes its first item with
+      it, and is measured against the pair.
+    */
+    const pages = cuePages(cueItems([long(3), long(3)], ["a mistake"], null), { perPage: 7 });
+    for (const page of pages) {
+      expect(page.at(-1)?.kind, JSON.stringify(page.map((i) => i.kind))).not.toBe("heading");
+    }
+    // …and it is still on the same page as what it heads.
+    const heading = pages.findIndex((p) => p.some((i) => i.kind === "heading"));
+    expect(pages[heading].some((i) => i.kind === "miss")).toBe(true);
   });
 
   it("gives an over-long bullet a page rather than an empty one", () => {
@@ -55,21 +77,28 @@ suite("the guide is a list until it cannot be", () => {
     expect(pages[0][0].text).toHaveLength(30 * 44);
   });
 
-  it("budgets to what actually fits a phone", () => {
+  it("budgets to the room it actually has, not to a constant", () => {
     /*
-      Measured, not chosen — and re-measured, because the first measurement
-      outlived the layout it was taken against. On the longest guide in the
-      library (pelvic floor activation, 22 lines) with two sets logged, the Log
-      button clears the tab bar by 228px on a 14 Pro and 136px on an SE. Eight
-      lines spends about 60 of that and takes the same entry from six pages to
-      three.
+      The budget was a number in a file, and the comment on it said — twice —
+      that it had been left behind by the layout it was measured against. A
+      constant cannot know this is an SE, that two sets are logged so the
+      squares and the tank row are both up, or that the keyboard is open. So
+      the strip measures what the column left it and divides by a line.
 
-      The pair has to move together: the cap in the card is the same budget
-      from the other side, and a page allowed more lines than the box can show
-      is a page that clips.
+      "Should be dynamic to fit and any overflow goes on the next horizontal
+      scroll page."
+
+      `LINES_PER_PAGE` survives as the value before the first measurement
+      lands, which is one frame.
     */
+    const card = fs.readFileSync("components/train-client.tsx", "utf8");
+    expect(card).toMatch(/setPerPage\(Math\.max\(3, Math\.floor\(room \/ CUE_LINE_PX\)\)\)/);
+    expect(card).toMatch(/cuePages\(cueItems\(formCues, commonMistakes, safetyNote\), \{ perPage \}\)/);
+    expect(card).toMatch(/new ResizeObserver\(measure\)/);
+    // And no fixed cap left to clip a page the measurement says fits.
+    expect(card).not.toMatch(/max-h-\[148px\]/);
     expect(LINES_PER_PAGE).toBe(8);
-    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/max-h-\[148px\]/);
+    expect(CUE_LINE_PX).toBeGreaterThan(12);
   });
 });
 
@@ -97,7 +126,9 @@ suite("the card is one screen on a phone", () => {
 
   it("keeps the stacked list on desktop", () => {
     expect(cues).toMatch(/hidden space-y-3[^"]*md:block/);
-    expect(cues).toMatch(/className="md:hidden"/);
+    // The phone half is a flex child now, so it can be handed what the column
+    // left over — see the budget test above.
+    expect(cues).toMatch(/flex min-h-0 flex-1 flex-col md:hidden/);
   });
 
   it("keeps the tank row to one tidy line on a phone", () => {
@@ -122,8 +153,9 @@ suite("paging the cues is not swipe-only", () => {
       moves.
     */
     expect(cues).toMatch(/-my-3 flex snap-x snap-mandatory[^"]*py-3/);
-    // Still capped: the height budget is the reason any of this exists.
-    expect(cues).toMatch(/max-h-\[148px\]/);
+    // The cap moved from a class to a measurement — the box takes what the
+    // column leaves and tells `cuePages` how many lines that is.
+    expect(cues).toMatch(/const \[perPage, setPerPage\] = useState\(LINES_PER_PAGE\)/);
   });
 
   it("makes the dots the reliable way through", () => {
@@ -154,6 +186,6 @@ suite("a page is exactly one page wide", () => {
     */
     const strip = cues.slice(cues.indexOf("ref={strip}"), cues.indexOf("pages.map"));
     expect(strip).not.toMatch(/\bpx-4\b/);
-    expect(cues).toMatch(/max-h-\[148px\] w-full shrink-0 snap-start[^"]*px-4/);
+    expect(cues).toMatch(/w-full shrink-0 snap-start[^"]*px-4/);
   });
 });

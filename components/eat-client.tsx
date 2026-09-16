@@ -7,7 +7,6 @@ import type { MacroRow } from "@/lib/macro-progress";
 import { MealRow } from "./meal-row";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
-import { AteThePlan } from "./ate-the-plan";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -56,7 +55,6 @@ export function EatClient({
     meal id, so counting by id offered to log a breakfast that was already in
     her log — and then did.
   */
-  const takenSlots = new Set(day.logged.map((l) => l.slot));
   // …and which planned meals are down as themselves, for the row's own tick.
   // A meal she typed by hand has no id, so this marks fewer rows than are
   // really eaten rather than more — the direction that leaves a button she
@@ -96,13 +94,6 @@ export function EatClient({
                 logged={loggedMealIds.has(m.id)}
               />
             ))}
-            {/* One small line, not a card. Each row has its own "Ate it" and
-                three taps is not a hardship — this is only here for the day
-                she wants all of them at once. */}
-            <AteThePlan
-              date={day.date}
-              remaining={planned.filter((m) => !takenSlots.has(m.slot)).length}
-            />
           </div>
         ) : (
           // An empty state, not a missing card: a section that disappears is

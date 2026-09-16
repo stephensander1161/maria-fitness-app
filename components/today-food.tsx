@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import type { DayFoodView, SavedMeal } from "@/lib/views";
 import { gramsForCalories } from "@/lib/nutrition";
-import { afterLogLine, macroBar, type MacroRow } from "@/lib/macro-progress";
+import { afterLogLine, macroBar, type MacroBar, type MacroRow } from "@/lib/macro-progress";
 import { MacroBars } from "./macro-bars";
+import { MacrosHit } from "./macros-hit";
+import type { Tone } from "@/lib/buddy";
 import { RecipeScan } from "./recipe-scan";
 
 /**
@@ -15,8 +17,10 @@ import { RecipeScan } from "./recipe-scan";
  * I supposed to have on Thursday".
  */
 export function TodayFood({
-  day, saved, isToday = true, water, defaultSlot,
+  day, saved, isToday = true, water, defaultSlot, tone = null,
 }: {
+  /** The register she picked, for the celebration — see lib/voice.ts. */
+  tone?: Tone | null;
   day: DayFoodView;
   saved: SavedMeal[];
   isToday?: boolean;
@@ -73,12 +77,46 @@ export function TodayFood({
    * marking — including when the coach logged it rather than the form.
    */
 
-  const stamp = `${day.logged.length}:${day.calories}:${day.proteinG}`;
-  const [seen, setSeen] = useState(stamp);
+  const bars = macroRows.map(macroBar);
+  /*
+    Reached, not exceeded, and only where the figure is hers to judge.
+
+    A floor — some entry carried no numbers — is `unknown` however high it is,
+    and celebrating a target she may or may not have hit is the "unknown is not
+    zero" failure with confetti on it.
+  */
+  const met = (b: MacroBar) => b.complete && (b.state === "there" || b.state === "over");
+
+  const stamp = [
+    day.logged.length, day.calories, day.proteinG, day.carbsG, day.fatG, day.fibreG,
+    water.row.value,
+  ].join(":");
+  const [seen, setSeen] = useState(() => ({ stamp, met: bars.filter(met).map((b) => b.key) }));
   const [logged, setLogged] = useState<{ text: string; tone: "good" | "warn" | "plain" } | null>(null);
-  if (stamp !== seen) {
-    setSeen(stamp);
-    setLogged(day.logged.length > 0 ? afterLogLine(macroRows.map(macroBar)) : null);
+  /**
+   * The targets this entry just carried over, held until she clears them.
+   *
+   * "when a macro meter is full display a 'work out finished' style screen
+   * celebrating the accomplishment. If multiple macros met at once, group them
+   * onto the same celebration screen."
+   *
+   * The moment is the *entry*, not the macro: one big dinner regularly lands
+   * calories, protein and fat at once, and three takeovers in a row for one tap
+   * is a queue rather than a celebration.
+   *
+   * It fires because a target was crossed *while she was looking*, which is
+   * the same rule the movement card's `justMet` follows and the reason this
+   * needs nothing stored anywhere. `seen` is seeded from the first render, so
+   * arriving at a day whose targets are already met says nothing — and a
+   * reload cannot replay a celebration she has already had.
+   */
+  const [hit, setHit] = useState<MacroBar[] | null>(null);
+  if (stamp !== seen.stamp) {
+    const nowMet = bars.filter(met);
+    const fresh = nowMet.filter((b) => !seen.met.includes(b.key));
+    setSeen({ stamp, met: nowMet.map((b) => b.key) });
+    setLogged(day.logged.length > 0 ? afterLogLine(bars) : null);
+    if (fresh.length > 0) setHit(fresh);
   }
 
   // Re-logging goes through log_meal with the macros she last recorded, so it
@@ -133,6 +171,12 @@ export function TodayFood({
 
   return (
     <section className="card mb-3 p-5">
+      {/* Whatever this entry carried over, together. Seeded from the day it is
+          shown on so the line does not change while she reads it. */}
+      {hit && hit.length > 0 && (
+        <MacrosHit bars={hit} tone={tone} seed={`${day.date}:${hit.map((b) => b.key).join(",")}`}
+          onClose={() => setHit(null)} />
+      )}
       <h2 className="mb-3 text-[15px] font-semibold">{heading}</h2>
 
       {/*

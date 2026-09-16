@@ -309,10 +309,15 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
                 ...go,
                 slug: partner.slug, name: partner.name, category: partner.category,
                 isHold: partner.isHold, loadable: partner.loadable,
-                reps: partner.isHold ? partner.targetHoldSeconds ?? 30 : partner.targetReps,
-                weight: partner.targetWeight,
                 // The partner's next position, not this movement's — `toBeat`
-                // rides on `go` and would otherwise follow her across.
+                // rides on `go` and would otherwise follow her across. It is
+                // also what the entry opens on where the plan named no load:
+                // a field reading 0 under "TO BEAT 8@50" is the screen
+                // disagreeing with itself.
+                reps: partner.isHold
+                  ? partner.lastTime[partner.done]?.holdSeconds ?? partner.targetHoldSeconds ?? 30
+                  : partner.lastTime[partner.done]?.reps ?? partner.targetReps,
+                weight: partner.lastTime[partner.done]?.weight ?? partner.targetWeight,
                 toBeat: partner.lastTime[partner.done] ?? null,
                 seconds: partner.restSeconds,
                 endsAt: Date.now(),
@@ -343,10 +348,13 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
                 ...go,
                 slug: after.movement.slug, name: after.movement.name, category: after.movement.category,
                 isHold: after.movement.isHold, loadable: after.movement.loadable,
+                // Seeded from the set she is being asked to beat before the
+                // plan's number — see the superset branch above.
                 reps: after.movement.isHold
-                  ? after.movement.targetHoldSeconds ?? 30
-                  : after.movement.targetReps,
-                weight: after.movement.targetWeight,
+                  ? after.movement.lastTime[after.movement.done]?.holdSeconds
+                    ?? after.movement.targetHoldSeconds ?? 30
+                  : after.movement.lastTime[after.movement.done]?.reps ?? after.movement.targetReps,
+                weight: after.movement.lastTime[after.movement.done]?.weight ?? after.movement.targetWeight,
                 toBeat: after.movement.lastTime[after.movement.done] ?? null,
                 seconds: after.movement.restSeconds,
               }

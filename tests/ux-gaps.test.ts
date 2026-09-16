@@ -434,7 +434,21 @@ suite("the GO screen says what there is to beat", () => {
     */
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/startRest\(ex, logged, \(alreadyDone \?\? ex\.loggedToday\.length\) \+ 1\)/);
-    expect(card).toMatch(/toBeat: exercise\.lastTime\?\.sets\[doneSoFar \?\? exercise\.loggedToday\.length\] \?\? null/);
+    expect(card).toMatch(/const beat = exercise\.lastTime\?\.sets\[doneSoFar \?\? exercise\.loggedToday\.length\] \?\? null;/);
+    expect(card).toMatch(/toBeat: beat,/);
+    /*
+      And it seeds the entry as well as the caption.
+
+      On the first set of a movement there is nothing lifted yet, so the seed
+      fell straight through to `targetWeight` — null on a movement the plan
+      never put a load on — and the GO screen held up "TO BEAT 8@50" over a
+      weight field reading 0. The screen disagreeing with itself.
+    */
+    expect(card).toMatch(/weight: last\?\.weight \?\? beat\?\.weight \?\? exercise\.targetWeight/);
+    expect(card).toMatch(/last\?\.reps \?\? beat\?\.reps \?\? exercise\.targetReps/);
+    const provider0 = read("components/rest-provider.tsx");
+    expect(provider0).toMatch(/weight: partner\.lastTime\[partner\.done\]\?\.weight \?\? partner\.targetWeight/);
+    expect(provider0).toMatch(/weight: after\.movement\.lastTime\[after\.movement\.done\]\?\.weight \?\? after\.movement\.targetWeight/);
     const provider = read("components/rest-provider.tsx");
     expect(provider).toMatch(/toBeat: mine\?\.lastTime\[mine\.done \+ 1\] \?\? null/);
     expect(provider).toMatch(/toBeat: after\.movement\.lastTime\[after\.movement\.done\] \?\? null/);
@@ -484,10 +498,12 @@ suite("the movement she is working on comes forward", () => {
     expect(modal).toMatch(/useDialog\(onClose\)/);
     expect(modal).toMatch(/aria-modal="true"/);
     expect(modal).toMatch(/onClick=\{\(e\) => e\.stopPropagation\(\)\}/);
-    // The panel is not a scroller — the card inside it is the only one, and
-    // it contains its own overscroll so reaching the end of the cues does not
-    // hand the gesture to the page pinned behind the scrim.
-    expect(card).toMatch(/min-h-0 flex-1 overflow-y-auto overscroll-contain/);
+    // The panel is not a scroller. On a desktop the card's middle is the only
+    // one and it contains its own overscroll, so reaching the end of the cues
+    // does not hand the gesture to the page pinned behind the scrim. On a
+    // phone nothing scrolls at all: the middle is a column that fits, and the
+    // guide's own pager holds whatever does not.
+    expect(card).toMatch(/flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto/);
   });
 
   it("holds its place in the grid so nothing jumps", () => {
@@ -671,7 +687,17 @@ suite("the open card shows the whole movement", () => {
     expect(card).toMatch(/open \? "flex flex-col" : ""/);
     // Height from the visual viewport, not dvh — see tests/week-done.ts.
     expect(card).toMatch(/maxHeight: asPage \? \(screenCap \?\? SCREEN_MAX\) : SHEET_MAX/);
-    expect(card).toMatch(/open \? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""/);
+    /*
+      A column that fits on a phone, a scroller on a desktop.
+
+      It was `overflow-y-auto` at every width, so the guide and the set squares
+      shared one scroller and the squares were routinely cut in half by the
+      entry below them — "still getting some scroll jank in focused movement
+      card on mobile. Should be dynamic to fit and any overflow goes on the
+      next horizontal scroll page." The guide's pager is the one thing on this
+      card already built to hold overflow, so it holds it.
+    */
+    expect(card).toMatch(/open \? "flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto" : ""/);
     expect(card).toMatch(/open && editingSet === null \? "shrink-0 border-t border-line bg-ink\/40 p-3" : "hidden"/);
     expect(card).not.toMatch(/card-scrim[^"]*overflow-y-auto/);
     expect(card).toMatch(/max-w-lg/);

@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
 import { countField, describeSet, loggedSummary } from "@/lib/holds";
-import { cueItems, cuePages } from "@/lib/cue-pages";
+import { CUE_LINE_PX, cueItems, cuePages, LINES_PER_PAGE } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
@@ -426,6 +426,9 @@ export function TrainClient({
     /** How many sets of it are in, so the rest knows which one comes next. */
     doneSoFar?: number,
   ) => {
+    // The set she is about to be asked for, last time round. Drawn on the GO
+    // screen and — where she has nothing of her own yet — seeded into it.
+    const beat = exercise.lastTime?.sets[doneSoFar ?? exercise.loggedToday.length] ?? null;
     beginRest({
       slug: exercise.slug,
       name: exercise.name,
@@ -441,9 +444,20 @@ export function TrainClient({
       reps: exercise.isHold
         // `last.reps` is 1 for a hold — one set is one hold — so the seconds
         // come from holdSeconds or there is nothing sensible to seed with.
-        ? last?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
-        : last?.reps ?? exercise.targetReps,
-      weight: last?.weight ?? exercise.targetWeight,
+        ? last?.holdSeconds ?? beat?.holdSeconds ?? exercise.targetHoldSeconds ?? 30
+        : last?.reps ?? beat?.reps ?? exercise.targetReps,
+      /*
+        What she just lifted, then the set she is being asked to beat, then
+        the plan's number.
+
+        The middle one was missing, and it showed on the first set of a
+        movement — nothing lifted yet, so it fell straight through to
+        `targetWeight`, which is null on a movement the plan never put a load
+        on. So the GO screen held up "TO BEAT 8@50" over a weight field
+        reading 0. Same fix as the card's first-set seed, and the same
+        `toBeat` it draws.
+      */
+      weight: last?.weight ?? beat?.weight ?? exercise.targetWeight,
       /*
         The set she is about to be asked for, last time round — drawn big on
         the GO screen, because standing at the rack the useful question is
@@ -455,7 +469,7 @@ export function TrainClient({
         would have the GO screen holding up a set she had already beaten.
         Same reason `restAfter` takes `alreadyDone`.
       */
-      toBeat: exercise.lastTime?.sets[doneSoFar ?? exercise.loggedToday.length] ?? null,
+      toBeat: beat,
       loadable: !exercise.bodyweight || exercise.loadable,
       date,
       // An absolute end time, so a throttled or sleeping tab cannot drift it.
@@ -2689,7 +2703,23 @@ export function ExerciseCard({
           cue strip is a fixed height whatever the library says about the
           movement, so the card fits a screen and this never scrolls. It stays
           because a long enough safety note on a small enough phone still can. */}
-      <div className={open ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : ""}>
+      {/*
+        A column that fits, rather than a box that scrolls.
+
+        This was `overflow-y-auto`, so on a phone the guide and the set squares
+        shared one scroller and the squares were routinely cut in half by the
+        entry below them — "still getting some scroll jank in focused movement
+        card on mobile. Should be dynamic to fit and any overflow goes on the
+        next horizontal scroll page."
+
+        So it is a flex column: everything that is not the guide keeps its
+        height, the guide takes what is left, and what does not fit in what is
+        left becomes another page of the horizontal strip — which is the one
+        thing on this card that was already built to hold the overflow. The
+        scroller stays on a desktop, where the card is not height-constrained
+        and a long guide is better read in one column than paged.
+      */}
+      <div className={open ? "flex min-h-0 flex-1 flex-col overscroll-contain md:block md:overflow-y-auto" : ""}>
 
       {justMet && (
         <p className="go-sub mx-4 mb-3 rounded-xl border border-beat/40 bg-beat-soft px-3 py-2 text-center text-[13px] font-medium text-beat">
@@ -3534,8 +3564,44 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
   const { formCues, commonMistakes, safetyNote } = exercise;
   const [at, setAt] = useState(0);
   const strip = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
 
-  const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote));
+  /**
+   * How many lines actually fit, measured, rather than a constant.
+   *
+   * `LINES_PER_PAGE` is a measurement — and the comment on it says, twice
+   * over, that it had been left behind by the layout it was measured against.
+   * A number in a file cannot know that this phone is an SE, that two sets are
+   * logged so the squares and the tank row are both up, or that the keyboard
+   * is open. So the box takes the space the column has left and says how many
+   * lines that is; anything past it becomes another page.
+   *
+   * Three lines is the floor. Below that the strip is too short to start a
+   * sideways drag in, which is the complaint that produced the pager in the
+   * first place, and at that point a clipped page is the better failure.
+   */
+  const [perPage, setPerPage] = useState(LINES_PER_PAGE);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const room = el.clientHeight;
+      if (room <= 0) return;
+      setPerPage(Math.max(3, Math.floor(room / CUE_LINE_PX)));
+    };
+    measure();
+    // The column moves under it constantly — a set lands and the squares grow
+    // a row, the keyboard opens, she rotates the phone.
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    window.visualViewport?.addEventListener("resize", measure);
+    return () => {
+      watch.disconnect();
+      window.visualViewport?.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  const pages = cuePages(cueItems(formCues, commonMistakes, safetyNote), { perPage });
   if (pages.length === 0) return null;
 
   /** Page n, by tap. The dots are the way through for anyone not swiping. */
@@ -3547,8 +3613,12 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
 
   return (
     <>
-      {/* Phone: one page at a time, swiped only when there is a second. */}
-      <div className="md:hidden">
+      {/* Phone: one page at a time, swiped only when there is a second. The
+          outer wrapper is what the flex column leaves over; the box inside it
+          is what a page may fill, and what it measures decides how many lines
+          a page holds — see `perPage`. */}
+      <div className="flex min-h-0 flex-1 flex-col md:hidden">
+      <div ref={box} className="min-h-0 flex-1">
         <div
           ref={strip}
           onScroll={(e) => {
@@ -3584,8 +3654,29 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
                   taller the box grew. Each page is now exactly one width with
                   its own padding, and the dots carry the "there is more".
                 */
-                className="max-h-[148px] w-full shrink-0 snap-start space-y-1 overflow-hidden px-4 text-[12px] leading-snug">
+                // No height cap: the box is the cap now, and `cuePages` has
+                // been told how tall it is. A fixed one was what clipped a
+                // bullet mid-line whenever the measurement was stale.
+                className="w-full shrink-0 snap-start space-y-1 overflow-hidden px-4 text-[12px] leading-snug">
               {page.map((item) => (
+                item.kind === "heading" ? (
+                  /*
+                    The heading the desktop panel has always had.
+
+                    Without it a mistake was marked only by a middle dot and a
+                    paler grey, so "go above shoulder height" arrived looking
+                    like an instruction. Told to do a thing and told off for it
+                    read identically. `pt-1.5 first:pt-0` because it is a break
+                    in the list rather than a row of it, and it never ends a
+                    page — see cuePages.
+                  */
+                  <li
+                    key={item.text}
+                    className="pt-1.5 text-[10px] font-semibold uppercase tracking-widest text-faint first:pt-0"
+                  >
+                    {item.text}
+                  </li>
+                ) : (
                 <li
                   key={item.text}
                   className={`flex gap-2 ${
@@ -3597,6 +3688,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
                   </span>
                   {item.text}
                 </li>
+                )
               ))}
             </ul>
           ))}
@@ -3619,7 +3711,15 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             all of it. 24 with space either side is a real target for a
             secondary control, and it is 24 more than these had as decoration.
           */
-          <div className="mt-0.5 flex justify-center">
+          /*
+            `shrink-0` and a gap under it.
+
+            The strip is a flex child now and the dots are its sibling, so
+            without this the column squeezed the dots rather than the strip and
+            they came to rest on top of the set squares — two rows of small
+            round things touching, which reads as one broken row.
+          */
+          <div className="mt-0.5 mb-1.5 flex shrink-0 justify-center">
             {pages.map((_, i) => (
               <button
                 key={i}
@@ -3636,6 +3736,7 @@ function FullCues({ exercise }: { exercise: TodayExercise }) {
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {/* Desktop: all of it, as before. There was never a problem here. */}

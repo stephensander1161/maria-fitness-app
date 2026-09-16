@@ -224,7 +224,44 @@ When a number is down you say it straight and go to the fix in the same breath. 
 
 export type CoachTone = "encouraging" | "plain" | "hype";
 
-export function buildSystem(
+export function buildSystem(profile: Profile): [Anthropic.TextBlockParam] {
+  // Voice sits inside the cached half: it is stable for her, and the whole
+  // block still hashes identically turn to turn. Changing tone invalidates it
+  // once, which is the correct price for changing it.
+  const persona = `${PERSONA}\n\n${VOICE[profile.coachTone]}`;
+
+  /*
+    The system prompt is the persona and nothing else, and that is the point.
+
+    The volatile block used to sit here as a second system block — *after* the
+    cache breakpoint and *before* the conversation — and it changes on every
+    turn, because it carries today's logged sets. A cache lookup walks the
+    prefix, so everything downstream of it was permanently uncacheable: the
+    second breakpoint at the end of the replayed history could never hit, the
+    whole conversation was re-read at full price every turn, and the app was
+    paying the 25% write surcharge for an entry nothing would ever read.
+    Anthropic's own billing noticed before we did.
+
+    The state travels with the turn instead — `buildState`, attached to her
+    message by the loop. Same words, same authority, after the cached prefix
+    rather than in the middle of it.
+  */
+  return [{ type: "text", text: persona, cache_control: { type: "ephemeral" } }];
+}
+
+/**
+ * The volatile half: what is true right now, for this turn only.
+ *
+ * Built by the same function as the persona because the two are written
+ * against each other — the persona's rules refer to what this block states —
+ * and split at the boundary the cache cares about. It goes at the *end* of
+ * the request, attached to her turn, where changing every turn costs nothing.
+ *
+ * Everything CLAUDE.md says about this block still holds: the model believes
+ * it completely, so it must be exactly true, in her units, and labelled for
+ * what it is.
+ */
+export function buildState(
   profile: Profile,
   extra?: string,
   /**
@@ -234,13 +271,13 @@ export function buildSystem(
    * "Hey Maria" to Stephen.
    */
   speakingTo?: string | null,
-): Anthropic.TextBlockParam[] {
+): string {
   const u = profile.units;
   const age = ageFrom(profile.birthYear, profileToday(profile));
 
   const missing = missingForPlan(profile);
 
-  const state = [
+  return [
     // Her day, not the server's. This line is the one the model trusts
     // most completely, and getting it wrong sends every dayOfWeek-taking
     // tool at the wrong day of her plan.
@@ -272,16 +309,6 @@ export function buildSystem(
     `- Body units: ${u} (${weightLabel(u)}, ${u === "imperial" ? "feet/inches" : "cm"})   Food units: ${foodUnitsOf(profile)} (${foodUnitsOf(profile) === "imperial" ? "oz, cups, °F" : "g, ml, °C"})${profile.foodUnits === null ? " — follows body" : ""}`,
     extra ? `\n${extra}` : "",
   ].join("\n");
-
-  // Voice sits inside the cached half: it is stable for her, and the whole
-  // block still hashes identically turn to turn. Changing tone invalidates it
-  // once, which is the correct price for changing it.
-  const persona = `${PERSONA}\n\n${VOICE[profile.coachTone]}`;
-
-  return [
-    { type: "text", text: persona, cache_control: { type: "ephemeral" } },
-    { type: "text", text: state },
-  ];
 }
 
 const fmt = (kg: number | null, u: "imperial" | "metric") =>

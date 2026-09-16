@@ -804,6 +804,13 @@ html {
   underneath it. Doing this by polling from an effect would mean setting state
   inside one, which the React compiler correctly refuses.
 */
-body:has([data-celebration="session"]) [data-celebration="title"] {
+body:has([data-celebration="session"]) [data-celebration="title"],
+/*
+  And a macro target waits behind both. Finishing a session and crossing a
+  rank are the rarer moments and they win; hitting a macro is a thing that
+  happens most days, and it is the one that can afford to wait its turn.
+*/
+body:has([data-celebration="session"]) [data-celebration="macro"],
+body:has([data-celebration="title"]) [data-celebration="macro"] {
   display: none !important;
 }
