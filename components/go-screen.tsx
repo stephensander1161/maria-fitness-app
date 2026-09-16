@@ -26,21 +26,39 @@ import type { Rest } from "./rest-timer";
  * the whole loop — alarm, lift, type two numbers, rest again — with no trip
  * back to the card in the middle of it.
  */
+export type GoSet = { reps?: number; holdSeconds?: number; weight: number | null; rir?: number };
+
 export function GoScreen({
-  rest, onLog, onDismiss,
+  rest, pair = null, onLog, onDismiss,
 }: {
   rest: Rest;
-  /** Log the set she just did and start the next rest. */
-  onLog: (set: { reps?: number; holdSeconds?: number; weight: number | null; rir?: number }) => Promise<void>;
+  /**
+   * The other half of a superset, on the same screen.
+
+   * A superset was two GO screens in a row — one per movement, with a
+   * hand-off between them that replaced the rest under a component that was
+   * never remounted, so the second screen opened with the first movement's
+   * numbers in its fields and its button stuck on "Logging…". "it's 2
+   * separate screens which is annoying and also after I log one the second
+   * screen appears but I can't log." Both halves are one screen now, one
+   * button, logged together: that is what a superset *is*.
+   */
+  pair?: Rest | null;
+  /** Log the set she just did — and its partner, on a superset — and start the next rest. */
+  onLog: (set: GoSet, pairSet?: GoSet) => Promise<void>;
   onDismiss: () => void;
 }) {
   const { name, slug, category } = rest;
   const held = rest.isHold === true;
   const [reps, setReps] = useState(rest.reps);
   const [weight, setWeight] = useState(rest.weight ?? 0);
+  const pairHeld = pair?.isHold === true;
+  const [reps2, setReps2] = useState(pair?.reps ?? 0);
+  const [weight2, setWeight2] = useState(pair?.weight ?? 0);
   const [busy, setBusy] = useState(false);
   /** Chosen, not sent — see the card. Null is "she did not say". */
   const [rir, setRir] = useState<number | null>(null);
+  const [rir2, setRir2] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dismissed = useRef(false);
 
@@ -67,7 +85,11 @@ export function GoScreen({
         ...(held ? { holdSeconds: reps } : { reps }),
         weight: rest.loadable && weight > 0 ? weight : null,
         ...(rir === undefined ? {} : { rir }),
-      });
+      }, pair ? {
+        ...(pairHeld ? { holdSeconds: reps2 } : { reps: reps2 }),
+        weight: pair.loadable && weight2 > 0 ? weight2 : null,
+        ...(rir2 === null ? {} : { rir: rir2 }),
+      } : undefined);
     } catch (err) {
       setError(actionMessage(err, "That didn't log — try again."));
       setBusy(false);
@@ -189,6 +211,63 @@ export function GoScreen({
             </div>
           )}
 
+          {pair && (
+            <div className="border-t border-line pt-3">
+              <p className="text-[13px] font-medium text-text">
+                <span className="mr-1.5 text-[11px] uppercase tracking-wide text-faint">then</span>
+                {pair.name}
+              </p>
+              {pair.toBeat && (
+                <p className="mt-1 text-[12px] text-faint tabular">
+                  To beat {describeSet(pair.toBeat, pairHeld)}{pair.loadable && pair.toBeat.weight !== null ? ` ${pair.unit}` : ""}
+                </p>
+              )}
+              <div className={`mt-2 grid gap-2 ${pair.loadable ? "grid-cols-2" : "grid-cols-1"}`}>
+                {pair.loadable && (
+                  <NumberField
+                    label={`Weight (${pair.unit})`}
+                    value={weight2}
+                    onChange={setWeight2}
+                    step={weight2 >= 100 ? 5 : weight2 >= 20 ? 2.5 : 1}
+                    min={0}
+                    max={2000}
+                    decimals
+                  />
+                )}
+                <NumberField
+                  label={pairHeld ? "Seconds" : "Reps"}
+                  value={reps2}
+                  onChange={setReps2}
+                  step={pairHeld ? 5 : 1}
+                  decimals={!pairHeld}
+                  min={pairHeld ? 5 : 0.5}
+                  max={pairHeld ? 900 : 500}
+                />
+              </div>
+              {!pairHeld && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span className="mr-0.5 shrink-0 text-[11px] uppercase tracking-wide text-faint">
+                    Left in tank
+                  </span>
+                  {[0, 1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setRir2(rir2 === n ? null : n)}
+                      disabled={busy}
+                      aria-pressed={rir2 === n}
+                      aria-label={`${n === 3 ? "3 or more" : n} reps left in the tank on ${pair.name}`}
+                      className={`min-w-11 flex-1 rounded-lg border py-2.5 text-[13px] active:bg-raised disabled:opacity-40 ${
+                        rir2 === n ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                      }`}
+                    >
+                      {n === 3 ? "3+" : n}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <p role="alert" className="text-[12px] text-miss">{error}</p>}
 
           <button
@@ -196,7 +275,7 @@ export function GoScreen({
             disabled={busy}
             className="w-full rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-50"
           >
-            {busy ? "Logging…" : "Log it and rest"}
+            {busy ? "Logging…" : pair ? "Log both and rest" : "Log it and rest"}
           </button>
           <button
             onClick={onDismiss}

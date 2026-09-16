@@ -129,8 +129,11 @@ suite("what the rest counts down to", () => {
     const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
     // `whatNext` now, because `advance` could not say whether "no next
     // movement" meant more sets of this one or the end of the session.
-    expect(provider).toMatch(/const after = whatNext\(session\.current, go\.slug\)/);
-    expect(provider).toMatch(/slug: after\.movement\.slug, name: after\.movement\.name/);
+    // `current` is the set in hand: the movement itself, or on a superset
+    // the partner logged on the same tap.
+    expect(provider).toMatch(/const after = whatNext\(session\.current, current\.slug\)/);
+    expect(provider).toMatch(/restFor\(current, after\.movement, Date\.now\(\)\)/);
+    expect(provider).toMatch(/slug: m\.slug, name: m\.name, category: m\.category/);
     // And the Train screen tells it what today holds.
     expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/setSession\(view\.exercises\.map/);
   });
@@ -229,7 +232,7 @@ suite("the session ending is not another rest", () => {
 
   it("is what the GO screen actually asks", () => {
     const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
-    expect(provider).toMatch(/whatNext\(session\.current, go\.slug\)/);
+    expect(provider).toMatch(/whatNext\(session\.current, current\.slug\)/);
     // And "done" writes no rest at all.
     expect(provider).toMatch(/after\.kind === "done" \? null : nextRest\(/);
   });
@@ -290,12 +293,47 @@ suite("a superset is one round, then one rest", () => {
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
     // The GO screen prompts the partner immediately rather than resting.
     expect(provider).toMatch(/after\.kind === "straight-on"/);
-    expect(provider).toMatch(/endsAt: Date\.now\(\)/);
+    expect(provider).toMatch(/endsAt: now,/);
+    expect(provider).toMatch(/restFor\(current, partner, Date\.now\(\)\)/);
     // And the card starts no countdown at all.
     expect(card).toMatch(/next\.kind === "straight-on"/);
     // The group has to reach the provider, or it cannot tell a superset from
     // two movements that happen to be adjacent.
     expect(card).toMatch(/supersetGroup: e\.supersetGroup/);
     expect(provider).toMatch(/supersetGroup: string \| null/);
+  });
+
+  it("logs both halves of a superset from one GO screen", () => {
+    /*
+      "it's 2 separate screens which is annoying and also after I log one the
+       second screen appears but I can't log, the log button is stuck on
+       logging."
+
+      Two bugs, one cause. The hand-off replaced `go` with its partner under
+      the same component instance, and `busy`, `reps` and `weight` are state
+      read once on mount — so the second screen opened with the first
+      movement's numbers in its fields and its button stuck. Keying the
+      screen fixes the stuck button; putting the partner *on* the screen
+      removes the hand-off for a pair altogether, which is what a superset is.
+    */
+    const provider = fs.readFileSync("components/rest-provider.tsx", "utf8");
+    const go = fs.readFileSync("components/go-screen.tsx", "utf8");
+    expect(provider).toMatch(/key=\{`\$\{go\.slug\}:\$\{go\.endsAt\}:\$\{pair\?\.slug \?\? "-"\}`\}/);
+    expect(provider).toMatch(/pair=\{pair\}/);
+    // Computed when `go` changes, not during render: it reads the session
+    // ref and stamps a time, and the compiler is right about both.
+    expect(provider).toMatch(/setPair\(go \? pairFor\(session\.current, go, Date\.now\(\)\) : null\)/);
+    expect(provider).toMatch(/function pairFor\(session: SessionMovement\[\], r: Rest, now: number\): Rest \| null/);
+    // Both sets go through the same offline-aware path, this one first, and
+    // what comes next is asked from the partner's side — the set in hand.
+    expect(provider).toMatch(/logOne\(go\.slug, set\),/);
+    expect(provider).toMatch(/\[logOne\(pair\.slug, pairSet\)\]/);
+    expect(provider).toMatch(/whatNext\(session\.current, current\.slug\)/);
+    expect(go).toMatch(/pair\?: Rest \| null;/);
+    expect(go).toMatch(/onLog: \(set: GoSet, pairSet\?: GoSet\) => Promise<void>;/);
+    expect(go).toMatch(/pair \? "Log both and rest" : "Log it and rest"/);
+    // A chain of three still hands on to the third — through the same
+    // keyed screen, so it opens fresh.
+    expect(provider).toMatch(/setGo\(restFor\(current, partner, Date\.now\(\)\)\);/);
   });
 });

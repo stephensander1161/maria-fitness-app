@@ -168,6 +168,36 @@ export function useRest(): RestContext {
   return useContext(Ctx) ?? NO_REST;
 }
 
+/**
+ * A rest for another movement, seeded from the set she is being asked to
+ * beat before the plan's number — a field reading 0 under "TO BEAT 8@50" is
+ * the screen disagreeing with itself. One place, because it was three.
+ */
+function restFor(from: Rest, m: SessionMovement, now: number): Rest {
+  return {
+    ...from,
+    slug: m.slug, name: m.name, category: m.category,
+    isHold: m.isHold, loadable: m.loadable,
+    reps: m.isHold
+      ? m.lastTime[m.done]?.holdSeconds ?? m.targetHoldSeconds ?? 30
+      : m.lastTime[m.done]?.reps ?? m.targetReps,
+    weight: m.lastTime[m.done]?.weight ?? m.targetWeight,
+    toBeat: m.lastTime[m.done] ?? null,
+    seconds: m.restSeconds,
+    endsAt: now,
+  };
+}
+
+/**
+ * The other half of a superset, owed this round — the movement the GO screen
+ * shows beside this one so both are logged on one tap. Null for a movement
+ * that is not chained, or whose partner is already ahead.
+ */
+function pairFor(session: SessionMovement[], r: Rest, now: number): Rest | null {
+  const next = whatNext(session, r.slug);
+  return next.kind === "straight-on" ? restFor(r, next.movement, now) : null;
+}
+
 export function RestProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const rest = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -176,7 +206,32 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
   // A ref, not state: the Train screen re-registers on every refresh and this
   // must not re-render the whole app each time.
   const session = useRef<SessionMovement[]>([]);
-  const setSession = useCallback((m: SessionMovement[]) => { session.current = m; }, []);
+  /*
+    The partner for the screen, computed when `go` changes and not during
+    render: it reads the session ref and stamps a time, and the compiler is
+    right that neither belongs in a render.
+  */
+  const [pair, setPair] = useState<Rest | null>(null);
+  useEffect(() => {
+    goRef.current = go;
+    setPair(go ? pairFor(session.current, go, Date.now()) : null);
+  }, [go]);
+
+  /*
+    The GO screen's partner, kept in step with the session.
+
+    `go` can be up before the Train screen has said what today holds — a rest
+    that ended while she was on another tab is raised from storage on the
+    first render — so a pair worked out at that moment finds an empty session
+    and comes back null. Seeding the session recomputes it. `goRef` because
+    this callback is stable and `go` is state.
+  */
+  const goRef = useRef<Rest | null>(null);
+  const setSession = useCallback((m: SessionMovement[]) => {
+    session.current = m;
+    const g = goRef.current;
+    if (g) setPair(pairFor(m, g, Date.now()));
+  }, []);
 
   const start = useCallback((r: Rest) => {
     if (r.seconds <= 0) return;
@@ -249,34 +304,70 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
     [rest, awaiting, start, extend, dismiss, fireGo, setSession],
   );
 
+
   return (
     <Ctx.Provider value={value}>
       {children}
       {go && (
         <GoScreen
+          /*
+            Keyed, so a hand-off remounts it.
+
+            A superset used to replace `go` with its partner under the same
+            component instance — and `busy`, `reps` and `weight` are state,
+            read once on mount. The second screen opened with the first
+            movement's numbers and a button stuck on "Logging…". The pair is
+            in the key for the same reason: it arrives a frame after `go`, and
+            a screen mounted without it had already read its seeds as 0.
+          */
+          key={`${go.slug}:${go.endsAt}:${pair?.slug ?? "-"}`}
           rest={go}
-          onLog={async (set) => {
+          pair={pair}
+          onLog={async (set, pairSet) => {
             // Through the offline-aware path, exactly as the card does: a set
             // logged in a basement with no signal is still a set she did.
-            await logSetOrQueue(
-              setInput(
-                go.slug,
-                set.holdSeconds === undefined ? set.reps ?? 0 : { holdSeconds: set.holdSeconds },
-                set.weight,
+            const logOne = (slug: string, s: { reps?: number; holdSeconds?: number; weight: number | null; rir?: number }) =>
+              logSetOrQueue(setInput(
+                slug,
+                s.holdSeconds === undefined ? s.reps ?? 0 : { holdSeconds: s.holdSeconds },
+                s.weight,
                 // How much was left in the tank, when she said. The GO screen
                 // is where she is most likely to know: she has just put the
                 // weight down.
-                set.rir,
+                s.rir,
                 go.date as ISODate | undefined,
-              ),
-            );
+              ));
+            /*
+              The other half of a superset, logged on the same tap.
+
+              Both sets go up together — they are different movements, so
+              nothing about one waits on the other, and two round trips in
+              series is a button that reads "Logging…" for five seconds. The
+              count moves for this movement first, so `whatNext` — asked from
+              the *partner's* side, since that is the set in hand — sees the
+              round complete and answers for what comes after the pair,
+              exactly as it did when the two were logged from two screens.
+            */
+            const pair = pairSet ? pairFor(session.current, go, Date.now()) : null;
+            await Promise.all([
+              logOne(go.slug, set),
+              ...(pair && pairSet ? [logOne(pair.slug, pairSet)] : []),
+            ]);
+            let current = go;
+            let currentSet = set;
+            if (pair && pairSet) {
+              session.current = session.current.map((m) =>
+                m.slug === go.slug ? { ...m, done: m.done + 1 } : m);
+              current = pair;
+              currentSet = pairSet;
+            }
             // And straight back into the next rest, which is the point of
             // logging here rather than on the card.
             setGo(null);
             // That set may have finished the movement. If it did, the rest
             // counts down to the *next* one — the GO screen was otherwise
             // offering a fifth set of something she had done four of.
-            const after = whatNext(session.current, go.slug);
+            const after = whatNext(session.current, current.slug);
             /*
               Nothing owed means nothing to count down to.
 
@@ -294,36 +385,16 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
             */
             if (after.kind === "straight-on") {
               /*
-                The other half of a superset, with no rest in between — that
-                is what a superset is, and a ninety-second countdown in the
-                middle of one is the app misunderstanding the movement.
-
-                Straight to the GO screen for the partner rather than a rest
-                that has already elapsed: she is standing there with the second
-                pair of dumbbells, and what she needs is somewhere to put the
-                number.
+                A third movement in the chain, with no rest in between — a
+                pair is the common case and is one screen now, but a chain of
+                three still hands on. Straight to the GO screen for it rather
+                than a rest that has already elapsed.
               */
               const partner = after.movement;
               write(null);
-              setGo({
-                ...go,
-                slug: partner.slug, name: partner.name, category: partner.category,
-                isHold: partner.isHold, loadable: partner.loadable,
-                // The partner's next position, not this movement's — `toBeat`
-                // rides on `go` and would otherwise follow her across. It is
-                // also what the entry opens on where the plan named no load:
-                // a field reading 0 under "TO BEAT 8@50" is the screen
-                // disagreeing with itself.
-                reps: partner.isHold
-                  ? partner.lastTime[partner.done]?.holdSeconds ?? partner.targetHoldSeconds ?? 30
-                  : partner.lastTime[partner.done]?.reps ?? partner.targetReps,
-                weight: partner.lastTime[partner.done]?.weight ?? partner.targetWeight,
-                toBeat: partner.lastTime[partner.done] ?? null,
-                seconds: partner.restSeconds,
-                endsAt: Date.now(),
-              });
+              setGo(restFor(current, partner, Date.now()));
               session.current = session.current.map((m) =>
-                m.slug === go.slug ? { ...m, done: m.done + 1 } : m);
+                m.slug === current.slug ? { ...m, done: m.done + 1 } : m);
               setAwaiting(null);
               startTransition(() => router.refresh());
               return;
@@ -342,31 +413,18 @@ export function RestProvider({ children }: { children: React.ReactNode }) {
               doing more sets of than she did before has nothing to beat, and
               nothing to beat is not a zero to beat.
             */
-            const mine = session.current.find((m) => m.slug === go.slug);
+            const mine = session.current.find((m) => m.slug === current.slug);
             write(after.kind === "done" ? null : nextRest(after.kind === "next"
-              ? {
-                ...go,
-                slug: after.movement.slug, name: after.movement.name, category: after.movement.category,
-                isHold: after.movement.isHold, loadable: after.movement.loadable,
-                // Seeded from the set she is being asked to beat before the
-                // plan's number — see the superset branch above.
-                reps: after.movement.isHold
-                  ? after.movement.lastTime[after.movement.done]?.holdSeconds
-                    ?? after.movement.targetHoldSeconds ?? 30
-                  : after.movement.lastTime[after.movement.done]?.reps ?? after.movement.targetReps,
-                weight: after.movement.lastTime[after.movement.done]?.weight ?? after.movement.targetWeight,
-                toBeat: after.movement.lastTime[after.movement.done] ?? null,
-                seconds: after.movement.restSeconds,
-              }
+              ? restFor(current, after.movement, Date.now())
               : {
-                ...go,
-                reps: set.holdSeconds ?? set.reps ?? go.reps,
-                weight: set.weight,
+                ...current,
+                reps: currentSet.holdSeconds ?? currentSet.reps ?? current.reps,
+                weight: currentSet.weight,
                 toBeat: mine?.lastTime[mine.done + 1] ?? null,
               }, Date.now()));
             // Whatever the rest is for is what the Train screen highlights.
             session.current = session.current.map((m) =>
-              m.slug === go.slug ? { ...m, done: m.done + 1 } : m);
+              m.slug === current.slug ? { ...m, done: m.done + 1 } : m);
             setAwaiting(null);
             startTransition(() => router.refresh());
           }}

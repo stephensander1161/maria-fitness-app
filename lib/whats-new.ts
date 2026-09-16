@@ -25,6 +25,22 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-15-superset-go",
+    date: "2026-09-15",
+    title: "A superset is one GO screen",
+    blurb:
+      "Both halves of a superset are on the same GO screen now, with one button that logs the pair and starts the rest. It was two screens in a row, and the second one opened with the first movement\u2019s numbers in its fields and a button stuck on \u201cLogging\u2026\u201d \u2014 one cause behind both, and it is gone.",
+    href: "/train",
+  },
+  {
+    id: "2026-09-15-card-no-scroll",
+    date: "2026-09-15",
+    title: "Nothing inside the movement card scrolls",
+    blurb:
+      "The card on a movement\u2019s own screen is as tall as what is in it. Nothing inside it scrolls or clips any more, the set form does not move when you scroll the page, and the guide keeps a fixed page you can read with dots to move through it. The left/right picker is gone from every movement too.",
+    href: "/train",
+  },
+  {
     id: "2026-09-15-macro-hit",
     date: "2026-09-15",
     title: "A target hit gets the screen",

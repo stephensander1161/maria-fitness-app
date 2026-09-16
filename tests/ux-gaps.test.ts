@@ -447,12 +447,12 @@ suite("the GO screen says what there is to beat", () => {
     expect(card).toMatch(/weight: last\?\.weight \?\? beat\?\.weight \?\? exercise\.targetWeight/);
     expect(card).toMatch(/last\?\.reps \?\? beat\?\.reps \?\? exercise\.targetReps/);
     const provider0 = read("components/rest-provider.tsx");
-    expect(provider0).toMatch(/weight: partner\.lastTime\[partner\.done\]\?\.weight \?\? partner\.targetWeight/);
-    expect(provider0).toMatch(/weight: after\.movement\.lastTime\[after\.movement\.done\]\?\.weight \?\? after\.movement\.targetWeight/);
+    expect(provider0).toMatch(/weight: m\.lastTime\[m\.done\]\?\.weight \?\? m\.targetWeight/);
     const provider = read("components/rest-provider.tsx");
     expect(provider).toMatch(/toBeat: mine\?\.lastTime\[mine\.done \+ 1\] \?\? null/);
-    expect(provider).toMatch(/toBeat: after\.movement\.lastTime\[after\.movement\.done\] \?\? null/);
-    expect(provider).toMatch(/toBeat: partner\.lastTime\[partner\.done\] \?\? null/);
+    // Both the next movement and a superset partner are built by `restFor`,
+    // which reads the position the movement is on — one place, was three.
+    expect(provider).toMatch(/toBeat: m\.lastTime\[m\.done\] \?\? null/);
   });
 
   it("says nothing rather than zero when there is no set to beat", () => {
