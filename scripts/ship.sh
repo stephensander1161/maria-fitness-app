@@ -44,6 +44,11 @@ ROOT="$PWD"
 #   e2e        the journeys, in a browser, against the built app.
 #
 # The build comes before e2e because e2e serves what the build produced.
+# The local test database, brought up to the schema and seed in HEAD. The
+# suites used to run against the production Neon project, and eleven ships in
+# a day put its free-tier compute at 80% by the 15th of the month. Local is
+# fast enough that this costs seconds.
+echo "── test db";   npm run db:push:test >/dev/null && npm run db:seed:test >/dev/null
 echo "── typecheck"; npx tsc --noEmit -p .
 echo "── lint";      npx eslint .
 echo "── tests";     npm run coverage

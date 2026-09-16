@@ -784,6 +784,18 @@ rules. Two that bite most often:
 - **CI is the only review this project has.** Typecheck, lint, tests, dependency
   audit, a build that proves nothing needs a secret at module load, and a scan
   of git history for credentials. It must pass before deploy.
+- **The test suites run against a local Postgres, never against Neon.**
+  `npm run test:db`, `coverage` and `test:e2e` — and the `next start` the
+  journeys drive — read `.env.test`, which is `.env` with the database swapped
+  for `postgres://<you>@localhost:5432/plate_test` (Homebrew `postgresql@16`;
+  `npm run env:test` regenerates the file, `db:push:test`/`db:seed:test` bring
+  the schema and seed across, and `ship.sh` does both before its gates). They
+  used to run against the production Neon project, and eleven ships in one day
+  put its free-tier compute at 80% by the 15th of the month; Neon's own email
+  is what noticed. Local is also fifteen times faster: the db suite went from
+  228s to 15s. `npm run tenancy` and the seed still point at production on
+  purpose — one checks production's isolation and the other writes production's
+  library.
 - **Four suites, and the split is the design.** `npm test` is pure logic —
   no database, no key, no network — and CI runs it on every push, which is
   only possible because it needs nothing; that job is what proves it stays

@@ -82,7 +82,10 @@ export default defineConfig({
     // The built app, not `next dev`: this is the artefact being shipped, and
     // dev mode's compile-on-first-request makes every first navigation look
     // like a five-second page.
-    command: `npx next start -p ${PORT}`,
+    // `.env.test` for the served app too: Next reads `.env` itself, and the
+    // variables already in the process win — so this is what points the
+    // journeys' server at the local database rather than at production.
+    command: `node --env-file=.env.test node_modules/next/dist/bin/next start -p ${PORT}`,
     port: PORT,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
