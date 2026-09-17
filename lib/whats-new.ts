@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-16-folded-sets",
+    date: "2026-09-16",
+    title: "A folded card shows every set",
+    blurb:
+      "A finished movement folds so the day scans, and its line read \u201c4\u00d712 @ 60lb\u201d when the four sets happened to match \u2014 true, but not what you fold a card to see. It lists every set now, set by set, whatever they were.",
+    href: "/train",
+  },
+  {
     id: "2026-09-16-swipe-anywhere",
     date: "2026-09-16",
     title: "Swipe the guide from anywhere on the card",

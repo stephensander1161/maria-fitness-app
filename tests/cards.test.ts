@@ -110,7 +110,15 @@ suite("a folded movement card is its name and what she did", () => {
     // needs, and showing it on a folded card read as though nothing had been
     // logged at all.
     expect(card).toMatch(/shut && logged !== null/);
-    expect(card).toMatch(/loggedSummary\(exercise\.loggedToday, unit, exercise\.isHold\)/);
+    /*
+      And that line is every set, set by set. It was `loggedSummary`, which
+      compresses four identical sets to "4×12 @ 60lb" — true, and not what a
+      folded card is for: "Collapsed movement cards don't show all my sets
+      anymore?" The sets are the one thing on a finished card she still wants
+      to see, and four squares' worth of numbers fit one line.
+    */
+    expect(card).toMatch(/exercise\.loggedToday\.map\(\(s\) => describeSet\(s, exercise\.isHold\)\)\.join\(" \\u00b7 "\)/);
+    expect(card).not.toMatch(/const logged = loggedSummary\(/);
   });
 
   it("loses to opening the card for a set", () => {

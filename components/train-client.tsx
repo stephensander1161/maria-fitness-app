@@ -10,7 +10,7 @@ import { SHEET_MAX } from "@/lib/viewport-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
-import { countField, describeSet, loggedSummary } from "@/lib/holds";
+import { countField, describeSet } from "@/lib/holds";
 import { cueItems, cuePages } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
@@ -2130,8 +2130,19 @@ export function ExerciseCard({
   // the thing the fold was hiding.
   const shut = folded && !open;
   const count = countField(exercise.isHold);
-  /** What she actually did, for the folded line. Null before she starts. */
-  const logged = loggedSummary(exercise.loggedToday, unit, exercise.isHold);
+  /**
+   * What she actually did, for the folded line. Null before she starts.
+   *
+   * Every set, set by set. `loggedSummary` compresses four identical sets to
+   * "4×12 @ 60lb", which is true and is not what a folded card is for —
+   * "Collapsed movement cards don't show all my sets anymore?" A finished
+   * card folds so the day scans; the sets are the one thing on it she still
+   * wants to see, and four squares' worth of numbers fit one line.
+   */
+  const logged = exercise.loggedToday.length === 0
+    ? null
+    : exercise.loggedToday.map((s) => describeSet(s, exercise.isHold)).join(" \u00b7 ")
+      + (exercise.loggedToday.some((s) => s.weight !== null) ? ` ${unit}` : "");
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
   /** Planned, signed off, and nothing logged against it. */
