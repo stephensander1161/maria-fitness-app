@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-16-set-rule",
+    date: "2026-09-16",
+    title: "Which set is better, settled",
+    blurb:
+      "A set square is green when you did more total work than the same set last time \u2014 11@40 beats 6@50, because 440 beats 300 \u2014 and where the work is level to within two per cent, the heavier bar wins the tie, so 8@50 beats 9@45. This rule had changed three times; every case that was ever reported is now a named test, so it cannot drift again by accident.",
+    href: "/train",
+  },
+  {
     id: "2026-09-16-folded-sets",
     date: "2026-09-16",
     title: "A folded card shows every set",

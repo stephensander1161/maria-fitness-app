@@ -2820,7 +2820,9 @@ export function ExerciseCard({
           const label = s ? describeSet(s, exercise.isHold) : "—";
           /*
             Against the same set last time, where there is one to compare
-            against — and the square is the whole of that signal now.
+            against — and the square is the whole of that signal now. The
+            rule is `compareSet`'s: total work, with the heavier bar breaking
+            a tie, and every case he has reported is a named test.
 
             Green up, amber level, red down, and the accent fill only when
             there is nothing to compare it with. Stephen asked for the three
