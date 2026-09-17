@@ -17,6 +17,7 @@ import { REST_DAY_NOTES } from "@/lib/seed/workout-templates";
 import { volumeForWeek } from "./progression-targets";
 import { audit } from "@/lib/audit";
 import { defineTool, type ToolContext } from "./define";
+import { propagateForward } from "@/lib/plan-rollover";
 
 async function unitsOf(ctx: ToolContext) {
   const [p] = await db.select({ units: profiles.units }).from(profiles)
@@ -211,6 +212,7 @@ export const createWeeklyPlan = defineTool({
         }
       }
     });
+    await propagateForward(ctx.profileId, week);
 
     return {
       ok: true,
@@ -335,6 +337,7 @@ export const adjustPlanDay = defineTool({
         })));
       }
     }
+    await propagateForward(ctx.profileId, week);
     return { ok: true, dayOfWeek: input.dayOfWeek, dayName: DAY_NAMES[input.dayOfWeek] };
   },
 });
@@ -1050,6 +1053,7 @@ export const addExerciseToDay = defineTool({
         ...(restNote ? { notes: null } : {}),
       }).where(eq(planDays.id, found.day.id));
     }
+    await propagateForward(ctx.profileId, found.week);
     return {
       ok: true,
       added,
@@ -1119,6 +1123,7 @@ export const setExerciseTarget = defineTool({
 
     await db.update(planExercises).set(patch).where(eq(planExercises.id, row.id));
     await rationaleNoLongerApplies(found.day.planId);
+    await propagateForward(ctx.profileId, found.week);
     return { ok: true, exercise: row.name, day: DAY_NAMES[found.dow], changed: Object.keys(patch).length };
   },
 });
@@ -1156,6 +1161,7 @@ export const supersetExercises = defineTool({
         .set({ sortOrder: i, ...(inGroup ? { supersetGroup: group } : {}) })
         .where(eq(planExercises.id, r.id));
     }
+    await propagateForward(ctx.profileId, found.week);
     return { ok: true, day: DAY_NAMES[found.dow], superset: input.slugs, group };
   },
 });
@@ -1179,6 +1185,7 @@ export const removeSuperset = defineTool({
     const cleared = await db.update(planExercises).set({ supersetGroup: null })
       .where(and(eq(planExercises.planDayId, found.day.id), eq(planExercises.supersetGroup, row.group)))
       .returning({ id: planExercises.id });
+    await propagateForward(ctx.profileId, found.week);
     return { ok: true, day: DAY_NAMES[found.dow], unchained: cleared.length };
   },
 });
@@ -1221,6 +1228,7 @@ export const reorderDayExercises = defineTool({
         await db.update(planExercises).set({ sortOrder: i }).where(eq(planExercises.id, row.id));
       }
     }
+    await propagateForward(ctx.profileId, found.week);
     return { ok: true, day: DAY_NAMES[found.dow], order };
   },
 });
@@ -1265,6 +1273,7 @@ export const removeExerciseFromDay = defineTool({
         .where(eq(planDays.id, found.day.id));
     }
 
+    await propagateForward(ctx.profileId, found.week);
     return { ok: true, removed: ex.name, day: DAY_NAMES[found.dow], nowRest: left === 0 };
   },
 });

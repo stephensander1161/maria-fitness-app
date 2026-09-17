@@ -9,6 +9,7 @@ import { todayForProfile } from "@/lib/profile";
 import { owns } from "@/lib/templates";
 import { equipmentToday } from "./phases";
 import { defineTool } from "./define";
+import { propagateForward } from "@/lib/plan-rollover";
 
 /**
  * The bench is taken, or her knee hurts.
@@ -159,6 +160,7 @@ export const substituteExercise = defineTool({
     // The week's blurb described the week as planned. It no longer does.
     await db.update(plans).set({ rationale: null })
       .where(and(eq(plans.id, plan.id), isNotNull(plans.rationale)));
+    await propagateForward(ctx.profileId, week);
 
     return {
       ok: true,
@@ -260,6 +262,7 @@ export const changeExercise = defineTool({
     if (!row && moved.length === 0) {
       return { ok: false, error: `${from.name} is not on that day — nothing to change.` };
     }
+    if (row) await propagateForward(ctx.profileId, week);
 
     return {
       ok: true, was: from.name, now: to.name, date: on,

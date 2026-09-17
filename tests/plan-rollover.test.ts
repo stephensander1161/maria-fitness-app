@@ -29,7 +29,10 @@ suite("the week carries forward", () => {
     for (const field of ["targetSets", "targetReps", "targetWeightKg", "restSeconds", "sortOrder"]) {
       expect(src, field).toContain(field);
     }
-    expect(src).not.toMatch(/setLogs|workouts/);
+    // The copy itself never reads logs; `setLogs`/`workouts` appear in the
+    // file only where propagateForward decides which weeks are still blank.
+    const copy = src.slice(src.indexOf("async function copyWeek"), src.indexOf("export async function propagateForward"));
+    expect(copy).not.toMatch(/setLogs|workouts/);
     // And the rationale does not travel: it described a week that has been.
     expect(src).toMatch(/rationale: null/);
   });
@@ -38,6 +41,47 @@ suite("the week carries forward", () => {
     expect(src).toMatch(/db\.insert\(plans\)/);
     expect(src).toMatch(/db\.insert\(planDays\)/);
     expect(src).toMatch(/db\.insert\(planExercises\)/);
+  });
+
+  it("propagates a template applied to a week too", () => {
+    // apply_template and onboarding both go through instantiateWorkoutPlan.
+    const t = read("lib/templates.ts");
+    const fn = t.slice(t.indexOf("export async function instantiateWorkoutPlan"), t.indexOf("export async function instantiateMealPlan"));
+    expect(fn).toMatch(/await propagateForward\(profileId, weekStart\)/);
+  });
+
+  it("propagates an edit to every later week she has not trained yet", () => {
+    /*
+      "When I change my training day, for example swapping a movement, it
+       should update the plan and update for all future days, not a one-off.
+       I keep having to change the plan week to day." And: "I edited next
+       Wed to be right, went to the following Wednesday and it was still the
+       old way" — a week already copied forward kept its old shape.
+
+      So every tool that writes plan days or plan exercises has to call
+      `propagateForward` for the week it changed. This walks the tool files
+      and fails on any that writes the plan without it — the same shape as
+      the tool-coverage test, for the same reason: the one that forgets is
+      the one that gets reported.
+    */
+    const writes = /db\.(insert|update|delete)\((planDays|planExercises)\)/;
+    for (const file of ["lib/tools/training.ts", "lib/tools/swaps.ts"]) {
+      const src = read(file);
+      // Split into tools on `name: "` and check each that writes the plan.
+      const tools = src.split(/(?=\n\s*name: ")/);
+      const offenders = tools
+        .filter((t) => writes.test(t))
+        .filter((t) => !/propagateForward\(/.test(t))
+        .map((t) => /name: "([a-z_]+)"/.exec(t)?.[1] ?? "?")
+        // Reads that merely *name* a plan write in a string do not count.
+        .filter((n) => !["get_plan", "get_week_review"].includes(n));
+      expect(offenders, `${file}: plan writes without propagateForward`).toEqual([]);
+    }
+    const rollover = read("lib/plan-rollover.ts");
+    // A week with sets in it is a record, not a template: left exactly as it is.
+    expect(rollover).toMatch(/if \(Number\(logged\?\.n \?\? 0\) > 0\) continue;/);
+    // Only later weeks, never the edited one or the ones before it.
+    expect(rollover).toMatch(/gt\(plans\.weekStart, week\)/);
   });
 
   it("runs before the screens read the week, on both of them", () => {

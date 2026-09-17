@@ -44,6 +44,43 @@ suite("the programme repeats", () => {
     expect(JSON.stringify(plan)).toContain("hip-thrust");
   });
 
+  it("carries an edit into every later week she has not trained yet", async () => {
+    /*
+      "When I change my training day, for example swapping a movement, it
+       should update the plan and update for all future days, not a one-off.
+       I keep having to change the plan week to day." And: "I edited next
+       Wed to be right, went to the following Wednesday and it was still the
+       old way" — the week after had already been copied, and kept its shape.
+    */
+    const next = addDays(a.week, 7);
+    const after = addDays(a.week, 14);
+    await rollForward(a.profileId, next);
+    await rollForward(a.profileId, after);
+    // Both later weeks exist with the old shape. Now edit this week.
+    await call("add_exercise_to_day", { slug: "goblet-squat", sets: 3, reps: 8, dayOfWeek: 2 });
+    for (const week of [next, after]) {
+      const plan = await call<{ days: { exercises: { slug: string }[] }[] }>("get_plan", { weekStart: week });
+      expect(JSON.stringify(plan), week).toContain("goblet-squat");
+    }
+  });
+
+  it("leaves a later week alone once she has trained in it", async () => {
+    // A week with sets in it is a record, not a template. Log a set this
+    // week, then edit *last* week: last week's change must stop short of
+    // this one. (A set cannot be logged in a future week, so the edited
+    // week is the one behind us.)
+    const prev = addDays(a.week, -7);
+    await call("log_set", { exerciseSlug: "hip-thrust", reps: 10, weight: 40 });
+    await call("add_exercise_to_day", { slug: "farmer-carry", sets: 2, reps: 1, dayOfWeek: 3, weekStart: prev });
+    const mine = await call<{ days: { exercises: { slug: string }[] }[] }>("get_plan", { weekStart: a.week });
+    expect(JSON.stringify(mine)).not.toContain("farmer-carry");
+    // …while the week that was edited has it.
+    const theirs = await call<{ days: { exercises: { slug: string }[] }[] }>("get_plan", { weekStart: prev });
+    expect(JSON.stringify(theirs)).toContain("farmer-carry");
+    // The set was scaffolding; the progression tests below expect a blank slate.
+    await call("remove_logged_exercise", { exerciseSlug: "hip-thrust" });
+  });
+
   it("does nothing for a week that already has one", async () => {
     expect(await rollForward(a.profileId, a.week)).toBe(false);
   });

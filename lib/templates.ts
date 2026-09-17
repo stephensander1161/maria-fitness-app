@@ -7,6 +7,7 @@ import {
   type MealTemplate, type Profile, type WorkoutTemplate,
 } from "@/lib/db/schema";
 import type { ISODate } from "@/lib/date";
+import { propagateForward } from "@/lib/plan-rollover";
 
 /**
  * Choosing and instantiating a ready-made week.
@@ -215,6 +216,9 @@ export async function instantiateWorkoutPlan(
       })));
     }
   }
+  // A template applied to a week is the programme from that week on, the
+  // same as any other edit.
+  await propagateForward(profileId, weekStart);
   return plan;
 }
 

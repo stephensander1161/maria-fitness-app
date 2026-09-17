@@ -364,6 +364,17 @@ with no plan inherits the last one that existed *before* it, copied rather than
 pointed at, and idempotent so only the first view of a week ever writes. A
 programme is a shape you repeat, and Monday morning was an empty app.
 
+**An edit to a week is an edit to the programme from that week on.** It was
+not: a week owned its copy, so swapping a movement changed that week alone
+and he made the same swap every week — and a week already copied forward kept
+its old shape however the week before it was edited. `propagateForward` now
+rebuilds every later week that holds no logged sets from the edited one; a
+week with sets in it is a record, not a template, and is left exactly as it
+is. Every tool that writes plan days or plan exercises declares it, and
+`tests/plan-rollover.test.ts` fails the build on one that does not. The
+one-off ("skip squats this week, my knee") is now a swap back the week after
+— one edit, not one a week forever.
+
 Food came second and it is the half people notice, because **the calorie and
 protein targets live on the meal plan row**. A week nobody had planned had no
 targets, and a null target draws no bar at all — the Eat screen printed the
