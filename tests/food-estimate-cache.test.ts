@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { estimateRow } from "@/lib/tools/foods";
+import { FOODS as EXERCISE_FREE_FOODS } from "@/lib/seed/foods";
 
 const guess = (over: Record<string, unknown> = {}) => ({
   food: "Cheese Quesadilla", grams: 200, kcal: 520, proteinG: 18,
@@ -129,6 +130,55 @@ suite("what the estimator is asked for, and what it is allowed to keep", () => {
     expect(meals).toMatch(/void noteWhatWasLogged\(ctx\.profileId, input\.description/);
     // Never awaited: a record that fails must not fail her meal.
     expect(meals).toMatch(/\}\)\.catch\(\(\) => \{ \/\* see above \*\/ \}\);/);
+  });
+});
+
+suite("a cup of lettuce is a question the app can answer", () => {
+  const src = fs.readFileSync("lib/tools/foods.ts", "utf8");
+
+  it("falls through to the estimate when the library cannot convert the measure", () => {
+    /*
+      2026-09-17, Maria's salad: "2 cups romaine lettuce, 1/2 cup cucumber,
+      1/2 cup tomato, 1/2 cup chickpeas…". The library has all four, by the
+      heart or by weight, and a cup is neither — so the lookup refused four of
+      five with "has no per-item weight, so 0.5 cup can't be converted. Ask
+      her for it in grams or ounces", the coach asked her to weigh her
+      lettuce, and nothing was logged. "When she says cups it wants grams —
+      it should be able to figure that out." The model can. The refusal
+      survives only for a caller that has said it wants no estimate.
+    */
+    const branch = src.slice(src.indexOf("if (grams === null) {"), src.indexOf("if (grams === null) {") + 1200);
+    expect(branch).toMatch(/if \(input\.allowEstimate !== false\) return estimate\(input\.query, ctx, portion\.query\);/);
+    // The refusal still exists after it, for the caller that asked for it.
+    expect(branch.indexOf("return estimate(")).toBeLessThan(branch.indexOf("has no per-item weight"));
+  });
+
+  it("does not refuse an estimate that forgot to enumerate", () => {
+    // Asked for, not required: an answer without `components` is still an
+    // answer, and refusing it left her with nothing at all.
+    expect(src).toMatch(/\)\.default\(\[\]\),\n\s*grams: z\.number\(\)/);
+  });
+
+  it("records every failure with its reason", () => {
+    /*
+      "2 cups Roman lettuce" produced no `food_estimates` row at all: the
+      failure paths returned before anything was recorded, so the one
+      question that mattered — why — had no evidence. Every path records now.
+    */
+    expect(src).toMatch(/record\(ctx\.profileId, query, \{ source: "none", error: `spend gate: \$\{budget\.reason\}` \}\);/);
+    expect(src).toMatch(/error: block\n\s*\? `schema: /);
+    expect(src).toMatch(/record\(ctx\.profileId, query, \{ source: "none", error: `model: /);
+    expect(fs.readFileSync("lib/db/schema.ts", "utf8")).toMatch(/error: text\("error"\),/);
+    // And the calculator says the app's reason when there is one, rather than
+    // "no match" for a food the library plainly knows.
+    const ui = fs.readFileSync("components/today-food.tsx", "utf8");
+    expect(ui).toMatch(/if \(!r\.found && r\.error && r\.code\) \{ setWhy\(r\.error\); setFailed\(true\); return; \}/);
+    expect(ui).toMatch(/failed \? \(why \?\? "no match — type it"\) : label/);
+  });
+
+  it("knows the spelling she used", () => {
+    const romaine = EXERCISE_FREE_FOODS.find((f) => f.slug === "lettuce-romaine");
+    expect(romaine?.aliases).toContain("roman lettuce");
   });
 });
 

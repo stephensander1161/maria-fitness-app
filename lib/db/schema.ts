@@ -1292,6 +1292,15 @@ export const foodEstimates = pgTable(
     carbsG: real("carbs_g"),
     fatG: real("fat_g"),
     fibreG: real("fibre_g"),
+    /**
+     * Why a lookup came back with nothing, in the app's words.
+     *
+     * "2 cups Roman lettuce" produced no row here at all: the failure paths —
+     * the spend gate, a model error, an answer the schema refused — returned
+     * before anything was recorded, so the one question that mattered, *why*,
+     * had no evidence. Every failure records now, and says which.
+     */
+    error: text("error"),
     /** What she logged afterwards, if she logged it. See above. */
     loggedKcal: integer("logged_kcal"),
     loggedProteinG: integer("logged_protein_g"),

@@ -25,6 +25,14 @@ export type WhatsNew = {
 
 export const WHATS_NEW: WhatsNew[] = [
   {
+    id: "2026-09-17-cups",
+    date: "2026-09-17",
+    title: "Cups work again",
+    blurb:
+      "\u201c2 cups romaine lettuce\u201d came back asking for grams, in the chat and in the calculator, and a salad went unlogged. A measure the library cannot convert now goes to the estimator, which knows what a cup of lettuce weighs, instead of stopping at a question. Every lookup that fails is written down with the reason, so the next one is not a mystery.",
+    href: "/eat",
+  },
+  {
     id: "2026-09-16-set-rule",
     date: "2026-09-16",
     title: "Which set is better, settled",

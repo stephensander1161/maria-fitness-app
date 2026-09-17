@@ -108,6 +108,17 @@ export const lookupFood = defineTool({
         ? best.unitGrams!
         : toGrams(portion, best.unitGrams, best.unitLabel);
       if (grams === null) {
+        /*
+          A measure the library cannot convert is not an answer.
+
+          "2 cups romaine lettuce": the library has romaine, by the heart, and
+          a cup is not a heart — so this returned a refusal asking for grams.
+          It did that for four of the five things in a salad, the coach asked
+          her to weigh her lettuce, and nothing was logged. The model knows
+          what a cup of lettuce weighs; the question goes to it. The refusal
+          survives only for a caller that has said it wants no estimate.
+        */
+        if (input.allowEstimate !== false) return estimate(input.query, ctx, portion.query);
         return {
           found: true, food: best.name,
           // The measure she named, not the parser's word for it: the coach was
@@ -334,7 +345,9 @@ const Estimate = z.object({
   })).describe(
     "Every separate food named, one entry each. A plate of three things has three entries; "
     + "a single ingredient has one.",
-  ),
+  // Asked for, not required: an answer that forgot to enumerate one lettuce
+  // is still an answer, and refusing it would leave her with nothing at all.
+  ).default([]),
   grams: z.number().describe("Total grams — the sum of the components"),
   kcal: z.number().describe("Total calories — the sum of the components"),
   proteinG: z.number(),
@@ -486,6 +499,7 @@ function record(
     carbsG?: number | null;
     fatG?: number | null;
     fibreG?: number | null;
+    error?: string | null;
   },
 ): void {
   void db.insert(foodEstimates).values({
@@ -502,6 +516,7 @@ function record(
     carbsG: row.carbsG ?? null,
     fatG: row.fatG ?? null,
     fibreG: row.fibreG ?? null,
+    error: row.error ?? null,
   }).catch(() => { /* see above */ });
 }
 
@@ -515,7 +530,10 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     // recording its usage and checking nothing, and lookup_food is reachable
     // in a loop from /api/action — so it was the way past the daily cap.
     const budget = await checkSpendAllowed(ctx.profileId);
-    if (!budget.allowed) return { found: false, error: budget.reason };
+    if (!budget.allowed) {
+      record(ctx.profileId, query, { source: "none", error: `spend gate: ${budget.reason}` });
+      return { found: false, error: budget.reason, code: budget.code };
+    }
 
     const response = await anthropic().messages.create({
       model: MODEL,
@@ -536,7 +554,17 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
     );
     const parsed = block && Estimate.safeParse(block.input);
-    if (!parsed?.success) return { found: false, error: "Couldn't estimate that one." };
+    if (!parsed?.success) {
+      // Recorded with the schema's own complaint, so a refused answer is a
+      // row with a reason rather than a lookup that never happened.
+      record(ctx.profileId, query, {
+        source: "none",
+        error: block
+          ? `schema: ${(parsed && !parsed.success ? parsed.error.issues : []).map((i) => `${i.path.join(".")} ${i.message}`).join("; ").slice(0, 300)}`
+          : "model returned no estimate",
+      });
+      return { found: false, error: "Couldn't estimate that one." };
+    }
 
     // Kept, so the same question is not paid for twice.
     //
@@ -561,7 +589,8 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
       found: true, source: "estimated", ...parsed.data,
       portion: gramsLabel(parsed.data.grams, await foodUnitsFor(ctx.profileId)),
     };
-  } catch {
+  } catch (err) {
+    record(ctx.profileId, query, { source: "none", error: `model: ${String((err as Error)?.message ?? err).slice(0, 300)}` });
     return { found: false, error: "Couldn't estimate that one." };
   }
 }

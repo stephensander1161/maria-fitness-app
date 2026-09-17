@@ -538,6 +538,8 @@ function FoodNumbers({
   const { calories } = value;
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** The app's own reason, where it has one — the allowance, not the library. */
+  const [why, setWhy] = useState<string | null>(null);
 
   const wantsCalories = calories.trim() === "";
   /** Which of the five she has left for the lookup to fill in. */
@@ -555,9 +557,12 @@ function FoodNumbers({
       // model to interpret. Her calorie figure is applied here instead, as
       // arithmetic — see proteinForCalories.
       const r = await action<{
-        found: boolean; kcal?: number;
+        found: boolean; kcal?: number; error?: string; code?: string;
         proteinG?: number; carbsG?: number; fatG?: number; fibreG?: number;
       }>("lookup_food", { query: food });
+      // A refusal with a reason is not "no match". The spend gate saying her
+      // coach allowance is used up read as the library not knowing lettuce.
+      if (!r.found && r.error && r.code) { setWhy(r.error); setFailed(true); return; }
       const num = (v: unknown) => (typeof v === "number" ? v : null);
       const refKcal = num(r.kcal);
 
@@ -611,7 +616,7 @@ function FoodNumbers({
       </span>
       <input
         value={value[k]}
-        onChange={(e) => { set(k)(e.target.value); setFailed(false); }}
+        onChange={(e) => { set(k)(e.target.value); setFailed(false); setWhy(null); }}
         inputMode="numeric"
         // No "(optional)". None of these five is required — that is the rule
         // the whole screen is built on — and saying it on two of them implied
@@ -645,7 +650,7 @@ function FoodNumbers({
         disabled={busy || !describes.trim() || blanks.length === 0}
         className="mt-1 px-1 text-[11px] font-medium text-accent underline underline-offset-2 disabled:no-underline disabled:opacity-30"
       >
-        {busy ? "working it out…" : failed ? "no match — type it" : label}
+        {busy ? "working it out…" : failed ? (why ?? "no match — type it") : label}
       </button>
     </div>
   );
