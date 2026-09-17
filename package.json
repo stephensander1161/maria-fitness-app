@@ -28,6 +28,8 @@
     "test:e2e:ui": "node --env-file=.env.test node_modules/@playwright/test/cli.js test --ui",
     "test:e2e:door": "E2E_DOOR=1 node --env-file=.env.test node_modules/@playwright/test/cli.js test e2e/door.spec.ts",
     "ship": "bash scripts/ship.sh",
+    "ship:dev": "bash scripts/ship-dev.sh",
+    "promote": "bash scripts/promote.sh",
     "prune": "bash scripts/prune-deployments.sh",
     "vapid": "tsx scripts/vapid.ts",
     "eval": "tsx --env-file=.env evals/run.ts",

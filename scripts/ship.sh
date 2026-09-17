@@ -31,6 +31,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
+# Production ships from main and nowhere else. Dev is `npm run ship:dev` from
+# the dev branch; getting a dev commit to production is `npm run promote`.
+if [[ "${1:-}" != "--check" && "$(git rev-parse --abbrev-ref HEAD)" != "main" ]]; then
+  echo "✗ npm run ship deploys production and runs from main only — you are on $(git rev-parse --abbrev-ref HEAD)." >&2
+  echo "  For the dev environment: npm run ship:dev.  To promote dev to prod: npm run promote." >&2
+  exit 1
+fi
+
 # ── the gates, in the order that fails cheapest first ───────────────────────
 #
 # Four suites rather than one, because they need different things and the

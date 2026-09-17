@@ -216,6 +216,35 @@ backup carries the rows and not the images, on purpose: the store is itself
 durable, and a second copy of her body every night is not a backup, it is a
 second store.
 
+## Two environments, one door between them
+
+**Production** is `main`, deployed by `npm run ship` and reachable at
+maria-fitness-app.vercel.app. **Dev** is the `dev` branch, deployed by
+`npm run ship:dev` as a Vercel *preview* deployment aliased to a fixed
+address, maria-fitness-app-dev.vercel.app, reading the project's Preview
+environment: its own Neon branch, its own `AUTH_SECRET`, no Blob store (photos
+fall back to the row), no crons (Vercel runs crons on production only). Nothing
+done on dev can touch a real person's rows, and nothing on dev is anyone's
+real data.
+
+The flow, from 2026-09-17: features are built on `dev` and shipped there;
+Stephen tests them at the dev address; when he gives the green light,
+`npm run promote` fast-forwards `main` to `dev` — never a merge commit, never a
+cherry-pick, so production is a commit dev already ran byte for byte — and
+runs the production ship. `ship.sh` refuses to run from any branch but main,
+`ship-dev.sh` from any branch but dev, and `promote.sh` refuses if main cannot
+fast-forward, because then something reached main without going through dev
+and that is worth stopping for. The gates are identical on both: what reaches
+dev has passed exactly what reaches prod has passed; the difference is who has
+looked at it.
+
+Sign-in on dev is by password (Google needs the dev address added as a
+redirect URI first). CI runs on pushes to both branches; only main can reach
+its deploy job. When the same feature needs a schema change, `db:push` it to
+the dev branch's database from the dev branch, and promotion pushes it to
+production's — a schema that reached production before dev is the same failure
+as code that did.
+
 ## Picking up requests, and the last gate
 
 `/requests` — a local skill, `.claude/skills/requests/SKILL.md`. It reads what

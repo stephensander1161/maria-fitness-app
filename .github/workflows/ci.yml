@@ -5,7 +5,9 @@ name: CI
 # the linter, the full test suite and a dependency audit having passed.
 on:
   push:
-    branches: [main]
+    # `dev` is the environment features land on first; it gets the same
+    # verification as main. Only main can reach the deploy job below.
+    branches: [main, dev]
   pull_request:
   # Dependencies rot even when the code doesn't — catch a new advisory in a
   # package we already shipped.
