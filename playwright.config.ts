@@ -32,9 +32,14 @@ const PORT = 3311;
 
 export default defineConfig({
   testDir: "e2e",
-  // The suite shares one database. Parallel files would race on nothing —
-  // every account is its own — but Neon's connection ceiling is real.
-  workers: 2,
+  /*
+    One worker. Two Chromiums in parallel were the extra half-gigabyte that
+    got the whole ship killed by the OS for memory, twice, while the rest of
+    the machine had an editor and a game engine open. Against the local
+    database the journeys take about a minute on one worker, so the second
+    was buying seconds and costing the deploy.
+  */
+  workers: 1,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 1,
