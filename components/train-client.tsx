@@ -1516,6 +1516,38 @@ export function queueSet<T>(queued: InFlight<T>, landedNow: number, set: T): InF
   return { from: queued.from + arrived, sets: [...queued.sets.slice(arrived), set] };
 }
 
+/**
+ * A set she has just deleted, until the refresh carrying its absence lands.
+ *
+ * The counting above reconciles *additions* — and a deletion moved the count
+ * the other way. Log a set (queued, then landed, queue empty at "landed −
+ * from = 1"), delete one, and the server's count falls back to `from`: the
+ * queue read that as "nothing has arrived yet" and put the optimistic square
+ * back. The card showed the same number of squares before and after the
+ * delete, and only a reload cleared it — "deleting a set doesn't
+ * automatically remove it from the card, need to refresh."
+ *
+ * So a deletion is held the same way: hidden from the landed list while the
+ * server still reports the count it was deleted from, and forgotten the
+ * moment that count moves. Derived at render, like the queue.
+ */
+export type Removed = { at: number; setNumber: number };
+
+/** The landed list as she should see it: without the set she just deleted. */
+export function withoutRemoved<T extends { setNumber: number }>(landed: T[], removed: Removed | null): T[] {
+  if (!removed || removed.at !== landed.length) return landed;
+  return landed.filter((s) => s.setNumber !== removed.setNumber);
+}
+
+/**
+ * The queue after one landed set is deleted: whatever is still outstanding
+ * stays outstanding, rebased onto the count the server is about to report.
+ */
+export function dropLanded<T>(queued: InFlight<T>, shownNow: number): InFlight<T> {
+  const arrived = Math.max(0, shownNow - queued.from);
+  return { from: Math.max(0, shownNow - 1), sets: queued.sets.slice(arrived) };
+}
+
 /** What `finish_workout` hands back — see lib/tools/training.ts. */
 export type FinishResult = {
   ok?: boolean;
@@ -1715,7 +1747,7 @@ function SetEditor({
   bodyweight: boolean;
   /** Seconds rather than reps, and corrected as seconds — see lib/holds.ts. */
   isHold: boolean;
-  onDone: () => void;
+  onDone: (kind: "save" | "delete") => void;
   onCancel: () => void;
 }) {
   const [reps, setReps] = useState(set.reps);
@@ -1759,7 +1791,7 @@ function SetEditor({
           ...(loaded ? { weight: weight > 0 ? weight : null } : {}),
         });
       }
-      onDone();
+      onDone(kind);
     } catch (err) {
       setError(actionMessage(err, "That didn't save — try again."));
       setBusy(null);
@@ -1925,6 +1957,12 @@ export function ExerciseCard({
   href?: string;
 }) {
   const landed = exercise.loggedToday;
+  const [removed, setRemoved] = useState<Removed | null>(null);
+  /** Landed, minus the one she just deleted — see `withoutRemoved`. */
+  const shown = withoutRemoved(landed, removed);
+  /** A delete the refresh has not caught up with. No second delete or edit
+   *  until it has: the server has already renumbered, so positions are off. */
+  const settling = removed !== null && removed.at === landed.length;
   /**
    * Sets that have saved but have not come back down the wire yet.
    *
@@ -1953,11 +1991,16 @@ export function ExerciseCard({
   const [unconfirmed, setUnconfirmed] = useState<InFlight<{ reps: number; weight: number | null; holdSeconds: number | null }>>(
     { from: landed.length, sets: [] },
   );
-  const justLogged = stillInFlight(unconfirmed, landed.length);
+  const justLogged = stillInFlight(unconfirmed, shown.length);
   const done = justLogged.length === 0
-    ? landed
-    : [...landed, ...justLogged.map((s, i) => ({ setNumber: landed.length + i + 1, ...s }))];
+    ? shown
+    : [...shown, ...justLogged.map((s, i) => ({ setNumber: shown.length + i + 1, ...s }))];
   const [removingSet, setRemovingSet] = useState<number | null>(null);
+  /** The row is gone on the server; take it off the card now, not at the refresh. */
+  function markRemoved(setNumber: number) {
+    setRemoved({ at: landed.length, setNumber });
+    setUnconfirmed((u) => dropLanded(u, shown.length));
+  }
   /**
    * Remove one logged set outright — the answer to "just let me delete it".
    *
@@ -1967,7 +2010,7 @@ export function ExerciseCard({
    * is gone the moment the tool returns.
    */
   async function removeSet(setNumber: number) {
-    if (removingSet !== null) return;
+    if (removingSet !== null || settling) return;
     setRemovingSet(setNumber);
     try {
       await action("delete_set", {
@@ -1975,6 +2018,7 @@ export function ExerciseCard({
         ...(date === undefined ? {} : { date }),
       });
       if (editingSet === setNumber) setEditingSet(null);
+      markRemoved(setNumber);
       onRemoved();
     } catch (err) {
       setError(actionMessage(err, "Couldn't remove that set — try again."));
@@ -2283,7 +2327,7 @@ export function ExerciseCard({
       side: null,
       band: bandForSet,
     };
-    setUnconfirmed((u) => queueSet(u, landed.length, mine));
+    setUnconfirmed((u) => queueSet(u, shown.length, mine));
     const drop = () => setUnconfirmed((u) => ({ from: u.from, sets: u.sets.filter((x) => x !== mine) }));
     try {
       const outcome = await logSetOrQueue<LogResult>(
@@ -2816,7 +2860,7 @@ export function ExerciseCard({
           // card addresses a set by its position and that position is only
           // true once the server's own list says so. It becomes editable a
           // moment later, when the refresh lands.
-          const isUnconfirmed = i >= landed.length && i < done.length;
+          const isUnconfirmed = i >= shown.length && i < done.length;
           const label = s ? describeSet(s, exercise.isHold) : "—";
           /*
             Against the same set last time, where there is one to compare
@@ -2898,7 +2942,7 @@ export function ExerciseCard({
               className={`${shape} ${editingSet === i + 1 ? "ring-2 ring-text ring-offset-2 ring-offset-surface" : ""}`}
               setNumber={i + 1}
               name={exercise.name}
-              editable={editable}
+              editable={editable && !settling}
               onEdit={() => setEditingSet(editingSet === i + 1 ? null : i + 1)}
               onRemove={() => removeSet(i + 1)}
             />
@@ -2989,7 +3033,11 @@ export function ExerciseCard({
           unit={unit}
           bodyweight={exercise.bodyweight}
           isHold={exercise.isHold}
-          onDone={() => { setEditingSet(null); onRemoved(); }}
+          onDone={(kind) => {
+            if (kind === "delete") markRemoved(editingSet);
+            setEditingSet(null);
+            onRemoved();
+          }}
           onCancel={() => setEditingSet(null)}
         />
       )}

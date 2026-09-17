@@ -1,7 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import { allowanceLeftPct, ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
-import { afterSet, nextAfter, queueSet, stillInFlight } from "@/components/train-client";
+import { afterSet, dropLanded, nextAfter, queueSet, stillInFlight, withoutRemoved } from "@/components/train-client";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 
 const read = (p: string) => fs.readFileSync(p, "utf8");
@@ -303,6 +303,75 @@ suite("two sets in flight at once", () => {
   it("is a no-op when nothing is in flight", () => {
     expect(stillInFlight({ from: 4, sets: [] }, 4)).toEqual([]);
     expect(queueSet({ from: 4, sets: [] }, 4, "a")).toEqual({ from: 4, sets: ["a"] });
+  });
+});
+
+suite("a deleted set leaves the card", () => {
+  /*
+    2026-09-17: "Another regression: deleting a set doesn't automatically
+    remove it from the card, need to refresh (I'm on mobile)."
+
+    The counting above reconciles additions. Log a set, let it land (queue
+    empty at landed − from = 1), delete one: the server's count falls back
+    to `from`, the queue reads that as "nothing has arrived yet", and the
+    optimistic square comes back — the card shows the same squares before
+    and after the delete until a reload throws the state away.
+  */
+  const set = (setNumber: number) => ({ setNumber, reps: 8 });
+
+  it("the reported case: a set logged, landed, then deleted does not come back", () => {
+    let q = queueSet({ from: 2, sets: [] as string[] }, 2, "c");
+    let landed = [set(1), set(2), set(3)];   // the refresh landed it
+    expect(stillInFlight(q, landed.length)).toEqual([]);
+    // Delete set 2. Before the refresh the server still reports three.
+    const removed = { at: landed.length, setNumber: 2 };
+    let shown = withoutRemoved(landed, removed);
+    q = dropLanded(q, shown.length + 1);
+    expect(shown.map((s) => s.setNumber)).toEqual([1, 3]);
+    expect(stillInFlight(q, shown.length)).toEqual([]);
+    // The refresh lands with two, renumbered. Nothing hidden, nothing in flight.
+    landed = [set(1), set(2)];
+    shown = withoutRemoved(landed, removed);
+    expect(shown).toEqual(landed);
+    expect(stillInFlight(q, shown.length)).toEqual([]);
+  });
+
+  it("is gone the moment the tool returns, not at the refresh", () => {
+    const landed = [set(1), set(2), set(3)];
+    expect(withoutRemoved(landed, { at: 3, setNumber: 3 }).map((s) => s.setNumber)).toEqual([1, 2]);
+  });
+
+  it("is forgotten once the server's count moves, so it cannot hide a renumbered set", () => {
+    // After the refresh, "set 3" is a different row (the old set 4). The hold
+    // was keyed on the count it was deleted from, and that count has changed.
+    const landed = [set(1), set(2), set(3)];
+    expect(withoutRemoved(landed, { at: 4, setNumber: 3 })).toBe(landed);
+    expect(withoutRemoved(landed, null)).toBe(landed);
+  });
+
+  it("keeps a set still in flight when an earlier one is deleted", () => {
+    // Set 3 is saving; she deletes set 1. Three squares become two, and the
+    // one in the air is still in the air.
+    let q = queueSet({ from: 2, sets: [] as string[] }, 2, "c");
+    const shown = withoutRemoved([set(1), set(2)], { at: 2, setNumber: 1 });
+    q = dropLanded(q, 2);
+    expect(stillInFlight(q, shown.length)).toEqual(["c"]);
+    // Both refreshes land: one row fewer, one row more — two, with "c" among them.
+    expect(stillInFlight(q, 2)).toEqual([]);
+  });
+
+  it("the card removes on both paths — the long-press Remove and the editor's Delete", () => {
+    const src = read("components/train-client.tsx");
+    const card = src.slice(src.indexOf("function markRemoved"));
+    expect(card).toMatch(/markRemoved\(setNumber\);\s*onRemoved\(\);/);
+    expect(card).toMatch(/if \(kind === "delete"\) markRemoved\(editingSet\);/);
+    // And the editor says which it was.
+    expect(src).toMatch(/onDone: \(kind: "save" \| "delete"\) => void;/);
+    expect(src).toMatch(/onDone\(kind\);/);
+    // Nothing reads the raw landed list for squares any more; the shown one.
+    expect(src).toMatch(/stillInFlight\(unconfirmed, shown\.length\)/);
+    expect(src).toMatch(/queueSet\(u, shown\.length, mine\)/);
+    expect(src).toMatch(/isUnconfirmed = i >= shown\.length/);
   });
 });
 
