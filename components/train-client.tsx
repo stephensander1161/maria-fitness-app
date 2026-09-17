@@ -2139,10 +2139,12 @@ export function ExerciseCard({
    * card folds so the day scans; the sets are the one thing on it she still
    * wants to see, and four squares' worth of numbers fit one line.
    */
+  // No unit on the end: four sets fill a phone's line exactly, and "lb"
+  // wrapped onto a line of its own. The target above it already says the
+  // unit, and the squares have never carried one.
   const logged = exercise.loggedToday.length === 0
     ? null
-    : exercise.loggedToday.map((s) => describeSet(s, exercise.isHold)).join(" \u00b7 ")
-      + (exercise.loggedToday.some((s) => s.weight !== null) ? ` ${unit}` : "");
+    : exercise.loggedToday.map((s) => describeSet(s, exercise.isHold)).join(" \u00b7 ");
   const setCount = done.length + queued.length;
   const targetMet = exercise.targetSets > 0 && setCount >= exercise.targetSets;
   /** Planned, signed off, and nothing logged against it. */
