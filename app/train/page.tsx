@@ -83,6 +83,7 @@ export default async function TrainPage({
         tone={profile.coachTone}
         collapsedCards={profile.collapsedCards}
         cardLayout={profile.cardLayout}
+        sidePicker={profile.sidePicker}
         view={view}
         pickable={pickable}
         targets={targets}

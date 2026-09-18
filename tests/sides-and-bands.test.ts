@@ -69,18 +69,24 @@ suite("which side was done last", () => {
     expect(sideAndBand([{ side: null, band: null }], null, null).lastSide).toBeNull();
   });
 
-  it("no longer asks which side on the card", () => {
+  it("asks which side only when she has turned it on — 2026-09-18", () => {
     /*
-      The picker is gone from every movement — "remove the left/right side
-      crap from all exercises, in what universe does someone log diff weight
-      per side". Nobody does. The column stays on the row, for the coach and
-      for anything already logged with one; the card never sends it.
+      The picker was taken off every movement — "remove the left/right side
+      crap from all exercises" — and then: "turns out Maria wanted that, so
+      bring it back as a user setting, but leave it off by default." So it is
+      her setting (`profiles.side_picker`, off), and the card asks only when
+      the setting is on *and* the movement is one-sided. Off, the row is
+      saved with no side, exactly as before.
     */
     const card = fs.readFileSync("components/train-client.tsx", "utf8");
-    expect(card).not.toMatch(/exercise\.lastSide === "left" \? "right" : "left"/);
-    expect(card).not.toMatch(/setSide\(/);
-    expect(card).toMatch(/side: null,\n\s*band: bandForSet,/);
-    expect(card).toMatch(/\{ side: null, band: bandForSet \}/);
+    expect(card).toMatch(/const askSide = sides && exercise\.unilateral;/);
+    expect(card).toMatch(/askSide && exercise\.lastSide \? \(exercise\.lastSide === "left" \? "right" : "left"\) : null/);
+    expect(card).toMatch(/side: askSide \? side : null,\n\s*band: bandForSet,/);
+    expect(card).toMatch(/\{ side: askSide \? side : null, band: bandForSet \}/);
+    expect(card).toMatch(/\{askSide && \(/);
+    expect(fs.readFileSync("lib/db/schema.ts", "utf8")).toMatch(/sidePicker: boolean\("side_picker"\)\.default\(false\)\.notNull\(\)/);
+    expect(fs.readFileSync("app/settings/page.tsx", "utf8")).toMatch(/<SidePickerSetting on=\{profile\.sidePicker\} \/>/);
+    expect(fs.readFileSync("lib/tools/profile.ts", "utf8")).toMatch(/patch\.sidePicker = input\.sidePicker/);
   });
 });
 
@@ -145,7 +151,7 @@ suite("which band", () => {
     expect(card).toMatch(/\{askBand && \(/);
     // Both the optimistic square and the row that is actually saved.
     expect(card).toMatch(/band: bandForSet,/);
-    expect(card).toMatch(/\{ side: null, band: bandForSet \}/);
+    expect(card).toMatch(/\{ side: askSide \? side : null, band: bandForSet \}/);
     // …and nowhere does either of them reach the raw picker state.
     expect(card).not.toMatch(/\{ side, band \}/);
   });

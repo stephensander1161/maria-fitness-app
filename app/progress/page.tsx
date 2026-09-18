@@ -9,7 +9,7 @@ import { goalDirection } from "@/lib/nutrition";
 import { requireOnboarded } from "@/lib/session";
 import {
   burnThisWeek, currentStreak, exerciseProgression, measurementProgress, nutritionTrend,
-  trainingTotals, weekReview,
+  trainingTotals, trendRows, weekReview,
 } from "@/lib/progress";
 import { kgToLb, lengthLabel, weightLabel, weightOut } from "@/lib/units";
 import { Sparkline } from "@/components/sparkline";
@@ -105,6 +105,7 @@ export default async function ProgressPage({
     sleepTotals(profile.id, her),
     waterTotals(profile.id, her),
   ]);
+  const vsLastWeek = trendRows(review.movements);
 
   // The trend, not this morning's reading: a day's weight moves on water,
   // food and where she is in her cycle, and reading that as progress — in
@@ -443,19 +444,37 @@ export default async function ProgressPage({
               Every session this week, done.
             </p>
           )}
-          {/* The set-by-set review, with the way out on it. Hidden means
-              not drawn; Settings or the coach brings it back. */}
-          {showReview && (
-            <div className="relative">
-              {(review.beat.length > 0 || review.missed.length > 0) && (
-                <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="moved up and came up short" /></div>
+          {/*
+            Against last week, as numbers. This was "Moved up" and "Came up
+            short", two lists of sentences — "the wall of text is ugly" — and
+            it is the same comparison the finish summary makes, so it is drawn
+            the way that one is: a row per movement, biggest change first,
+            level ones folded behind a count. The eye hides it; Settings
+            brings it back.
+          */}
+          {showReview && vsLastWeek.rows.length + vsLastWeek.level > 0 && (
+            <div className="relative mt-3">
+              <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="this week against last" /></div>
+              <p className="mb-1.5 text-[11px] uppercase tracking-wide text-faint">Against last week</p>
+              <ul className="divide-y divide-line/60">
+                {vsLastWeek.rows.map((m) => (
+                  <li key={m.name} className="flex items-center justify-between gap-3 py-1.5">
+                    <span className="min-w-0 truncate text-[13px]">{m.name}</span>
+                    <span className={`shrink-0 text-[13px] font-semibold tabular ${m.status === "beat" ? "text-beat" : "text-miss"}`}>
+                      {m.volumeDeltaPct === null ? (m.status === "beat" ? "up" : "down") : `${m.volumeDeltaPct > 0 ? "▲" : "▼"} ${Math.abs(Math.round(m.volumeDeltaPct))}%`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {(vsLastWeek.more > 0 || vsLastWeek.level > 0) && (
+                <p className="mt-1.5 text-[12px] text-faint">
+                  {[vsLastWeek.more > 0 ? `${vsLastWeek.more} more moved` : null, vsLastWeek.level > 0 ? `${vsLastWeek.level} held level` : null].filter(Boolean).join(" · ")}
+                </p>
               )}
-              {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
-              {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
             </div>
           )}
-          {(!showReview || (review.beat.length === 0 && review.missed.length === 0)) && review.missedDays.length === 0 && review.remainingDays.length === 0 && (
-            <p className="text-[13px] text-faint">{showReview ? "Log some sets and this fills in." : "Set-by-set review hidden — Settings brings it back."}</p>
+          {(!showReview || vsLastWeek.rows.length + vsLastWeek.level === 0) && review.missedDays.length === 0 && review.remainingDays.length === 0 && (
+            <p className="text-[13px] text-faint">{showReview ? "Log some sets and this fills in." : "Week-on-week hidden — Settings brings it back."}</p>
           )}
         </section>
 
@@ -553,13 +572,3 @@ export default async function ProgressPage({
 }
 
 
-const List = ({ tone, title, items }: { tone: "beat" | "miss"; title: string; items: string[] }) => (
-  <div className="mt-3">
-    <p className={`mb-1.5 text-[11px] uppercase tracking-wide ${tone === "beat" ? "text-beat" : "text-miss"}`}>
-      {title}
-    </p>
-    <ul className="space-y-1">
-      {items.map((t, i) => <li key={i} className="text-[13px] text-muted">{t}</li>)}
-    </ul>
-  </div>
-);

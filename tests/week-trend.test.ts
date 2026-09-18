@@ -1,0 +1,29 @@
+import { describe as suite, expect, it } from "vitest";
+import fs from "node:fs";
+import { trendRows } from "@/lib/progress";
+
+suite("this week against last, as numbers — 2026-09-18", () => {
+  // "Do you think the moved up / came up short card should just be removed
+  // outright? Or maybe replaced by the volume trend, the wall of text is ugly."
+  const m = (name: string, status: "beat" | "matched" | "missed", pct: number | null) => ({ name, status, volumeDeltaPct: pct });
+
+  it("biggest change first, level ones behind a count, the rest behind another", () => {
+    const rows = trendRows([m("Squat", "beat", 4), m("Bench", "missed", -12), m("Row", "matched", 0), m("Curl", "beat", 30)], 2);
+    expect(rows.rows.map((r) => r.name)).toEqual(["Curl", "Bench"]);
+    expect(rows.more).toBe(1);
+    expect(rows.level).toBe(1);
+  });
+
+  it("copes with nothing and with no percentage", () => {
+    expect(trendRows([])).toEqual({ rows: [], more: 0, level: 0 });
+    expect(trendRows([m("Plank", "beat", null)]).rows[0].volumeDeltaPct).toBeNull();
+  });
+
+  it("is what Progress draws, and the two lists of sentences are gone", () => {
+    const page = fs.readFileSync("app/progress/page.tsx", "utf8");
+    expect(page).toMatch(/const vsLastWeek = trendRows\(review\.movements\)/);
+    expect(page).toMatch(/Against last week/);
+    expect(page).not.toMatch(/title="Moved up"|title="Came up short"/);
+    expect(page).not.toMatch(/const List = /);
+  });
+});

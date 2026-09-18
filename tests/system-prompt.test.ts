@@ -23,6 +23,7 @@ const profile = (tone: Profile["coachTone"]): Profile => ({
   collapsedCards: [],
   cardLayout: {},
   coachName: "Coach",
+  sidePicker: false,
   postpartumBirthDate: null, postpartumDelivery: null, postpartumClearedAt: null,
   breastfeeding: false, postpartumSymptoms: [],
   tempEquipmentUntil: null, planSetupAt: null, planSetupSkippedAt: null,
