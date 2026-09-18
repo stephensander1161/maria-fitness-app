@@ -17,8 +17,11 @@ name: CI
 on:
   push:
     branches: [main, dev]
+  # Pull requests into dev too: that is where Dependabot's bumps arrive, and a
+  # bump that has not run the gates is a bump nobody looked at. (Deploys are
+  # push-only below, so a pull request never reaches the token.)
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   # Dependencies rot even when the code doesn't — catch a new advisory in a
   # package we already shipped.
   schedule:
@@ -199,7 +202,9 @@ jobs:
   # cannot reach production without first having been on dev, whoever opens
   # the pull request and however green it is.
   from-dev:
-    if: github.event_name == 'pull_request'
+    # Only the road into main is guarded; a pull request into dev (a
+    # dependency bump, a contributor's branch) is exactly what dev is for.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

@@ -85,3 +85,8 @@ git merge --ff-only origin/main --quiet
 git push origin dev --quiet
 echo "✓ promoted $(git rev-parse --short origin/main) — the deploy job is shipping production:"
 echo "   https://github.com/$REPO/actions?query=branch%3Amain"
+
+# Requests the skill built onto dev were marked planned, not shipped, because
+# they were not live. Now they are: list them so they can be closed.
+echo "── open requests (mark the ones that just went out: npm run feedback -- --status <id> shipped)"
+npm run -s feedback 2>/dev/null | sed -n '1,40p' || true
