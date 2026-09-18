@@ -19,9 +19,15 @@ suite("this week against last, as numbers — 2026-09-18", () => {
     expect(trendRows([m("Plank", "beat", null)]).rows[0].volumeDeltaPct).toBeNull();
   });
 
-  it("is what Progress draws, and the two lists of sentences are gone", () => {
+  it("is what Progress draws — every row, scrolling — and the two lists of sentences are gone", () => {
+    // "Make against last week scrollable so it doesn't just say plus 11
+    // more; since the card never fully goes away, keep the eye to unhide
+    // right from there."
     const page = fs.readFileSync("app/progress/page.tsx", "utf8");
-    expect(page).toMatch(/const vsLastWeek = trendRows\(review\.movements\)/);
+    expect(page).toMatch(/const vsLastWeek = trendRows\(review\.movements, Infinity\)/);
+    expect(page).toMatch(/max-h-64 divide-y divide-line\/60 overflow-y-auto/);
+    expect(page).toMatch(/<HideCard id="weekReview" what="this week against last" hidden=\{!showReview\} \/>/);
+    expect(fs.readFileSync("components/hide-card.tsx", "utf8")).toMatch(/collapsed: !hidden/);
     expect(page).toMatch(/Against last week/);
     expect(page).not.toMatch(/title="Moved up"|title="Came up short"/);
     expect(page).not.toMatch(/const List = /);
