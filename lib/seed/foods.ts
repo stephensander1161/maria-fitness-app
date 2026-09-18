@@ -432,7 +432,7 @@ export const FOODS: FoodSeed[] = [
   { slug: "mashed-potato", name: "Mashed potato, with butter and milk", category: "prepared", kcal: 105, proteinG: 2, carbsG: 15, fatG: 4, fibreG: 1.5, unitGrams: 180, unitLabel: "portion", aliases: ["mash", "creamed potato"] },
   { slug: "fish-fingers", name: "Fish fingers, baked", category: "prepared", kcal: 220, proteinG: 13, carbsG: 19, fatG: 10, fibreG: 1.5, unitGrams: 28, unitLabel: "fish finger", aliases: ["fish sticks"] },
   { slug: "chicken-nuggets", name: "Chicken nuggets, baked", category: "prepared", kcal: 290, proteinG: 15, carbsG: 17, fatG: 18, fibreG: 1.5, unitGrams: 18, unitLabel: "nugget", aliases: ["chicken dippers"] },
-  { slug: "pizza-margherita", name: "Pizza, margherita, cooked", category: "prepared", kcal: 265, proteinG: 11, carbsG: 33, fatG: 9, fibreG: 2.5, unitGrams: 125, unitLabel: "slice", aliases: ["pizza", "cheese pizza"] },
+  { slug: "pizza-margherita", name: "Pizza, margherita, cooked", category: "prepared", kcal: 265, proteinG: 11, carbsG: 33, fatG: 9, fibreG: 2.5, unitGrams: 107, unitLabel: "slice", aliases: ["pizza", "cheese pizza", "piece of pizza", "pizza slice"] },
   { slug: "vegetable-soup", name: "Vegetable soup, tinned", category: "prepared", kcal: 45, proteinG: 1.5, carbsG: 7, fatG: 1, fibreG: 1.5, unitGrams: 400, unitLabel: "tin", aliases: ["soup", "tomato soup"] },
   { slug: "coleslaw-dressed", name: "Coleslaw, with mayonnaise", category: "prepared", kcal: 190, proteinG: 1, carbsG: 7, fatG: 17, fibreG: 2, unitGrams: 80, unitLabel: "portion", aliases: ["coleslaw", "slaw"] },
   { slug: "sausage-roll", name: "Sausage roll", category: "prepared", kcal: 340, proteinG: 8, carbsG: 27, fatG: 22, fibreG: 1.5, unitGrams: 60, unitLabel: "sausage roll", aliases: [] },

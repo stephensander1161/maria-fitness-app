@@ -27,6 +27,20 @@ suite("reading a portion", () => {
     });
   });
 
+  it("does not count the same thing twice — 2026-09-18, \"5x pieces of pizza\"", () => {
+    // "I put in 5x pieces of pizza, hit calculate and it came back 2100
+    // calories which is clearly wrong." The x was read as the count and
+    // "pieces" was left in the food query; "pieces pizza" matched nothing in
+    // the library, so the model guessed at what a piece was.
+    expect(parsePortion("5x pieces of pizza")).toMatchObject({ amount: 5, unit: "unit", query: "pizza" });
+    expect(parsePortion("5 x pieces of pizza")).toMatchObject({ amount: 5, unit: "unit", query: "pizza" });
+    expect(parsePortion("2x items of sushi")).toMatchObject({ amount: 2, unit: "unit", query: "sushi" });
+    expect(parsePortion("3 pieces pizza")).toMatchObject({ amount: 3, unit: "unit", query: "pizza" });
+    // Only a *second* count word goes; the food is never mistaken for one.
+    expect(parsePortion("2x pizza")).toMatchObject({ amount: 2, unit: "unit", query: "pizza" });
+    expect(parsePortion("100g pieces of chicken")?.query).toBe("pieces chicken");
+  });
+
   it("strips filler words that would break a lookup", () => {
     expect(parsePortion("100g of chicken")?.query).toBe("chicken");
     expect(parsePortion("2 slices of bread")?.query).toBe("bread");

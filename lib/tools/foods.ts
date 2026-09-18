@@ -68,7 +68,7 @@ export const lookupFood = defineTool({
             .catch(() => { /* a counter that fails must not fail her lookup */ });
         }
         const each = (v: number | null) => (v === null ? null : Math.round(v * n * 10) / 10);
-        record(ctx.profileId, input.query, {
+        await record(ctx.profileId, input.query, {
           source: best.estimated ? "estimated" : "library",
           foodSlug: best.slug, components: 1, grams: best.unitGrams === null ? null : best.unitGrams * n,
           kcal: Math.round(best.kcal * n), proteinG: each(best.proteinG),
@@ -141,7 +141,7 @@ export const lookupFood = defineTool({
           .catch(() => { /* see above */ });
       }
 
-      record(ctx.profileId, input.query, {
+      await record(ctx.profileId, input.query, {
         source: best.estimated ? "estimated" : "library",
         foodSlug: best.slug, components: 1, grams: Math.round(grams),
         kcal: Math.round(scale(best.kcal, grams)), proteinG: scale(best.proteinG, grams),
@@ -175,7 +175,7 @@ export const lookupFood = defineTool({
     }
 
     if (input.allowEstimate === false) {
-      record(ctx.profileId, input.query, { source: "none" });
+      await record(ctx.profileId, input.query, { source: "none" });
       return { found: false, error: `Nothing in the library matches "${portion.query}".` };
     }
     // The food without the amount, so the alias is the thing and not the
@@ -486,7 +486,7 @@ async function remember(e: z.infer<typeof Estimate>, asked: string): Promise<voi
  * Best effort and never awaited, the same rule the serve counter follows: a
  * record that fails to write must not fail the lookup she is waiting on.
  */
-function record(
+async function record(
   profileId: string,
   query: string,
   row: {
@@ -501,8 +501,17 @@ function record(
     fibreG?: number | null;
     error?: string | null;
   },
-): void {
-  void db.insert(foodEstimates).values({
+): Promise<void> {
+  /*
+    Awaited, not fired and forgotten. This ran as `void db.insert(...)` and
+    the row was never a sure thing: the platform freezes the function the
+    moment the response goes out, and an insert still in the air went with
+    it. Library hits — the fastest path, response ready the instant the row
+    is found — were the ones lost, which is exactly the half of the audit
+    trail that says what the library answered. The lookup that started this
+    ("5x pieces of pizza, 2100 calories") has no row at all.
+  */
+  await db.insert(foodEstimates).values({
     profileId,
     // Her wording, before the portion parser touched it. The parse is half of
     // what goes wrong, so a record of the tidied version would hide it.
@@ -531,7 +540,7 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     // in a loop from /api/action — so it was the way past the daily cap.
     const budget = await checkSpendAllowed(ctx.profileId);
     if (!budget.allowed) {
-      record(ctx.profileId, query, { source: "none", error: `spend gate: ${budget.reason}` });
+      await record(ctx.profileId, query, { source: "none", error: `spend gate: ${budget.reason}` });
       return { found: false, error: budget.reason, code: budget.code };
     }
 
@@ -557,7 +566,7 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     if (!parsed?.success) {
       // Recorded with the schema's own complaint, so a refused answer is a
       // row with a reason rather than a lookup that never happened.
-      record(ctx.profileId, query, {
+      await record(ctx.profileId, query, {
         source: "none",
         error: block
           ? `schema: ${(parsed && !parsed.success ? parsed.error.issues : []).map((i) => `${i.path.join(".")} ${i.message}`).join("; ").slice(0, 300)}`
@@ -578,7 +587,7 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
     // has already paid for.
     void remember(parsed.data, portionQuery).catch(() => { /* see above */ });
 
-    record(ctx.profileId, query, {
+    await record(ctx.profileId, query, {
       source: "estimated",
       components: parsed.data.components.length,
       grams: parsed.data.grams, kcal: parsed.data.kcal,
@@ -590,7 +599,7 @@ async function estimate(query: string, ctx: ToolContext, portionQuery = query) {
       portion: gramsLabel(parsed.data.grams, await foodUnitsFor(ctx.profileId)),
     };
   } catch (err) {
-    record(ctx.profileId, query, { source: "none", error: `model: ${String((err as Error)?.message ?? err).slice(0, 300)}` });
+    await record(ctx.profileId, query, { source: "none", error: `model: ${String((err as Error)?.message ?? err).slice(0, 300)}` });
     return { found: false, error: "Couldn't estimate that one." };
   }
 }

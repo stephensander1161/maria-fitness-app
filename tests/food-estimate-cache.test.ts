@@ -119,7 +119,13 @@ suite("what the estimator is asked for, and what it is allowed to keep", () => {
   it("writes down every answer it gives, and what she logged against it", () => {
     // "you better start recording the result every time someone clicks
     // calculate so that we can audit the predictions and improve them."
-    expect(src).toMatch(/db\.insert\(foodEstimates\)/);
+    expect(src).toMatch(/await db\.insert\(foodEstimates\)/);
+    // And every lookup waits for its row. Fired and forgotten, the insert
+    // was dropped when the function froze after the response — library
+    // hits, the fastest path, left no trace, and "5x pieces of pizza"
+    // (2026-09-18) could not be looked up after the fact.
+    expect(src).not.toMatch(/\n\s*record\(ctx\.profileId/);
+    expect(src).toMatch(/\): Promise<void> \{/);
     // All three outcomes, not only the interesting one.
     expect(src).toMatch(/source: "none"/);
     expect(src).toMatch(/components: parsed\.data\.components\.length/);

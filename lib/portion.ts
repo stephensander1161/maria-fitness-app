@@ -140,6 +140,9 @@ const LABEL_SYNONYMS: Record<string, string[]> = {
 /** Words that carry no meaning for the lookup. */
 const NOISE = /^(of|a|an|the|some)$/i;
 
+/** A count word following a count word — "5x pieces", "2 x items". */
+const COUNT_AGAIN = /^\s*(?:of\s+)?(?:x|pieces?|items?)\b\s*/i;
+
 export function parsePortion(input: string): Portion | null {
   /*
     Every way of writing a count, turned into a leading decimal first.
@@ -171,8 +174,17 @@ export function parsePortion(input: string): Portion | null {
 
   const known = UNIT_WORDS[word];
   if (known) {
+    /*
+      "5x pieces of pizza". The "x" is the count and so is "pieces" — two
+      ways of saying the same thing, and the second one used to be left in
+      the food query: "pieces pizza" matches nothing in the library, so the
+      lookup fell through to the model, which guessed at what a "piece" was
+      and came back with more than double. One count word is the count; any
+      count words after it are the same count, said again, and go.
+    */
+    const after = known === "unit" ? rest.replace(COUNT_AGAIN, "") : rest;
     // "2 eggs" — when the measure is also the food, it has to stay searchable.
-    const query = clean(rest.trim() ? rest : word);
+    const query = clean(after.trim() ? after : word);
     return { amount, unit: known, query, assumed: false, namedUnit: null };
   }
 
