@@ -296,6 +296,8 @@ function Walker({
     const draw = (pose: Pose, x: number, facing: 1 | -1, spin: number) => {
       const g = limbs();
       if (!g) return;
+      // First frame: he exists now. See the `visibility` on the <g>.
+      if (g.hasAttribute("visibility")) g.removeAttribute("visibility");
       // His own box is 100 wide; the stage is three times that, so he walks
       // the whole floor rather than a square in the middle of it.
       const at = x * (STAGE_W / 100);
@@ -362,6 +364,15 @@ function Walker({
   return (
     <g
       ref={root}
+      /*
+        Hidden until his first frame. The limbs have no coordinates and the
+        group no transform until the animation loop writes them, so from the
+        server's render until hydration started that loop — a second on a
+        cold load — a lone head circle sat at x = 50 of a 300-wide stage:
+        "the stick man coach glitches, flashes on the side of this walkway
+        thing for a second." `draw` removes this on the first frame.
+      */
+      visibility="hidden"
       style={{ color: hueFor(index) }}
       stroke="currentColor"
       strokeWidth="3"

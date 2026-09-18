@@ -546,3 +546,15 @@ suite("he never skips", () => {
     expect(Math.max(...xs)).toBeGreaterThan(FAR - 2);
   });
 });
+
+suite("he is not drawn until his first frame", () => {
+  // 2026-09-18: "the stick man coach glitches, flashes on the side of this
+  // walkway thing for a second." The <g> had no transform and the limbs no
+  // coordinates until the animation loop wrote them, so the server's render
+  // showed a lone head at the left of the stage until hydration caught up.
+  const src = fs.readFileSync("components/companion.tsx", "utf8");
+  it("starts hidden, and the first draw reveals him", () => {
+    expect(src).toMatch(/ref=\{root\}[\s\S]{0,700}visibility="hidden"/);
+    expect(src).toMatch(/if \(g\.hasAttribute\("visibility"\)\) g\.removeAttribute\("visibility"\);/);
+  });
+});

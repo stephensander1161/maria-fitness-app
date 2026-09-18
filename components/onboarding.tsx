@@ -87,6 +87,19 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
+  /*
+    The recovery step is not asked of anyone who said male. The comment on the
+    step said as much from the start — "offered to everyone who has not said
+    male" — and the code never did it: every account walked through "Have
+    you given birth in the last two years?" regardless. "Don't ask the birth
+    question if I choose male." One list of the steps this person sees; Next,
+    Back and the progress bar all read it, so nothing counts a step that is
+    not there.
+  */
+  const skipRecovery = sex === "male";
+  const steps: Step[] = skipRecovery ? [0, 1, 2, 4] : [0, 1, 2, 3, 4];
+  const move = (by: 1 | -1) => setStep((s) => steps[Math.min(steps.length - 1, Math.max(0, steps.indexOf(s) + by))]);
+
   async function finish() {
     setBusy(true);
     setError(null);
@@ -136,8 +149,17 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
   if (busy) return <Building />;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col px-6 py-10">
-      <Progress step={step} />
+    /*
+      A phone gets the full height, with Next and Back at the thumb. A desktop
+      got the same thing scaled up: a 24rem column floating in an empty grey
+      viewport, the buttons pinned to the bottom edge a screen's height below
+      the last question. "Pretty hideous on desktop layout-wise." From `md` it
+      is a card — the app's own surface, bordered, centred in the viewport,
+      as tall as its content — and the buttons sit under the questions.
+    */
+    <div className="md:flex md:min-h-dvh md:items-center md:justify-center md:px-8 md:py-12">
+    <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col px-6 py-10 md:card md:min-h-0 md:max-w-md md:px-10 md:py-9">
+      <Progress step={step} steps={steps} />
 
       {step === 0 && (
         <Screen
@@ -156,7 +178,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
           <Field label="Age"><NumberField value={age} onChange={setAge} min={13} max={100} /></Field>
           <Field label="Sex">
             <Chips options={["female", "male", "other"]} value={[sex]}
-              onPick={(v) => setSex(v as typeof sex)} />
+              onPick={(v) => { setSex(v as typeof sex); if (v === "male") setGaveBirth(false); }} />
           </Field>
         </Screen>
       )}
@@ -324,19 +346,20 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
 
       <div className="mt-auto flex gap-3 pt-8">
         {step > 0 && (
-          <button onClick={() => setStep((s) => (s - 1) as Step)}
+          <button onClick={() => move(-1)}
             className="rounded-xl border border-line px-5 py-3.5 text-[15px] text-muted">
             Back
           </button>
         )}
         <button
-          onClick={() => (step === 4 ? finish() : setStep((s) => (s + 1) as Step))}
+          onClick={() => (step === 4 ? finish() : move(1))}
           disabled={step === 0 && !name.trim()}
           className="flex-1 rounded-xl bg-accent py-3.5 text-[15px] font-semibold text-on-accent disabled:opacity-40"
         >
           {step === 4 ? "Build my plan" : "Next"}
         </button>
       </div>
+    </div>
     </div>
   );
 }
@@ -357,9 +380,10 @@ function Building() {
   );
 }
 
-const Progress = ({ step }: { step: number }) => (
+/** One segment per step this person will see, so a skipped step is not a gap. */
+const Progress = ({ step, steps }: { step: number; steps: number[] }) => (
   <div className="mb-8 flex gap-1.5">
-    {[0, 1, 2, 3, 4].map((i) => (
+    {steps.map((i) => (
       <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-accent" : "bg-raised"}`} />
     ))}
   </div>
