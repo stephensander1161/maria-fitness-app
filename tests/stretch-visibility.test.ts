@@ -24,6 +24,12 @@ suite("the warm-up and the cool-down can be put away", () => {
     expect(isCardId("coolDown")).toBe(true);
     expect(Object.keys(CARDS)).toContain("warmUp");
     expect(Object.keys(CARDS)).toContain("coolDown");
+    // 2026-09-18: "Add option to hide the 'moved up and came up short' section."
+    expect(Object.keys(CARDS)).toContain("weekReview");
+    const progress = fs.readFileSync("app/progress/page.tsx", "utf8");
+    expect(progress).toMatch(/cardOpen\(profile\.collapsedCards, "weekReview"\)/);
+    expect(progress).toMatch(/<HideCard id="weekReview"/);
+    expect(fs.readFileSync("components/stretch-visibility.tsx", "utf8")).toMatch(/card: "weekReview"/);
     // Shown unless she has said otherwise. A card that starts hidden is a
     // feature she never learns exists.
     expect(cardOpen([], "warmUp")).toBe(true);

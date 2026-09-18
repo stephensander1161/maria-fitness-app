@@ -1,3 +1,5 @@
+import { cardOpen } from "@/lib/cards";
+import { HideCard } from "@/components/hide-card";
 import { and, desc, eq, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
@@ -43,6 +45,7 @@ export default async function ProgressPage({
   searchParams: Promise<{ d?: string }>;
 }) {
   const profile = await requireOnboarded();
+  const showReview = cardOpen(profile.collapsedCards, "weekReview");
   const u = profile.units;
   const unit = weightLabel(u);
 
@@ -440,10 +443,19 @@ export default async function ProgressPage({
               Every session this week, done.
             </p>
           )}
-          {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
-          {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
-          {review.beat.length === 0 && review.missed.length === 0 && review.missedDays.length === 0 && (
-            <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
+          {/* The set-by-set review, with the way out on it. Hidden means
+              not drawn; Settings or the coach brings it back. */}
+          {showReview && (
+            <div className="relative">
+              {(review.beat.length > 0 || review.missed.length > 0) && (
+                <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="moved up and came up short" /></div>
+              )}
+              {review.beat.length > 0 && <List tone="beat" title="Moved up" items={review.beat} />}
+              {review.missed.length > 0 && <List tone="miss" title="Came up short" items={review.missed} />}
+            </div>
+          )}
+          {(!showReview || (review.beat.length === 0 && review.missed.length === 0)) && review.missedDays.length === 0 && review.remainingDays.length === 0 && (
+            <p className="text-[13px] text-faint">{showReview ? "Log some sets and this fills in." : "Set-by-set review hidden — Settings brings it back."}</p>
           )}
         </section>
 
