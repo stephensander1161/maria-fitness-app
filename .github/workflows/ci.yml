@@ -277,8 +277,11 @@ jobs:
           url="$(npx vercel deploy --yes --token="$VERCEL_TOKEN")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Preview: $url"
+      # `--scope`: a team-scoped token has no user behind it, and without the
+      # team named the alias command answers "User not found" — the deploy
+      # above worked because the project ids name the team for it.
       - name: Point the dev address at it
-        run: npx vercel alias set "${{ steps.deploy.outputs.url }}" maria-fitness-app-dev.vercel.app --token="$VERCEL_TOKEN"
+        run: npx vercel alias set "${{ steps.deploy.outputs.url }}" maria-fitness-app-dev.vercel.app --scope fitness-app18 --token="$VERCEL_TOKEN"
       - run: |
           echo "### Dev deployed" >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
