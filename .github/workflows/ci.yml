@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # Match the development runtime: npm 10 and npm 11 resolve optional
           # platform dependencies differently, and a lockfile written by one
@@ -267,7 +267,7 @@ jobs:
       VERCEL_PROJECT_ID: prj_WVxML4XZ4qhFLDLmjZunPAU6TD4u
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       # Vercel builds it; nothing from the Preview environment lands here.
@@ -315,7 +315,7 @@ jobs:
       VERCEL_PROJECT_ID: prj_WVxML4XZ4qhFLDLmjZunPAU6TD4u
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       # Vercel builds this itself rather than us running `vercel build` here.
