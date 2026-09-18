@@ -671,6 +671,22 @@ export function TrainClient({
    * things.
    */
   const [folded, setFolded] = useState<string[]>(collapsedCards);
+  // The server's list wins when it changes underneath: the grip hides a
+  // warm-up by writing this very list on the account, and the refresh that
+  // follows was arriving to a state seeded once on mount — "clicking hide in
+  // a card from mobile does nothing". Movement folds are on the account too,
+  // so nothing local is lost by taking the fresh list.
+  // Adjusted during render, the way React asks for state derived from a
+  // prop — no effect, no extra frame. Compared by content, not identity: Plan
+  // renders this card without the prop, and a default `[]` is a new array on
+  // every render, which made the identity check fire every render and the
+  // screen fail to load at all.
+  const foldedKey = collapsedCards.join("\n");
+  const [foldedFrom, setFoldedFrom] = useState(foldedKey);
+  if (foldedFrom !== foldedKey) {
+    setFoldedFrom(foldedKey);
+    setFolded(collapsedCards);
+  }
   /**
    * Put the warm-up or the cool-down away, from the block itself.
    *
