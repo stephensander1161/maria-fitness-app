@@ -202,7 +202,9 @@ jobs:
   # cannot reach production without first having been on dev, whoever opens
   # the pull request and however green it is.
   from-dev:
-    if: github.event_name == 'pull_request'
+    # Only the road into main is guarded; a pull request into dev (a
+    # dependency bump, a contributor's branch) is exactly what dev is for.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
