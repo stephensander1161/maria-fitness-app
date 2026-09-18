@@ -100,6 +100,8 @@ export default async function EatPage({
         proteinTargetG={mealWeek.exists ? mealWeek.proteinTargetG : null}
         foodUnits={mealWeek.foodUnits}
         plannedOpen={cardOpen(profile.collapsedCards, "plannedFood")}
+        cardLayout={profile.cardLayout}
+        collapsedCards={profile.collapsedCards}
         isToday={isToday}
         // The sixth bar, and the buttons that fill it. Built here because
         // `waterRow` needs her food units and the target, both of which the

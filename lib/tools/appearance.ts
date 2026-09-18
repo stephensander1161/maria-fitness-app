@@ -5,7 +5,7 @@ import { profiles } from "@/lib/db/schema";
 import { defineTool } from "./define";
 import { THEMES, themeIds, themeOf } from "@/lib/theme";
 import { LOGO_MARKS, logoMarkIds, logoMarkOf } from "@/lib/logo-mark";
-import { CARDS, isCardId, withCard, withMovementFold } from "@/lib/cards";
+import { CARDS, isCardId, isPageCard, orderFor, PAGE_CARDS, withCard, withHidden, withMoved, withMovementFold, type CardLayout, type Page } from "@/lib/cards";
 
 /**
  * How the app looks, changeable by asking.
@@ -122,5 +122,39 @@ export const setCardCollapsed = defineTool({
     await db.update(profiles).set({ collapsedCards: next })
       .where(eq(profiles.id, ctx.profileId));
     return { ok: true, card: input.card, collapsed: input.collapsed };
+  },
+});
+
+const cardsOn = (page: Page) => PAGE_CARDS[page].map((c) => `${c.id} (${c.label}${c.hideable ? "" : ", cannot be hidden"})`).join(", ");
+
+export const arrangeCards = defineTool({
+  name: "arrange_cards",
+  description:
+    "Rearranges the cards on her Train or Eat screen — moves one up, down, to the top or the bottom, or hides and shows it. Use it when she says something like 'put the calculator at the top', 'I don't need the warm-up', or 'bring back the planned meals'. Train: " + cardsOn("train") + ". Eat: " + cardsOn("eat") + ".",
+  input: z.object({
+    page: z.enum(["train", "eat"]),
+    card: z.string().describe("The card id, from the lists in this description"),
+    move: z.enum(["up", "down", "top", "bottom"]).optional(),
+    hidden: z.boolean().optional().describe("True hides the card; false brings it back"),
+  }),
+  handler: async (input, ctx) => {
+    if (!isPageCard(input.page, input.card)) {
+      return { ok: false, error: `No card called "${input.card}" on ${input.page}. Options: ${PAGE_CARDS[input.page].map((c) => c.id).join(", ")}.` };
+    }
+    if (input.move === undefined && input.hidden === undefined) {
+      return { ok: false, error: "Say where it should go (move) or whether it is hidden." };
+    }
+    const [p] = await db.select({ cardLayout: profiles.cardLayout, collapsedCards: profiles.collapsedCards })
+      .from(profiles).where(eq(profiles.id, ctx.profileId)).limit(1);
+    let layout: CardLayout = (p?.cardLayout ?? {}) as CardLayout;
+    let collapsed: string[] = p?.collapsedCards ?? [];
+    if (input.move) layout = withMoved(input.page, layout, input.card, input.move);
+    if (input.hidden !== undefined) {
+      const card = PAGE_CARDS[input.page].find((c) => c.id === input.card)!;
+      if (!card.hideable) return { ok: false, error: `${card.label} is the point of the screen and cannot be hidden.` };
+      ({ layout, collapsed } = withHidden(input.page, layout, collapsed, input.card, input.hidden));
+    }
+    await db.update(profiles).set({ cardLayout: layout, collapsedCards: collapsed }).where(eq(profiles.id, ctx.profileId));
+    return { ok: true, page: input.page, order: orderFor(input.page, layout), hidden: [...(layout[input.page]?.hidden ?? []), ...collapsed.filter((c) => c === "warmUp" || c === "coolDown")] };
   },
 });

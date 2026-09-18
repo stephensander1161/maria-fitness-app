@@ -198,6 +198,7 @@ const all: Tool[] = [
   whatsNew.acknowledgeTitle,
   stretches.getStretches,
   appearance.setCardCollapsed,
+  appearance.arrangeCards,
   appearance.listThemes,
   appearance.setTheme,
   appearance.listLogos,

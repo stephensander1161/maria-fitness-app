@@ -127,6 +127,11 @@ export const profiles = pgTable("profiles", {
    */
   collapsedCards: jsonb("collapsed_cards").$type<string[]>().default([]).notNull(),
   /**
+   * The order of the cards on Train and Eat, and which she hid — see
+   * lib/cards.ts `CardLayout`. Empty means the default arrangement.
+   */
+  cardLayout: jsonb("card_layout").$type<Record<string, { order?: string[]; hidden?: string[] }>>().default({}).notNull(),
+  /**
    * The rank she has already been shown, stored as its `at` threshold — see
    * lib/titles.ts. Null means she has never been shown one, which is stamped
    * silently rather than celebrated: nobody wants confetti for signing up.

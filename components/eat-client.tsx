@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { TodayFood } from "./today-food";
 import { CalorieCalculator } from "./calorie-calculator";
 import type { DayFoodView, MealWeekView, SavedMeal } from "@/lib/views";
@@ -7,6 +8,8 @@ import type { MacroRow } from "@/lib/macro-progress";
 import { MealRow } from "./meal-row";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
+import { ArrangeCards } from "./arrange-cards";
+import { cardShown, orderFor, type CardLayout } from "@/lib/cards";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
 
@@ -21,8 +24,11 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  */
 export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
-  burnKcal, burnSessions, isToday, water,
+  burnKcal, burnSessions, isToday, water, cardLayout, collapsedCards,
 }: {
+  /** The order of the cards on this screen, and which she hid — lib/cards.ts. */
+  cardLayout: CardLayout | null;
+  collapsedCards: string[] | null;
   /** Water as the sixth macro, plus the vessels that fill it. */
   water: {
     row: MacroRow;
@@ -62,66 +68,94 @@ export function EatClient({
   const loggedMealIds = new Set(day.logged.map((l) => l.mealId).filter(Boolean));
   return (
     <div className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-3">
-      {/* The day's log is the point of the screen and the widest thing on it —
-          it takes the whole row rather than sharing one. */}
-      <div className="xl:col-span-2">
-        <TodayFood day={day} saved={saved} isToday={isToday} water={water} defaultSlot={defaultSlot} />
-      </div>
-
-      {/* Folds away, and stays folded — on the account, so it follows her to
-          a laptop. Open by default: what the card holds is what teaches her it
-          is worth having. */}
-      <FoldableCard
-        id="plannedFood"
-        title={isToday ? "Planned for today" : "Planned for that day"}
-        startOpen={plannedOpen}
-        // A column beside another one with room to spare: folding it here
-        // saves nothing and only hides something.
-        alwaysOpenOnDesktop
-        aside={calorieTarget !== null ? (
-          <p className="shrink-0 text-[12px] text-faint tabular">
-            {calorieTarget} kcal · {proteinTargetG}g protein
-          </p>
-        ) : null}
-      >
-        {planned.length > 0 ? (
-          <div>
-            {planned.map((m) => (
-              <MealRow
-                key={m.id}
-                meal={m}
-                ateOn={day.date}
-                logged={loggedMealIds.has(m.id)}
-              />
-            ))}
-          </div>
-        ) : (
-          // An empty state, not a missing card: a section that disappears is
-          // indistinguishable from one that is broken.
-          <p className="py-2 text-[13px] leading-relaxed text-faint">
-            Nothing planned for today. That is not a problem — log what you actually eat below,
-            and ask your coach for a week of meals when you want one.
-          </p>
-        )}
-      </FoldableCard>
-
-      <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
-
       {/*
-        Beside the calculator on a wide screen rather than alone under
-        everything — two short cards that were each taking a whole row.
-
-        Still below the food, and still never beside the intake total: the
-        moment a burn figure sits next to what she has eaten, people start
-        subtracting one from the other, and this app's expenditure number
-        already contains her training.
+        In her order — lib/cards.ts, and the panel at the foot of the screen.
+        A hidden card is not drawn; today's food cannot be hidden.
       */}
-      <BurnCard
-        title={isToday ? "Training today" : "Training that day"}
-        kcal={burnKcal}
-        sub="burned"
-        sessions={burnSessions}
-      />
+      {(() => {
+        const blocks: Record<string, React.ReactNode> = {
+          todayFood: (
+            <>
+            {/* The day's log is the point of the screen and the widest thing on it —
+                it takes the whole row rather than sharing one. */}
+            <div className="xl:col-span-2">
+              <TodayFood day={day} saved={saved} isToday={isToday} water={water} defaultSlot={defaultSlot} />
+            </div>
+            </>
+          ),
+          plannedFood: (
+            <>
+            {/* Folds away, and stays folded — on the account, so it follows her to
+                a laptop. Open by default: what the card holds is what teaches her it
+                is worth having. */}
+            <FoldableCard
+              id="plannedFood"
+              title={isToday ? "Planned for today" : "Planned for that day"}
+              startOpen={plannedOpen}
+              // A column beside another one with room to spare: folding it here
+              // saves nothing and only hides something.
+              alwaysOpenOnDesktop
+              aside={calorieTarget !== null ? (
+                <p className="shrink-0 text-[12px] text-faint tabular">
+                  {calorieTarget} kcal · {proteinTargetG}g protein
+                </p>
+              ) : null}
+            >
+              {planned.length > 0 ? (
+                <div>
+                  {planned.map((m) => (
+                    <MealRow
+                      key={m.id}
+                      meal={m}
+                      ateOn={day.date}
+                      logged={loggedMealIds.has(m.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // An empty state, not a missing card: a section that disappears is
+                // indistinguishable from one that is broken.
+                <p className="py-2 text-[13px] leading-relaxed text-faint">
+                  Nothing planned for today. That is not a problem — log what you actually eat below,
+                  and ask your coach for a week of meals when you want one.
+                </p>
+              )}
+            </FoldableCard>
+            </>
+          ),
+          calculator: (
+            <>
+            <CalorieCalculator calorieTarget={calorieTarget} foodUnits={foodUnits} />
+            </>
+          ),
+          burn: (
+            <>
+            {/*
+              Beside the calculator on a wide screen rather than alone under
+              everything — two short cards that were each taking a whole row.
+
+              Still below the food, and still never beside the intake total: the
+              moment a burn figure sits next to what she has eaten, people start
+              subtracting one from the other, and this app's expenditure number
+              already contains her training.
+            */}
+            <BurnCard
+              title={isToday ? "Training today" : "Training that day"}
+              kcal={burnKcal}
+              sub="burned"
+              sessions={burnSessions}
+            />
+            </>
+          ),
+        };
+        return orderFor("eat", cardLayout)
+          .filter((id) => id === "todayFood" || cardShown("eat", cardLayout, collapsedCards, id))
+          .map((id) => <Fragment key={id}>{blocks[id]}</Fragment>);
+      })()}
+
+      <div className="xl:col-span-2">
+        <ArrangeCards page="eat" layout={cardLayout} collapsedCards={collapsedCards} />
+      </div>
     </div>
   );
 }

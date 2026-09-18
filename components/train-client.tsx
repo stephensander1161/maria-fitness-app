@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
@@ -15,7 +15,8 @@ import { cueItems, cuePages } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
-import { cardOpen, movementCard, movementFolded, withCard, withMovementFold, type CardId } from "@/lib/cards";
+import { cardOpen, cardShown, movementCard, movementFolded, orderFor, withCard, withMovementFold, type CardId, type CardLayout } from "@/lib/cards";
+import { ArrangeCards } from "./arrange-cards";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
@@ -82,6 +83,7 @@ export function TrainClient({
   focusEntry = false,
   tone = null,
   collapsedCards = [],
+  cardLayout = null,
   dayLabel,
   heading,
   stepBack,
@@ -134,6 +136,8 @@ export function TrainClient({
   tone?: Tone | null;
   /** Cards she has folded away, from her account — see lib/cards.ts. */
   collapsedCards?: string[];
+  /** The order of the cards on this screen, and which she hid — lib/cards.ts. */
+  cardLayout?: CardLayout | null;
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
   /**
@@ -674,7 +678,9 @@ export function TrainClient({
     void action("set_card_collapsed", { card, collapsed: true })
       .catch(() => { /* see above */ });
   }, []);
-  const showing = useCallback((card: CardId) => cardOpen(folded, card), [folded]);
+  // Folded (the icon on the card, Settings) or hidden from the arrange panel —
+  // either way it is not drawn.
+  const showing = useCallback((card: CardId) => cardOpen(folded, card) && cardShown("train", cardLayout, folded, card), [folded, cardLayout]);
   const foldMovement = useCallback((slug: string, shut: boolean) => {
     setFolded((f) => withMovementFold(f, slug, shut));
     void action("set_card_collapsed", { card: movementCard(slug), collapsed: shut })
@@ -951,139 +957,169 @@ export function TrainClient({
         Both are closed by one line: a warm-up she has to scroll past to reach
         the first set makes the app worse for the person who does not want one.
       */}
-      {showing("warmUp") && (
-        <StretchBlock
-          title="Warm up"
-          hint="a few reps each, nothing held"
-          items={stretchNames(warmUpFor(dayMuscles))}
-          from={backHere}
-          onHide={() => hideCard("warmUp")}
-        />
-      )}
-
-      <div
-        ref={listRef}
-        className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
-      >
-      {shown.map((ex, i) => {
-        const below = shown[i + 1];
-        const above = shown[i - 1];
-        const chainBelow = !!(ex.supersetGroup && below?.supersetGroup === ex.supersetGroup);
-        const chainAbove = !!(ex.supersetGroup && above?.supersetGroup === ex.supersetGroup);
-        return (
-        <ExerciseCard
-          key={ex.slug}
-          exercise={ex}
-          chainAbove={chainAbove}
-          chainBelow={chainBelow}
-          // The movement just below, so "chain these two" has a partner; and
-          // whether this one is already in a group, so the control unlinks.
-          canChainBelow={editable && !!below && !ex.supersetGroup && !below.supersetGroup}
-          onChainBelow={below ? () => void superset([ex.slug, below.slug]) : undefined}
-          onUnchain={ex.supersetGroup ? () => void unsuperset(ex.slug) : undefined}
-          dragging={drag?.slug === ex.slug}
-          // The dragged card rides the finger; the others slide out of its
-          // way. Both transforms, so both animate.
-          offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
-          offsetX={drag?.slug === ex.slug && !drag.column ? drag.dx : 0}
-          // In a grid nothing slides aside, so the target slot is marked
-          // instead — otherwise a drag across two columns has no feedback at
-          // all beyond the card under the finger.
-          dropTarget={drag !== null && !drag.column && drag.to === i && drag.from !== i}
-          onDragStart={editable ? (y: number, x: number) => beginDrag(y, ex.slug, x) : undefined}
-          href={pageFor(ex.slug)}
-          unit={view.unit}
-          pickable={pickable}
-          date={date}
-          canLog={editable}
-          sessionFinished={Boolean(view.finishedAt)}
-          editable={editable}
-          next={targets.find((t) => t.slug === ex.slug)}
-          result={feedback[ex.slug]}
-          pending={pendingFor.get(ex.slug) ?? NO_PENDING}
-          onLogged={(r, alreadyDone, logged) => {
-            if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
-            // Rest runs between sets *and* between movements — finishing the
-            // squats is exactly when she needs a minute before the next thing.
-            // The only set with nothing to recover for is the last one of the
-            // session, and that is the one that stops the timer.
-            restAfter(ex, logged, alreadyDone);
-            // Nothing new to fetch while the set is sitting in the outbox, and
-            // a refresh with no signal just hangs.
-            if (r) router.refresh();
-          }}
-          onRetryPending={flush}
-          onRemoved={() => router.refresh()}
-          folded={isFolded(ex)}
-          onFold={(shut) => foldMovement(ex.slug, shut)}
-          upNext={isUpNext(ex)}
-          // Nothing at all until she starts. A movement ringed in green on a
-          // day nobody is training is the app claiming a session is happening.
-          live={sessionLive}
-        />
-        );
-      })}
-      </div>
-
-      {/* Holds, here: it is after the lifting that a long stretch costs
-          nothing. Before it, the same hold measurably lowers force output. */}
-      {showing("coolDown") && (
-        <StretchBlock
-          title="Cool down"
-          hint="about 30 seconds each"
-          items={stretchNames(coolDownFor(dayMuscles))}
-          from={backHere}
-          onHide={() => hideCard("coolDown")}
-        />
-      )}
-
-      {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
-
       {/*
-        Finishing is offered when there is a session to finish, not while she
-        is mid-way through one. Five big buttons under a half-done workout is
-        an invitation to end it by accident — which is what happened: a tap
-        closed the session, stopped the rest timer, and collapsed the sets she
-        was still entering.
+        In her order — lib/cards.ts, and the panel at the foot of the screen.
+        Each card is built once here and drawn where she put it; a hidden one
+        is not drawn at all.
       */}
-      {/* Nothing logged and nothing finished is nothing to say — the cards
-          above are the instruction, and a card whose only content is "get
-          going" is furniture. */}
-      {/* Same rule as the clock: any day she could still be working on. A
-          Saturday session logged on Sunday has a summary worth reading and a
-          sign-off worth tapping; Thursday next week has neither. */}
-      <div className={isFutureDay || (totalLogged === 0 && !view.completed) ? "hidden" : "card p-4"}>
-        {view.completed && outstanding.length === 0 ? (
-          <div className="text-center">
-            <p className="text-[15px] font-semibold text-beat">Session done</p>
-            <p className="mt-1 text-[13px] text-muted">
-              {totalLogged} set{totalLogged === 1 ? "" : "s"} across {movementsWorked} movement
-              {movementsWorked === 1 ? "" : "s"}.
-            </p>
-          </div>
-        ) : totalLogged === 0 ? (
-          // Nothing to say. The cards above are the instruction, and a card
-          // whose only content is "get going" is a row of furniture.
-          null
-        ) : (
-          <div className="text-center">
+      {(() => {
+        const blocks: Record<string, React.ReactNode> = {
+          warmUp: (
+            <>
+            {showing("warmUp") && (
+              <StretchBlock
+                title="Warm up"
+                hint="a few reps each, nothing held"
+                items={stretchNames(warmUpFor(dayMuscles))}
+                from={backHere}
+                onHide={() => hideCard("warmUp")}
+              />
+            )}
+            </>
+          ),
+          movements: (
+            <>
+            <div
+              ref={listRef}
+              className={`space-y-4 xl:grid xl:items-start xl:gap-4 xl:space-y-0 xl:[&>*]:mb-4 ${gridFor(view.exercises.length)}`}
+            >
+            {shown.map((ex, i) => {
+              const below = shown[i + 1];
+              const above = shown[i - 1];
+              const chainBelow = !!(ex.supersetGroup && below?.supersetGroup === ex.supersetGroup);
+              const chainAbove = !!(ex.supersetGroup && above?.supersetGroup === ex.supersetGroup);
+              return (
+              <ExerciseCard
+                key={ex.slug}
+                exercise={ex}
+                chainAbove={chainAbove}
+                chainBelow={chainBelow}
+                // The movement just below, so "chain these two" has a partner; and
+                // whether this one is already in a group, so the control unlinks.
+                canChainBelow={editable && !!below && !ex.supersetGroup && !below.supersetGroup}
+                onChainBelow={below ? () => void superset([ex.slug, below.slug]) : undefined}
+                onUnchain={ex.supersetGroup ? () => void unsuperset(ex.slug) : undefined}
+                dragging={drag?.slug === ex.slug}
+                // The dragged card rides the finger; the others slide out of its
+                // way. Both transforms, so both animate.
+                offsetY={drag?.slug === ex.slug ? drag.dy : shiftFor(i)}
+                offsetX={drag?.slug === ex.slug && !drag.column ? drag.dx : 0}
+                // In a grid nothing slides aside, so the target slot is marked
+                // instead — otherwise a drag across two columns has no feedback at
+                // all beyond the card under the finger.
+                dropTarget={drag !== null && !drag.column && drag.to === i && drag.from !== i}
+                onDragStart={editable ? (y: number, x: number) => beginDrag(y, ex.slug, x) : undefined}
+                href={pageFor(ex.slug)}
+                unit={view.unit}
+                pickable={pickable}
+                date={date}
+                canLog={editable}
+                sessionFinished={Boolean(view.finishedAt)}
+                editable={editable}
+                next={targets.find((t) => t.slug === ex.slug)}
+                result={feedback[ex.slug]}
+                pending={pendingFor.get(ex.slug) ?? NO_PENDING}
+                onLogged={(r, alreadyDone, logged) => {
+                  if (r) setFeedback((f) => ({ ...f, [ex.slug]: r }));
+                  // Rest runs between sets *and* between movements — finishing the
+                  // squats is exactly when she needs a minute before the next thing.
+                  // The only set with nothing to recover for is the last one of the
+                  // session, and that is the one that stops the timer.
+                  restAfter(ex, logged, alreadyDone);
+                  // Nothing new to fetch while the set is sitting in the outbox, and
+                  // a refresh with no signal just hangs.
+                  if (r) router.refresh();
+                }}
+                onRetryPending={flush}
+                onRemoved={() => router.refresh()}
+                folded={isFolded(ex)}
+                onFold={(shut) => foldMovement(ex.slug, shut)}
+                upNext={isUpNext(ex)}
+                // Nothing at all until she starts. A movement ringed in green on a
+                // day nobody is training is the app claiming a session is happening.
+                live={sessionLive}
+              />
+              );
+            })}
+            </div>
+            </>
+          ),
+          coolDown: (
+            <>
+            {/* Holds, here: it is after the lifting that a long stretch costs
+                nothing. Before it, the same hold measurably lowers force output. */}
+            {showing("coolDown") && (
+              <StretchBlock
+                title="Cool down"
+                hint="about 30 seconds each"
+                items={stretchNames(coolDownFor(dayMuscles))}
+                from={backHere}
+                onHide={() => hideCard("coolDown")}
+              />
+            )}
+            </>
+          ),
+          addExercise: (
+            <>
+            {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+            </>
+          ),
+          summary: (
+            <>
             {/*
-              What is left, and nothing else.
-              There was a second Finish workout here — a full-width one under
-              the cards, while the header already carries the button that ends
-              the session. Two of the same control on one screen is one of
-              them being a mistake waiting to happen, and this was the big one
-              sitting under a half-done workout.
+              Finishing is offered when there is a session to finish, not while she
+              is mid-way through one. Five big buttons under a half-done workout is
+              an invitation to end it by accident — which is what happened: a tap
+              closed the session, stopped the rest timer, and collapsed the sets she
+              was still entering.
             */}
-            <p className="text-[13px] text-muted">
-              {outstanding.length > 0
-                ? `Still to do: ${outstanding.join(", ")}`
-                : `${totalLogged} set${totalLogged === 1 ? "" : "s"} logged. Everything on the plan is done.`}
-            </p>
-          </div>
-        )}
-        {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
-      </div>
+            {/* Nothing logged and nothing finished is nothing to say — the cards
+                above are the instruction, and a card whose only content is "get
+                going" is furniture. */}
+            {/* Same rule as the clock: any day she could still be working on. A
+                Saturday session logged on Sunday has a summary worth reading and a
+                sign-off worth tapping; Thursday next week has neither. */}
+            <div className={isFutureDay || (totalLogged === 0 && !view.completed) ? "hidden" : "card p-4"}>
+              {view.completed && outstanding.length === 0 ? (
+                <div className="text-center">
+                  <p className="text-[15px] font-semibold text-beat">Session done</p>
+                  <p className="mt-1 text-[13px] text-muted">
+                    {totalLogged} set{totalLogged === 1 ? "" : "s"} across {movementsWorked} movement
+                    {movementsWorked === 1 ? "" : "s"}.
+                  </p>
+                </div>
+              ) : totalLogged === 0 ? (
+                // Nothing to say. The cards above are the instruction, and a card
+                // whose only content is "get going" is a row of furniture.
+                null
+              ) : (
+                <div className="text-center">
+                  {/*
+                    What is left, and nothing else.
+                    There was a second Finish workout here — a full-width one under
+                    the cards, while the header already carries the button that ends
+                    the session. Two of the same control on one screen is one of
+                    them being a mistake waiting to happen, and this was the big one
+                    sitting under a half-done workout.
+                  */}
+                  <p className="text-[13px] text-muted">
+                    {outstanding.length > 0
+                      ? `Still to do: ${outstanding.join(", ")}`
+                      : `${totalLogged} set${totalLogged === 1 ? "" : "s"} logged. Everything on the plan is done.`}
+                  </p>
+                </div>
+              )}
+              {error && <p role="alert" className="mt-3 text-center text-[13px] text-miss">{error}</p>}
+            </div>
+            </>
+          ),
+        };
+        return orderFor("train", cardLayout)
+          .filter((id) => id === "movements" || cardShown("train", cardLayout, folded, id))
+          .map((id) => <Fragment key={id}>{blocks[id]}</Fragment>);
+      })()}
+
+      <ArrangeCards page="train" layout={cardLayout} collapsedCards={folded} />
 
       {done && (
         <SessionDone
