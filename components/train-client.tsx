@@ -676,11 +676,15 @@ export function TrainClient({
   // follows was arriving to a state seeded once on mount — "clicking hide in
   // a card from mobile does nothing". Movement folds are on the account too,
   // so nothing local is lost by taking the fresh list.
-  const [foldedFrom, setFoldedFrom] = useState(collapsedCards);
-  if (foldedFrom !== collapsedCards) {
-    // Adjusted during render, the way React asks for state derived from a
-    // prop — no effect, no extra frame.
-    setFoldedFrom(collapsedCards);
+  // Adjusted during render, the way React asks for state derived from a
+  // prop — no effect, no extra frame. Compared by content, not identity: Plan
+  // renders this card without the prop, and a default `[]` is a new array on
+  // every render, which made the identity check fire every render and the
+  // screen fail to load at all.
+  const foldedKey = collapsedCards.join("\n");
+  const [foldedFrom, setFoldedFrom] = useState(foldedKey);
+  if (foldedFrom !== foldedKey) {
+    setFoldedFrom(foldedKey);
     setFolded(collapsedCards);
   }
   /**

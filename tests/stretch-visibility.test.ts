@@ -73,7 +73,7 @@ suite("the warm-up and the cool-down can be put away", () => {
     expect(card).toMatch(/<ArrangeHandle page="train"/);
     // And the card takes the account's list when the refresh brings a new one
     // (2026-09-18: "clicking hide in a card from mobile does nothing").
-    expect(card).toMatch(/if \(foldedFrom !== collapsedCards\) \{[\s\S]{0,200}setFolded\(collapsedCards\);/);
+    expect(card).toMatch(/const foldedKey = collapsedCards\.join\("\\n"\);[\s\S]{0,300}if \(foldedFrom !== foldedKey\) \{[\s\S]{0,120}setFolded\(collapsedCards\);/);
   });
 
   it("leaves the rest-day block alone, because it is the whole screen", () => {
