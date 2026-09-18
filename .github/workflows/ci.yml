@@ -31,6 +31,13 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # The runner's clock is her zone, as the laptop's is. The suites build
+      # dates with `new Date(y, m, d)` — local time — and compare them to
+      # dates the app computes in APP_TIMEZONE; on a UTC clock "Jan 5 at
+      # midnight" is Jan 4 in Edmonton, and the first run failed on exactly
+      # that. Two clocks, one zone.
+      TZ: America/Edmonton
     services:
       # The database the db suite and the browser journeys run against — the
       # same shape as the local plate_test, thrown away with the runner.

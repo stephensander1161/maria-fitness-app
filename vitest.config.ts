@@ -18,9 +18,10 @@ import { fileURLToPath } from "node:url";
  * rows, and deletes it in a `finally`. See tests/db/account.ts.
  *
  * `npm test` is the pure suite. `npm run test:db` is the other. `npm run
- * test:all` is both, and is what `npm run ship` gates on — because the
- * deploy happens from a machine that has the credential, and the credential
- * is the only reason CI cannot do this itself.
+ * coverage` is both, and is what the ship scripts and CI gate on: since
+ * 2026-09-18 the runner brings its own Postgres (a service container in
+ * .github/workflows/ci.yml), so the credential that once kept the db suite
+ * off CI is no longer the reason for anything.
  */
 export default defineConfig({
   test: {
