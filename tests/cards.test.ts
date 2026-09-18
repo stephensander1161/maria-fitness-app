@@ -226,17 +226,20 @@ suite("the cards on a screen, in her order — 2026-09-18", () => {
     expect(withHidden("train", null, ["warmUp"], "warmUp", false).collapsed).toEqual([]);
   });
 
-  it("is what both screens draw from, and what the coach can change", () => {
+  it("is what both screens draw from, each card carrying its own grip, and what the coach can change", () => {
+    // "I don't like arrange this screen being its own card; it should live
+    // in each of the cards, like the movement cards." (2026-09-18)
     const train = fs.readFileSync("components/train-client.tsx", "utf8");
     const eat = fs.readFileSync("components/eat-client.tsx", "utf8");
     expect(train).toMatch(/orderFor\("train", cardLayout\)/);
-    expect(train).toMatch(/<ArrangeCards page="train"/);
+    expect(train).toMatch(/<ArrangeHandle page="train" id=\{id\} first=\{i === 0\} last=\{i === shown\.length - 1\} \/>/);
     expect(eat).toMatch(/orderFor\("eat", cardLayout\)/);
-    expect(eat).toMatch(/<ArrangeCards page="eat"/);
+    expect(eat).toMatch(/<ArrangeHandle page="eat" id=\{id\}/);
+    expect(fs.existsSync("components/arrange-cards.tsx")).toBe(false);
     expect(fs.readFileSync("lib/tools/index.ts", "utf8")).toMatch(/appearance\.arrangeCards/);
-    // The panel walks, it does not drag.
-    const panel = fs.readFileSync("components/arrange-cards.tsx", "utf8");
-    expect(panel).not.toMatch(/onPointerMove|draggable/);
-    expect(panel).toMatch(/action\("arrange_cards"/);
+    // The grip walks, it does not drag.
+    const handle = fs.readFileSync("components/arrange-handle.tsx", "utf8");
+    expect(handle).not.toMatch(/onPointerMove|draggable/);
+    expect(handle).toMatch(/action\("arrange_cards"/);
   });
 });
