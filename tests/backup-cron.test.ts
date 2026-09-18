@@ -52,9 +52,14 @@ suite("the nightly backup", () => {
     expect(order.indexOf("mealPlans")).toBeLessThan(order.indexOf("meals"));
   });
 
-  it("holds her data and never the accounts", () => {
-    // A dump with password hashes in it would have to be handled like one.
-    expect(Object.keys(BACKUP_TABLES)).not.toContain("users");
+  it("holds her data and the accounts, never the credential", () => {
+    // This said "never the accounts": a dump with password hashes in it
+    // would have to be handled like one. The first restore drill
+    // (2026-09-18) turned it: without the account rows, every profile
+    // points at an id that no longer exists and the restore dies on the
+    // first foreign key. The rows travel; the hash is blanked on the way
+    // out — tests/backup-coverage.test.ts holds that half.
+    expect(Object.keys(BACKUP_TABLES)).toContain("users");
     expect(Object.keys(BACKUP_TABLES)).not.toContain("auditLog");
   });
 

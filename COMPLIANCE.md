@@ -316,9 +316,16 @@ timelines, or post-incident review process.
 **Retention.** No defined retention schedule and no automatic deletion. Data is
 kept until someone deletes it.
 
-**Availability commitments.** No SLA, no uptime monitoring, no tested disaster
-recovery beyond the backup and restore scripts, no RTO/RPO. The nightly copy
-gives an RPO of a day in practice, but nobody has committed to it.
+**Availability commitments.** No SLA, no RTO/RPO. The nightly copy gives an
+RPO of a day in practice, but nobody has committed to it. Disaster recovery
+*has* been rehearsed: on 2026-09-18 a production dump was restored into an
+empty Neon branch, which found two faults the same day — the dump carried no
+account rows, so every profile pointed at nothing, and no reference rows, so
+every plan pointed at exercises a fresh seed would never have made. Both are in
+the dump now (accounts without their password hashes); the third attempt
+restored 3,108 rows with every foreign key satisfied and the branch was
+deleted. `/api/health` exists for an uptime monitor to ask; none is pointed at
+it yet.
 
 **Encryption at rest** is whatever Neon provides by default; not independently
 verified or configured.

@@ -2,10 +2,7 @@ import { del, list } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { blobConfigured, putPrivate } from "@/lib/blob";
 import {
-  complaints, cycleEvents, factViews, feedback, foodEstimates, friendships, goals, highFives, mealLogs, mealPlans, meals, measurements, messages,
-  pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles,
-  pushSubscriptions, savedMeals, setLogs, shoppingExtras,
-  conversations, sleepLogs, usageDaily, waterLogs, weighIns, workouts,
+  complaints, conversations, cycleEvents, exercises, factViews, facts, feedback, foodEstimates, foods, friendships, goals, highFives, mealLogs, mealPlans, mealTemplateItems, mealTemplates, meals, measurements, messages, pantryItems, photos, planDays, planExercises, plans, preppedPortions, profiles, pushSubscriptions, savedMeals, setLogs, shoppingExtras, sleepLogs, usageDaily, users, waterLogs, weighIns, workoutTemplateDays, workoutTemplateExercises, workoutTemplates, workouts,
 } from "@/lib/db/schema";
 
 /**
@@ -18,11 +15,25 @@ import {
  * (`/api/cron/backup`) puts this document in a *private* Vercel Blob store,
  * off the machine and off the database, and keeps a month of them.
  *
- * Reference data (exercises, facts, templates) is seeded from source and left
- * out. Rate-limit events are ephemeral. `users` is deliberately absent: the
- * dump has always been of her data, not of credentials, and a file that held
- * password hashes would need to be treated as one. Accounts are three rows
- * re-created by `npm run user -- invite` in a minute.
+ * Reference data (exercises, facts, foods, templates) is in as well. It was
+ * left out — "seeded from source, restoring it would only bloat the file" —
+ * and the same restore drill showed the flaw: a seed gives every row a fresh
+ * id, so a plan restored into a freshly seeded database points at exercises
+ * that database never had. The ids have to travel with the rows that point
+ * at them. (And `foods` was never only reference data: the foods she asks
+ * the app to remember live there too.) A few hundred rows; the file is
+ * still small. After a restore, `db:seed` still updates them in place by
+ * slug, ids untouched. Rate-limit events are ephemeral.
+ *
+ * `users` is in, without its password hashes. It was deliberately absent —
+ * "accounts are three rows re-created by `npm run user -- invite` in a
+ * minute" — and the first restore drill (2026-09-18, into an empty Neon
+ * branch) showed why that was wrong: a re-created account has a new id, and
+ * every profile row points at the old one. The restore failed on the first
+ * foreign key. So the account rows travel — id, email, name, role, the Google
+ * link — and the one column that is a credential is blanked. The file still
+ * holds nothing that signs anyone in; after a restore, password accounts need
+ * `npm run user -- passwd` and Google accounts just sign in.
  *
  * Photos: the row is here, the image is not once it lives in the blob store
  * (`photos.blob_key`). The store is itself durable storage, and a backup that
@@ -31,6 +42,11 @@ import {
 
 // Order matters for restore: parents before children.
 export const BACKUP_TABLES = {
+  // Reference first: everything of hers points into it.
+  exercises, facts, foods,
+  workoutTemplates, workoutTemplateDays, workoutTemplateExercises,
+  mealTemplates, mealTemplateItems,
+  users,
   profiles, weighIns, sleepLogs, waterLogs, measurements, goals, photos, complaints, cycleEvents,
   plans, planDays, planExercises,
   workouts, setLogs,
@@ -39,7 +55,7 @@ export const BACKUP_TABLES = {
   friendships, highFives,
 } as const;
 
-export const BACKUP_SCHEMA_VERSION = 1;
+export const BACKUP_SCHEMA_VERSION = 2;
 export const BACKUP_PREFIX = "backups/";
 export const BACKUP_RETENTION_DAYS = 30;
 /**
@@ -61,7 +77,10 @@ export async function dumpEverything(now = new Date()): Promise<Dump> {
   let rows = 0;
   for (const [name, table] of Object.entries(BACKUP_TABLES)) {
     const data = await db.select().from(table);
-    out[name] = data;
+    // The account rows, not the credential: see the note at the top.
+    out[name] = name === "users"
+      ? data.map((row) => ({ ...row, passwordHash: null }))
+      : data;
     tables[name] = data.length;
     rows += data.length;
   }

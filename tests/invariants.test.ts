@@ -96,6 +96,8 @@ suite("the gate denies by default", () => {
       // the next test — and neither reached its handler before it was listed.
       "/api/cron/backup",
       "/api/cron/reminders",
+      // The uptime probe: ok or 503, nothing else. app/api/health/route.ts.
+      "/api/health",
       "/api/login",
       "/apple-icon",
       "/favicon.ico",

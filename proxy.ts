@@ -48,6 +48,8 @@ const PUBLIC_PATHS = new Set([
   // this: the gate answered 401 first, and the reminder never sent.
   "/api/cron/reminders",
   "/api/cron/backup",
+  // The uptime probe. Answers ok or 503 and nothing else — see the route.
+  "/api/health",
 ]);
 
 export function proxy(req: NextRequest) {
