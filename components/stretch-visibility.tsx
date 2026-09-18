@@ -23,6 +23,7 @@ import { cardOpen, type CardId } from "@/lib/cards";
 const ROWS: { card: CardId; label: string; about: string }[] = [
   { card: "warmUp", label: "Warm-up", about: "A few reps of what the day trains, before the first set." },
   { card: "coolDown", label: "Cool-down", about: "Holds, after the lifting, when they cost nothing." },
+  { card: "weekReview", label: "Moved up / Came up short", about: "The week's set-by-set review, on Progress." },
 ];
 
 export function StretchVisibility({ collapsedCards }: { collapsedCards: string[] | null }) {
@@ -45,10 +46,9 @@ export function StretchVisibility({ collapsedCards }: { collapsedCards: string[]
 
   return (
     <section className="card p-5">
-      <h2 className="text-[15px] font-semibold">Warm-up and cool-down</h2>
+      <h2 className="text-[15px] font-semibold">Cards you can hide</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        Both sit closed at one line on the Train screen. Turn one off and it is not drawn at
-        all — you can bring it back here, or ask your coach.
+        Turned off, a card is not drawn at all — you can bring it back here, or ask your coach.
       </p>
       <div className="mt-3 space-y-2">
         {ROWS.map((row) => {

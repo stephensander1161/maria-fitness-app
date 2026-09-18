@@ -23,6 +23,13 @@ export const CARDS = {
   */
   warmUp: "The warm-up block on the Train screen",
   coolDown: "The cool-down block on the Train screen",
+  /*
+    "Moved up" and "Came up short" on Progress — the week's set-by-set
+    review. Same rule as the two above: hidden means not drawn at all, and
+    the way back is Settings or asking. "Add option to hide the 'moved up and
+    came up short' section."
+  */
+  weekReview: "Moved up and Came up short, the week's set-by-set review on the Progress screen",
 } as const;
 
 /**
