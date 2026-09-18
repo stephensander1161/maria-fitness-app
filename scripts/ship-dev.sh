@@ -51,17 +51,25 @@ git worktree prune
 W="$(mktemp -d)"
 cleanup() { cd "$ROOT"; git worktree remove --force "$W" 2>/dev/null || true; git worktree prune; }
 trap cleanup EXIT
-git worktree add --detach "$W" HEAD >/dev/null 2>&1
+echo "── worktree"
+git worktree add --detach "$W" HEAD
 cp -R "$ROOT/.vercel" "$W/.vercel"
 cd "$W"
 
 # A preview deployment — no `--prod` — so it reads the Preview environment.
+#
+# The deployment's own URL is read off the CLI's "Preview  https://…" line.
+# Vercel shortens the project name in that hostname (maria-fitness-98p7c2k2i,
+# not maria-fitness-app-…), which the first version's pattern did not allow
+# for; it then aliased whatever URL came last in the log, silently, and the
+# first dev ship built fine and left the dev hostname a 404 with nothing in
+# the output to say why. Every step here says what it is doing now.
 for attempt in 1 2 3; do
-  if npx vercel --yes 2>&1 | tee /tmp/ship-dev-$$.log | grep -qiE "readyState.*READY|Preview: https://"; then
-    URL="$(grep -oE 'https://maria-fitness-app-[a-z0-9]+-fitness-app18\.vercel\.app' /tmp/ship-dev-$$.log | tail -1)"
-    if [[ -z "$URL" ]]; then URL="$(grep -oE 'https://[a-z0-9.-]+\.vercel\.app' /tmp/ship-dev-$$.log | tail -1)"; fi
-    echo "── alias"
-    npx vercel alias set "$URL" "$DEV_ALIAS" >/dev/null
+  npx vercel --yes 2>&1 | tee /tmp/ship-dev-$$.log || true
+  URL="$(grep -oE 'Preview\s+https://[a-z0-9.-]+\.vercel\.app' /tmp/ship-dev-$$.log | grep -oE 'https://.*' | tail -1)"
+  if [[ -n "$URL" ]] && grep -qE '^✓|Deployment completed|readyState.*READY|Route \(app\)' /tmp/ship-dev-$$.log; then
+    echo "── alias $URL → $DEV_ALIAS"
+    npx vercel alias set "$URL" "$DEV_ALIAS"
     echo "https://$DEV_ALIAS"
     echo "✓ dev deployed (attempt $attempt)"
     rm -f /tmp/ship-dev-$$.log
