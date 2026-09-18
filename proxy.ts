@@ -56,6 +56,8 @@ const PUBLIC_PATHS = new Set([
   "/api/cron/backup",
   // The uptime probe. Answers ok or 503 and nothing else — see the route.
   "/api/health",
+  // Stripe's webhook: no session, believed only on its signature.
+  "/api/billing/webhook",
 ]);
 
 export function proxy(req: NextRequest) {

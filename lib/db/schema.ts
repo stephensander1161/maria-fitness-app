@@ -48,8 +48,18 @@ export const users = pgTable(
      */
     sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true })
       .defaultNow().notNull(),
+    /**
+     * Billing — see lib/tiers.ts and lib/stripe.ts. The status is written by
+     * the Stripe webhook and nothing else; `comped` is an owner's hand-set
+     * "this account is Pro regardless" (family, a reviewer, a friend).
+     */
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    subscriptionStatus: text("subscription_status"),
+    subscriptionEndsAt: timestamp("subscription_ends_at", { withTimezone: true }),
+    comped: boolean("comped").default(false).notNull(),
   },
-  (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google_sub").on(t.googleSub)],
+  (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google_sub").on(t.googleSub), uniqueIndex("users_stripe_customer").on(t.stripeCustomerId)],
 );
 
 /**

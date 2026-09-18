@@ -95,6 +95,8 @@ suite("the gate denies by default", () => {
       "/api/auth/reset/confirm",
       // Sign-up claims an invitation; it cannot add an address. lib/signup.ts.
       "/api/auth/signup",
+      // Stripe's webhook — no session; believed only on its signature.
+      "/api/billing/webhook",
       // The scheduler has no session. Each of these is its own guard — see
       // the next test — and neither reached its handler before it was listed.
       "/api/cron/backup",
@@ -392,6 +394,10 @@ suite("every mutation goes through the tool registry", () => {
         // links are credentials for an hour, and a tool that could mint one
         // could sign in as anybody. Same inverse-of-a-loophole shape.
         if (AUTH.test(file) && (table === "users" || table === "emailTokens")) continue;
+        // The Stripe webhook is the one writer of entitlement, and it writes
+        // `users` only — a tool that could set a subscription status could
+        // grant itself Pro.
+        if (file === "app/api/billing/webhook/route.ts" && table === "users") continue;
         if (file === OWNER_CONSOLE && (table === "users" || table === "profiles")) continue;
         offenders.push(`${file}: db.${m[1]}(${table})`);
       }

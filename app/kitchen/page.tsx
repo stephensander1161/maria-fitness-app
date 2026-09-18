@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { currentUser } from "@/lib/session";
+import { tierOf } from "@/lib/tiers";
 import { ShoppingList, type ShoppingAisle } from "@/components/shopping-list";
 import { KitchenGrid } from "@/components/kitchen-grid";
 import { requireOnboarded } from "@/lib/session";
@@ -26,6 +29,26 @@ export const dynamic = "force-dynamic";
 export default async function KitchenPage() {
   const profile = await requireOnboarded();
   const her = profileToday(profile);
+
+  // The Kitchen is Pro — lib/tiers.ts. A free account gets the screen's
+  // name and one honest line, not a grid of things it cannot use.
+  if (tierOf(await currentUser()) === "free") {
+    return (
+      <>
+        <header className="mb-5">
+          <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
+        </header>
+        <section className="card p-5">
+          <p className="text-[15px] font-semibold">Part of Sore Winner Pro</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">
+            Meal plans for the week, what is in the fridge, and a shopping list that knows what you already have.
+            Logging what you eat works on the free plan as always.
+          </p>
+          <Link href="/settings" className="mt-3 inline-block rounded-xl bg-accent px-4 py-3 text-[14px] font-semibold text-on-accent">Go Pro in Settings</Link>
+        </section>
+      </>
+    );
+  }
 
   const [kitchen, shopping] = await Promise.all([
     kitchenView(profile.id, foodUnitsOf(profile), her),

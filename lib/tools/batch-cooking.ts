@@ -26,6 +26,7 @@ const KEEPS_DAYS = 4;
 
 export const logCookSession = defineTool({
   name: "log_cook_session",
+  requires: "kitchen",
   description:
     "Records that she has batch cooked something and how many portions it made. Use it whenever she says she has made a big one, prepped for the week, or doubled a recipe. Pass mealId when it came from her plan and the ingredients come out of her kitchen for every portion made, not just one. After this she can log a portion in one step, with exact figures rather than a description.",
   input: z.object({
@@ -90,6 +91,7 @@ export const logCookSession = defineTool({
 
 export const listPreppedPortions = defineTool({
   name: "list_prepped_portions",
+  requires: "kitchen",
   description:
     "What she has already cooked and how many portions are left, with how long each keeps. Check it before suggesting she cook anything, and before answering 'what's for dinner?' — the answer is usually in the fridge. Anything past its date is flagged rather than quietly offered.",
   input: z.object({}),
@@ -122,6 +124,7 @@ export const listPreppedPortions = defineTool({
 
 export const eatPreppedPortion = defineTool({
   name: "eat_prepped_portion",
+  requires: "kitchen",
   description:
     "Logs a portion of something she batch cooked and takes it off the count, in one step. Prefer it over log_meal whenever what she ate came out of the fridge: the figures are exact rather than estimated, which is the difference between a day that can be counted and one that cannot.",
   input: z.object({
@@ -172,6 +175,7 @@ export const eatPreppedPortion = defineTool({
 
 export const adjustPreppedPortion = defineTool({
   name: "adjust_prepped_portion",
+  requires: "kitchen",
   description:
     "Corrects how many portions are left, or throws the rest out. Use it when she says it went further than she thought, or that the last of it went in the bin — a count nobody can correct is one she stops trusting.",
   input: z.object({

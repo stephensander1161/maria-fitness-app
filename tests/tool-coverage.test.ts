@@ -345,7 +345,8 @@ suite("the coach and her thumb do the same thing", () => {
     // and the coach came to disagree about her streak once already.
     const action = read("app/api/action/route.ts");
     const loop = read("lib/agent/loop.ts");
-    expect(action).toMatch(/runTool\(tool, input \?\? \{\}, \{ profileId: profile\.id \}\)/);
+    // The tier rides along since 2026-09-18 (lib/tiers.ts); the call is otherwise the same one.
+    expect(action).toMatch(/runTool\(tool, input \?\? \{\}, \{ profileId: profile\.id, tier: tierOf\(user\) \}\)/);
     expect(loop).toMatch(/runTool\(call\.name, call\.input, ctx\)/);
     // Neither reaches past the registry into a handler directly.
     expect(action).not.toMatch(/from "@\/lib\/tools\/(?!index)/);

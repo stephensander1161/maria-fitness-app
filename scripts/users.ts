@@ -5,6 +5,7 @@
  *   npm run user -- add her@example.com "Maria"      # prompts for a password
  *   npm run user -- invite her@example.com "Maria"   # Google, or she sets a password at /signup
  *   npm run user -- role her@example.com owner    # owner = admin console
+ *   npm run user -- comp her@example.com [on|off] # Pro on the house — lib/tiers.ts
  *   npm run user -- budget her@example.com 2      # $2/day of coach; "none" = the full ceiling
  *   npm run user -- topup her@example.com 1       # $1 extra for today only, when she has run out
  *   npm run user -- passwd her@example.com
@@ -91,6 +92,15 @@ async function main() {
       break;
     }
 
+    case "comp": {
+      // Pro on the house — family, a reviewer, a friend. lib/tiers.ts.
+      const on = nameArg !== "off";
+      if (!email) throw new Error("Usage: npm run user -- comp <email> [on|off]");
+      const [u] = await db.update(users).set({ comped: on }).where(eq(users.email, email)).returning({ id: users.id });
+      if (!u) throw new Error(`No account for ${email}.`);
+      console.log(`✓ ${email} ${on ? "is comped: Pro, on the house" : "is no longer comped"}.`);
+      break;
+    }
     case "invite": {
       if (!email) throw new Error("Usage: npm run user -- invite <email> [name]");
       const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);

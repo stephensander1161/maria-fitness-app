@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe as suite, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { emailTokens, users } from "@/lib/db/schema";
+import { emailTokens, rateEvents, users } from "@/lib/db/schema";
 import { POST as request } from "@/app/api/auth/reset/route";
 import { hashPassword } from "@/lib/password";
 import { refusal } from "@/lib/reset";
@@ -21,6 +21,9 @@ suite("the emailed door", () => {
   let a: TestAccount;
   let email: string;
   beforeAll(async () => {
+    // The limiter remembers the last run for an hour; this suite is about
+    // the door, and the last test is about the limiter with a clean slate.
+    await db.delete(rateEvents).where(like(rateEvents.bucket, "reset:%"));
     a = await makeAccount("reset");
     const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, a.userId)).limit(1);
     email = u.email;

@@ -100,6 +100,7 @@ const itemInput = z.object({
 
 export const getPantry = defineTool({
   name: "get_pantry",
+  requires: "kitchen",
   description:
     "What is in her kitchen, and whether it covers the meals still to cook this week. Every line says which kind of number it is: an amount, 'some' when nobody has counted it, or out. Use it before suggesting a meal or telling her what to buy — and never read 'some' as enough, or a missing line as none.",
   input: z.object({}),
@@ -137,6 +138,7 @@ export const getPantry = defineTool({
 
 export const addToPantry = defineTool({
   name: "add_to_pantry",
+  requires: "kitchen",
   description:
     "Put groceries into her kitchen — after a shop, or when she mentions buying something. Amounts add to what is already there. An item can be written the way a recipe writes it ('500g rice', '2 tins tomatoes') and it is read apart here. Leave the amount out when she did not say one; it is recorded as 'some', which is honest, rather than as a number nobody counted.",
   input: z.object({
@@ -162,6 +164,7 @@ export const addToPantry = defineTool({
 
 export const setPantryItem = defineTool({
   name: "set_pantry_item",
+  requires: "kitchen",
   description:
     "Correct what the kitchen holds — she counted it, or she has just run out. Replaces the amount rather than adding to it. Pass amount 0 for 'we're out of this', which is a fact worth keeping; leave amount out for 'there's some, I haven't counted it'.",
   input: itemInput,
@@ -183,6 +186,7 @@ export const setPantryItem = defineTool({
 
 export const removePantryItem = defineTool({
   name: "remove_pantry_item",
+  requires: "kitchen",
   description:
     "Take something out of the kitchen list entirely — she threw it out, or it was never really there. To say she has run out but still buys it, use set_pantry_item with amount 0 instead, so the shopping list knows to put it back.",
   input: z.object({
@@ -210,6 +214,7 @@ export const removePantryItem = defineTool({
 
 export const clearPantry = defineTool({
   name: "clear_pantry",
+  requires: "kitchen",
   description:
     "Empties her kitchen list, or removes several items at once when `items` is given. Use it when she wants to start the kitchen fresh or has cleared the cupboards out — it is her list and hers to reset, so do it when she asks and tell her what it removed. Nothing else is touched: her meal plan, her shopping list and everything she has logged are untouched, and the shopping list simply goes back to asking for everything the week needs.",
   input: z.object({
@@ -252,6 +257,7 @@ export const clearPantry = defineTool({
 
 export const markShoppingBought = defineTool({
   name: "mark_shopping_bought",
+  requires: "kitchen",
   description:
     "Puts the week's shopping list into her kitchen after a shop, at the quantities the list asked for. Use it when she says she has been shopping or that the delivery arrived. Pass `items` to record only part of the list — the rest stays on it. This is the honest version of restocking: the amounts come from the plan she shopped from, not from a guess.",
   input: z.object({

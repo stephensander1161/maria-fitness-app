@@ -1,3 +1,4 @@
+import { PRO_ONLY } from "@/lib/tier-messages";
 import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -177,6 +178,11 @@ export const lookupFood = defineTool({
     if (input.allowEstimate === false) {
       await record(ctx.profileId, input.query, { source: "none" });
       return { found: false, error: `Nothing in the library matches "${portion.query}".` };
+    }
+    // The estimator is the model, and the model is Pro — lib/tiers.ts.
+    if (ctx.tier === "free") {
+      await record(ctx.profileId, input.query, { source: "none", error: "tier: free" });
+      return { found: false, error: PRO_ONLY.estimator, code: "pro" as const };
     }
     // The food without the amount, so the alias is the thing and not the
     // portion — "200g wobblecake" and "wobblecake" are one row.

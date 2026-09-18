@@ -33,6 +33,11 @@ export type AuditEventName =
   | "reset.refused"
   | "invite.sent"
   | "email.failed"
+  /** Billing — lib/stripe.ts. Ids and statuses only; never a card, never an amount she typed. */
+  | "billing.checkout_started"
+  | "billing.updated"
+  | "billing.webhook_refused"
+  | "billing.webhook_unmatched"
   | "logout"
   | "budget.changed"
   /**
@@ -102,7 +107,7 @@ export type AuditEventName =
 
 const WARN: AuditEventName[] = [
   "login.failure", "login.rate_limited", "signup.failure", "data.deleted", "backup.failed",
-  "reset.refused", "email.failed",
+  "reset.refused", "email.failed", "billing.webhook_refused", "billing.webhook_unmatched",
   // Granting the console is the one change here that widens who can see
   // everybody else, so it is worth a second look even when it was deliberate.
   "admin.role_changed",
