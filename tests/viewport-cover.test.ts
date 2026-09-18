@@ -72,3 +72,17 @@ suite("what the browser toolbar covers", () => {
     }
   });
 });
+
+suite("a bottom sheet is as tall as what is on screen", () => {
+  // 2026-09-18: "when I click Tell us from mobile this is what I see, BAD" —
+  // the sheet, anchored to the bottom of a layout viewport the keyboard does
+  // not shrink, sat behind the keys. Both sheets size to --visual-height now.
+  it("Tell us and the coach sheet size their overlay to --visual-height", () => {
+    for (const f of ["components/feedback.tsx", "components/coach-bubble.tsx"]) {
+      const src = read(f);
+      expect(src, f).toMatch(/fixed inset-x-0 top-0/);
+      expect(src, f).toMatch(/height: "var\(--visual-height, 100dvh\)"/);
+      expect(src, f).not.toMatch(/"fixed inset-0 z-(50|\[80\])/);
+    }
+  });
+});
