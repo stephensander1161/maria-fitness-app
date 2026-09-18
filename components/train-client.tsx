@@ -671,6 +671,18 @@ export function TrainClient({
    * things.
    */
   const [folded, setFolded] = useState<string[]>(collapsedCards);
+  // The server's list wins when it changes underneath: the grip hides a
+  // warm-up by writing this very list on the account, and the refresh that
+  // follows was arriving to a state seeded once on mount — "clicking hide in
+  // a card from mobile does nothing". Movement folds are on the account too,
+  // so nothing local is lost by taking the fresh list.
+  const [foldedFrom, setFoldedFrom] = useState(collapsedCards);
+  if (foldedFrom !== collapsedCards) {
+    // Adjusted during render, the way React asks for state derived from a
+    // prop — no effect, no extra frame.
+    setFoldedFrom(collapsedCards);
+    setFolded(collapsedCards);
+  }
   /**
    * Put the warm-up or the cool-down away, from the block itself.
    *
