@@ -178,8 +178,9 @@ test.describe("the coach sheet", () => {
 
     const clear = await page.evaluate(() => {
       // The composer is an `<input>` with a label of its own — see
-      // components/coach-thread.tsx.
-      const box = document.querySelector('[role="dialog"] [aria-label="Message your coach"]');
+      // components/coach-thread.tsx. "Message Coach", or whatever she has
+      // named the coach, so the label is matched by its start.
+      const box = document.querySelector('[role="dialog"] [aria-label^="Message "]');
       const dialog = document.querySelector('[role="dialog"]');
       if (!box || !dialog) return null;
       const b = box.getBoundingClientRect();
