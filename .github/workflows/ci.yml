@@ -54,7 +54,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -167,7 +167,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -266,7 +266,7 @@ jobs:
       VERCEL_ORG_ID: team_DTv0u4ESbVaRPY4WbeKJ8sED
       VERCEL_PROJECT_ID: prj_WVxML4XZ4qhFLDLmjZunPAU6TD4u
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -314,7 +314,7 @@ jobs:
       VERCEL_ORG_ID: team_DTv0u4ESbVaRPY4WbeKJ8sED
       VERCEL_PROJECT_ID: prj_WVxML4XZ4qhFLDLmjZunPAU6TD4u
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
