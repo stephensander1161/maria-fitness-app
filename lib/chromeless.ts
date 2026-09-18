@@ -10,6 +10,9 @@
 export const CHROMELESS_PATHS = new Set([
   "/login",
   "/signup",
+  // The emailed door — lib/reset.ts. Same shape as sign-in: nobody is signed in yet.
+  "/forgot",
+  "/reset",
   "/welcome",
   // Legal pages are read signed out, by people deciding whether to sign up,
   // and by App Store review. Chrome there is a wall of dead links.

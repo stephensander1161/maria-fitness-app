@@ -89,6 +89,20 @@ Every limiter records the attempt *before* counting, so a burst of parallel
 requests cannot all pass a check that none of them has yet been counted
 against. A refused request therefore still spends a slot — that is the point.
 
+### Forgot password, and invitations by email
+
+Since 2026-09-18 the door has an emailed side (`lib/reset.ts`, `lib/email.ts`).
+"Forgot your password?" takes an address and answers the same sentence whether
+or not it has an account; for one that does, a link is emailed carrying 32
+random bytes, of which only the SHA-256 is stored, good once and for an hour.
+Using it sets the password, signs every other session for that account out
+(`sessions_valid_from`), and signs the device in hand in. An invitation never
+claimed gets an invitation link instead (a week), and `npm run user -- invite`
+emails the same link. Asking is rate-limited harder than sign-in — three an
+hour per address, ten per IP — because each request is also someone's inbox.
+The log records that a reset was asked for and by which address, and that one
+happened, by user id; never a token, never a message body.
+
 ## Spend
 
 `lib/limits.ts` holds a hard daily ceiling checked *before* any model call, and

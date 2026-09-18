@@ -90,6 +90,9 @@ suite("the gate denies by default", () => {
     expect(listed).toEqual([
       "/api/auth/google",
       "/api/auth/google/callback",
+      // The emailed door: ask for a link, use it once. lib/reset.ts.
+      "/api/auth/reset",
+      "/api/auth/reset/confirm",
       // Sign-up claims an invitation; it cannot add an address. lib/signup.ts.
       "/api/auth/signup",
       // The scheduler has no session. Each of these is its own guard — see
@@ -101,12 +104,14 @@ suite("the gate denies by default", () => {
       "/api/login",
       "/apple-icon",
       "/favicon.ico",
+      "/forgot",
       "/icon",
       "/icon-192",
       "/icon-512",
       "/login",
       "/manifest.webmanifest",
       "/privacy",
+      "/reset",
       "/robots.txt",
       "/signup",
       "/sw.js",
@@ -383,7 +388,10 @@ suite("every mutation goes through the tool registry", () => {
       const writes = [...src.matchAll(/\bdb\s*\n?\s*\.\s*(insert|update|delete)\s*\(\s*(\w+)/g)];
       for (const m of writes) {
         const table = m[2];
-        if (AUTH.test(file) && table === "users") continue;
+        // …and `emailTokens`, since 2026-09-18: the emailed reset and invite
+        // links are credentials for an hour, and a tool that could mint one
+        // could sign in as anybody. Same inverse-of-a-loophole shape.
+        if (AUTH.test(file) && (table === "users" || table === "emailTokens")) continue;
         if (file === OWNER_CONSOLE && (table === "users" || table === "profiles")) continue;
         offenders.push(`${file}: db.${m[1]}(${table})`);
       }

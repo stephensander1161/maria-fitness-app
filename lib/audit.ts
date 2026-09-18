@@ -23,6 +23,16 @@ export type AuditEventName =
   // way a failed sign-in is, because it is the same door being tried.
   | "signup.success"
   | "signup.failure"
+  /**
+   * The emailed doors — see lib/reset.ts. A request is recorded whether or
+   * not the address had an account (the response never says, the log may);
+   * a reset is recorded by user id; a refused token by why. Never the token.
+   */
+  | "reset.requested"
+  | "reset.done"
+  | "reset.refused"
+  | "invite.sent"
+  | "email.failed"
   | "logout"
   | "budget.changed"
   /**
@@ -92,6 +102,7 @@ export type AuditEventName =
 
 const WARN: AuditEventName[] = [
   "login.failure", "login.rate_limited", "signup.failure", "data.deleted", "backup.failed",
+  "reset.refused", "email.failed",
   // Granting the console is the one change here that widens who can see
   // everybody else, so it is worth a second look even when it was deliberate.
   "admin.role_changed",

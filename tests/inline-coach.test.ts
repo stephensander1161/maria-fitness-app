@@ -49,6 +49,8 @@ suite("asking the coach never means leaving the screen", () => {
     const ARRIVALS = [
       "components/login-form.tsx",
       "components/signup-form.tsx",
+      // A reset signs her in and lands her home — arriving, the same as sign-in.
+      "components/reset-form.tsx",
       "components/onboarding.tsx",
       "components/erase-data.tsx",
     ];
@@ -71,7 +73,7 @@ suite("asking the coach never means leaving the screen", () => {
       // "admin" is the owner's operations console, not one of her screens: no
       // tool exposes any of it — `users` is deliberately out of the model's
       // reach — so an AskCoach there would offer help the coach cannot give.
-      .filter((e) => e.isDirectory() && !["api", "admin", "login", "signup", "welcome", "privacy", "terms"].includes(e.name))
+      .filter((e) => e.isDirectory() && !["api", "admin", "login", "signup", "forgot", "reset", "welcome", "privacy", "terms"].includes(e.name))
       .map((e) => path.join("app", e.name, "page.tsx"))
       .filter((f) => fs.existsSync(f));
 

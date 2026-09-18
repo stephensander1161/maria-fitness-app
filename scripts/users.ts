@@ -18,6 +18,9 @@
 import { createInterface } from "node:readline/promises";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { emailTokens } from "@/lib/db/schema";
+import { linkMail, sendEmail } from "@/lib/email";
+import { linkFor, newToken, tokenHash, ttlFor } from "@/lib/reset";
 import { profiles, users } from "@/lib/db/schema";
 import { budgetFor, dollars, topUpFor } from "@/lib/budget";
 import { today } from "@/lib/date";
@@ -102,7 +105,20 @@ async function main() {
       }).returning();
       await db.insert(profiles).values({ userId: created.id, name: nameArg ?? null });
 
-      console.log(`✓ ${email} invited as ${created.role}.`);
+      // The invitation itself: an emailed link that opens sign-up. Best
+      // effort — without an email key the console says so and the address
+      // can still be told by hand.
+      const token = newToken();
+      await db.insert(emailTokens).values({
+        userId: created.id, kind: "invite", tokenHash: tokenHash(token), expiresAt: new Date(Date.now() + ttlFor("invite")),
+      });
+      const origin = process.env.APP_URL ?? "https://sorewinner.app";
+      const sent = await sendEmail(linkMail(email, "You're invited to Sore Winner",
+        [`${nameArg ? `${nameArg}, you` : "You"}'ve been invited to Sore Winner — a coach that plans your training and your food and keeps you going.`,
+          "Set up your account here — the link works for a week. Or just sign in with Google using this address."],
+        linkFor("invite", token, origin), "Set up your account"));
+      await audit("invite.sent", { detail: { userId: created.id, sent: sent.sent } });
+      console.log(`✓ ${email} invited as ${created.role}.${sent.sent ? " Invitation emailed." : ` Email NOT sent (${sent.reason}).`}`);
       console.log("  They sign in with Continue with Google, or choose their own password");
       console.log("  at /signup — that page claims an invitation and can never add one.");
       console.log(`  To set a password for them instead: npm run user -- passwd ${email}`);

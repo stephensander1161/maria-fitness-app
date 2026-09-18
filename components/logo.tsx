@@ -59,7 +59,7 @@ export function Logo({
       viewBox="0 0 48 48"
       fill="none"
       role="img"
-      aria-label="Plate"
+      aria-label="Sore Winner"
       className={className}
     >
       <defs>

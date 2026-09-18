@@ -108,6 +108,9 @@ export function LoginForm({ google }: { google: boolean }) {
           </p>
         )}
       </form>
+      <p className="mt-4 text-center text-[13px]">
+        <Link href="/forgot" className="text-faint underline underline-offset-2 hover:text-muted">Forgot your password?</Link>
+      </p>
     </div>
   );
 }

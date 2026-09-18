@@ -11,8 +11,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Plate",
-    short_name: "Plate",
+    name: "Sore Winner",
+    short_name: "Sore Winner",
     description: "Lifting and eating, in one place",
     // Straight into today's session — "/" only redirects here.
     start_url: "/train",

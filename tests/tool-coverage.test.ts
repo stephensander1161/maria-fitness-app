@@ -107,6 +107,10 @@ suite("tool registry", () => {
       // out of the model's reach — no prompt should be able to change a
       // password, enable an account, or read a hash.
       "users",
+      // The emailed links (reset, invite): credentials for an hour, written
+      // by the auth routes and the invite command, never by a tool — a tool
+      // that could mint one could sign in as anybody.
+      "emailTokens",
     ]);
 
     const toolSource = walk("lib/tools").map(read).join("\n");

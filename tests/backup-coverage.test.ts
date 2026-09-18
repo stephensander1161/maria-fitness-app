@@ -25,7 +25,8 @@ const REFERENCE = new Set<string>();
 // Deliberately not in a backup: the audit log survives a restore on purpose,
 // rate-limit events are ephemeral, and the error log is about the app rather
 // than her. Accounts *are* in — see the next suite for what is left out of them.
-const EXCLUDED = new Set(["auditLog", "rateEvents", "appErrors"]);
+// Email tokens are credentials for an hour and are never restored either.
+const EXCLUDED = new Set(["auditLog", "rateEvents", "appErrors", "emailTokens"]);
 
 suite("her data is in the backup", () => {
   const tables = Object.keys(schema).filter(isTable)
