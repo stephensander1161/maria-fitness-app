@@ -128,6 +128,25 @@ suite("pausing a session", () => {
     expect(index).toMatch(/training\.resumeWorkout/);
   });
 
+  it("the finished row fits a phone — 2026-09-18, \"Finished resume and today looks bad on mobile\"", () => {
+    // The chip plus the Resume pill was ~290px on a row with ~320px, shared
+    // with the day's arrows: it wrapped under them and the day's name fell to
+    // a third line. On a phone the finished state is a reading — a tick and
+    // the length — beside the one control, the width of the running row.
+    const src = read("components/train-client.tsx");
+    const finished = src.slice(src.indexOf("if (finishedAt) {"), src.indexOf("One control, in the slot Start was in."));
+    // The chip's furniture — border, fill, padding — only from sm up.
+    expect(finished).toMatch(/sm:rounded-full sm:border sm:border-beat\/40 sm:bg-beat-soft sm:px-3\.5 sm:py-1\.5/);
+    expect(finished).not.toMatch(/className="[^"]*(?<!sm:)\brounded-full border border-beat/);
+    // The word goes on a phone; the tick stands in for it, and a screen
+    // reader still gets the sentence.
+    expect(finished).toMatch(/<span className="hidden sm:inline">Finished —/);
+    expect(finished).toMatch(/<svg className="sm:hidden"/);
+    expect(finished).toMatch(/aria-label=\{`Finished — \$\{readableDuration\(ms\)\}`\}/);
+    // And Resume stays the short word on a phone.
+    expect(finished).toMatch(/<span className="sm:hidden">Resume<\/span>/);
+  });
+
   it("does not tick while it is stopped", () => {
     // Nothing to tick: the reading cannot change.
     expect(read("components/train-client.tsx")).toMatch(/if \(finishedAt \|\| pausedAt\) return;/);

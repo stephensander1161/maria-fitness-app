@@ -1383,8 +1383,29 @@ function SessionBar({
   if (finishedAt) {
     return (
       <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-2 rounded-full border border-beat/40 bg-beat-soft px-3.5 py-1.5 text-[13px] font-medium text-beat">
-          Finished — {readableDuration(ms)}
+        {/*
+          On a phone, a reading; from `sm` up, the chip.
+
+          The chip and the Resume pill together are about 290px, and the row
+          they share with the day's arrows has 310–330px on a phone: the pair
+          wrapped onto a line of its own, right-aligned under the arrows, and
+          the day's name fell to a third line under that — "Finished resume
+          and today looks bad on mobile". A running session's controls fit
+          that row because the clock is text, not a chip; the finished state
+          now does the same. A tick and the length, in the finished colour,
+          beside the one control — the width of the running row — and the
+          whole sentence where there is room for it.
+        */}
+        <div
+          aria-label={`Finished — ${readableDuration(ms)}`}
+          className="flex items-center gap-1 text-[13px] font-medium text-beat sm:gap-2 sm:rounded-full sm:border sm:border-beat/40 sm:bg-beat-soft sm:px-3.5 sm:py-1.5"
+        >
+          <svg className="sm:hidden" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M5 12.5l4.5 4.5L19 7" />
+          </svg>
+          <span className="hidden sm:inline">Finished —{" "}</span>
+          {readableDuration(ms)}
         </div>
         {/*
           Finishing early is a real thing to do, and until now it was final.
