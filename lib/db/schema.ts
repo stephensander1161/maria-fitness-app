@@ -84,6 +84,8 @@ export const profiles = pgTable("profiles", {
    */
   coachTone: text("coach_tone", { enum: ["encouraging", "plain", "hype"] })
     .default("plain").notNull(),
+  /** What she calls her coach — see lib/coach-name.ts. */
+  coachName: text("coach_name").default("Coach").notNull(),
   /**
    * Which palette the app renders in. Null means the default; an unrecognised
    * value falls back rather than rendering unstyled — see lib/theme.ts.

@@ -1,3 +1,4 @@
+import { coachNameOf, DEFAULT_COACH_NAME } from "@/lib/coach-name";
 import type Anthropic from "@anthropic-ai/sdk";
 import { DAY_NAMES, dayIndex, weekStart } from "@/lib/date";
 import type { Profile } from "@/lib/db/schema";
@@ -228,7 +229,12 @@ export function buildSystem(profile: Profile): [Anthropic.TextBlockParam] {
   // Voice sits inside the cached half: it is stable for her, and the whole
   // block still hashes identically turn to turn. Changing tone invalidates it
   // once, which is the correct price for changing it.
-  const persona = `${PERSONA}\n\n${VOICE[profile.coachTone]}`;
+  // Her name for you, in the cached half with the voice: stable for her, and
+  // changing it invalidates the block once, which is the right price.
+  const named = coachNameOf(profile.coachName) === DEFAULT_COACH_NAME
+    ? ""
+    : `\n\nShe calls you ${coachNameOf(profile.coachName)}. Answer to it as your name; never explain that it is one.`;
+  const persona = `${PERSONA}\n\n${VOICE[profile.coachTone]}${named}`;
 
   /*
     The system prompt is the persona and nothing else, and that is the point.

@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 import { useEffect, useRef, useState } from "react";
 import { ALLOWANCE_WARN_PCT } from "@/lib/allowance-pct";
 import { action, actionMessage } from "@/lib/client";
@@ -203,6 +205,7 @@ export function Composer({
   style?: React.CSSProperties;
   autoFocus?: boolean;
 }) {
+  const coach = useCoachName();
   const stopping = busy && Boolean(onStop);
   return (
     <form
@@ -215,7 +218,7 @@ export function Composer({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? "Tell your coach anything…"}
-          aria-label="Message your coach"
+          aria-label={`Message ${coach}`}
           disabled={busy}
           autoFocus={autoFocus}
           className="min-w-0 flex-1 rounded-full border border-edge bg-surface px-4 py-3 text-[15px] placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60"

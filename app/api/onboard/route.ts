@@ -16,6 +16,7 @@ export const maxDuration = 60;
 
 const Body = z.object({
   name: z.string().min(1).max(60),
+  coachName: z.string().max(40).optional(),
   age: z.number().min(13).max(100),
   sex: z.enum(["female", "male", "other"]),
   // Inches when units are imperial, centimetres when metric — the range has
@@ -84,6 +85,7 @@ export async function POST(req: Request) {
   const ctx = { profileId: profile.id };
   await runTool("update_profile", {
     name: input.name,
+    coachName: input.coachName,
     age: input.age,
     sex: input.sex,
     height: input.heightIn,

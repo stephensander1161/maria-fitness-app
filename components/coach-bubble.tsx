@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { prettyDate, type ISODate } from "@/lib/date";
@@ -41,6 +43,7 @@ export function CoachBubble({
    */
   float?: boolean;
 }) {
+  const coach = useCoachName();
   /*
     The path *and* its query, because the query is what says which day.
 
@@ -81,7 +84,7 @@ export function CoachBubble({
       {!open && float && (
         <button
           onClick={() => setOpen(true)}
-          aria-label="Ask your coach"
+          aria-label={`Ask ${coach}`}
           className="fixed right-4 z-50 grid size-14 place-items-center rounded-full bg-accent text-on-accent shadow-lg shadow-scrim/50 transition-transform hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
           // Above the tab bar on a phone; the tab bar is gone on a desktop, so
           // the inline style is overridden by the md: classes above.
@@ -101,6 +104,7 @@ export function CoachBubble({
 function CoachSheet({
   name, path, onClose,
 }: { name: string | null; path: string; onClose: () => void }) {
+  const coach = useCoachName();
   const router = useRouter();
   const {
     messages, setMessages, streaming, activity, busy, error, setError, errorCode,
@@ -252,7 +256,7 @@ function CoachSheet({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Your coach"
+      aria-label={coach}
       className="fixed inset-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
     >
       {/*
@@ -305,7 +309,7 @@ function CoachSheet({
         )}
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line/60 px-4 py-3">
           <h2 className="truncate text-[17px] font-semibold">
-            {name ? `Hey, ${name}` : "Your coach"}
+            {name ? `Hey, ${name}` : coach}
           </h2>
           <div className="flex items-center gap-2">
             {/*

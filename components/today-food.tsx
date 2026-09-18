@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { action, actionMessage } from "@/lib/client";
@@ -680,6 +682,7 @@ function QuickAdd({
   slot: "breakfast" | "lunch" | "dinner" | "snack";
   onDone: () => void;
 }) {
+  const coach = useCoachName();
   const [open, setOpen] = useState(false);
   /*
     Water goes on the day from the same place food does.
@@ -770,8 +773,8 @@ function QuickAdd({
           <RecipeScan defaultSlot={defaultSlot} />
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
-            aria-label="Tell your coach what you ate"
-            title="Tell your coach what you ate"
+            aria-label={`Tell ${coach} what you ate`}
+            title={`Tell ${coach} what you ate`}
             className="grid w-12 shrink-0 place-items-center rounded-xl border border-dashed border-line text-muted transition-colors active:bg-raised hover:text-accent"
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"

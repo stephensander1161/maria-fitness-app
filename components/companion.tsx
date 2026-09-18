@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isChromeless } from "@/lib/chromeless";
@@ -81,9 +83,10 @@ export function Companion({
   // to cover the gap while that render is in flight.
   const showing: Mode = mode === "training" ? "training" : (live ?? mode);
 
+  const coach = useCoachName();
   if (isChromeless(path)) return null;
 
-  const label = busy ? "Your coach is thinking" : "Ask your coach";
+  const label = busy ? `${coach} is thinking` : `Ask ${coach}`;
   const surface = coachSurfaceFor(path);
 
   return (

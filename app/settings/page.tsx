@@ -1,3 +1,4 @@
+import { coachNameOf } from "@/lib/coach-name";
 import { requireOnboarded } from "@/lib/session";
 import { runTool } from "@/lib/tools";
 import { SignOut } from "@/components/sign-out";
@@ -8,6 +9,7 @@ import { LogoPicker } from "@/components/logo-picker";
 import { logoMarkOf } from "@/lib/logo-mark";
 import { themeOf } from "@/lib/theme";
 import { CoachTone } from "@/components/coach-tone";
+import { CoachName } from "@/components/coach-name";
 import { PlanSetupButton } from "@/components/plan-setup";
 import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
@@ -56,6 +58,7 @@ export default async function SettingsPage() {
       <div className="max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-x-8">
         <div>
           <Group title="Your coach">
+            <CoachName name={coachNameOf(profile.coachName)} />
             <CoachTone tone={profile.coachTone} />
             <CoachBudget usage={usage as Usage} />
           </Group>
