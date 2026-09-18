@@ -3,9 +3,16 @@
  *
  *   npm run restore -- backups/coach-20260831T2200.json
  *
- * Replaces her data wholesale: every table in the file is emptied and refilled,
- * ids preserved so foreign keys still line up. Reference data is untouched, so
- * run db:seed if the exercise or fact libraries have moved on.
+ * Replaces the database wholesale: every table in the file — reference data
+ * first, then accounts, then hers — is emptied and refilled, ids preserved so
+ * foreign keys still line up. Works into an empty database (rehearsed
+ * 2026-09-18 into a throwaway Neon branch) as well as over a live one. Run
+ * db:seed afterwards if the libraries have moved on; it updates by slug and
+ * leaves the ids alone.
+ *
+ * Accounts come back without passwords — the dump blanks the hash on the way
+ * out (lib/backup.ts). After a restore, `npm run user -- passwd <email>` for
+ * each password account; Google accounts sign straight in.
  */
 import fs from "node:fs";
 import { sql } from "drizzle-orm";
