@@ -56,8 +56,10 @@ test.describe("training a day", () => {
     await clearMorningPrompt(page);
     await page.keyboard.press("Escape");
 
-    // A finished day keeps its bar, with the way back in on it.
-    await expect(page.getByText(/Finished/).first()).toBeVisible();
+    // A finished day keeps its bar, with the way back in on it. On a phone
+    // the bar is a tick and the length — the word is in the accessible name,
+    // not on the screen — so ask for it by name rather than by text.
+    await expect(page.getByLabel(/^Finished — /).first()).toBeVisible();
     const resume = page.getByRole("button", { name: "Reopen this session" });
     await expect(resume).toBeVisible();
 
