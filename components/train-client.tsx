@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
@@ -161,6 +163,7 @@ export function TrainClient({
    */
   lead?: React.ReactNode;
 }) {
+  const coach = useCoachName();
   const router = useRouter();
   const [feedback, setFeedback] = useState<Record<string, LogResult>>({});
   const [finishing, setFinishing] = useState(false);
@@ -874,7 +877,7 @@ export function TrainClient({
             starts the week now (lib/tools/training.ts startEmptyWeek). */}
         {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
         <AskCoach
-          title="Ask your coach"
+          title={`Ask ${coach}`}
           hint="It builds the week here"
           placeholder="Tell your coach what you want…"
           suggestions={[

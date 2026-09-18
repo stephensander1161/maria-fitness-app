@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { currentTheme } from "@/lib/current-theme";
+import { currentCoachName } from "@/lib/current-coach-name";
+import { CoachNameProvider } from "@/components/coach-name-context";
 import "./globals.css";
 import { TabBar } from "@/components/tab-bar";
 import { ViewportCover } from "@/components/viewport-cover";
@@ -47,6 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Stamped server-side so the first paint is already her palette — no script,
   // no flash. See lib/current-theme.ts.
   const theme = await currentTheme();
+  const coachName = await currentCoachName();
 
   return (
     <html lang="en" data-theme={theme.id} style={{ colorScheme: theme.scheme }}>
@@ -68,6 +71,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           what happened. Here the nav takes its width and the pane takes the
           rest, and there is nothing to keep in step.
         */}
+        <CoachNameProvider value={coachName}>
         <RestProvider>
         <div className="md:flex md:h-dvh">
           <SideNavGate />
@@ -102,6 +106,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
         </div>
         </RestProvider>
+        </CoachNameProvider>
         {/* The chat window the companion opens. The sheet only: he is the
             button, and two coach triggers on one screen is one too many. */}
         <CoachBubbleGate />

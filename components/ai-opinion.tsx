@@ -1,5 +1,8 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+import { possessive } from "@/lib/coach-name";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCoachThread } from "@/lib/use-coach-thread";
@@ -27,6 +30,7 @@ import { TranscriptDownload } from "./transcript-export";
  */
 export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"; label: string }) {
   const [open, setOpen] = useState<"read" | "ask" | null>(null);
+  const coach = useCoachName();
 
   return (
     <>
@@ -34,7 +38,7 @@ export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"
       <div data-ask-coach="" className="flex shrink-0 items-center gap-1.5">
         <button
           onClick={() => setOpen("read")}
-          aria-label="Get your coach's read on this screen"
+          aria-label={`Get ${possessive(coach)} read on this screen`}
           // The label is the first thing to give way: two icons fit any phone,
           // and on the Progress header the pill was wide enough to push the
           // second button off the edge of the screen.
@@ -45,11 +49,11 @@ export function AiOpinion({ page, label }: { page: "train" | "plan" | "progress"
             <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
             <circle cx="12" cy="12" r="3.5" />
           </svg>
-          <span className="hidden sm:inline">Coach&apos;s read</span>
+          <span className="hidden sm:inline">{possessive(coach)} read</span>
         </button>
         <button
           onClick={() => setOpen("ask")}
-          aria-label="Ask your coach"
+          aria-label={`Ask ${coach}`}
           className="grid size-8 shrink-0 place-items-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-raised hover:text-accent active:bg-raised"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -112,6 +116,7 @@ function Sheet({
   ask?: string;
   onClose: () => void;
 }) {
+  const coach = useCoachName();
   const router = useRouter();
   // The query as well as the path: `?d=` is how these screens say which day,
   // and a read of "her food" on Thursday must not be a read of Friday's.
@@ -168,7 +173,7 @@ function Sheet({
         style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom), 1rem) + var(--covered-bottom, 0px))" }}>
         <div className="flex items-baseline justify-between px-5 pb-3 pt-5">
           <h2 className="text-[17px] font-semibold">
-            {mode === "read" ? `On your ${label}` : "Your coach"}
+            {mode === "read" ? `On your ${label}` : coach}
           </h2>
           <div className="flex items-center gap-1">
             {/* The transcript, where the transcript is. It was a card on the

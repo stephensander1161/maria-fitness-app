@@ -1,5 +1,7 @@
 "use client";
 
+import { useCoachName } from "./coach-name-context";
+
 /**
  * The coach, from the top of any screen.
  *
@@ -17,12 +19,13 @@
  * conversation, mounted once in the root layout.
  */
 export function AskButton({ className = "" }: { className?: string }) {
+  const coach = useCoachName();
   return (
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent("coach:open"))}
-      aria-label="Ask your coach"
-      title="Ask your coach"
+      aria-label={`Ask ${coach}`}
+      title={`Ask ${coach}`}
       className={`grid size-9 shrink-0 place-items-center rounded-full border border-line bg-surface/90 text-muted backdrop-blur transition-colors hover:text-accent active:bg-raised ${className}`}
     >
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"

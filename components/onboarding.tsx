@@ -45,6 +45,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState(defaultName ?? "");
+  const [coachName, setCoachName] = useState("");
   const [age, setAge] = useState(32);
   const [sex, setSex] = useState<"female" | "male" | "other">("female");
   // Two settings, not one: the scale and the kitchen are chosen separately,
@@ -109,6 +110,7 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(), age, sex,
+          ...(coachName.trim() ? { coachName: coachName.trim() } : {}),
           heightIn: units === "imperial" ? feet * 12 + inches : heightCm,
           currentWeight, goalWeight,
           daysPerWeek, sessionMinutes,
@@ -172,6 +174,16 @@ export function Onboarding({ defaultName }: { defaultName: string | null }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               autoFocus
+              className="w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
+            />
+          </Field>
+          <Field label="And your coach? (optional)">
+            <input
+              value={coachName}
+              onChange={(e) => setCoachName(e.target.value)}
+              placeholder="Coach"
+              maxLength={24}
+              aria-label="What to call your coach"
               className="w-full rounded-xl border border-line bg-surface px-4 py-3.5 text-[16px] placeholder:text-faint focus:border-accent focus:outline-none"
             />
           </Field>
