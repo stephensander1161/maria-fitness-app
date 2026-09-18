@@ -27,9 +27,10 @@ cd "$(dirname "$0")/.."
 PROJECT="${VERCEL_PROJECT:-maria-fitness-app}"
 SCOPE="${VERCEL_SCOPE:-fitness-app18}"
 
-before="$(npx vercel ls "$PROJECT" --scope "$SCOPE" 2>/dev/null | grep -c 'vercel\.app')"
-npx vercel remove "$PROJECT" --safe --yes --scope "$SCOPE" >/dev/null 2>&1
-after="$(npx vercel ls "$PROJECT" --scope "$SCOPE" 2>/dev/null | grep -c 'vercel\.app')"
+TOKEN=(${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"})
+before="$(npx vercel ls "$PROJECT" --scope "$SCOPE" "${TOKEN[@]}" 2>/dev/null | grep -c 'vercel\.app')"
+npx vercel remove "$PROJECT" --safe --yes --scope "$SCOPE" "${TOKEN[@]}" >/dev/null 2>&1
+after="$(npx vercel ls "$PROJECT" --scope "$SCOPE" "${TOKEN[@]}" 2>/dev/null | grep -c 'vercel\.app')"
 
 if [[ -z "$before" || -z "$after" ]]; then
   echo "  (could not reach Vercel — deployments not pruned)" >&2
