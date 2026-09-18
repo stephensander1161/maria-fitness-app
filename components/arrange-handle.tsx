@@ -44,23 +44,22 @@ export function ArrangeHandle({ page, id, first, last }: { page: Page; id: strin
   if (!card) return null;
   const label = card.label.toLowerCase();
   return (
-    <div ref={box} data-arrange-handle={id} className="absolute -top-2.5 right-3 z-10 flex flex-col items-end">
+    // Inside the card, in its top padding: a short grabber bar, centred — the
+    // mark a sheet carries, and one nothing in a card's header row sits under.
+    // A pill on the border looked like it was falling off the card.
+    <div ref={box} data-arrange-handle={id} className="absolute inset-x-0 top-0 z-10 flex flex-col items-center">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label={`Move or hide ${label}`}
         title="Move or hide"
-        className={`grid h-5 w-8 place-items-center rounded-full border bg-surface text-faint transition-colors hover:text-muted ${open ? "border-accent text-accent" : "border-line"}`}
+        className="group -mt-px px-6 pb-1.5 pt-1.5"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <circle cx="8" cy="6" r="1.8" /><circle cx="16" cy="6" r="1.8" />
-          <circle cx="8" cy="12" r="1.8" /><circle cx="16" cy="12" r="1.8" />
-          <circle cx="8" cy="18" r="1.8" /><circle cx="16" cy="18" r="1.8" />
-        </svg>
+        <span className={`block h-1 w-8 rounded-full transition-colors ${open ? "bg-accent" : "bg-line group-hover:bg-faint"}`} />
       </button>
       {open && (
-        <div className="mt-1 flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-lg shadow-scrim/40">
+        <div className="-mt-0.5 flex items-center gap-1 rounded-xl border border-line bg-surface p-1 shadow-lg shadow-scrim/40">
           <button type="button" disabled={first || busy} onClick={() => void send({ move: "up" })} aria-label={`Move ${label} up`}
             className="grid size-8 place-items-center rounded-lg text-muted hover:bg-raised disabled:opacity-30">↑</button>
           <button type="button" disabled={last || busy} onClick={() => void send({ move: "down" })} aria-label={`Move ${label} down`}
