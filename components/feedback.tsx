@@ -112,7 +112,16 @@ export function FeedbackSheet({ path, onClose }: { path: string; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6 bg-scrim/70 backdrop-blur-sm"
+    <div className="fixed inset-x-0 top-0 z-50 flex items-end justify-center md:items-center md:p-6 bg-scrim/70 backdrop-blur-sm"
+      /*
+        As tall as what is actually on screen, not the layout viewport. On an
+        iPhone the keyboard does not shrink the layout viewport — `inset-0`
+        stayed full height and the sheet, anchored to its bottom, sat behind
+        the keys: "when I click Tell us from mobile this is what I see, BAD".
+        `--visual-height` is the visual viewport, kept current by
+        components/viewport-cover.tsx; with no keyboard it is the full height.
+      */
+      style={{ height: "var(--visual-height, 100dvh)" }}
       onClick={onClose} role="dialog" aria-modal="true" aria-label="Send feedback">
       <div ref={panel}
         onClick={(e) => e.stopPropagation()}

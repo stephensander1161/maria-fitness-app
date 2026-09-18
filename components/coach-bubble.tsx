@@ -257,7 +257,10 @@ function CoachSheet({
       role="dialog"
       aria-modal="true"
       aria-label={coach}
-      className="fixed inset-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
+      className="fixed inset-x-0 top-0 z-[80] flex flex-col justify-end bg-scrim/70 backdrop-blur-sm md:items-center md:justify-center md:p-6"
+      // The visible strip, not the layout viewport — the keyboard shrinks
+      // one and not the other. See components/feedback.tsx.
+      style={{ height: "var(--visual-height, 100dvh)" }}
     >
       {/*
         A sheet from the bottom edge is right under a thumb and wrong under a
@@ -274,7 +277,7 @@ function CoachSheet({
       <div
         ref={panel}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[88dvh] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(52rem,90dvh)] md:w-[min(56rem,92vw)] md:max-w-none md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60"
+        className="flex h-[min(88dvh,calc(var(--visual-height,100dvh)-1rem))] w-full max-w-lg flex-col self-center rounded-t-3xl border-t border-line bg-base md:h-[min(52rem,90dvh)] md:w-[min(56rem,92vw)] md:max-w-none md:self-auto md:rounded-2xl md:border md:shadow-2xl md:shadow-scrim/60"
         data-no-pull-to-refresh=""
       >
         {clearing && (
