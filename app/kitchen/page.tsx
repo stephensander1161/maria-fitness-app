@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/session";
 import { tierOf } from "@/lib/tiers";
-import { ShoppingList, type ShoppingAisle } from "@/components/shopping-list";
-import { KitchenGrid } from "@/components/kitchen-grid";
+import { Kitchen, type ShoppingAisle } from "@/components/kitchen";
 import { requireOnboarded } from "@/lib/session";
 import { kitchenView } from "@/lib/views";
 import { prettyDate, weekStart } from "@/lib/date";
@@ -57,31 +56,33 @@ export default async function KitchenPage() {
     }>,
   ]);
 
+  const week = weekStart(her);
+  const mealsCovered = (shopping as { mealsCovered?: number }).mealsCovered ?? 0;
+  const categories = Object.fromEntries(kitchen.items.map((i) => [i.item, i.category]));
+  // The same number the list shows: lines the kitchen does not already cover.
+  const toBuy = (shopping.aisles ?? []).flatMap((a) => a.items).filter((i) => i.inKitchen !== "have").length;
+  const line = [
+    toBuy > 0 ? `${toBuy} to buy` : null,
+    mealsCovered > 0 ? `${mealsCovered} meal${mealsCovered === 1 ? "" : "s"} planned` : null,
+    `week of ${prettyDate(week)}`,
+  ].filter(Boolean).join(" · ");
+
   return (
     <>
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
-          <p className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-hold/40 bg-hold-soft px-2.5 py-1 text-[11px] font-medium text-hold">
-            Work in progress
-          </p>
-          <p className="mt-1 text-[13px] text-muted">
-            {kitchen.toBuy > 0
-              ? `${kitchen.toBuy} to buy · week of ${prettyDate(weekStart(her))}`
-              : `Week of ${prettyDate(weekStart(her))}`}
-          </p>
-        </div>
+      <header className="mb-4">
+        <h1 className="text-2xl font-bold tracking-tight">Kitchen</h1>
+        <p className="mt-1 text-[13px] text-muted">{line}</p>
       </header>
 
-      <KitchenGrid items={kitchen.items} hasMealPlan={kitchen.hasMealPlan} />
-
-      <div className="mt-6">
-        <ShoppingList
-          weekStart={weekStart(her)}
-          aisles={shopping.aisles ?? []}
-          instacart={shopping.instacart}
-        />
-      </div>
+      <Kitchen
+        weekStart={week}
+        mealsCovered={mealsCovered}
+        hasMealPlan={kitchen.hasMealPlan}
+        instacart={shopping.instacart}
+        aisles={shopping.aisles ?? []}
+        pantry={kitchen.items}
+        categories={categories}
+      />
     </>
   );
 }
