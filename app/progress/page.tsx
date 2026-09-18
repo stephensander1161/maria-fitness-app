@@ -1,5 +1,5 @@
 import { cardOpen } from "@/lib/cards";
-import { HideCard } from "@/components/hide-card";
+import { ArrangeHandle } from "@/components/arrange-handle";
 import { and, desc, eq, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { goals, weighIns } from "@/lib/db/schema";
@@ -453,8 +453,8 @@ export default async function ProgressPage({
             brings it back.
           */}
           {vsLastWeek.rows.length + vsLastWeek.level > 0 && (
-            <div className="relative mt-3">
-              <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="this week against last" hidden={!showReview} /></div>
+            <div className="relative mt-3 pt-3">
+              <ArrangeHandle hide={{ card: "weekReview", label: "Against last week", hidden: !showReview }} />
               <p className="mb-1.5 text-[11px] uppercase tracking-wide text-faint">Against last week</p>
               {showReview ? (
                 <>
@@ -475,7 +475,7 @@ export default async function ProgressPage({
                   )}
                 </>
               ) : (
-                <p className="text-[12px] text-faint">Hidden — the eye shows it.</p>
+                <p className="text-[12px] text-faint">Hidden — the grip shows it.</p>
               )}
             </div>
           )}

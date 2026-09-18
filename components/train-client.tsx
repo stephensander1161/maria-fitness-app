@@ -17,7 +17,7 @@ import { cueItems, cuePages } from "@/lib/cue-pages";
 import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
-import { cardOpen, cardShown, movementCard, movementFolded, orderFor, withCard, withMovementFold, type CardId, type CardLayout } from "@/lib/cards";
+import { cardOpen, cardShown, movementCard, movementFolded, orderFor, withMovementFold, type CardId, type CardLayout } from "@/lib/cards";
 import { ArrangeHandle } from "./arrange-handle";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
@@ -679,11 +679,6 @@ export function TrainClient({
    * visible again next time — the safe direction for a control that removes
    * things. Settings is the way back, and the icon's own label says so.
    */
-  const hideCard = useCallback((card: CardId) => {
-    setFolded((f) => withCard(f, card, false));
-    void action("set_card_collapsed", { card, collapsed: true })
-      .catch(() => { /* see above */ });
-  }, []);
   // Folded (the icon on the card, Settings) or hidden from the arrange panel —
   // either way it is not drawn.
   const showing = useCallback((card: CardId) => cardOpen(folded, card) && cardShown("train", cardLayout, folded, card), [folded, cardLayout]);
@@ -979,7 +974,6 @@ export function TrainClient({
                 hint="a few reps each, nothing held"
                 items={stretchNames(warmUpFor(dayMuscles))}
                 from={backHere}
-                onHide={() => hideCard("warmUp")}
               />
             )}
             </>
@@ -1062,7 +1056,6 @@ export function TrainClient({
                 hint="about 30 seconds each"
                 items={stretchNames(coolDownFor(dayMuscles))}
                 from={backHere}
-                onHide={() => hideCard("coolDown")}
               />
             )}
             </>

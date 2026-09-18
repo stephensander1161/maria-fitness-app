@@ -28,7 +28,8 @@ suite("the warm-up and the cool-down can be put away", () => {
     expect(Object.keys(CARDS)).toContain("weekReview");
     const progress = fs.readFileSync("app/progress/page.tsx", "utf8");
     expect(progress).toMatch(/cardOpen\(profile\.collapsedCards, "weekReview"\)/);
-    expect(progress).toMatch(/<HideCard id="weekReview"/);
+    expect(progress).toMatch(/<ArrangeHandle hide=\{\{ card: "weekReview"/);
+    expect(fs.existsSync("components/hide-card.tsx")).toBe(false);
     expect(fs.readFileSync("components/stretch-visibility.tsx", "utf8")).toMatch(/card: "weekReview"/);
     // Shown unless she has said otherwise. A card that starts hidden is a
     // feature she never learns exists.
@@ -55,19 +56,21 @@ suite("the warm-up and the cool-down can be put away", () => {
     // A row of two controls: a button inside a button is not something a
     // browser will render.
     expect(block).toMatch(/aria-expanded=\{open\}/);
-    expect(block).toMatch(/onHide && \(/);
-    // The label says where it goes, because a control that removes something
-    // has to say how to get it back.
-    expect(block).toMatch(/you can bring it back in Settings/);
+    // The eye is gone (2026-09-18, "deprecate the old one, for all"): the grip on the card hides it.
+    expect(block).not.toMatch(/onHide/);
+    // The way out is the grip on the card, and its label says where a hidden
+    // card goes — a control that removes something has to say how to get it back.
+    expect(fs.readFileSync("components/arrange-handle.tsx", "utf8")).toMatch(/Settings brings it back/);
   });
 
   it("hides on the tap and saves behind it", () => {
     const card = read("components/train-client.tsx");
-    expect(card).toMatch(/setFolded\(\(f\) => withCard\(f, card, false\)\)/);
+    // Hidden through the grip (arrange_cards) and drawn from the same list the
+    // page re-reads; the card no longer folds anything itself.
     expect(card).toMatch(/\{showing\("warmUp"\) && \(/);
     expect(card).toMatch(/\{showing\("coolDown"\) && \(/);
-    expect(card).toMatch(/onHide=\{\(\) => hideCard\("warmUp"\)\}/);
-    expect(card).toMatch(/onHide=\{\(\) => hideCard\("coolDown"\)\}/);
+    expect(card).not.toMatch(/onHide=/);
+    expect(card).toMatch(/<ArrangeHandle page="train"/);
   });
 
   it("leaves the rest-day block alone, because it is the whole screen", () => {
