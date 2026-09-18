@@ -5,7 +5,7 @@ name: CI
 # the unit *and* database suites, a dependency audit, the build, and the
 # browser journeys against a real Postgres. Then:
 #
-#   push to dev   → deploy a preview and point maria-fitness-app-dev at it
+#   push to dev   → deploy a preview and point dev.sorewinner.app at it
 #   merge to main → deploy production
 #
 # main takes no direct pushes (a repository ruleset: pull requests only, these
@@ -293,13 +293,17 @@ jobs:
           auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
           id="$(curl -sfS "${auth[@]}" "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID" | jq -r .id)"
           [ -n "$id" ] && [ "$id" != "null" ] || { echo "::error::could not find deployment $host"; exit 1; }
-          curl -sfS -X POST "${auth[@]}" -H "Content-Type: application/json" \
-            "https://api.vercel.com/v2/deployments/$id/aliases?teamId=$VERCEL_ORG_ID" \
-            -d '{"alias":"maria-fitness-app-dev.vercel.app"}' | jq -r '"aliased: " + (.alias // .error.message)'
+          # The dev address, and the old one, which keeps working as a second
+          # name for the same deployment.
+          for alias in dev.sorewinner.app maria-fitness-app-dev.vercel.app; do
+            curl -sfS -X POST "${auth[@]}" -H "Content-Type: application/json" \
+              "https://api.vercel.com/v2/deployments/$id/aliases?teamId=$VERCEL_ORG_ID" \
+              -d "{\"alias\":\"$alias\"}" | jq -r '"aliased: " + (.alias // .error.message)'
+          done
       - run: |
           echo "### Dev deployed" >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
-          echo "https://maria-fitness-app-dev.vercel.app → ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://dev.sorewinner.app → ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
 
   # Production. Only a merge into main gets here, and main only takes merges
   # from dev that passed the jobs above.
@@ -348,4 +352,4 @@ jobs:
       - run: |
           echo "### Production deployed" >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
-          echo "https://maria-fitness-app.vercel.app → ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://sorewinner.app → ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"

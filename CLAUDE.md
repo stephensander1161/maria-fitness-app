@@ -218,9 +218,11 @@ second store.
 
 ## Two environments, one door between them
 
-**Production** is `main`, reachable at maria-fitness-app.vercel.app. **Dev** is
+The app is **Sore Winner** (sorewinner.app, bought 2026-09-18; the repository keeps
+its old name). **Production** is `main`, reachable at sorewinner.app — the old
+maria-fitness-app.vercel.app redirects there. **Dev** is
 the `dev` branch, a Vercel *preview* deployment aliased to a fixed address,
-maria-fitness-app-dev.vercel.app, reading the project's Preview environment:
+dev.sorewinner.app, reading the project's Preview environment:
 its own Neon branch (`dev` of project hidden-pond, schema only), its own
 `AUTH_SECRET`, no Blob store (photos fall back to the row), no crons (Vercel
 runs crons on production only). Nothing done on dev can touch a real person's

@@ -7,7 +7,7 @@
 # The gates here, on this machine, for fast feedback — then the push. The
 # deploy itself is CI's (`deploy-dev` in .github/workflows/ci.yml): it runs
 # the same gates again on a clean runner and then points
-# maria-fitness-app-dev.vercel.app at the new preview. Nothing a laptop does
+# dev.sorewinner.app at the new preview. Nothing a laptop does
 # reaches an environment; a laptop only decides what is worth pushing.
 #
 # Schema changes go to the dev database from here (`db:push:dev`, reading
@@ -40,6 +40,6 @@ npm run db:push:dev
 echo "── push"
 git push -u origin dev
 REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")"
-echo "✓ pushed $(git rev-parse --short HEAD) — CI is deploying it to https://maria-fitness-app-dev.vercel.app"
+echo "✓ pushed $(git rev-parse --short HEAD) — CI is deploying it to https://dev.sorewinner.app"
 [[ -n "$REPO" ]] && echo "   https://github.com/$REPO/actions?query=branch%3Adev"
 exit 0
