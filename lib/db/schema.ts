@@ -116,6 +116,13 @@ export const profiles = pgTable("profiles", {
   /** What she calls her coach — see lib/coach-name.ts. */
   coachName: text("coach_name").default("Coach").notNull(),
   /**
+   * Whether a one-sided movement asks which side a set was. Off by default —
+   * "in what universe does someone log diff weight per side" — and on for
+   * the person who asked for it back: it opens on the side she did *not* do
+   * last, which is the whole point of it.
+   */
+  sidePicker: boolean("side_picker").default(false).notNull(),
+  /**
    * Which palette the app renders in. Null means the default; an unrecognised
    * value falls back rather than rendering unstyled — see lib/theme.ts.
    * Stored per profile, so it follows her between her phone and a laptop

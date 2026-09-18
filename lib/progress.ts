@@ -377,12 +377,32 @@ export type WeekReview = {
   /** Exercises where this week beat, matched, or fell short of the week before. */
   beat: string[];
   missed: string[];
+  /**
+   * The same comparison as numbers: one row per movement trained this week
+   * with a week before it, volume against last time. For the Progress
+   * screen, which drew `beat` and `missed` as two lists of sentences — "the
+   * wall of text is ugly" — where a row of name and percentage says the same
+   * thing in a fifth of the space.
+   */
+  movements: WeekMovement[];
   /** Latest weigh-in this week minus the last one before the week began
    *  (looking back up to a week). Null without one on each side. */
   weightChangeKg: number | null;
   /** Most recent weigh-in in the last two weeks, whichever side of Monday. */
   latestWeightKg: number | null;
 };
+
+export type WeekMovement = { name: string; status: "beat" | "matched" | "missed"; volumeDeltaPct: number | null };
+
+/**
+ * The rows the Progress screen draws, biggest change first, the ones that
+ * merely matched last week folded away behind a count — level is not news.
+ */
+export function trendRows(movements: WeekMovement[], limit = 6): { rows: WeekMovement[]; more: number; level: number } {
+  const moved = movements.filter((m) => m.status !== "matched")
+    .sort((a, b) => Math.abs(b.volumeDeltaPct ?? 0) - Math.abs(a.volumeDeltaPct ?? 0));
+  return { rows: moved.slice(0, limit), more: Math.max(0, moved.length - limit), level: movements.length - moved.length };
+}
 
 /**
  * The weekly honesty report. Feeds both the Progress screen and the coach's
@@ -501,6 +521,9 @@ export async function weekReview(
     totalSets: totals?.sets ?? 0,
     beat: comparisons.filter((c) => c.status === "beat").map((c) => c.headline),
     missed: comparisons.filter((c) => c.status === "missed").map((c) => c.headline),
+    movements: comparisons
+      .filter((c): c is typeof c & { status: "beat" | "matched" | "missed" } => c.status === "beat" || c.status === "matched" || c.status === "missed")
+      .map((c) => ({ name: c.exerciseName, status: c.status, volumeDeltaPct: c.volumeDeltaPct })),
     weightChangeKg,
     latestWeightKg,
   };

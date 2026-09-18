@@ -104,6 +104,8 @@ export const updateProfile = defineTool({
     cookingSkill: z.enum(["minimal", "comfortable", "keen"]).optional(),
     coachTone: z.enum(["encouraging", "plain", "hype"]).optional()
       .describe("How she wants you to talk: 'encouraging' warm and steady, 'plain' direct and short, 'hype' loud gym-floor energy. Change it the moment she reacts to your tone — 'stop being so chirpy', 'you're a bit flat' — rather than adjusting on your own and drifting back."),
+    sidePicker: z.boolean().optional()
+      .describe("Whether one-sided movements ask which side each set was. Off by default; turn on when she asks to log left and right separately"),
     coachName: z.string().max(40).optional()
       .describe("What she calls you — set it when she names her coach; empty means back to Coach"),
     units: z.enum(["imperial", "metric"]).optional()
@@ -132,6 +134,7 @@ export const updateProfile = defineTool({
     if (input.timezone !== undefined) patch.timezone = input.timezone;
     if (input.coachTone !== undefined) patch.coachTone = input.coachTone;
     if (input.coachName !== undefined) patch.coachName = coachNameOf(input.coachName);
+    if (input.sidePicker !== undefined) patch.sidePicker = input.sidePicker;
     if (input.goalWeight !== undefined) patch.goalWeightKg = weightIn(input.goalWeight, u);
     if (input.goalDate !== undefined) patch.goalDate = input.goalDate;
     if (input.motivation !== undefined) patch.motivation = input.motivation;

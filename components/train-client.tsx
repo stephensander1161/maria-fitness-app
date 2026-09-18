@@ -86,6 +86,7 @@ export function TrainClient({
   tone = null,
   collapsedCards = [],
   cardLayout = null,
+  sidePicker = false,
   dayLabel,
   heading,
   stepBack,
@@ -140,6 +141,8 @@ export function TrainClient({
   collapsedCards?: string[];
   /** The order of the cards on this screen, and which she hid — lib/cards.ts. */
   cardLayout?: CardLayout | null;
+  /** Whether one-sided movements ask which side — her setting, off by default. */
+  sidePicker?: boolean;
   /** What the day is called, for the one line at the top of a focused page. */
   dayLabel?: string;
   /**
@@ -928,6 +931,7 @@ export function TrainClient({
             }}
             onRetryPending={flush}
             onRemoved={() => router.refresh()}
+            sides={sidePicker}
             upNext={currentSlug === ex.slug}
             live={sessionLive}
           />
@@ -1035,6 +1039,7 @@ export function TrainClient({
                 }}
                 onRetryPending={flush}
                 onRemoved={() => router.refresh()}
+                sides={sidePicker}
                 folded={isFolded(ex)}
                 onFold={(shut) => foldMovement(ex.slug, shut)}
                 upNext={isUpNext(ex)}
@@ -1927,7 +1932,7 @@ function FoldToggle({
 
 export function ExerciseCard({
   exercise, unit, next, result, pending, pickable, date, canLog = true, editable = true,
-  onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart,
+  onLogged, onRetryPending, onRemoved, upNext = false, live = true, dragging = false, onDragStart, sides = false,
   offsetY = 0, offsetX = 0, dropTarget = false,
   asPage = false, focusEntry = false, href, folded = false, onFold,
   chainAbove = false, chainBelow = false, canChainBelow = false, onChainBelow, onUnchain,
@@ -1976,6 +1981,8 @@ export function ExerciseCard({
   ) => void;
   onRetryPending: () => void;
   onRemoved: () => void;
+  /** Whether to ask which side on a one-sided movement — her setting. */
+  sides?: boolean;
   /** The rest running right now is counting down to this movement. */
   upNext?: boolean;
   /**
@@ -2261,14 +2268,22 @@ export function ExerciseCard({
    * be complete — arriving at a finished card should say nothing.
    */
   /*
-    Which band — and no longer which side.
+    Which band.
 
-    The left/right picker is gone from every movement: "remove the left/right
-    side crap from all exercises, in what universe does someone log diff
-    weight per side". Nobody does. The `side` column stays on the row for the
-    coach and for anything already logged with one; the card simply never
-    sends it.
+    The left/right picker was taken off every movement — "remove the
+    left/right side crap from all exercises" — and then came back as a
+    setting, off by default, because Maria wanted it. See `askSide` above.
   */
+  /*
+    Which side — back, as her setting, off by default. "Turns out Maria
+    wanted that." It opens on the side she did *not* do last, so the answer
+    to "which one now" is already selected; tapping the selected one clears
+    it, because left-then-right counted as one set is a real way to train.
+  */
+  const askSide = sides && exercise.unilateral;
+  const [side, setSide] = useState<"left" | "right" | null>(
+    askSide && exercise.lastSide ? (exercise.lastSide === "left" ? "right" : "left") : null,
+  );
   const [band, setBand] = useState<string | null>(exercise.lastBand ?? null);
   /*
     A band is an alternative to a weight, not an addition to one.
@@ -2384,7 +2399,7 @@ export function ExerciseCard({
       reps: exercise.isHold ? 1 : reps,
       holdSeconds: exercise.isHold ? reps : null,
       weight: loaded && weight > 0 ? weight : null,
-      side: null,
+      side: askSide ? side : null,
       band: bandForSet,
     };
     setUnconfirmed((u) => queueSet(u, shown.length, mine));
@@ -2400,7 +2415,7 @@ export function ExerciseCard({
           loaded && weight > 0 ? weight : null,
           rir,
           date as ISODate | undefined,
-          { side: null, band: bandForSet },
+          { side: askSide ? side : null, band: bandForSet },
         ),
       );
       // Whether that was the last set she planned for this movement.
@@ -3209,6 +3224,32 @@ export function ExerciseCard({
               the two are alternatives, and the library marks a hammer curl as
               both because it is one or the other, never both at once.
             */}
+            {askSide && (
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">
+                  Side
+                  {exercise.lastSide && (
+                    <span className="ml-1.5 normal-case tracking-normal text-muted">last was {exercise.lastSide}</span>
+                  )}
+                </p>
+                <div className="flex gap-1.5">
+                  {(["left", "right"] as const).map((sd) => (
+                    <button
+                      key={sd}
+                      type="button"
+                      onClick={() => setSide(side === sd ? null : sd)}
+                      disabled={saving}
+                      aria-pressed={side === sd}
+                      className={`h-9 flex-1 rounded-lg border text-[13px] capitalize active:bg-raised disabled:opacity-40 md:h-auto md:py-2.5 ${
+                        side === sd ? "border-accent bg-accent-soft text-accent" : "border-edge text-muted"
+                      }`}
+                    >
+                      {sd}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {askBand && (
               <div>
                 <p className="mb-1 text-[10px] uppercase tracking-wide text-faint md:mb-1.5 md:text-[11px]">

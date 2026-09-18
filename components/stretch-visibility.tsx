@@ -23,7 +23,7 @@ import { cardOpen, type CardId } from "@/lib/cards";
 const ROWS: { card: CardId; label: string; about: string }[] = [
   { card: "warmUp", label: "Warm-up", about: "A few reps of what the day trains, before the first set." },
   { card: "coolDown", label: "Cool-down", about: "Holds, after the lifting, when they cost nothing." },
-  { card: "weekReview", label: "Moved up / Came up short", about: "The week's set-by-set review, on Progress." },
+  { card: "weekReview", label: "Against last week", about: "Each movement's volume against the week before, on Progress." },
 ];
 
 export function StretchVisibility({ collapsedCards }: { collapsedCards: string[] | null }) {

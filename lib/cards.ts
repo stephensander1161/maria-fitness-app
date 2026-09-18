@@ -29,7 +29,7 @@ export const CARDS = {
     the way back is Settings or asking. "Add option to hide the 'moved up and
     came up short' section."
   */
-  weekReview: "Moved up and Came up short, the week's set-by-set review on the Progress screen",
+  weekReview: "Against last week — each movement's volume against the week before, on the Progress screen",
 } as const;
 
 /**

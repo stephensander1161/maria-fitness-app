@@ -18,6 +18,7 @@ import { EraseData } from "@/components/erase-data";
 import { DeleteAccount } from "@/components/delete-account";
 import { RestSettings } from "@/components/rest-settings";
 import { StretchVisibility } from "@/components/stretch-visibility";
+import { SidePickerSetting } from "@/components/side-picker-setting";
 import { WeighInReminder } from "@/components/weigh-in-reminder";
 import { vapidPublicKey } from "@/lib/push";
 import { currentUser } from "@/lib/session";
@@ -89,6 +90,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               defaultRestSeconds={profile.defaultRestSeconds}
               restByGroup={profile.restByGroup}
             />
+            <SidePickerSetting on={profile.sidePicker} />
             <StretchVisibility collapsedCards={profile.collapsedCards} />
           </Group>
 
