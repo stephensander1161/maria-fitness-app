@@ -86,7 +86,7 @@ If it refuses, take the change back out; do not argue with it.
 Gates first: `npx tsc --noEmit`, `npx eslint .`, `npx vitest run`.
 
 Then `npm run ship:dev`, which runs the gates again and pushes `dev`; CI deploys
-it to maria-fitness-app-dev.vercel.app.
+it to dev.sorewinner.app.
 
 **Never `npm run promote` from this skill.** A request-driven change reaches
 production only when Stephen has looked at it on dev and promotes it himself.
