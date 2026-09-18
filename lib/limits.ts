@@ -1,3 +1,4 @@
+import { entitledFor, tierCeilingMicros } from "@/lib/tiers";
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, rateEvents, usageDaily } from "@/lib/db/schema";
@@ -165,7 +166,12 @@ export async function persistUsage(
  * exact failure the cap exists to prevent.
  */
 export async function effectiveDailyLimit(profileId?: string): Promise<number> {
-  const ceiling = LIMITS.dailyCostMicros;
+  // The tier's ceiling first — a free account's day is small by design, a
+  // paying one's is what the price affords, a comped one keeps the
+  // deployment's own. lib/tiers.ts.
+  const ceiling = profileId
+    ? Math.min(LIMITS.dailyCostMicros, tierCeilingMicros(await entitledFor(profileId)))
+    : LIMITS.dailyCostMicros;
   if (!profileId) return ceiling;
 
   const [row] = await db

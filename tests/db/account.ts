@@ -50,6 +50,8 @@ export type AccountOptions = {
   /** Left null for a test about onboarding itself. */
   onboarded?: boolean;
   role?: "member" | "owner";
+  /** Free-tier tests set this false; everything else is Pro. */
+  comped?: boolean;
   /** Anything else on the profile this particular test needs. */
   profile?: Record<string, unknown>;
 };
@@ -74,6 +76,8 @@ export async function makeAccount(slug: string, options: AccountOptions = {}): P
     name: options.name ?? "Test",
     passwordHash: null,
     role: options.role ?? "member",
+    // Pro, like the family's accounts: a test about a wall says so itself.
+    comped: options.comped ?? true,
   }).returning();
 
   const timezone = options.timezone ?? "UTC";

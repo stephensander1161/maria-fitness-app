@@ -10,6 +10,8 @@ import { logoMarkOf } from "@/lib/logo-mark";
 import { themeOf } from "@/lib/theme";
 import { CoachTone } from "@/components/coach-tone";
 import { CoachName } from "@/components/coach-name";
+import { GoPro } from "@/components/go-pro";
+import { tierOf } from "@/lib/tiers";
 import { PlanSetupButton } from "@/components/plan-setup";
 import Link from "next/link";
 import { EraseData } from "@/components/erase-data";
@@ -30,8 +32,11 @@ export const dynamic = "force-dynamic";
  * spend and how to get the transcript out are not that. They are settings,
  * and they were being scrolled past to reach the sign-out button.
  */
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ pro?: string }> }) {
   const profile = await requireOnboarded();
+  const { pro } = await searchParams;
+  // The account behind the profile — the tier lives there, not on the profile.
+  const account = await currentUser();
   const user = await currentUser();
   const usage = await runTool("get_coach_usage", {}, { profileId: profile.id });
 
@@ -57,6 +62,10 @@ export default async function SettingsPage() {
       */}
       <div className="max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-x-8">
         <div>
+          <Group title="Sore Winner Pro">
+            <GoPro tier={tierOf(account)} comped={account?.comped ?? false} status={account?.subscriptionStatus ?? null} welcome={pro === "welcome"} />
+          </Group>
+
           <Group title="Your coach">
             <CoachName name={coachNameOf(profile.coachName)} />
             <CoachTone tone={profile.coachTone} />

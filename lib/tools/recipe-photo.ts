@@ -29,6 +29,7 @@ const JPEG_DATA_URL = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/;
 
 export const estimateRecipeFromPhoto = defineTool({
   name: "estimate_recipe_from_photo",
+  requires: "camera",
   uiOnly:
     "takes a resized JPEG data URL that only the browser canvas can produce; the model cannot generate an image",
   slow: "planner",

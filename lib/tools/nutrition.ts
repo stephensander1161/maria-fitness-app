@@ -51,6 +51,7 @@ async function herMeal(profileId: string, mealId: string) {
 
 export const createMealPlan = defineTool({
   name: "create_meal_plan",
+  requires: "planner",
   slow: "planner",
   description:
     "Builds the week's meal plan, or re-plans particular days of it. You set the targets; a dedicated planner writes the actual meals around her restrictions, dislikes and cooking confidence. Set a calorie target that produces a sustainable deficit (roughly 0.5–1% of body weight per week, never below 1200 kcal/day) and protein high enough to protect muscle while losing fat (about 1.6g per kg). Takes a few seconds. Without `days` it replaces the whole week; with `days` it touches only those and leaves the rest alone.",
@@ -1177,6 +1178,7 @@ export const getRecentMeals = defineTool({
 
 export const getShoppingList = defineTool({
   name: "get_shopping_list",
+  requires: "kitchen",
   description:
     "Everything the week's meals need, added up and grouped by aisle, with what her kitchen already holds marked against it. Use it when she asks what to buy, is planning a shop, or wants to know whether a swap changes the list. Quantities are added only where the units match — the list is for shopping from, so a handful stays a handful — and weights and volumes come back in her food units. Each item carries an `inKitchen` status: only 'missing', 'out' and 'short' actually need buying, and 'unknown' means the amount was never counted, so ask rather than assume. The result says whether Instacart is connected; if it is, send_shopping_list_to_instacart turns the list into a cart.",
   input: z.object({

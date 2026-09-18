@@ -1,3 +1,4 @@
+import { PRO_ONLY } from "@/lib/tier-messages";
 import type Anthropic from "@anthropic-ai/sdk";
 import { toAnthropicTool, type Tool, type ToolContext } from "./define";
 import * as profile from "./profile";
@@ -239,6 +240,9 @@ export async function runTool(
     console.error("[tool-reject]", name, Object.keys((input ?? {}) as object).join(","), issues.join("; "));
     // Hand the model a correctable message instead of throwing the turn away.
     return { error: "Invalid arguments", issues };
+  }
+  if (tool.requires && ctx.tier === "free") {
+    return { ok: false, error: PRO_ONLY[tool.requires], upgrade: true as const };
   }
   return tool.handler(parsed.data, ctx);
 }

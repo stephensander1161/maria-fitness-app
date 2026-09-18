@@ -157,7 +157,7 @@ export function Wordmark({
         className="font-semibold tracking-tight"
         style={{ fontSize: size * 0.62, letterSpacing: "-0.02em" }}
       >
-        Plate
+        Sore Winner
       </span>
     </span>
   );

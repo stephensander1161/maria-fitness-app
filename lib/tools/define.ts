@@ -1,7 +1,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
-export type ToolContext = { profileId: string };
+/**
+ * Who a tool runs for. `tier` is set by the two doors a person comes through
+ * (the chat and the action route) and left unset by the app's own callers
+ * (onboarding, reminders, scripts), which are never gated.
+ */
+export type ToolContext = { profileId: string; tier?: "free" | "pro" };
 
 export type Tool<S extends z.ZodType = z.ZodType> = {
   name: string;
@@ -26,6 +31,12 @@ export type Tool<S extends z.ZodType = z.ZodType> = {
    * straight into the function's wall and leave the transcript unanswerable.
    */
   slow?: "planner";
+  /**
+   * The Pro door this tool is behind, if any — lib/tier-messages.ts. Checked
+   * once, in runTool, so a free account gets the same one-line answer from
+   * every gated tool and no handler has to remember to ask.
+   */
+  requires?: "planner" | "kitchen" | "camera";
   /**
    * Identical input twice in one turn is *meaningful* for this tool, and the
    * turn guard must not treat it as a loop. Takes the reason.

@@ -1,3 +1,5 @@
+import { TIERS, type Tier } from "@/lib/tiers";
+import { turnsToday } from "@/lib/turns";
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import { anthropicTools, registry, runTool, type ToolContext } from "@/lib/tools";
@@ -93,9 +95,11 @@ export async function* runCoach(
      * open-and-close would otherwise leave an empty row in her history.
      */
     conversationId?: string | null;
+    /** Free or Pro — lib/tiers.ts. Unset means an internal caller, never gated. */
+    tier?: Tier;
   } = {},
 ): AsyncGenerator<CoachEvent> {
-  const ctx: ToolContext = { profileId: profile.id };
+  const ctx: ToolContext = { profileId: profile.id, tier: opts.tier };
   // Her today, not the server's. She trains at 7pm in Denver, the server is
   // already on tomorrow, and the block would tell the coach she has logged
   // nothing — so it asks her to retype the session she just finished, which is
@@ -238,6 +242,12 @@ export async function* runCoach(
       const budget = await checkSpendAllowed(profile.id);
       if (!budget.allowed) {
         yield { type: "error", message: budget.reason, code: budget.code };
+        return;
+      }
+      // A free account's day is a handful of turns — lib/tiers.ts. Counted
+      // from her own messages today, so a long answer costs her nothing extra.
+      if (opts.tier === "free" && await turnsToday(profile.id, her) > TIERS.free.coachTurnsPerDay) {
+        yield { type: "error", message: `That's the free plan's ${TIERS.free.coachTurnsPerDay} turns for today. Everything you log still counts — and Sore Winner Pro is in Settings when you want more of me.`, code: "spent" };
         return;
       }
 

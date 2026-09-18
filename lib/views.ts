@@ -1150,13 +1150,16 @@ export async function kitchenView(profileId: string, foodUnits: Units, asOf: ISO
   };
 
   const extraNames = new Set(extras.map((e) => normaliseItem(e.item)));
-  const names = new Set<string>([
-    ...stock.map((s) => s.item),
-    ...lines.map((l) => l.item),
-    ...extras.map((e) => e.item),
-  ]);
+  // One row per thing, by the normalised name the rest of the app uses —
+  // "eggs" she typed and "egg" a recipe wants are the same row, and her own
+  // wording wins. Deduped by exact string it drew both: "egg 6 · eggs 6".
+  const byName = new Map<string, string>();
+  for (const item of [...stock.map((s) => s.item), ...extras.map((e) => e.item), ...lines.map((l) => l.item)]) {
+    const key = normaliseItem(item);
+    if (!byName.has(key)) byName.set(key, item);
+  }
 
-  const items = [...names].map((item) => {
+  const items = [...byName.values()].map((item) => {
     const key = normaliseItem(item);
     const have = onHand.get(key) ?? null;
     const line = byKey.get(key) ?? null;

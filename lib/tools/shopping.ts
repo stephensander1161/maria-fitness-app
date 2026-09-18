@@ -16,6 +16,7 @@ import { shoppingListFor } from "@/lib/shopping-list";
  */
 export const sendShoppingListToInstacart = defineTool({
   name: "send_shopping_list_to_instacart",
+  requires: "kitchen",
   description:
     "Sends the week's shopping list to Instacart and returns a link that opens it as a cart ready to fill from Costco or any other store Instacart delivers from. Use it when she asks to order the groceries, send the list to Instacart or Costco, or get the shop delivered. Takes the same week and mid-week options as get_shopping_list, plus `items` to send only part of the list — pass the item names exactly as get_shopping_list returned them. Give her the link exactly as returned — it works for a week. If the result says Instacart is not connected, tell her it needs setting up on the server rather than guessing at a link.",
   input: z.object({

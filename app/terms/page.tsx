@@ -37,6 +37,16 @@ export default function TermsPage() {
         joint-centred or lingering means stop.
       </P>
 
+      <H2>Paying for it</H2>
+      <P>
+        The free plan is free for as long as you like. Sore Winner Pro is a subscription, billed
+        monthly or yearly by Stripe, with a free trial first. You can cancel at any time from
+        Settings and keep Pro until the end of the period you have paid for; we do not refund a
+        period already started, except where the law requires it. Prices are shown before you
+        subscribe and may change for new subscriptions; an existing subscription keeps its price
+        until you change plan. Nothing you have logged is ever removed for not paying.
+      </P>
+
       <H2>Your account</H2>
       <P>
         Accounts are by invitation. You are responsible for keeping your sign-in to yourself. You

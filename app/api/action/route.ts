@@ -1,3 +1,4 @@
+import { tierOf } from "@/lib/tiers";
 import { runTool } from "@/lib/tools";
 import { AccountGoneError, getProfile } from "@/lib/profile";
 import { currentUser } from "@/lib/session";
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await runTool(tool, input ?? {}, { profileId: profile.id });
+    const result = await runTool(tool, input ?? {}, { profileId: profile.id, tier: tierOf(user) });
     return Response.json({ ok: true, result });
   } catch (err) {
     // Log server-side; return nothing specific. Database errors and stack

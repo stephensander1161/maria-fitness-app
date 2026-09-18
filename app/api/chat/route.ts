@@ -1,3 +1,4 @@
+import { tierOf } from "@/lib/tiers";
 import { after } from "next/server";
 
 import { runCoach } from "@/lib/agent/loop";
@@ -189,7 +190,7 @@ export async function POST(req: Request) {
     start(controller) { sink = controller; },
   });
 
-  const turn = relay(runCoach(profile, text, { silent, save, speakingTo, conversationId: thread }), {
+  const turn = relay(runCoach(profile, text, { silent, save, speakingTo, conversationId: thread, tier: tierOf(user) }), {
     write: (event) => sink!.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)),
     close: () => sink!.close(),
   });
