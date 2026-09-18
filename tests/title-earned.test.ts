@@ -109,6 +109,9 @@ suite("nobody is handed a rank they already had", () => {
     const script = fs.readFileSync("scripts/backfill-title-seen.ts", "utf8");
     expect(script).toMatch(/isNull\(profiles\.titleSeenAt\)/);
     // And onboarding stamps it for everyone after them.
-    expect(fs.readFileSync("lib/tools/profile.ts", "utf8")).toMatch(/patch\.titleSeenAt = RANKS\[0\]\.at/);
+    // A new account is stamped at onboarding too — at "Just Started", or
+    // higher from what she said about her experience (2026-09-18; the rule
+    // and its cases are in tests/titles.test.ts).
+    expect(fs.readFileSync("lib/tools/profile.ts", "utf8")).toMatch(/patch\.titleSeenAt = startingRankFor\(/);
   });
 });

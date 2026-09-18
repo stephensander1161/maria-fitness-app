@@ -109,6 +109,20 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_THEME: ThemeId = "midnight";
 
+/**
+ * The look a new account starts in.
+ *
+ * Midnight — orange on black — was everybody's default, and "I don't like the
+ * default colour, and it should be different for each gender." So a new
+ * account is set a theme at onboarding from what she answered, and Midnight
+ * stays the fallback for a row with nothing in the column. Any of them is one
+ * tap or one sentence to change (set_theme); this only decides the first
+ * screen. Cool and calm for anyone who answered neither.
+ */
+export function defaultThemeFor(sex: "female" | "male" | "other" | null | undefined): ThemeId {
+  return sex === "female" ? "orchid" : sex === "male" ? "cobalt" : "tide";
+}
+
 const BY_ID = new Map(THEMES.map((t) => [t.id, t]));
 
 export const isThemeId = (value: unknown): value is ThemeId =>

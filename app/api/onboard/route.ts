@@ -1,3 +1,4 @@
+import { defaultThemeFor } from "@/lib/theme";
 import { z } from "zod";
 import { currentUser } from "@/lib/session";
 import { getProfile, getProfileById, profileToday } from "@/lib/profile";
@@ -102,6 +103,10 @@ export async function POST(req: Request) {
     startWeight: input.currentWeight,
     markOnboarded: true,
   }, ctx);
+
+  // Her first look, from what she answered — see defaultThemeFor. Through the
+  // same tool she would use to change it.
+  await runTool("set_theme", { theme: defaultThemeFor(input.sex) }, ctx);
 
   // Before the plan is generated, not after: what she answered here decides
   // which movements are safe to put in it.
