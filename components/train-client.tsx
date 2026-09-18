@@ -2,7 +2,7 @@
 
 import { useCoachName } from "./coach-name-context";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/lib/use-dialog";
 import { isSingleColumn, moveItem, slotFor, slotForPoint } from "@/lib/reorder";
 import { clockDuration, elapsedMs, readableDuration } from "@/lib/session-clock";
@@ -18,7 +18,7 @@ import { BANDS, asksBand } from "@/lib/bands";
 import { coolDownFor, REST_DAY_FLOW, warmUpFor } from "@/lib/stretches";
 import { whatNext } from "@/lib/rest-alarm";
 import { cardOpen, cardShown, movementCard, movementFolded, orderFor, withCard, withMovementFold, type CardId, type CardLayout } from "@/lib/cards";
-import { ArrangeCards } from "./arrange-cards";
+import { ArrangeHandle } from "./arrange-handle";
 import type { Tone } from "@/lib/buddy";
 import { StretchBlock } from "./stretch-block";
 import { AddExercise } from "./add-exercise";
@@ -1124,10 +1124,15 @@ export function TrainClient({
         };
         return orderFor("train", cardLayout)
           .filter((id) => id === "movements" || cardShown("train", cardLayout, folded, id))
-          .map((id) => <Fragment key={id}>{blocks[id]}</Fragment>);
+          .map((id, i, shown) => (
+            // Each card carries its own grip — see components/arrange-handle.tsx.
+            <div key={id} className="relative">
+              <ArrangeHandle page="train" id={id} first={i === 0} last={i === shown.length - 1} />
+              {blocks[id]}
+            </div>
+          ));
       })()}
 
-      <ArrangeCards page="train" layout={cardLayout} collapsedCards={folded} />
 
       {done && (
         <SessionDone

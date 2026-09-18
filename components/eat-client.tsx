@@ -8,7 +8,7 @@ import type { MacroRow } from "@/lib/macro-progress";
 import { MealRow } from "./meal-row";
 import { BurnCard } from "./burn-card";
 import { FoldableCard } from "./foldable-card";
-import { ArrangeCards } from "./arrange-cards";
+import { ArrangeHandle } from "./arrange-handle";
 import { cardShown, orderFor, type CardLayout } from "@/lib/cards";
 
 type Meal = MealWeekView["days"][number]["meals"][number];
@@ -150,12 +150,15 @@ export function EatClient({
         };
         return orderFor("eat", cardLayout)
           .filter((id) => id === "todayFood" || cardShown("eat", cardLayout, collapsedCards, id))
-          .map((id) => <Fragment key={id}>{blocks[id]}</Fragment>);
+          .map((id, i, shown) => (
+            // Each card carries its own grip — see components/arrange-handle.tsx.
+            <div key={id} className="relative">
+              <ArrangeHandle page="eat" id={id} first={i === 0} last={i === shown.length - 1} />
+              {blocks[id]}
+            </div>
+          ));
       })()}
 
-      <div className="xl:col-span-2">
-        <ArrangeCards page="eat" layout={cardLayout} collapsedCards={collapsedCards} />
-      </div>
     </div>
   );
 }
