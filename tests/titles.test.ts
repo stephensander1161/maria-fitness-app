@@ -1,5 +1,6 @@
 import { describe as suite, expect, it } from "vitest";
-import { RANKS, scoreFor, streakWeeks, titleFor } from "@/lib/titles";
+import fs from "node:fs";
+import { RANKS, scoreFor, startingRankFor, streakWeeks, titleFor } from "@/lib/titles";
 import { weekStart, type ISODate } from "@/lib/date";
 
 const NOTHING = {
@@ -131,5 +132,33 @@ suite("the streak counts weeks, not readings", () => {
   it("stops at a genuinely missed week", () => {
     const dates = ["2026-08-25", "2026-08-11"] as ISODate[];
     expect(streakWeeks(dates, w, w("2026-08-31"))).toBe(1);
+  });
+});
+
+suite("an experienced lifter skips the early titles — 2026-09-18", () => {
+  // "If it's clear the person is experienced from their opening questions
+  // they should start higher on the title journey; a 5-year vet doesn't need
+  // the silly early titles."
+  it("starts each level of experience at a named rank, in order", () => {
+    expect(startingRankFor("beginner").name).toBe("Just Started");
+    expect(startingRankFor("returning").name).toBe("Owns Gym Shoes");
+    expect(startingRankFor("intermediate").name).toBe("Habit In Progress");
+    expect(startingRankFor("advanced").name).toBe("Progressive Overloader");
+    expect(startingRankFor(null).name).toBe("Just Started");
+    const ats = ["beginner", "returning", "intermediate", "advanced"].map((e) => startingRankFor(e as never).at);
+    expect([...ats].sort((a, b) => a - b)).toEqual(ats);
+  });
+
+  it("is a floor she starts on with an empty bar, not points she did not earn", () => {
+    const floor = startingRankFor("advanced");
+    const t = titleFor(NOTHING, floor.at);
+    expect(t.name).toBe(floor.name);
+    expect(t.progress).toBe(0);
+    expect(t.next).toBe(RANKS[RANKS.indexOf(floor) + 1].name);
+  });
+
+  it("is what onboarding stamps", () => {
+    const src = fs.readFileSync("lib/tools/profile.ts", "utf8");
+    expect(src).toMatch(/patch\.titleSeenAt = startingRankFor\(input\.experience \?\? p\.experience\)\.at;/);
   });
 });

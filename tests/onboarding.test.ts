@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 const src = fs.readFileSync("components/onboarding.tsx", "utf8");
+import { defaultThemeFor, isThemeId, DEFAULT_THEME } from "@/lib/theme";
 
 suite("onboarding", () => {
   it("does not ask the birth question of anyone who said male — 2026-09-18", () => {
@@ -26,5 +27,25 @@ suite("onboarding", () => {
     expect(src).toMatch(/max-w-sm flex-col px-6 py-10 md:card md:min-h-0 md:max-w-md/);
     // The phone keeps its full-height column and thumb-reach buttons.
     expect(src).toMatch(/className="mt-auto flex gap-3 pt-8"/);
+  });
+});
+
+suite("a new account's first look — 2026-09-18", () => {
+  // "I don't like the default colour, and it should be different for each
+  // gender." Set at onboarding from the answer, through set_theme, so it is
+  // as changeable as any other theme; Midnight stays the fallback for a row
+  // with nothing in the column.
+  it("is a real theme for every answer, and not the old orange for any of them", () => {
+    for (const sex of ["female", "male", "other", null] as const) {
+      const id = defaultThemeFor(sex);
+      expect(isThemeId(id), String(sex)).toBe(true);
+      expect(id, String(sex)).not.toBe(DEFAULT_THEME);
+    }
+    expect(defaultThemeFor("female")).not.toBe(defaultThemeFor("male"));
+  });
+
+  it("is set by the onboard route through the tool", () => {
+    const route = fs.readFileSync("app/api/onboard/route.ts", "utf8");
+    expect(route).toMatch(/runTool\("set_theme", \{ theme: defaultThemeFor\(input\.sex\) \}, ctx\)/);
   });
 });

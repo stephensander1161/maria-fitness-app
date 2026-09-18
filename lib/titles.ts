@@ -234,3 +234,30 @@ export function newRankFor(stats: TitleStats, seenAt: number | null): Rank | nul
  * file. It used to read "12 of 30".
  */
 export const rankNumber = (rank: Rank): number => RANKS.findIndex((r) => r.at === rank.at) + 1;
+
+/**
+ * Where an experienced lifter starts.
+ *
+ * The first six ranks exist for the person for whom week two is the danger:
+ * they come fast so that nothing about starting feels like standing still.
+ * Hand them to someone who has trained for five years and they read as the
+ * app not having listened — "Showed Up Twice" for a person who has shown up
+ * a thousand times. "If a 5-year vet uses the app they don't need the silly
+ * early titles, they can skip ahead."
+ *
+ * So what she said about her experience on the first screen sets the floor
+ * (`profiles.title_seen_at`, the same one rule 2 uses): a returning lifter
+ * starts at "Owns Gym Shoes", an intermediate at "Habit In Progress", an
+ * advanced one at "Progressive Overloader". Not further — the later ranks
+ * are earned in this log or not at all, and the bar from the floor to the
+ * next rank starts empty, so there is still something to do on day one.
+ */
+export type Experience = "beginner" | "returning" | "intermediate" | "advanced";
+
+export function startingRankFor(experience: Experience | null | undefined): Rank {
+  const name = experience === "returning" ? "Owns Gym Shoes"
+    : experience === "intermediate" ? "Habit In Progress"
+      : experience === "advanced" ? "Progressive Overloader"
+        : RANKS[0].name;
+  return RANKS.find((r) => r.name === name) ?? RANKS[0];
+}

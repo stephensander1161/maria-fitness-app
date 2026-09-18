@@ -15,6 +15,12 @@ suite("the phone reaches the whole app", () => {
     expect(read("components/more-nav.tsx")).toMatch(/moreItems\(isOwner, recovering\)/);
   });
 
+  it("puts Progress before Plan — 2026-09-18, \"once my plan is set I don't change it much\"", () => {
+    const tabs = read("components/tab-bar.tsx");
+    const order = [...tabs.matchAll(/href: "\/(train|eat|plan|progress|kitchen|learn)"/g)].map((m) => m[1]);
+    expect(order).toEqual(["train", "eat", "progress", "plan", "kitchen", "learn"]);
+  });
+
   it("carries the six main screens too, from the same list as the bottom bar", () => {
     // The bottom bar is position: fixed, and a phone browser's own toolbar
     // can sit on top of it — the owner could not reach Train or Plan at all.
