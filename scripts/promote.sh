@@ -52,10 +52,26 @@ echo "── pull request dev → main"
 REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 PR="$(gh pr list --base main --head dev --state open --json number -q '.[0].number')"
 if [[ -z "$PR" ]]; then
-  PR="$(gh pr create --base main --head dev \
-      --title "Promote dev to production" \
-      --body "$(printf 'Everything on dev, into production.\n\n```\n%s\n```\n\nOpened by `npm run promote`; merges itself when the checks are green.' "$(git log --oneline origin/main..dev)")" \
-    | grep -oE '[0-9]+$')"
+  # The body sorts the commits so the review lands where it matters. "New
+  # behaviour" is anything that changed the schema or added a screen, a
+  # component or a coach tool; the rest is fixes. A request-driven commit is
+  # tagged [id] by the skill, so the two lists also say which commits came
+  # from a row in the table rather than from a person at this keyboard.
+  new=""; fixes=""
+  for sha in $(git rev-list --reverse origin/main..dev); do
+    line="$(git log -1 --format='%h %s' "$sha")"
+    files="$(git diff-tree --no-commit-id -r --name-status "$sha")"
+    if echo "$files" | grep -qE '^M\s+lib/db/schema\.ts$|^A\s+(app/|components/|lib/tools/)'; then
+      new+="- $line"$'\n'
+    else
+      fixes+="- $line"$'\n'
+    fi
+  done
+  body="Everything on dev, into production. Commits tagged \`[id]\` came from a request in the app."$'\n\n'
+  [[ -n "$new" ]]   && body+="### New behaviour — read these"$'\n'"(schema, new screens, components or coach tools)"$'\n\n'"$new"$'\n'
+  [[ -n "$fixes" ]] && body+="### Fixes"$'\n\n'"$fixes"$'\n'
+  body+="Opened by \`npm run promote\`; merges itself when the checks are green."
+  PR="$(gh pr create --base main --head dev --title "Promote dev to production" --body "$body" | grep -oE '[0-9]+$')"
   echo "   opened #$PR"
 else
   echo "   reusing #$PR"

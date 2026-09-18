@@ -148,4 +148,16 @@ suite("a request reaches dev, and a person carries it to production", () => {
   it("names request commits so the promote pull request shows them", () => {
     expect(skill).toMatch(/\[a1b2c3d4\]/);
   });
+
+  it("the promote pull request sorts new behaviour from fixes, so the review lands where it matters", () => {
+    // A flag per user was considered as a second failsafe and set aside: the
+    // person reading the promote pull request is the gate, so the pull
+    // request does the sorting for them — schema changes and added screens,
+    // components or coach tools on top, everything else below.
+    const promote = fs.readFileSync("scripts/promote.sh", "utf8");
+    expect(promote).toMatch(/\^M\\s\+lib\/db\/schema\\\.ts\$\|\^A\\s\+\(app\/\|components\/\|lib\/tools\/\)/);
+    expect(promote).toMatch(/### New behaviour — read these/);
+    expect(promote).toMatch(/### Fixes/);
+    expect(promote).toMatch(/came from a request in the app/);
+  });
 });
