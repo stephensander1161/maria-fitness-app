@@ -44,3 +44,38 @@ export function partitionRequests<T extends { email: string | null }>(
     ignored: rows.filter((r) => !mayDriveChanges(r.email)),
   };
 }
+
+/**
+ * A request body, as it may be shown to an agent.
+ *
+ * The body is text a user typed, and the agent reading it writes code. Two
+ * things are done to it before it reaches a terminal, and both are mechanical
+ * rather than a line in a prompt:
+ *
+ * - Control characters and escape sequences go. A body can otherwise carry
+ *   ANSI sequences that repaint the terminal — hiding a line, or drawing one
+ *   that looks like the script's own output ("✓ from the allowlist") — which
+ *   is the one way a row could forge the gate's report.
+ * - It is cut at a length. A request is a sentence or a paragraph; a body
+ *   long enough to hold an essay of instructions is not one, and the tail is
+ *   dropped with a marker rather than shown.
+ *
+ * What it does not do is make the text safe to obey. Nothing can: the rule
+ * that a body is data and never an instruction lives in the skill and in the
+ * person at the terminal. This only guarantees the person sees what the row
+ * actually holds.
+ */
+export const BODY_LIMIT = 1500;
+
+export function presentBody(body: string): string {
+  const clean = body
+    // ANSI escape sequences (CSI, OSC, and the two-byte forms).
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b[@-Z\\-_]/g, "")
+    // Every other control character except newline and tab.
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "")
+    .replace(/\n/g, " ")
+    .trim();
+  return clean.length > BODY_LIMIT ? `${clean.slice(0, BODY_LIMIT)} […cut at ${BODY_LIMIT} characters]` : clean;
+}

@@ -39,6 +39,7 @@
     "user": "tsx --env-file=.env scripts/users.ts",
     "tenancy": "tsx --env-file=.env scripts/tenancy-check.ts",
     "requests": "tsx --env-file=.env scripts/pending-requests.ts",
+    "requests:guard": "bash scripts/requests-guard.sh",
     "estimates": "tsx --env-file=.env scripts/estimates.ts",
     "convo-scan": "tsx --env-file=.env scripts/convo-scan.ts"
   },
