@@ -23,7 +23,7 @@ import { useState } from "react";
  * output. After it, they are holds.
  */
 export function StretchBlock({
-  title, hint, items, from, tone = "quiet", onHide,
+  title, hint, items, from, tone = "quiet",
 }: {
   title: string;
   hint: string;
@@ -41,7 +41,6 @@ export function StretchBlock({
    *
    * Absent on the rest-day block, which is the only thing on that screen.
    */
-  onHide?: () => void;
 }) {
   const [open, setOpen] = useState(tone === "rest");
   if (items.length === 0) return null;
@@ -67,24 +66,6 @@ export function StretchBlock({
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
-        {onHide && (
-          <button
-            onClick={onHide}
-            aria-label={`Hide ${title.toLowerCase()} — you can bring it back in Settings`}
-            title={`Hide ${title.toLowerCase()}. Settings brings it back.`}
-            className="grid size-8 shrink-0 place-items-center rounded-full text-faint active:bg-raised active:text-muted"
-          >
-            {/* An eye with a line through it: the one icon that reads as
-                "hidden" rather than as "deleted", which a cross would. */}
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M3 3l18 18" />
-              <path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c5 0 9 4.5 10 7a13.6 13.6 0 0 1-2.9 3.9" />
-              <path d="M6.6 6.6C4 8.1 2.4 10.4 2 12c1 2.5 5 7 10 7a10.5 10.5 0 0 0 4.4-1" />
-              <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {open && (
