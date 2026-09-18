@@ -105,7 +105,7 @@ export default async function ProgressPage({
     sleepTotals(profile.id, her),
     waterTotals(profile.id, her),
   ]);
-  const vsLastWeek = trendRows(review.movements);
+  const vsLastWeek = trendRows(review.movements, Infinity);
 
   // The trend, not this morning's reading: a day's weight moves on water,
   // food and where she is in her cycle, and reading that as progress — in
@@ -452,29 +452,35 @@ export default async function ProgressPage({
             level ones folded behind a count. The eye hides it; Settings
             brings it back.
           */}
-          {showReview && vsLastWeek.rows.length + vsLastWeek.level > 0 && (
+          {vsLastWeek.rows.length + vsLastWeek.level > 0 && (
             <div className="relative mt-3">
-              <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="this week against last" /></div>
+              <div className="absolute -right-2 -top-1"><HideCard id="weekReview" what="this week against last" hidden={!showReview} /></div>
               <p className="mb-1.5 text-[11px] uppercase tracking-wide text-faint">Against last week</p>
-              <ul className="divide-y divide-line/60">
-                {vsLastWeek.rows.map((m) => (
-                  <li key={m.name} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="min-w-0 truncate text-[13px]">{m.name}</span>
-                    <span className={`shrink-0 text-[13px] font-semibold tabular ${m.status === "beat" ? "text-beat" : "text-miss"}`}>
-                      {m.volumeDeltaPct === null ? (m.status === "beat" ? "up" : "down") : `${m.volumeDeltaPct > 0 ? "▲" : "▼"} ${Math.abs(Math.round(m.volumeDeltaPct))}%`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {(vsLastWeek.more > 0 || vsLastWeek.level > 0) && (
-                <p className="mt-1.5 text-[12px] text-faint">
-                  {[vsLastWeek.more > 0 ? `${vsLastWeek.more} more moved` : null, vsLastWeek.level > 0 ? `${vsLastWeek.level} held level` : null].filter(Boolean).join(" · ")}
-                </p>
+              {showReview ? (
+                <>
+                  {/* Every movement, and the box scrolls: "so it doesn't just
+                      say plus 11 more". */}
+                  <ul className="max-h-64 divide-y divide-line/60 overflow-y-auto overscroll-contain pr-1">
+                    {vsLastWeek.rows.map((m) => (
+                      <li key={m.name} className="flex items-center justify-between gap-3 py-1.5">
+                        <span className="min-w-0 truncate text-[13px]">{m.name}</span>
+                        <span className={`shrink-0 text-[13px] font-semibold tabular ${m.status === "beat" ? "text-beat" : "text-miss"}`}>
+                          {m.volumeDeltaPct === null ? (m.status === "beat" ? "up" : "down") : `${m.volumeDeltaPct > 0 ? "▲" : "▼"} ${Math.abs(Math.round(m.volumeDeltaPct))}%`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {vsLastWeek.level > 0 && (
+                    <p className="mt-1.5 text-[12px] text-faint">{vsLastWeek.level} held level</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-[12px] text-faint">Hidden — the eye shows it.</p>
               )}
             </div>
           )}
-          {(!showReview || vsLastWeek.rows.length + vsLastWeek.level === 0) && review.missedDays.length === 0 && review.remainingDays.length === 0 && (
-            <p className="text-[13px] text-faint">{showReview ? "Log some sets and this fills in." : "Week-on-week hidden — Settings brings it back."}</p>
+          {vsLastWeek.rows.length + vsLastWeek.level === 0 && review.missedDays.length === 0 && review.remainingDays.length === 0 && (
+            <p className="text-[13px] text-faint">Log some sets and this fills in.</p>
           )}
         </section>
 
