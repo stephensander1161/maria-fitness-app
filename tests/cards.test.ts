@@ -1,7 +1,8 @@
 import { describe as suite, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  CARDS, cardOpen, isCardId, movementCard, movementFolded, withCard, withMovementFold, type CardId,
+  CARDS, cardOpen, cardShown, isCardId, movementCard, movementFolded, orderFor, PAGE_CARDS,
+  withCard, withHidden, withMoved, withMovementFold, type CardId,
 } from "@/lib/cards";
 
 suite("cards she can fold away", () => {
@@ -176,5 +177,66 @@ suite("a finished movement folds itself", () => {
     // with what she just tapped.
     expect(fs.readFileSync("lib/tools/appearance.ts", "utf8"))
       .toMatch(/withMovementFold\(p\?\.collapsed, movement, input\.collapsed\)/);
+  });
+});
+
+suite("the cards on a screen, in her order — 2026-09-18", () => {
+  /*
+    "Should we make all cards on all pages reorganisable?" — "just do it now."
+    Train and Eat, the screens she lives in: walk a card up or down, or hide
+    it, from the panel at the foot of the screen or by asking the coach.
+  */
+  it("starts in the default order, and anything she never mentioned follows in it", () => {
+    expect(orderFor("train", null)).toEqual(["warmUp", "movements", "coolDown", "addExercise", "summary"]);
+    expect(orderFor("eat", {})).toEqual(["todayFood", "plannedFood", "calculator", "burn"]);
+    // A partial order she saved before a card existed: hers first, then the rest.
+    expect(orderFor("eat", { eat: { order: ["calculator", "todayFood"] } })).toEqual(["calculator", "todayFood", "plannedFood", "burn"]);
+    // Nothing unknown survives — a card renamed or removed does not haunt the list.
+    expect(orderFor("train", { train: { order: ["ghost", "summary"] } })).toEqual(["summary", "warmUp", "movements", "coolDown", "addExercise"]);
+  });
+
+  it("moves one card up, down, to the top or the bottom, and never off the end", () => {
+    let l = withMoved("eat", null, "calculator", "up");
+    expect(orderFor("eat", l)).toEqual(["todayFood", "calculator", "plannedFood", "burn"]);
+    l = withMoved("eat", l, "calculator", "top");
+    expect(orderFor("eat", l)).toEqual(["calculator", "todayFood", "plannedFood", "burn"]);
+    expect(orderFor("eat", withMoved("eat", l, "calculator", "up"))).toEqual(orderFor("eat", l));
+    l = withMoved("eat", l, "calculator", "bottom");
+    expect(orderFor("eat", l)).toEqual(["todayFood", "plannedFood", "burn", "calculator"]);
+    expect(orderFor("eat", withMoved("eat", l, "calculator", "down"))).toEqual(orderFor("eat", l));
+    // Another screen's order is untouched.
+    expect(withMoved("eat", { train: { order: ["summary"] } }, "burn", "top").train).toEqual({ order: ["summary"] });
+  });
+
+  it("hides a card, shows it again, and refuses to hide the point of the screen", () => {
+    const { layout } = withHidden("eat", null, [], "calculator", true);
+    expect(cardShown("eat", layout, [], "calculator")).toBe(false);
+    expect(cardShown("eat", withHidden("eat", layout, [], "calculator", false).layout, [], "calculator")).toBe(true);
+    for (const [page, id] of [["eat", "todayFood"], ["train", "movements"]] as const) {
+      expect(PAGE_CARDS[page].find((c) => c.id === id)!.hideable).toBe(false);
+      expect(cardShown(page, withHidden(page, null, [], id, true).layout, [], id)).toBe(true);
+    }
+  });
+
+  it("keeps the warm-up and cool-down's hide where it always was, so Settings and the icon still work", () => {
+    const { layout, collapsed } = withHidden("train", null, [], "warmUp", true);
+    expect(collapsed).toEqual(["warmUp"]);
+    expect(layout.train?.hidden ?? []).toEqual([]);
+    expect(cardShown("train", null, ["coolDown"], "coolDown")).toBe(false);
+    expect(withHidden("train", null, ["warmUp"], "warmUp", false).collapsed).toEqual([]);
+  });
+
+  it("is what both screens draw from, and what the coach can change", () => {
+    const train = fs.readFileSync("components/train-client.tsx", "utf8");
+    const eat = fs.readFileSync("components/eat-client.tsx", "utf8");
+    expect(train).toMatch(/orderFor\("train", cardLayout\)/);
+    expect(train).toMatch(/<ArrangeCards page="train"/);
+    expect(eat).toMatch(/orderFor\("eat", cardLayout\)/);
+    expect(eat).toMatch(/<ArrangeCards page="eat"/);
+    expect(fs.readFileSync("lib/tools/index.ts", "utf8")).toMatch(/appearance\.arrangeCards/);
+    // The panel walks, it does not drag.
+    const panel = fs.readFileSync("components/arrange-cards.tsx", "utf8");
+    expect(panel).not.toMatch(/onPointerMove|draggable/);
+    expect(panel).toMatch(/action\("arrange_cards"/);
   });
 });

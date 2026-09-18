@@ -109,3 +109,113 @@ export function withMovementFold(
   const without = (cards ?? []).filter((c) => c !== shut && c !== open);
   return [...without, folded ? shut : open];
 }
+
+/**
+ * The cards on a screen, in her order.
+ *
+ * "Should we make all cards on all pages reorganisable?" For the two screens
+ * she lives in, yes: what wants to be on top at 6am is personal, and Train
+ * and Eat stack the most. Not free drag — on a scrolling phone page a drag
+ * fights the scroll, and the movements inside Train already have one — but
+ * a list per screen she can walk a card up or down, or hide, from the panel
+ * at the foot of the screen or by asking the coach (`arrange_cards`).
+ *
+ * The list is the app's own furniture, named here so a typo cannot invent a
+ * card. Hidden is kept separate from *folded* (the lists above): a folded
+ * card is still there at one line, a hidden one is not drawn. The two on
+ * Train that already had a hide — the warm-up and cool-down — keep it where
+ * it was, in `collapsed_cards`, so the Settings screen and the icon on the
+ * card go on working; `cardShown` reads both.
+ */
+export type Page = "train" | "eat";
+
+export type PageCard = { id: string; label: string; hideable: boolean };
+
+export const PAGE_CARDS: Record<Page, readonly PageCard[]> = {
+  train: [
+    { id: "warmUp", label: "Warm-up", hideable: true },
+    { id: "movements", label: "Today's movements", hideable: false },
+    { id: "coolDown", label: "Cool-down", hideable: true },
+    { id: "addExercise", label: "Add a movement", hideable: true },
+    { id: "summary", label: "Session summary", hideable: true },
+  ],
+  eat: [
+    { id: "todayFood", label: "Today's food", hideable: false },
+    { id: "plannedFood", label: "Planned meals", hideable: true },
+    { id: "calculator", label: "Calorie calculator", hideable: true },
+    { id: "burn", label: "Training burn", hideable: true },
+  ],
+};
+
+/** Per screen: the order she chose, and what she hid. Absent means the default. */
+export type CardLayout = Partial<Record<Page, { order?: string[]; hidden?: string[] }>>;
+
+/** Cards whose hide lives in `collapsed_cards` from before this existed. */
+const LEGACY_HIDE = new Set(["warmUp", "coolDown"]);
+
+export const isPageCard = (page: Page, id: string): boolean =>
+  PAGE_CARDS[page].some((c) => c.id === id);
+
+/**
+ * The screen's cards in her order. Anything she ordered comes first, in that
+ * order; anything she never mentioned — a card added after she arranged the
+ * screen — follows in the default order. Nothing unknown survives.
+ */
+export function orderFor(page: Page, layout: CardLayout | null | undefined): string[] {
+  const known = PAGE_CARDS[page].map((c) => c.id);
+  const saved = (layout?.[page]?.order ?? []).filter((id) => known.includes(id));
+  return [...saved, ...known.filter((id) => !saved.includes(id))];
+}
+
+/** Whether a card is drawn at all. */
+export function cardShown(
+  page: Page,
+  layout: CardLayout | null | undefined,
+  collapsed: readonly string[] | null | undefined,
+  id: string,
+): boolean {
+  if (LEGACY_HIDE.has(id) && (collapsed ?? []).includes(id)) return false;
+  return !(layout?.[page]?.hidden ?? []).includes(id);
+}
+
+/** The layout after one card moves. A move off either end is a no-op. */
+export function withMoved(
+  page: Page,
+  layout: CardLayout | null | undefined,
+  id: string,
+  move: "up" | "down" | "top" | "bottom",
+): CardLayout {
+  const order = orderFor(page, layout);
+  const i = order.indexOf(id);
+  if (i < 0) return { ...(layout ?? {}) };
+  const to = move === "top" ? 0 : move === "bottom" ? order.length - 1 : Math.max(0, Math.min(order.length - 1, i + (move === "up" ? -1 : 1)));
+  const next = [...order];
+  next.splice(i, 1);
+  next.splice(to, 0, id);
+  return { ...(layout ?? {}), [page]: { ...(layout?.[page] ?? {}), order: next } };
+}
+
+/**
+ * The layout and the collapsed list after a card is hidden or shown.
+ *
+ * A card that cannot be hidden is left as it is. The two legacy cards write
+ * to `collapsed_cards`, where their hide has always lived; everything else to
+ * the layout. Both are returned so one update writes both.
+ */
+export function withHidden(
+  page: Page,
+  layout: CardLayout | null | undefined,
+  collapsed: readonly string[] | null | undefined,
+  id: string,
+  hidden: boolean,
+): { layout: CardLayout; collapsed: string[] } {
+  const card = PAGE_CARDS[page].find((c) => c.id === id);
+  const base = { layout: { ...(layout ?? {}) }, collapsed: [...(collapsed ?? [])] };
+  if (!card || !card.hideable) return base;
+  if (LEGACY_HIDE.has(id)) return { ...base, collapsed: withCard(collapsed, id as CardId, !hidden) };
+  const was = (layout?.[page]?.hidden ?? []).filter((h) => h !== id);
+  return {
+    ...base,
+    layout: { ...(layout ?? {}), [page]: { ...(layout?.[page] ?? {}), hidden: hidden ? [...was, id] : was } },
+  };
+}

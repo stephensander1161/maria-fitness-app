@@ -81,7 +81,8 @@ export default async function TrainPage({
           what can be done on it, which the cards decide for themselves. */}
       <TrainClient
         tone={profile.coachTone}
-      collapsedCards={profile.collapsedCards}
+        collapsedCards={profile.collapsedCards}
+        cardLayout={profile.cardLayout}
         view={view}
         pickable={pickable}
         targets={targets}

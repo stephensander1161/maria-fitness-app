@@ -21,6 +21,7 @@ const profile = (tone: Profile["coachTone"]): Profile => ({
   defaultRestSeconds: null, restByGroup: null, weighInReminderHour: null, weighInRemindedOn: null,
   shareCode: null, theme: null, logoMark: null, whatsNewSeen: null, sleepTargetMinutes: null, waterTargetMl: null, titleSeenAt: null,
   collapsedCards: [],
+  cardLayout: {},
   postpartumBirthDate: null, postpartumDelivery: null, postpartumClearedAt: null,
   breastfeeding: false, postpartumSymptoms: [],
   tempEquipmentUntil: null, planSetupAt: null, planSetupSkippedAt: null,
