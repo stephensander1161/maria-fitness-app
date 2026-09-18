@@ -277,11 +277,20 @@ jobs:
           url="$(npx vercel deploy --yes --token="$VERCEL_TOKEN")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Preview: $url"
-      # `--scope`: a team-scoped token has no user behind it, and without the
-      # team named the alias command answers "User not found" — the deploy
-      # above worked because the project ids name the team for it.
+      # Through the API, not the CLI. A team-scoped token has no user behind
+      # it, and `vercel alias set` insists on loading one ("User not found",
+      # with or without --scope); the deploy above works because the project
+      # ids name the team. The API takes the team by id and asks for nothing
+      # else — the deployment is looked up by its hostname, then aliased.
       - name: Point the dev address at it
-        run: npx vercel alias set "${{ steps.deploy.outputs.url }}" maria-fitness-app-dev.vercel.app --scope fitness-app18 --token="$VERCEL_TOKEN"
+        run: |
+          host="${{ steps.deploy.outputs.url }}"; host="${host#https://}"
+          auth=(-H "Authorization: Bearer $VERCEL_TOKEN")
+          id="$(curl -sfS "${auth[@]}" "https://api.vercel.com/v13/deployments/$host?teamId=$VERCEL_ORG_ID" | jq -r .id)"
+          [ -n "$id" ] && [ "$id" != "null" ] || { echo "::error::could not find deployment $host"; exit 1; }
+          curl -sfS -X POST "${auth[@]}" -H "Content-Type: application/json" \
+            "https://api.vercel.com/v2/deployments/$id/aliases?teamId=$VERCEL_ORG_ID" \
+            -d '{"alias":"maria-fitness-app-dev.vercel.app"}' | jq -r '"aliased: " + (.alias // .error.message)'
       - run: |
           echo "### Dev deployed" >> "$GITHUB_STEP_SUMMARY"
           echo >> "$GITHUB_STEP_SUMMARY"
@@ -324,7 +333,12 @@ jobs:
       # Every retained deployment keeps its own copy of the function bundles,
       # and the free tier's 10GB is the sum of all of them. `--safe` never
       # touches the ones that are live.
+      # Hygiene, not the deploy: the CLI's ls/remove want a user behind the
+      # token as well, so this may not work with a team token. It must never
+      # fail a deploy that has already gone out; `npm run prune` from a
+      # laptop does the same job.
       - name: Prune old deployments
+        continue-on-error: true
         run: bash scripts/prune-deployments.sh
       - run: |
           echo "### Production deployed" >> "$GITHUB_STEP_SUMMARY"
