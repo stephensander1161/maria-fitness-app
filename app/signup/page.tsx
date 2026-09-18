@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { SignupForm } from "@/components/signup-form";
 
-export const metadata = { title: "Plate" };
+export const metadata = { title: "Sore Winner" };
 
 /**
  * Sign-up, by invitation.
@@ -17,7 +17,7 @@ export default function SignupPage() {
       <Logo size={64} className="mb-6" />
       <h1 className="text-2xl font-bold tracking-tight">Set up your account</h1>
       <p className="mb-8 mt-1 max-w-xs text-center text-sm text-muted">
-        Coach is by invitation. Use the email address you were invited with and choose a password.
+        Sore Winner is by invitation. Use the email address you were invited with and choose a password.
       </p>
 
       <SignupForm />

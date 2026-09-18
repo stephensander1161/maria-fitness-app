@@ -52,6 +52,25 @@ export const users = pgTable(
   (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google_sub").on(t.googleSub)],
 );
 
+/**
+ * Emailed links, hashed at rest — see lib/reset.ts. A row is one email; it is
+ * good once and only until it expires. Deleted with the account.
+ */
+export const emailTokens = pgTable(
+  "email_tokens",
+  {
+    id: id(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["reset", "invite"] }).notNull(),
+    /** SHA-256 of the token in the link. The link itself is never stored. */
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("email_tokens_hash").on(t.tokenHash), index("email_tokens_user").on(t.userId, t.kind)],
+);
+
 export const profiles = pgTable("profiles", {
   id: id(),
   /** Nullable only so existing rows survive the migration that introduced

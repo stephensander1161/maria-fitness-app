@@ -20,9 +20,9 @@ import { WeighInGate } from "@/components/weigh-in-gate";
 import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 
 export const metadata: Metadata = {
-  title: "Plate",
+  title: "Sore Winner",
   description: "Lifting and eating, in one place",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Plate" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Sore Winner" },
   robots: { index: false, follow: false, nocache: true },
 };
 

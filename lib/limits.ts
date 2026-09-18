@@ -303,6 +303,23 @@ export async function checkLoginAllowed(ip: string, email?: string): Promise<All
 }
 
 /**
+ * Asking for a reset email. Tighter than sign-in: each request sends an
+ * email, and a flood of them is a flood of someone else's inbox as well as
+ * ours. Three an hour per address, ten per IP, and a global ceiling.
+ */
+export async function checkResetAllowed(ip: string, email: string): Promise<Allowance | Denial> {
+  const [perIp, perAccount, global] = await Promise.all([
+    admit(`reset:ip:${ip}`, 3600, 10),
+    admit(`reset:acct:${email}`, 3600, 3),
+    admit("reset:*", 3600, 100),
+  ]);
+  if (!perIp || !perAccount || !global) {
+    return { allowed: false, code: "rate", reason: "Too many requests. Try again in an hour." };
+  }
+  return { allowed: true };
+}
+
+/**
  * On Vercel the proxy sets `x-real-ip` itself, so it is preferred over
  * `x-forwarded-for`, whose leftmost entry the client controls.
  */

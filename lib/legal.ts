@@ -8,7 +8,7 @@
  * `COLLECTED` is the tables that hold something about her.
  */
 export const LEGAL = {
-  appName: "Plate",
+  appName: "Sore Winner",
   /** Who operates the service and answers privacy requests. */
   operator: "Stephen Sander",
   contact: "stephen.sander1@gmail.com",

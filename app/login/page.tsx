@@ -3,7 +3,7 @@ import { Logo } from "@/components/logo";
 import { LoginForm } from "@/components/login-form";
 import { googleConfigured } from "@/lib/oauth";
 
-export const metadata = { title: "Plate" };
+export const metadata = { title: "Sore Winner" };
 export const dynamic = "force-dynamic";
 
 /** Said plainly. "Something went wrong" tells her nothing she can act on. */
@@ -28,7 +28,7 @@ export default async function LoginPage({
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-6 pb-24">
       <Logo size={64} className="mb-6" />
-      <h1 className="text-2xl font-bold tracking-tight">Plate</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Sore Winner</h1>
       <p className="mb-8 mt-1 text-sm text-muted">Let&apos;s get to work.</p>
 
       {error && (

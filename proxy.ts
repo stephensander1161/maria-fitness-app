@@ -16,6 +16,12 @@ const PUBLIC_PATHS = new Set([
   // session yet. Neither path can add an address — see lib/signup.ts.
   "/signup",
   "/api/auth/signup",
+  // Forgot / reset: the emailed door. Both routes answer the same whatever
+  // the address, and a token is good once — lib/reset.ts.
+  "/forgot",
+  "/reset",
+  "/api/auth/reset",
+  "/api/auth/reset/confirm",
   // Legal pages. Read by someone deciding whether to sign up, and by an app
   // store reviewer who has no account. They hold no data of hers.
   "/privacy",
