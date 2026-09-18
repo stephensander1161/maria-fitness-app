@@ -218,32 +218,40 @@ second store.
 
 ## Two environments, one door between them
 
-**Production** is `main`, deployed by `npm run ship` and reachable at
-maria-fitness-app.vercel.app. **Dev** is the `dev` branch, deployed by
-`npm run ship:dev` as a Vercel *preview* deployment aliased to a fixed
-address, maria-fitness-app-dev.vercel.app, reading the project's Preview
-environment: its own Neon branch, its own `AUTH_SECRET`, no Blob store (photos
-fall back to the row), no crons (Vercel runs crons on production only). Nothing
-done on dev can touch a real person's rows, and nothing on dev is anyone's
-real data.
+**Production** is `main`, reachable at maria-fitness-app.vercel.app. **Dev** is
+the `dev` branch, a Vercel *preview* deployment aliased to a fixed address,
+maria-fitness-app-dev.vercel.app, reading the project's Preview environment:
+its own Neon branch (`dev` of project hidden-pond, schema only), its own
+`AUTH_SECRET`, no Blob store (photos fall back to the row), no crons (Vercel
+runs crons on production only). Nothing done on dev can touch a real person's
+rows, and nothing on dev is anyone's real data.
 
-The flow, from 2026-09-17: features are built on `dev` and shipped there;
-Stephen tests them at the dev address; when he gives the green light,
-`npm run promote` fast-forwards `main` to `dev` — never a merge commit, never a
-cherry-pick, so production is a commit dev already ran byte for byte — and
-runs the production ship. `ship.sh` refuses to run from any branch but main,
-`ship-dev.sh` from any branch but dev, and `promote.sh` refuses if main cannot
-fast-forward, because then something reached main without going through dev
-and that is worth stopping for. The gates are identical on both: what reaches
-dev has passed exactly what reaches prod has passed; the difference is who has
-looked at it.
+**CI deploys; laptops do not.** From 2026-09-18 `.github/workflows/ci.yml` is
+the pipeline: every push to `dev` or `main` runs the full gates on a clean
+runner — typecheck, lint, unit *and* db suites against a Postgres service, the
+audit, the build, the browser journeys — then `deploy-dev` points the dev
+address at a fresh preview (push to dev) or `deploy` ships production (merge to
+main). `main` takes no direct pushes: a repository ruleset allows pull requests
+only, requires `verify`, `secrets` and `from-dev` to be green, and `from-dev`
+fails any pull request whose head is not `dev`. So the only road to production
+is dev → the gates → a merge. Nothing a laptop does reaches an environment; a
+laptop only decides what is worth pushing.
 
-Sign-in on dev is by password (Google needs the dev address added as a
-redirect URI first). CI runs on pushes to both branches; only main can reach
-its deploy job. When the same feature needs a schema change, `db:push` it to
-the dev branch's database from the dev branch, and promotion pushes it to
-production's — a schema that reached production before dev is the same failure
-as code that did.
+The commands: `npm run ship:dev` runs the gates here for fast feedback, pushes
+the schema to the dev database (`db:push:dev`, `DATABASE_URL_DEV` in `.env`)
+and pushes `dev` — CI takes it from there. `npm run promote` pushes the schema
+to production's database (from here: production's credential never goes to a
+runner), opens the dev → main pull request, switches on auto-merge, waits for
+the checks, and fast-forwards `dev` onto the merge so the two stay identical.
+`npm run ship` is the gates alone. The schema goes before the code in both
+directions, because a column the new code reads must exist before the new code
+is serving, and `drizzle-kit push` is idempotent so it costs nothing when
+nothing changed.
+
+The GitLab reader's map: the pipeline and its jobs are the repository's
+**Actions** tab; the deployments themselves are in Vercel → Deployments
+(Preview = dev, Production = prod). Sign-in on dev works by password and by
+Google (the dev address is a registered redirect URI).
 
 ## Picking up requests, and the last gate
 

@@ -1,27 +1,19 @@
 #!/usr/bin/env bash
 #
-# Deploy the dev branch to the dev environment, through the same gates.
+# Ship the dev branch to the dev environment.
 #
-#   npm run ship:dev            # from the dev branch: gates, push, deploy, alias
+#   npm run ship:dev
 #
-# Dev is a Vercel *preview* deployment of the `dev` branch, aliased to a fixed
-# address so it is a place rather than a link that changes every push:
+# The gates here, on this machine, for fast feedback — then the push. The
+# deploy itself is CI's (`deploy-dev` in .github/workflows/ci.yml): it runs
+# the same gates again on a clean runner and then points
+# maria-fitness-app-dev.vercel.app at the new preview. Nothing a laptop does
+# reaches an environment; a laptop only decides what is worth pushing.
 #
-#   https://maria-fitness-app-dev.vercel.app
-#
-# It reads the project's Preview environment — its own database, its own
-# AUTH_SECRET, no Blob store, no crons (Vercel runs crons on production only) —
-# so nothing done on dev can touch a real person's rows. The gates are the
-# production gates, unchanged: what reaches dev has passed exactly what reaches
-# prod has passed; the difference is who has looked at it.
-#
-# Promotion is `npm run promote`: main fast-forwards to dev and ships. Nothing
-# reaches production that was not on dev first.
+# Schema changes go to the dev database from here (`db:push:dev`, reading
+# DATABASE_URL_DEV from .env), before the code that needs them is pushed.
 set -euo pipefail
-
 cd "$(dirname "$0")/.."
-ROOT="$PWD"
-DEV_ALIAS="maria-fitness-app-dev.vercel.app"
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 if [[ "$BRANCH" != "dev" ]]; then
@@ -29,8 +21,6 @@ if [[ "$BRANCH" != "dev" ]]; then
   exit 1
 fi
 
-# The same gates as production, in the same order. See scripts/ship.sh for
-# why each is here; none of them is weaker for dev.
 echo "── test db";   npm run db:push:test >/dev/null && npm run db:seed:test >/dev/null
 echo "── typecheck"; npx tsc --noEmit -p .
 echo "── lint";      npx eslint .
@@ -44,41 +34,12 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
+echo "── schema → dev database"
+npm run db:push:dev
+
 echo "── push"
 git push -u origin dev
-
-git worktree prune
-W="$(mktemp -d)"
-cleanup() { cd "$ROOT"; git worktree remove --force "$W" 2>/dev/null || true; git worktree prune; }
-trap cleanup EXIT
-echo "── worktree"
-git worktree add --detach "$W" HEAD
-cp -R "$ROOT/.vercel" "$W/.vercel"
-cd "$W"
-
-# A preview deployment — no `--prod` — so it reads the Preview environment.
-#
-# The deployment's own URL is read off the CLI's "Preview  https://…" line.
-# Vercel shortens the project name in that hostname (maria-fitness-98p7c2k2i,
-# not maria-fitness-app-…), which the first version's pattern did not allow
-# for; it then aliased whatever URL came last in the log, silently, and the
-# first dev ship built fine and left the dev hostname a 404 with nothing in
-# the output to say why. Every step here says what it is doing now.
-for attempt in 1 2 3; do
-  npx vercel --yes 2>&1 | tee /tmp/ship-dev-$$.log || true
-  URL="$(grep -oE 'Preview\s+https://[a-z0-9.-]+\.vercel\.app' /tmp/ship-dev-$$.log | grep -oE 'https://.*' | tail -1)"
-  if [[ -n "$URL" ]] && grep -qE '^✓|Deployment completed|readyState.*READY|Route \(app\)' /tmp/ship-dev-$$.log; then
-    echo "── alias $URL → $DEV_ALIAS"
-    npx vercel alias set "$URL" "$DEV_ALIAS"
-    echo "https://$DEV_ALIAS"
-    echo "✓ dev deployed (attempt $attempt)"
-    rm -f /tmp/ship-dev-$$.log
-    exit 0
-  fi
-  echo "  attempt $attempt failed, retrying…" >&2
-  sleep 5
-done
-
-echo "✗ dev deploy failed three times — see the log above" >&2
-tail -20 /tmp/ship-dev-$$.log >&2
-exit 1
+REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")"
+echo "✓ pushed $(git rev-parse --short HEAD) — CI is deploying it to https://maria-fitness-app-dev.vercel.app"
+[[ -n "$REPO" ]] && echo "   https://github.com/$REPO/actions?query=branch%3Adev"
+exit 0

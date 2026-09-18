@@ -12,6 +12,7 @@
     "db:push": "node --env-file=.env node_modules/drizzle-kit/bin.cjs push",
     "db:studio": "node --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
     "db:seed": "tsx --env-file=.env lib/seed/run.ts",
+    "db:push:dev": "bash scripts/db-push-dev.sh",
     "db:push:test": "node --env-file=.env.test node_modules/drizzle-kit/bin.cjs push",
     "db:seed:test": "tsx --env-file=.env.test lib/seed/run.ts",
     "env:test": "bash scripts/env-test.sh",

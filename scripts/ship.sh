@@ -1,31 +1,15 @@
 #!/usr/bin/env bash
 #
-# Verify, then deploy production from a clean worktree.
+# Run the production gates on this machine.
 #
-#   npm run ship            # gates, then deploy
-#   npm run ship -- --check # gates only, no deploy
+#   npm run ship            (same as --check now)
+#   npm run ship -- --check
 #
-# Nothing reaches her app that has not passed the typechecker, the linter, the
-# pure suite, the database suite, the coverage ratchet, a production build and
-# the end-to-end journeys in a real browser. That is more than CI can do —
-# CI has no database and no browser budget — and it runs here because here is
-# where the credential is. A gate that only runs in CI is a gate that does not
-# cover the two things that actually break this app: a query and a screen.
-#
-# The worktree matters: `vercel --prod` uploads the working directory, so an
-# uncommitted experiment on the desk would otherwise sail into production. This
-# builds from HEAD and nothing else.
-#
-# It pushes before it deploys. Twenty-seven commits once sat on this machine
-# and nowhere else while every one of them was live in production — Vercel had
-# the code, GitHub did not, and the only backup of a day's work was one laptop.
-# The gates are what qualify a commit; the push is what preserves it; the
-# deploy is the last step and the only one that flakes. In that order, work can
-# never be stranded locally.
-#
-# The retry is not superstition — `vercel --prod` intermittently returns
-# deploy_failed on the first call and succeeds immediately on the second, which
-# is the difference between an unattended loop that ships and one that stops.
+# Until 2026-09-18 this also pushed main and deployed production from this
+# laptop. It does not any more: main takes no direct pushes, and production is
+# deployed by CI when the dev → main pull request merges (`npm run promote`).
+# What is left is the fast local feedback — the same gates CI runs, without
+# waiting for a runner. Nothing here reaches an environment.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -33,29 +17,6 @@ ROOT="$PWD"
 
 # Production ships from main and nowhere else. Dev is `npm run ship:dev` from
 # the dev branch; getting a dev commit to production is `npm run promote`.
-if [[ "${1:-}" != "--check" && "$(git rev-parse --abbrev-ref HEAD)" != "main" ]]; then
-  echo "✗ npm run ship deploys production and runs from main only — you are on $(git rev-parse --abbrev-ref HEAD)." >&2
-  echo "  For the dev environment: npm run ship:dev.  To promote dev to prod: npm run promote." >&2
-  exit 1
-fi
-
-# ── the gates, in the order that fails cheapest first ───────────────────────
-#
-# Four suites rather than one, because they need different things and the
-# difference is the whole design:
-#
-#   tests      pure logic. No database, no key, no network. CI runs this one.
-#   tests/db   the tool handlers and the read models, against a real Postgres,
-#              each file on a throwaway account it drops afterwards. CI has no
-#              credential, so this only ever runs here.
-#   coverage   a ratchet on the two above. See vitest.config.ts.
-#   e2e        the journeys, in a browser, against the built app.
-#
-# The build comes before e2e because e2e serves what the build produced.
-# The local test database, brought up to the schema and seed in HEAD. The
-# suites used to run against the production Neon project, and eleven ships in
-# a day put its free-tier compute at 80% by the 15th of the month. Local is
-# fast enough that this costs seconds.
 echo "── test db";   npm run db:push:test >/dev/null && npm run db:seed:test >/dev/null
 echo "── typecheck"; npx tsc --noEmit -p .
 echo "── lint";      npx eslint .
@@ -63,67 +24,5 @@ echo "── tests";     npm run coverage
 echo "── build";     npm run build >/dev/null
 echo "── e2e";       npm run test:e2e
 
-if [[ "${1:-}" == "--check" ]]; then
-  echo "✓ gates pass (not deployed)"
-  exit 0
-fi
-
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "✗ uncommitted changes — commit first, production ships from HEAD" >&2
-  git status --short >&2
-  exit 1
-fi
-
-# ── push, before anything is deployed ───────────────────────────────────────
-# A rejected push means the remote has moved and this HEAD is not what should
-# go live, so it stops here rather than deploying something that cannot be
-# reproduced from the repository.
-if git remote get-url origin >/dev/null 2>&1; then
-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-  if [[ "$BRANCH" == "HEAD" ]]; then
-    echo "✗ detached HEAD — check out a branch before shipping" >&2
-    exit 1
-  fi
-  if [[ -n "$(git log --oneline "origin/$BRANCH..$BRANCH" 2>/dev/null)" ]] \
-     || ! git rev-parse --verify --quiet "origin/$BRANCH" >/dev/null; then
-    echo "── push"
-    git push -u origin "$BRANCH"
-  else
-    echo "── push (nothing to push)"
-  fi
-else
-  echo "── push (no origin remote — skipping)" >&2
-fi
-
-git worktree prune
-W="$(mktemp -d)"
-cleanup() { cd "$ROOT"; git worktree remove --force "$W" 2>/dev/null || true; git worktree prune; }
-trap cleanup EXIT
-
-git worktree add --detach "$W" HEAD >/dev/null 2>&1
-cp -R "$ROOT/.vercel" "$W/.vercel"
-[[ -f "$ROOT/.env" ]] && cp "$ROOT/.env" "$W/.env"
-cd "$W"
-
-for attempt in 1 2 3; do
-  if npx vercel --prod --yes 2>&1 | tee /tmp/ship-$$.log | grep -qi "readyState.*READY"; then
-    grep -oE 'https://[a-z0-9.-]+\.vercel\.app' /tmp/ship-$$.log | tail -1
-    echo "✓ deployed (attempt $attempt)"
-    rm -f /tmp/ship-$$.log
-    # Every retained deployment keeps its own copy of the function bundles, and
-    # the free tier's 10GB is the sum of all of them — not a measure of this
-    # app. Unpruned, shipping several times a day fills it in a fortnight and
-    # the next deploy is refused. `--safe` never touches the one that is live;
-    # see scripts/prune-deployments.sh. It cannot fail the ship: the deploy has
-    # already gone out.
-    echo "── prune"
-    bash "$ROOT/scripts/prune-deployments.sh" || true
-    exit 0
-  fi
-  echo "  attempt $attempt failed, retrying…" >&2
-  sleep 5
-done
-
-echo "✗ deploy failed three times — see the log above" >&2
-tail -20 /tmp/ship-$$.log >&2
-exit 1
+echo "✓ gates pass. Production deploys from CI when dev merges into main: npm run promote"
+exit 0
