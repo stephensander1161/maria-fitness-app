@@ -5,6 +5,7 @@ import { exercises, setLogs, workouts } from "@/lib/db/schema";
 import { runTool } from "@/lib/tools";
 import { addDays } from "@/lib/date";
 import { makeAccount, dropAccount, type TestAccount } from "./account";
+import { openSessionNear, trainingDay } from "@/lib/training-day";
 
 /**
  * The training tools, against a real database.
@@ -328,3 +329,55 @@ async function sets(date: string) {
     .orderBy(setLogs.setNumber);
   return rows;
 }
+
+suite("the session she is still in, past midnight", () => {
+  /*
+    2026-09-19: "If I work out past midnight, the GO notification jumps to
+    whatever is in the following day." The screen — and so the GO screen —
+    is keyed to the day of a session she has started and not signed off.
+
+    Its own account: the one above has a session open on today, which is
+    exactly the case that must *not* be carried, and it would mask this one.
+  */
+  it("finds yesterday's unfinished session, and forgets it once it is signed off", async () => {
+    const b = await makeAccount("training-day");
+    try {
+      const yesterday = addDays(b.today, -1);
+      const [w] = await db.insert(workouts).values({
+        profileId: b.profileId, date: yesterday, title: "Late one",
+        startedAt: new Date(Date.now() - 2 * 3_600_000),
+      }).returning();
+
+      const open = await openSessionNear(b.profileId, b.today);
+      expect(open?.date).toBe(yesterday);
+      // …and that is the day the screen would key itself to.
+      expect(trainingDay(b.today, open)).toBe(yesterday);
+
+      await db.update(workouts).set({ completedAt: new Date() }).where(eq(workouts.id, w.id));
+      expect(await openSessionNear(b.profileId, b.today)).toBeNull();
+    } finally {
+      await dropAccount(b);
+    }
+  });
+
+  it("prefers a session open on today, and never reaches back further than the day before", async () => {
+    const b = await makeAccount("training-day");
+    try {
+      await db.insert(workouts).values([
+        { profileId: b.profileId, date: addDays(b.today, -3), title: "Left open on Tuesday", startedAt: new Date(Date.now() - 72 * 3_600_000) },
+      ]);
+      expect(await openSessionNear(b.profileId, b.today)).toBeNull();
+
+      await db.insert(workouts).values([
+        { profileId: b.profileId, date: addDays(b.today, -1), title: "Last night", startedAt: new Date(Date.now() - 8 * 3_600_000) },
+        { profileId: b.profileId, date: b.today, title: "This morning", startedAt: new Date() },
+      ]);
+      const open = await openSessionNear(b.profileId, b.today);
+      expect(open?.date).toBe(b.today);
+      // Open on today is not a carry: the day is the day.
+      expect(trainingDay(b.today, open)).toBe(b.today);
+    } finally {
+      await dropAccount(b);
+    }
+  });
+});
