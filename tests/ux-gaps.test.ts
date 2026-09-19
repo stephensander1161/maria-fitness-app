@@ -211,7 +211,8 @@ suite("the training card during a session", () => {
     // screen offered her a fifth set of something she had done four of. Both
     // card paths now ask `restAfter`, which asks the same `whatNext` the GO
     // screen asks, so the two cannot answer differently about the same set.
-    expect(card).toMatch(/const next = afterSet\(view\.exercises, ex\.slug, alreadyDone\)/);
+    // Reads the one ordered list since 2026-09-18 — see tests/train-order.test.ts.
+    expect(card).toMatch(/const next = afterSet\(inOrder\(view\.exercises, dragOrder\), ex\.slug, alreadyDone\)/);
     expect(card).toMatch(/if \(next\.kind === "next"\)/);
     // Both card paths hand on the count the *card* has, not the one the
     // server last sent — see the suite below.
@@ -651,7 +652,8 @@ suite("which movement am I on", () => {
     // which is exactly when she looks for it.
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/const currentSlug =/);
-    expect(card).toMatch(/\?\? view\.exercises\.find\(\(e\) => e\.targetSets > 0 && e\.loggedToday\.length < e\.targetSets\)\?\.slug/);
+    // Reads the one ordered list since 2026-09-18 — see tests/train-order.test.ts.
+    expect(card).toMatch(/\?\? shown\.find\(\(e\) => e\.targetSets > 0 && e\.loggedToday\.length < e\.targetSets\)\?\.slug/);
   });
 
   it("is green, ringed and breathing, because it is read at arm's length", () => {
@@ -1106,7 +1108,8 @@ suite("supersets: the data and the tools", () => {
 suite("supersets on the card", () => {
   const card = () => fs.readFileSync("components/train-client.tsx", "utf8");
   it("pulses the whole group together and rests as one", () => {
-    expect(card()).toMatch(/const currentGroup = view\.exercises\.find\(\(e\) => e\.slug === currentSlug\)\?\.supersetGroup \?\? null/);
+    // Reads the one ordered list since 2026-09-18 — see tests/train-order.test.ts.
+    expect(card()).toMatch(/const currentGroup = shown\.find\(\(e\) => e\.slug === currentSlug\)\?\.supersetGroup \?\? null/);
     expect(card()).toMatch(/ex\.supersetGroup !== null && ex\.supersetGroup === currentGroup/);
     expect(card()).toMatch(/upNext=\{isUpNext\(ex\)\}/);
   });
