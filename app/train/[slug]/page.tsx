@@ -1,3 +1,4 @@
+import { openSessionNear, trainingDay } from "@/lib/training-day";
 import { TrainClient } from "@/components/train-client";
 import { requireOnboarded } from "@/lib/session";
 import { profileToday } from "@/lib/profile";
@@ -39,15 +40,18 @@ export default async function MovementPage({
   // The day this writes to, stated in the header for the same reason the
   // Train screen states it: a screen showing Thursday whose buttons write to
   // Wednesday is the most confusing thing this app could do.
-  const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
-  const isToday = on === her;
+  // The day she is training on, which past midnight is not the day it is —
+  // the same rule the Train screen follows. lib/training-day.ts.
+  const day = trainingDay(her, await openSessionNear(profile.id, her));
+  const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : day;
+  const isToday = on === day;
 
   await rollForward(profile.id, weekStart(on));
 
   const [view, pickable, targets] = await Promise.all([
     todayView(profile.id, profile.units, on),
     pickableExercises(equipmentToday(profile, her).equipment),
-    todayTargets(profile.id, profile.units, her),
+    todayTargets(profile.id, profile.units, day),
   ]);
 
   // No header of its own. The screen is one movement and the room at the top
@@ -62,7 +66,7 @@ export default async function MovementPage({
       targets={targets}
       date={isToday ? undefined : on}
       isToday={isToday}
-      isFutureDay={on > her}
+      isFutureDay={on > day}
       focus={slug}
       // Arrived from "Log your bench set", so put the caret in the weight.
       // The reminder used to point at /train, which on the Train screen is

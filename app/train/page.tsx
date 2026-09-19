@@ -1,3 +1,4 @@
+import { openSessionNear, trainingDay } from "@/lib/training-day";
 import { DailyFact } from "@/components/daily-fact";
 import { CompanionGate } from "@/components/companion-gate";
 import { TrainClient } from "@/components/train-client";
@@ -35,10 +36,14 @@ export default async function TrainPage({
 }) {
   const profile = await requireOnboarded();
   const her = profileToday(profile);
+  // The day she is *training* on, which past midnight is not the day it is —
+  // see lib/training-day.ts. Everything below is keyed to it, so a session
+  // that runs into tomorrow keeps its plan, its sets and its GO screen.
+  const day = trainingDay(her, await openSessionNear(profile.id, her));
   const { d } = await searchParams;
   // Only a real date in her own week-shaped world; anything else is today.
-  const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : her;
-  const isToday = on === her;
+  const on = /^\d{4}-\d{2}-\d{2}$/.test(d ?? "") ? (d as typeof her) : day;
+  const isToday = on === day;
 
   // The programme repeats: a week with no plan of its own inherits the last
   // one, so Monday morning is not an empty screen. Idempotent, and it only
@@ -47,11 +52,11 @@ export default async function TrainPage({
 
   const [view, pickable, targets] = await Promise.all([
     todayView(profile.id, profile.units, on),
-    pickableExercises(equipmentToday(profile, her).equipment),
+    pickableExercises(equipmentToday(profile, day).equipment),
     // Worked out, not guessed: double progression and the 2-for-2 rule over
     // what she actually logged. The screen shows the number; nobody has to
     // ask the coach for it.
-    todayTargets(profile.id, profile.units, her),
+    todayTargets(profile.id, profile.units, day),
   ]);
 
   // Once, unless she asks for it again: the invitation goes when she has been
@@ -92,7 +97,7 @@ export default async function TrainPage({
         targets={targets}
         date={on}
         isToday={isToday}
-        isFutureDay={on > her}
+        isFutureDay={on > day}
         // The arrows either side of the day's own name, in the card that
         // already carries it. They were a strip of their own above it, which
         // made the top of the screen two containers saying one thing.

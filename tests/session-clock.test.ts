@@ -196,8 +196,10 @@ suite("the clock is on every day she could still be working on", () => {
   it("is still absent on a day that has not happened", () => {
     // The tools refuse a future date anyway; the control would only be there
     // to be turned down.
-    expect(fs.readFileSync("app/train/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > her\}/);
-    expect(fs.readFileSync("app/train/[slug]/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > her\}/);
+    // Against the day she is *training* on since 2026-09-19, which past
+    // midnight is not the day it is — see tests/training-day.test.ts.
+    expect(fs.readFileSync("app/train/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > day\}/);
+    expect(fs.readFileSync("app/train/[slug]/page.tsx", "utf8")).toMatch(/isFutureDay=\{on > day\}/);
   });
 
   it("finishes the day on screen, not today's", () => {
