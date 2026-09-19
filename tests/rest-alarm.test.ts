@@ -338,3 +338,30 @@ suite("a superset is one round, then one rest", () => {
     expect(provider).toMatch(/setGo\(restFor\(current, partner, Date\.now\(\)\)\);/);
   });
 });
+
+suite("a session that is over stops counting — 2026-09-19", () => {
+  /*
+    "I still have the workout timer going at top of screen after I finish
+     last set of last movement."
+
+    Every path that logs a set asks `whatNext` and clears the rest when
+    nothing is owed — but it asks with the counts it has, and those are the
+    server's for every movement but the one in hand. One of them a refresh
+    behind starts a rest into a movement that was already finished.
+  */
+  const card = fs.readFileSync("components/train-client.tsx", "utf8");
+
+  it("asks again once the refresh has landed, and only ever ends a countdown", () => {
+    expect(card).toMatch(/if \(!sessionLive \|\| outstanding\.length > 0 \|\| !runningRest\) return;\s*\n\s*dismissRest\(\);/);
+    expect(card).toMatch(/\[sessionLive, outstanding\.length, runningRest, dismissRest\]/);
+  });
+
+  it("and the one thing left to do is the one that looks it", () => {
+    // The clock runs until she signs off — that has not changed — but with
+    // nothing on the plan left, Finish is no longer one option among three.
+    expect(card).toMatch(/done=\{totalLogged > 0 && outstanding\.length === 0\}/);
+    expect(card).toMatch(/done\s*\n?\s*\? "bg-accent text-on-accent active:opacity-80"/);
+    // Still one Finish button, not two: the header's, wearing a different coat.
+    expect(card.match(/aria-label="Finish workout"/g)).toHaveLength(1);
+  });
+});

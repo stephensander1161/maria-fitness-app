@@ -459,6 +459,23 @@ export function TrainClient({
   const isUpNext = (ex: TodayExercise) =>
     currentSlug === ex.slug || (ex.supersetGroup !== null && ex.supersetGroup === currentGroup);
 
+  /*
+    Nothing owed, nothing to count down to.
+
+    Every path that logs a set already asks whether the session is over and
+    clears the rest when it is — but it asks with the counts it has, and
+    those are the server's for every movement except the one in hand. One of
+    them a refresh behind is enough to start a rest into a movement that was
+    already finished: "I still have the workout timer going at top of screen
+    after I finish last set of last movement." This is the same question
+    asked again once the refresh has landed, where the answer cannot be
+    stale, and it only ever *ends* a countdown.
+  */
+  useEffect(() => {
+    if (!sessionLive || outstanding.length > 0 || !runningRest) return;
+    dismissRest();
+  }, [sessionLive, outstanding.length, runningRest, dismissRest]);
+
   async function superset(slugs: string[]) {
     try {
       await action("superset_exercises", { slugs, ...(dayOfWeekOf(date) === undefined ? {} : { dayOfWeek: dayOfWeekOf(date) }) });
@@ -806,6 +823,9 @@ export function TrainClient({
       pausedMs={view.pausedMs}
       busy={finishing}
       clockBusy={pausing}
+      // Everything on the plan is logged: the clock is still running and the
+      // one thing left to do is stop it, so the button says so.
+      done={totalLogged > 0 && outstanding.length === 0}
       onStart={startSession}
       /*
         Finish finishes.
@@ -1428,8 +1448,10 @@ function SessionClock({
 }
 
 function SessionBar({
-  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, onStart, onFinish, onPause, onReopen, onCorrected,
+  startedAt, finishedAt, pausedAt, pausedMs, busy, clockBusy, done = false, onStart, onFinish, onPause, onReopen, onCorrected,
 }: {
+  /** Nothing left on the plan — Finish stops being one option among three. */
+  done?: boolean;
   startedAt: string | null;
   finishedAt: string | null;
   /** Stopped, but not over. */
@@ -1593,9 +1615,13 @@ function SessionBar({
         onClick={onFinish}
         disabled={busy}
         aria-label="Finish workout"
-        className="flex items-center gap-1.5 rounded-full border border-edge px-3 py-1.5 text-[13px] font-medium text-muted active:bg-raised disabled:opacity-50"
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium disabled:opacity-50 ${
+          done
+            ? "bg-accent text-on-accent active:opacity-80"
+            : "border border-edge text-muted active:bg-raised"
+        }`}
       >
-        <span className={`size-1.5 rounded-full bg-beat ${paused ? "" : "animate-pulse"}`} aria-hidden />
+        <span className={`size-1.5 rounded-full ${done ? "bg-on-accent" : "bg-beat"} ${paused ? "" : "animate-pulse"}`} aria-hidden />
         {/* "Finish", because the clock, the pause and this share one row with
             the day's name on a 361px phone. The word "workout" was what
             pushed the whole set of controls onto a second line under it. The

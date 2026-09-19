@@ -170,8 +170,9 @@ suite("only the Finish button says it is finishing", () => {
     // The pause glyph is disabled by the clock's flag, not the finish one.
     const bar = card.slice(card.indexOf("One control, in the slot Start was in"));
     expect(bar.slice(0, 1400)).toMatch(/onClick=\{onPause\}\n\s*disabled=\{clockBusy\}/);
-    // And "Finishing…" still belongs to finishing.
-    expect(bar.slice(0, 2600)).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
+    // And "Finishing…" still belongs to finishing. The window is the running
+    // branch, widened when Finish grew a filled state for a finished plan.
+    expect(bar.slice(0, 3200)).toMatch(/\{busy \? "Finishing…" : "Finish"\}/);
   });
 });
 
