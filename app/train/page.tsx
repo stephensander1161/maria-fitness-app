@@ -1,3 +1,5 @@
+import { DailyFact } from "@/components/daily-fact";
+import { CompanionGate } from "@/components/companion-gate";
 import { TrainClient } from "@/components/train-client";
 import { requireOnboarded } from "@/lib/session";
 import { profileToday } from "@/lib/profile";
@@ -80,6 +82,7 @@ export default async function TrainPage({
           build and one of them permanently behind. What the day changes is
           what can be done on it, which the cards decide for themselves. */}
       <TrainClient
+        furniture={{ fact: <DailyFact />, companion: <CompanionGate /> }}
         tone={profile.coachTone}
         collapsedCards={profile.collapsedCards}
         cardLayout={profile.cardLayout}

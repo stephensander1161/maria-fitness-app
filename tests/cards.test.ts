@@ -187,22 +187,22 @@ suite("the cards on a screen, in her order — 2026-09-18", () => {
     it, from the panel at the foot of the screen or by asking the coach.
   */
   it("starts in the default order, and anything she never mentioned follows in it", () => {
-    expect(orderFor("train", null)).toEqual(["warmUp", "movements", "coolDown", "addExercise", "summary"]);
-    expect(orderFor("eat", {})).toEqual(["todayFood", "plannedFood", "calculator", "burn"]);
+    expect(orderFor("train", null)).toEqual(["warmUp", "movements", "coolDown", "addExercise", "summary", "fact", "companion"]);
+    expect(orderFor("eat", {})).toEqual(["todayFood", "plannedFood", "calculator", "burn", "fact", "companion"]);
     // A partial order she saved before a card existed: hers first, then the rest.
-    expect(orderFor("eat", { eat: { order: ["calculator", "todayFood"] } })).toEqual(["calculator", "todayFood", "plannedFood", "burn"]);
+    expect(orderFor("eat", { eat: { order: ["calculator", "todayFood"] } })).toEqual(["calculator", "todayFood", "plannedFood", "burn", "fact", "companion"]);
     // Nothing unknown survives — a card renamed or removed does not haunt the list.
-    expect(orderFor("train", { train: { order: ["ghost", "summary"] } })).toEqual(["summary", "warmUp", "movements", "coolDown", "addExercise"]);
+    expect(orderFor("train", { train: { order: ["ghost", "summary"] } })).toEqual(["summary", "warmUp", "movements", "coolDown", "addExercise", "fact", "companion"]);
   });
 
   it("moves one card up, down, to the top or the bottom, and never off the end", () => {
     let l = withMoved("eat", null, "calculator", "up");
-    expect(orderFor("eat", l)).toEqual(["todayFood", "calculator", "plannedFood", "burn"]);
+    expect(orderFor("eat", l)).toEqual(["todayFood", "calculator", "plannedFood", "burn", "fact", "companion"]);
     l = withMoved("eat", l, "calculator", "top");
-    expect(orderFor("eat", l)).toEqual(["calculator", "todayFood", "plannedFood", "burn"]);
+    expect(orderFor("eat", l)).toEqual(["calculator", "todayFood", "plannedFood", "burn", "fact", "companion"]);
     expect(orderFor("eat", withMoved("eat", l, "calculator", "up"))).toEqual(orderFor("eat", l));
     l = withMoved("eat", l, "calculator", "bottom");
-    expect(orderFor("eat", l)).toEqual(["todayFood", "plannedFood", "burn", "calculator"]);
+    expect(orderFor("eat", l)).toEqual(["todayFood", "plannedFood", "burn", "fact", "companion", "calculator"]);
     expect(orderFor("eat", withMoved("eat", l, "calculator", "down"))).toEqual(orderFor("eat", l));
     // Another screen's order is untouched.
     expect(withMoved("eat", { train: { order: ["summary"] } }, "burn", "top").train).toEqual({ order: ["summary"] });
@@ -212,7 +212,7 @@ suite("the cards on a screen, in her order — 2026-09-18", () => {
     const { layout } = withHidden("eat", null, [], "calculator", true);
     expect(cardShown("eat", layout, [], "calculator")).toBe(false);
     expect(cardShown("eat", withHidden("eat", layout, [], "calculator", false).layout, [], "calculator")).toBe(true);
-    for (const [page, id] of [["eat", "todayFood"], ["train", "movements"]] as const) {
+    for (const [page, id] of [["eat", "todayFood"], ["train", "movements"], ["eat", "companion"], ["train", "companion"]] as const) {
       expect(PAGE_CARDS[page].find((c) => c.id === id)!.hideable).toBe(false);
       expect(cardShown(page, withHidden(page, null, [], id, true).layout, [], id)).toBe(true);
     }
@@ -241,5 +241,20 @@ suite("the cards on a screen, in her order — 2026-09-18", () => {
     const handle = fs.readFileSync("components/arrange-handle.tsx", "utf8");
     expect(handle).not.toMatch(/onPointerMove|draggable/);
     expect(handle).toMatch(/action\("arrange_cards"/);
+  });
+});
+
+suite("the fact and the coach are cards on the two screens that arrange — 2026-09-18", () => {
+  // "The stick man container and did you know component both aren't
+  // sortable like the others are." The layout draws them under every other
+  // screen; Train and Eat draw them from their own list.
+  it("the layout steps aside on Train and Eat, and the pages place them", () => {
+    expect(fs.readFileSync("app/layout.tsx", "utf8")).toMatch(/<LayoutFurniture>\s*<DailyFact \/>\s*<CompanionGate \/>\s*<\/LayoutFurniture>/);
+    expect(fs.readFileSync("components/layout-furniture.tsx", "utf8")).toMatch(/new Set\(\["\/train", "\/eat"\]\)/);
+    for (const p of ["app/train/page.tsx", "app/eat/page.tsx"]) {
+      expect(fs.readFileSync(p, "utf8"), p).toMatch(/furniture=\{\{ fact: <DailyFact \/>, companion: <CompanionGate \/> \}\}/);
+    }
+    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/blocks\.companion = furniture\?\.companion/);
+    expect(fs.readFileSync("components/eat-client.tsx", "utf8")).toMatch(/blocks\.companion = /);
   });
 });

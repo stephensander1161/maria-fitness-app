@@ -1,3 +1,5 @@
+import { DailyFact } from "@/components/daily-fact";
+import { CompanionGate } from "@/components/companion-gate";
 import { EatClient } from "@/components/eat-client";
 import { cardOpen } from "@/lib/cards";
 import { waterPresets, waterRow, waterTarget } from "@/lib/water";
@@ -93,6 +95,7 @@ export default async function EatPage({
       </header>
 
       <EatClient
+        furniture={{ fact: <DailyFact />, companion: <CompanionGate /> }}
         day={dayFood}
         saved={saved}
         planned={today?.meals ?? []}
