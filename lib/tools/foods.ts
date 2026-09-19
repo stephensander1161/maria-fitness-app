@@ -1,3 +1,4 @@
+import { chooseFood } from "@/lib/food-match";
 import { PRO_ONLY } from "@/lib/tier-messages";
 import Anthropic from "@anthropic-ai/sdk";
 import { and, eq, ilike, or, sql } from "drizzle-orm";
@@ -43,7 +44,12 @@ export const lookupFood = defineTool({
     if (!portion) return { error: "Nothing to look up." };
 
     const matches = await searchFoods(portion.query, 5);
-    const best = matches[0];
+    // Ranked by where the words fall; decided by what she meant, when a
+    // decision is available (lib/food-match.ts). A confident "none of these"
+    // sends the lookup to the estimator on purpose rather than to the wrong
+    // row; unsure leaves the ranking alone.
+    const verdict = await chooseFood(portion.query, matches);
+    const best = verdict.kind === "row" ? verdict.row : verdict.kind === "none" ? undefined : matches[0];
 
     if (best) {
       /*

@@ -6,6 +6,7 @@
  * screen all shop from this same list. It lives outside lib/tools/ so that
  * none of them has to import another.
  */
+import { aislesFor, splitLines } from "@/lib/shopping-normalise";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { foods, mealPlans, meals, shoppingExtras } from "@/lib/db/schema";
@@ -79,10 +80,12 @@ export async function shoppingListFor(
       or(isNull(shoppingExtras.weekStart), eq(shoppingExtras.weekStart, week)),
     ));
 
-  const items = aggregateIngredients([
+  // A recipe line that is really three things becomes three — decided per
+  // line, split only on a confident yes (lib/shopping-normalise.ts).
+  const items = aggregateIngredients(await splitLines([
     ...wanted.flatMap((m) => m.ingredients),
     ...extras.map((e) => e.item),
-  ]);
+  ]));
 
   // No plan and nothing added by hand is genuinely no list. No plan but "add
   // coffee" is a list of one, and dropping it would make the tool look broken.
@@ -98,10 +101,13 @@ export async function shoppingListFor(
   // contains "garlic"), a longer label is a *worse* hit — that is how garlic
   // ended up filed as a frozen ready meal.
   const aisleFor = (item: string): string => aisleForItem(item, library);
+  // What the library cannot place is asked, rather than filed under Other.
+  const placed = new Map(items.map((i) => [i.item, aisleFor(i.item)]));
+  const decided = await aislesFor(items.filter((i) => placed.get(i.item) === "Other").map((i) => i.item));
 
   const grouped = new Map<string, ShoppingItem[]>();
   for (const item of items) {
-    const aisle = aisleFor(item.item);
+    const aisle = placed.get(item.item) === "Other" ? (decided.get(item.item) ?? "Other") : placed.get(item.item)!;
     grouped.set(aisle, [...(grouped.get(aisle) ?? []), item]);
   }
 
