@@ -269,19 +269,29 @@ suite("the day's name and its clock share a container", () => {
     const card = read("components/train-client.tsx");
     expect(card).toMatch(/\{stepBack\}/);
     expect(card).toMatch(/\{stepOn\}/);
-    expect(card).toMatch(/hasLead \? "md:grid md:grid-cols-\[1fr_auto_1fr\]" : ""/);
+    expect(card).toMatch(/hasLead \? "md:grid md:grid-cols-\[1fr_auto_1fr\] md:items-center md:gap-x-2" : ""/);
     // Plan has no arrows but does have a day to name, so it fills the same
     // left-hand cell with that instead — and gets the same shape.
     expect(card).toMatch(/const hasLead = hasDayNav \|\| Boolean\(lead\);/);
-    expect(card).toMatch(/crowdedRow\n\s*\? "order-last basis-full text-center md:order-none md:basis-auto"/);
-    // Only when three things want the row. A day with no clock was getting a
-    // row holding nothing but the arrows and its name marooned underneath.
-    expect(card).toMatch(/const crowdedRow = hasLead && Boolean\(sessionBar\);/);
+    /*
+      Two rows on a phone, three cells on a desktop — 2026-09-19.
+
+      A wrapping row had grown to three stacked rows on a phone: the arrows
+      and the date, then the session's controls floating at the right of an
+      empty row, then the day's own name centred alone underneath, reading
+      like a button rather than a heading. "Look how horrid the header is on
+      mobile." The name and the one control share a row now, name left,
+      control right, and `md:contents` hands both to the grid on a wide one.
+    */
+    expect(card).toMatch(/flex min-w-0 items-center justify-between gap-2 \$\{hasLead \? "md:contents" : ""\}/);
+    expect(card).toMatch(/<div className="min-w-0 md:justify-self-center">\{heading\}<\/div>/);
+    expect(card).not.toMatch(/crowdedRow/);
+    // The nav line is spaced like one, rather than huddling in the middle.
+    expect(card).toMatch(/flex items-center justify-between gap-1 md:justify-self-start md:justify-start/);
     // Plan borrows this header for today and passes no arrows: without them
     // the first cell was empty, so the button sat on a row of its own with the
     // day's name underneath — two rows for one line of content.
     expect(card).toMatch(/const hasDayNav = Boolean\(stepBack \|\| stepOn\);/);
-    expect(card).toMatch(/: "flex-1 basis-32"/);
     expect(card).toMatch(/justStarted && running \? "session-drop" : ""/);
     // And there is no strip left above it.
     expect(read("app/train/page.tsx")).not.toMatch(/<DayNav/);
@@ -289,7 +299,7 @@ suite("the day's name and its clock share a container", () => {
     // The animation is the transition, not the state: a reload mid-session
     // must not replay it.
     expect(card).toMatch(/setJustStarted\(true\);/);
-    expect(card).toMatch(/flex flex-wrap items-center gap-x-2 gap-y-2 \$\{/);
+    expect(card).toMatch(/flex flex-col gap-2 \$\{/);
     const css = fs.readFileSync("app/globals.css", "utf8");
     expect(css).toMatch(/@keyframes session-drop/);
     const reduced = css.split("@media (prefers-reduced-motion: reduce)").slice(1);

@@ -125,7 +125,6 @@ export default async function TrainPage({
                 compact
                 prefix={isToday ? view.dayName : undefined}
                 prefixOn="phone"
-                align="centre"
               />
             ) : (
               <p className="text-[17px] font-semibold md:text-2xl">
