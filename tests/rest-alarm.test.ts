@@ -135,7 +135,8 @@ suite("what the rest counts down to", () => {
     expect(provider).toMatch(/restFor\(current, after\.movement, Date\.now\(\)\)/);
     expect(provider).toMatch(/slug: m\.slug, name: m\.name, category: m\.category/);
     // And the Train screen tells it what today holds.
-    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/setSession\(view\.exercises\.map/);
+    // Reads the one ordered list since 2026-09-18 — see tests/train-order.test.ts.
+    expect(fs.readFileSync("components/train-client.tsx", "utf8")).toMatch(/setSession\(inOrder\(view\.exercises, dragOrder\)\.map/);
   });
 
   it("the highlight follows the rest when one is running", () => {

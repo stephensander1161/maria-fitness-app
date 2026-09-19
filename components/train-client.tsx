@@ -74,6 +74,22 @@ export type NextTarget = {
   warmup: { weight: number | null; reps: number; unit: string }[];
 };
 
+/**
+ * The movements in her order.
+ *
+ * `order` is what she dragged, held until the server agrees. Anything the
+ * drag never saw goes on the end rather than vanishing — a movement the
+ * coach added while the write was in flight is still hers.
+ */
+export function inOrder<T extends { slug: string }>(exercises: T[], order: string[] | null): T[] {
+  if (!order) return exercises;
+  const known = new Set(order);
+  return [
+    ...order.flatMap((slug) => exercises.filter((e) => e.slug === slug)),
+    ...exercises.filter((e) => !known.has(e.slug)),
+  ];
+}
+
 export function TrainClient({
   view,
   pickable,
@@ -240,6 +256,26 @@ export function TrainClient({
     ),
   );
   const movementsWorked = view.exercises.filter((e) => e.loggedToday.length > 0).length;
+
+  /**
+   * The order she put them in, until the server sends it back.
+   *
+   * Everything that asks "which movement is first" reads this one list: the
+   * cards, the marker, the rest provider, and what happens after a set. They
+   * used to split — the cards drew her order and the marker read the
+   * server's — so the green ring stayed on whatever used to be next. "After
+   * changing order, first place is not updated everywhere."
+   */
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null);
+  if (dragOrder
+    && view.exercises.length === dragOrder.length
+    && view.exercises.every((e, i) => e.slug === dragOrder[i])) {
+    // The server caught up: her order *is* the order now. Held until then
+    // rather than for a guessed number of milliseconds, because a refresh on
+    // a phone is slower than any guess and the list snapped back in between.
+    setDragOrder(null);
+  }
+  const shown = inOrder(view.exercises, dragOrder);
   /**
    * What today holds, handed to the rest provider.
    *
@@ -258,7 +294,7 @@ export function TrainClient({
       she is *reading* would replace the session she is actually in.
     */
     if (!isToday) return;
-    setSession(view.exercises.map((e) => ({
+    setSession(inOrder(view.exercises, dragOrder).map((e) => ({
       slug: e.slug, name: e.name, category: e.category,
       isHold: e.isHold, loadable: !e.bodyweight || e.loadable,
       targetSets: e.targetSets, done: e.loggedToday.length,
@@ -273,11 +309,11 @@ export function TrainClient({
       // that happen to be next to each other, and rests in the middle of one.
       supersetGroup: e.supersetGroup,
     })));
-  }, [view.exercises, isToday, setSession]);
+  }, [view.exercises, dragOrder, isToday, setSession]);
   // Movements that still have sets left in them. "Complete" has to mean
   // every one is done, or adding an exercise after signing off leaves the
   // card claiming the session is finished when it plainly isn't.
-  const outstanding = view.exercises
+  const outstanding = shown
     .filter((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)
     .map((e) => e.name);
 
@@ -317,11 +353,6 @@ export function TrainClient({
     /** One column, so the neighbours can slide out of the way. */
     column: boolean;
   } | null>(null);
-  const [dragOrder, setDragOrder] = useState<string[] | null>(null);
-
-  const shown = dragOrder
-    ? dragOrder.flatMap((slug) => view.exercises.filter((e) => e.slug === slug))
-    : view.exercises;
 
   /** How far card `i` slides to make room for the one being dragged. */
   function shiftFor(i: number): number {
@@ -374,6 +405,15 @@ export function TrainClient({
       if (order.join() === slugs.join()) return;
       // Show the new order straight away; the server catches up behind it.
       setDragOrder(order);
+      /*
+        A rest *into* a movement she has not started was pointing at whatever
+        was next before this drag, and the marker follows it — which is how
+        the ring came to sit on a movement with two undone ones above it. A
+        rest *between sets* of one she is working through still belongs to
+        it, and a countdown she is in the middle of is not cancelled here.
+      */
+      const restingOn = view.exercises.find((e) => e.slug === runningRest?.slug);
+      if (restingOn && restingOn.loggedToday.length === 0) dismissRest();
       try {
         await action("reorder_day_exercises", {
           slugs: order,
@@ -382,10 +422,9 @@ export function TrainClient({
         router.refresh();
       } catch {
         setError("Couldn't save the new order.");
-      } finally {
-        // Held until the refresh lands, or the list snaps back to the old
-        // order for a frame and then forward again.
-        setTimeout(() => setDragOrder(null), 600);
+        // Nothing was written, so her order is a fiction: back to the list
+        // the server still holds.
+        setDragOrder(null);
       }
     };
     window.addEventListener("pointermove", move);
@@ -412,11 +451,11 @@ export function TrainClient({
     // on four-of-four while the next movement waits is the exact thing that
     // was reported.
     (stillToDo(runningRest?.slug) ? runningRest?.slug : undefined)
-    ?? view.exercises.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
+    ?? shown.find((e) => e.targetSets > 0 && e.loggedToday.length < e.targetSets)?.slug
     ?? null;
   // A superset pulses and rests as one: if the current movement is in a
   // group, every member of that group is "up next" too.
-  const currentGroup = view.exercises.find((e) => e.slug === currentSlug)?.supersetGroup ?? null;
+  const currentGroup = shown.find((e) => e.slug === currentSlug)?.supersetGroup ?? null;
   const isUpNext = (ex: TodayExercise) =>
     currentSlug === ex.slug || (ex.supersetGroup !== null && ex.supersetGroup === currentGroup);
 
@@ -520,7 +559,7 @@ export function TrainClient({
     logged: { reps: number; weight: number | null },
     alreadyDone?: number,
   ) => {
-    const next = afterSet(view.exercises, ex.slug, alreadyDone);
+    const next = afterSet(inOrder(view.exercises, dragOrder), ex.slug, alreadyDone);
     const find = (slug: string) => view.exercises.find((e) => e.slug === slug) ?? null;
     if (next.kind === "done") { dismissRest(); return; }
     // No countdown at all between the halves of a superset. The partner does
@@ -536,7 +575,7 @@ export function TrainClient({
     // `alreadyDone` is the count *before* the set in hand — that is what
     // `whatNext` means by `done` — so the next position along is one past it.
     startRest(ex, logged, (alreadyDone ?? ex.loggedToday.length) + 1);
-  }, [view.exercises, dismissRest, startRest]);
+  }, [view.exercises, dragOrder, dismissRest, startRest]);
 
 
   /**
