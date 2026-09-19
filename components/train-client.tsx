@@ -845,13 +845,6 @@ export function TrainClient({
     />
   ) : null;
 
-  // Three things wanting one row is what forces the name onto its own line.
-  // Two of them fit side by side at any width worth supporting, and a day with
-  // no clock — Friday, next week — was getting the crowded layout anyway: a
-  // row holding nothing but the arrows, and the session's name marooned in the
-  // middle of the row under it.
-  const crowdedRow = hasLead && Boolean(sessionBar);
-
   /*
     The day, its name and its clock — and, on Train, the arrows either side.
 
@@ -889,34 +882,36 @@ export function TrainClient({
             them it is the plain arrangement it always was — name left, control
             right, one row.
           */}
-          <div className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
-            hasLead ? "md:grid md:grid-cols-[1fr_auto_1fr]" : ""
+          <div className={`flex flex-col gap-2 ${
+            hasLead ? "md:grid md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-x-2" : ""
           }`}>
+            {/* The day and its arrows, across the top: a nav line, spaced
+                like one. They used to huddle in the middle-left of a wrapping
+                row, which put the arrow to the next day hard against the
+                "Today" link and made three chevrons out of two controls. */}
             {hasDayNav ? (
-              <div className="flex shrink-0 items-center gap-1 md:order-none md:justify-self-start">
+              <div className="flex items-center justify-between gap-1 md:justify-self-start md:justify-start">
                 {stepBack}
                 {dayLine}
                 {stepOn}
               </div>
             ) : lead ? (
-              <div className="min-w-0 shrink md:order-none md:justify-self-start">{lead}</div>
+              <div className="min-w-0 shrink md:justify-self-start">{lead}</div>
             ) : null}
-            <div className={`min-w-0 ${
-              crowdedRow
-                ? "order-last basis-full text-center md:order-none md:basis-auto"
-                : hasLead
-                  ? "flex-1 basis-24 text-center"
-                  : "flex-1 basis-32"
-            }`}>
-              {heading}
+            {/* Then the day's name and the one control for the session, on a
+                row of their own: name left, control right. `md:contents` gets
+                out of the way on a wide screen, where the two are the middle
+                and right cells of the line above. */}
+            <div className={`flex min-w-0 items-center justify-between gap-2 ${hasLead ? "md:contents" : ""}`}>
+              <div className="min-w-0 md:justify-self-center">{heading}</div>
+              {sessionBar && (
+                <div className={`shrink-0 md:justify-self-end ${
+                  justStarted && running ? "session-drop" : ""
+                }`}>
+                  {sessionBar}
+                </div>
+              )}
             </div>
-            {sessionBar && (
-              <div className={`ml-auto shrink-0 md:order-none md:ml-0 md:justify-self-end ${
-                justStarted && running ? "session-drop" : ""
-              }`}>
-                {sessionBar}
-              </div>
-            )}
           </div>
         </section>
   ) : sessionBar;
