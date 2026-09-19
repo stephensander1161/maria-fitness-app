@@ -24,8 +24,10 @@ type Meal = MealWeekView["days"][number]["meals"][number];
  */
 export function EatClient({
   day, saved, planned, calorieTarget, proteinTargetG, foodUnits, defaultSlot, plannedOpen,
-  burnKcal, burnSessions, isToday, water, cardLayout, collapsedCards,
+  burnKcal, burnSessions, isToday, water, cardLayout, collapsedCards, furniture,
 }: {
+  /** The fact and the coach, built by the page (they read the database) and placed here. */
+  furniture?: { fact: React.ReactNode; companion: React.ReactNode };
   /** The order of the cards on this screen, and which she hid — lib/cards.ts. */
   cardLayout: CardLayout | null;
   collapsedCards: string[] | null;
@@ -148,8 +150,10 @@ export function EatClient({
             </>
           ),
         };
+        blocks.fact = <div className="xl:col-span-2">{furniture?.fact ?? null}</div>;
+        blocks.companion = <div className="xl:col-span-2">{furniture?.companion ?? null}</div>;
         return orderFor("eat", cardLayout)
-          .filter((id) => id === "todayFood" || cardShown("eat", cardLayout, collapsedCards, id))
+          .filter((id) => id === "todayFood" || id === "companion" || cardShown("eat", cardLayout, collapsedCards, id))
           .map((id, i, shown) => (
             // Each card carries its own grip — see components/arrange-handle.tsx.
             <div key={id} className="relative">

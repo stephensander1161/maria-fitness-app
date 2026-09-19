@@ -86,6 +86,7 @@ export function TrainClient({
   tone = null,
   collapsedCards = [],
   cardLayout = null,
+  furniture,
   sidePicker = false,
   dayLabel,
   heading,
@@ -141,6 +142,8 @@ export function TrainClient({
   collapsedCards?: string[];
   /** The order of the cards on this screen, and which she hid — lib/cards.ts. */
   cardLayout?: CardLayout | null;
+  /** The fact and the coach, built by the page (they read the database) and placed here. */
+  furniture?: { fact: React.ReactNode; companion: React.ReactNode };
   /** Whether one-sided movements ask which side — her setting, off by default. */
   sidePicker?: boolean;
   /** What the day is called, for the one line at the top of a focused page. */
@@ -874,6 +877,8 @@ export function TrainClient({
           from={backHere}
         />
         {editable && <AddExercise pickable={pickable} dayOfWeek={dayOfWeekOf(date)} />}
+        {furniture?.fact}
+        {furniture?.companion}
       </div>
     );
   }
@@ -900,6 +905,8 @@ export function TrainClient({
             "What should I do today?",
           ]}
         />
+        {furniture?.fact}
+        {furniture?.companion}
       </div>
     );
   }
@@ -1131,8 +1138,10 @@ export function TrainClient({
             </>
           ),
         };
+        blocks.fact = furniture?.fact ?? null;
+        blocks.companion = furniture?.companion ?? null;
         return orderFor("train", cardLayout)
-          .filter((id) => id === "movements" || cardShown("train", cardLayout, folded, id))
+          .filter((id) => id === "movements" || id === "companion" || cardShown("train", cardLayout, folded, id))
           .map((id, i, shown) => (
             // Each card carries its own grip — see components/arrange-handle.tsx.
             <div key={id} className="relative">

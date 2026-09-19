@@ -16,6 +16,7 @@ import { MobileGreeting } from "@/components/mobile-greeting";
 import { RestBar, RestProvider } from "@/components/rest-provider";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
 import { CompanionGate } from "@/components/companion-gate";
+import { LayoutFurniture } from "@/components/layout-furniture";
 import { WeighInGate } from "@/components/weigh-in-gate";
 import { CoachBubbleGate } from "@/components/coach-bubble-gate";
 
@@ -93,10 +94,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-4 md:max-w-5xl md:px-8 md:py-8 xl:max-w-6xl 2xl:max-w-[100rem] 2xl:px-12">
                 <MobileGreeting />
                 {children}
-                <DailyFact />
-                {/* Below the fact, at the bottom of every screen: the coach,
-                    as somebody rather than a button. */}
-                <CompanionGate />
+                {/* Below the page, on every screen but the two that arrange
+                    their own cards: the fact, then the coach as somebody
+                    rather than a button. Train and Eat draw both themselves. */}
+                <LayoutFurniture>
+                  <DailyFact />
+                  <CompanionGate />
+                </LayoutFurniture>
                 {/* The end of the page, where these belong — they used to
                     float over whatever was down here. Phone only: a desktop
                     has the same destinations in the sidebar. */}

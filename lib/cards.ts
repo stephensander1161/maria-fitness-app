@@ -145,12 +145,18 @@ export const PAGE_CARDS: Record<Page, readonly PageCard[]> = {
     { id: "coolDown", label: "Cool-down", hideable: true },
     { id: "addExercise", label: "Add a movement", hideable: true },
     { id: "summary", label: "Session summary", hideable: true },
+    // The furniture the layout puts under every screen — arranged here, on
+    // the two screens that arrange, and drawn by the layout everywhere else.
+    { id: "fact", label: "Did you know", hideable: true },
+    { id: "companion", label: "Your coach", hideable: false },
   ],
   eat: [
     { id: "todayFood", label: "Today's food", hideable: false },
     { id: "plannedFood", label: "Planned meals", hideable: true },
     { id: "calculator", label: "Calorie calculator", hideable: true },
     { id: "burn", label: "Training burn", hideable: true },
+    { id: "fact", label: "Did you know", hideable: true },
+    { id: "companion", label: "Your coach", hideable: false },
   ],
 };
 
